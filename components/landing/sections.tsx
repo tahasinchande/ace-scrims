@@ -233,7 +233,7 @@ export function Faq() {
     <section id="faq" className="border-t border-border/50 bg-card/30 py-20" aria-labelledby="faq-heading">
       <div className="mx-auto max-w-3xl px-4 md:px-6">
         <SectionHeading eyebrow="FAQ" title="Questions, answered" />
-        <Accordion openMultiple={false} className="flex flex-col gap-3">
+        <Accordion multiple={false} className="flex flex-col gap-3">
           {faqs.map((f, i) => (
             <AccordionItem
               key={f.q}
@@ -292,3 +292,4 @@ export function Contact() {
     </section>
   )
 }
+

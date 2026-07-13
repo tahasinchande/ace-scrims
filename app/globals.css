@@ -39,8 +39,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
-  --font-sans: var(--font-body), system-ui, sans-serif;
-  --font-display: var(--font-heading), system-ui, sans-serif;
+  --font-sans: var(--font-body), var(--font-bengali), system-ui, sans-serif;
+  --font-display: var(--font-heading), var(--font-bengali), system-ui, sans-serif;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);

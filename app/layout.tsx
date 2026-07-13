@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Rajdhani, Inter } from 'next/font/google'
+import { Rajdhani, Inter, Noto_Sans_Bengali } from 'next/font/google'
 import './globals.css'
 
 const heading = Rajdhani({
@@ -12,6 +12,13 @@ const heading = Rajdhani({
 const body = Inter({
   subsets: ['latin'],
   variable: '--font-body',
+})
+
+// Fallback for the Bengali Taka sign (৳) which Rajdhani/Inter lack
+const bengali = Noto_Sans_Bengali({
+  subsets: ['bengali'],
+  weight: ['400', '700'],
+  variable: '--font-bengali',
 })
 
 export const metadata: Metadata = {
@@ -41,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`dark bg-background ${heading.variable} ${body.variable}`}>
+    <html lang="en" className={`dark bg-background ${heading.variable} ${body.variable} ${bengali.variable}`}>
       <body className="antialiased font-sans">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
