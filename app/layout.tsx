@@ -1,36 +1,38 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
+import { Rajdhani, Inter } from 'next/font/google'
 import './globals.css'
 
+const heading = Rajdhani({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-heading',
+})
+
+const body = Inter({
+  subsets: ['latin'],
+  variable: '--font-body',
+})
+
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: {
+    default: 'Ace Scrims — Free Fire Esports Scrims in Bangladesh',
+    template: '%s | Ace Scrims',
+  },
+  description:
+    'Book competitive Free Fire scrims daily from 7 PM to 12 AM. 12-team lobbies, instant room details, automatic bKash/Nagad/Rocket payments, and real prize pools.',
   generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+  keywords: ['Free Fire', 'scrims', 'esports', 'Bangladesh', 'tournament', 'FF scrim'],
+  openGraph: {
+    title: 'Ace Scrims — Free Fire Esports Scrims',
+    description: 'Daily competitive Free Fire scrims. Book your squad slot for \u09F350.',
+    type: 'website',
   },
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  colorScheme: 'dark',
+  themeColor: '#12121c',
 }
 
 export default function RootLayout({
@@ -39,8 +41,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className={`dark bg-background ${heading.variable} ${body.variable}`}>
+      <body className="antialiased font-sans">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
