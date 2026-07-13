@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
-import { getScrimsWithCounts } from "@/lib/queries/scrims"
+import { getActiveScrims } from "@/lib/queries/scrims"
 import { getSessionUser } from "@/lib/session"
 import { ScrimsExplorer } from "@/components/scrims/scrims-explorer"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -24,7 +24,7 @@ function ScrimsSkeleton() {
 }
 
 async function ScrimsContent() {
-  const [scrims, user] = await Promise.all([getScrimsWithCounts(), getSessionUser()])
+  const [scrims, user] = await Promise.all([getActiveScrims(), getSessionUser()])
   return <ScrimsExplorer scrims={scrims} isAuthed={!!user} />
 }
 

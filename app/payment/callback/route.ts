@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const invoiceId = url.searchParams.get("invoice_id")
 
   if (!paymentId) {
-    return NextResponse.redirect(new URL("/payment/failed", url.origin))
+    return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
   }
 
   // Ownership / existence check
@@ -26,12 +26,12 @@ export async function GET(req: NextRequest) {
     .limit(1)
   const payment = rows[0]
   if (!payment) {
-    return NextResponse.redirect(new URL("/payment/failed", url.origin))
+    return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
   }
 
   const effectiveInvoice = invoiceId ?? payment.invoiceId
   if (!effectiveInvoice) {
-    return NextResponse.redirect(new URL(`/payment/pending?pid=${paymentId}`, url.origin))
+    return NextResponse.redirect(new URL("/payment/result?status=pending", url.origin))
   }
 
   const outcome = await processPayment(paymentId, effectiveInvoice)
@@ -39,10 +39,10 @@ export async function GET(req: NextRequest) {
   switch (outcome.status) {
     case "confirmed":
     case "already-confirmed":
-      return NextResponse.redirect(new URL(`/payment/success?pid=${paymentId}`, url.origin))
+      return NextResponse.redirect(new URL("/payment/result?status=success", url.origin))
     case "pending":
-      return NextResponse.redirect(new URL(`/payment/pending?pid=${paymentId}`, url.origin))
+      return NextResponse.redirect(new URL("/payment/result?status=pending", url.origin))
     default:
-      return NextResponse.redirect(new URL(`/payment/failed?pid=${paymentId}`, url.origin))
+      return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
   }
 }

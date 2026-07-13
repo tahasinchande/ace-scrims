@@ -155,7 +155,7 @@ export async function createBooking(
       user_id: user.id,
     },
     redirectUrl: `${baseUrl}/payment/callback?pid=${paymentId}`,
-    cancelUrl: `${baseUrl}/payment/cancelled?pid=${paymentId}`,
+    cancelUrl: `${baseUrl}/payment/result?status=cancelled`,
     webhookUrl: `${baseUrl}/api/payment/webhook`,
   })
 
