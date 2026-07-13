@@ -16,7 +16,14 @@ import {
   ShieldCheck,
 } from "lucide-react"
 
-const adminLinks = [
+type NavLink = {
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  exact?: boolean
+}
+
+const adminLinks: NavLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
   { href: "/admin/results", label: "Results", icon: Trophy },
@@ -28,7 +35,7 @@ const adminLinks = [
 ]
 
 // Moderators only see room/result publishing surfaces.
-const moderatorLinks = [
+const moderatorLinks: NavLink[] = [
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
   { href: "/admin/results", label: "Results", icon: Trophy },
 ]
