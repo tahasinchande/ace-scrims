@@ -15,7 +15,7 @@ const links = [
   { href: "/#faq", label: "FAQ" },
 ]
 
-export function SiteHeader({ user }: { user: { name: string; role: string } | null }) {
+export function SiteHeader({ user = null }: { user?: { name: string; role: string } | null }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 

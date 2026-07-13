@@ -3,6 +3,9 @@ export function bdt(amount: number): string {
   return `\u09F3${amount}`
 }
 
+/** Alias of {@link bdt} for readability at call sites. */
+export const formatTaka = bdt
+
 /** Today's date in YYYY-MM-DD (Asia/Dhaka). */
 export function todayDhaka(): string {
   return new Intl.DateTimeFormat("en-CA", {
