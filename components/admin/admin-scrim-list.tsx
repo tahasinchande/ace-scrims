@@ -15,12 +15,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import type { Scrim } from "@/lib/db/schema"
-import { formatTaka } from "@/lib/format"
+import type { Booking, Scrim } from "@/lib/db/schema"
+import { formatTaka, timeAgo } from "@/lib/format"
 import { KeyRound, Loader2, Lock, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 
-type AdminScrim = Scrim & { confirmedTeams: number }
+type AdminScrim = Scrim & { confirmedTeams: number; pendingTeams: number }
+type RosterBooking = Booking & { userEmail: string | null }
 
 const initialState = { ok: false, error: null as string | null }
 
@@ -91,6 +92,105 @@ function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
   )
 }
 
+function statusBadgeVariant(status: string) {
+  if (status === "confirmed") return "default" as const
+  if (status === "pending") return "secondary" as const
+  return "outline" as const
+}
+
+function ViewTeamsButton({
+  scrim,
+  roster,
+}: {
+  scrim: AdminScrim
+  roster: RosterBooking[]
+}) {
+  const total = scrim.confirmedTeams + scrim.pendingTeams
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button size="sm" variant="outline">
+            <Users className="size-3.5" />
+            Teams ({total})
+          </Button>
+        }
+      />
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-display uppercase">
+            Registered Teams — {scrim.title}
+          </DialogTitle>
+        </DialogHeader>
+        {roster.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No teams registered yet.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {roster.map((b) => (
+              <li key={b.id} className="rounded-xl border border-border bg-secondary/30 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-display text-base font-bold">{b.teamName}</span>
+                  {b.slotNumber != null && (
+                    <Badge variant="secondary">Slot {b.slotNumber}</Badge>
+                  )}
+                  <Badge variant={statusBadgeVariant(b.status)} className="capitalize">
+                    {b.status}
+                  </Badge>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {timeAgo(b.createdAt)}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                  <span>
+                    <span className="text-muted-foreground">Captain: </span>
+                    {b.captainName} ({b.captainUid})
+                  </span>
+                  <span>
+                    <span className="text-muted-foreground">Player 2: </span>
+                    {b.player2Name} ({b.player2Uid})
+                  </span>
+                  <span>
+                    <span className="text-muted-foreground">Player 3: </span>
+                    {b.player3Name} ({b.player3Uid})
+                  </span>
+                  <span>
+                    <span className="text-muted-foreground">Player 4: </span>
+                    {b.player4Name} ({b.player4Uid})
+                  </span>
+                  {b.player5Name && (
+                    <span>
+                      <span className="text-muted-foreground">Player 5: </span>
+                      {b.player5Name} {b.player5Uid ? `(${b.player5Uid})` : ""}
+                    </span>
+                  )}
+                  <span>
+                    <span className="text-muted-foreground">Phone: </span>
+                    {b.phone}
+                  </span>
+                  {b.discordTelegram && (
+                    <span>
+                      <span className="text-muted-foreground">Discord/Telegram: </span>
+                      {b.discordTelegram}
+                    </span>
+                  )}
+                  {b.userEmail && (
+                    <span className="truncate">
+                      <span className="text-muted-foreground">Account: </span>
+                      {b.userEmail}
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function AdminControls({ scrim }: { scrim: AdminScrim }) {
   const [isPending, startTransition] = useTransition()
 
@@ -133,7 +233,15 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
   )
 }
 
-export function AdminScrimList({ scrims, isAdmin }: { scrims: AdminScrim[]; isAdmin: boolean }) {
+export function AdminScrimList({
+  scrims,
+  isAdmin,
+  bookingsByScrim = {},
+}: {
+  scrims: AdminScrim[]
+  isAdmin: boolean
+  bookingsByScrim?: Record<string, RosterBooking[]>
+}) {
   const [, startTransition] = useTransition()
 
   if (scrims.length === 0) {
@@ -165,7 +273,10 @@ export function AdminScrimList({ scrims, isAdmin }: { scrims: AdminScrim[]; isAd
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Users className="size-3.5" />
-              {scrim.confirmedTeams}/{scrim.maxTeams} teams
+              {scrim.confirmedTeams}/{scrim.maxTeams} confirmed
+              {scrim.pendingTeams > 0 && (
+                <span className="text-chart-3">(+{scrim.pendingTeams} pending)</span>
+              )}
             </span>
             <span>Entry {formatTaka(scrim.priceBdt)}</span>
             <span>Prize {formatTaka(scrim.prizePoolBdt)}</span>
@@ -180,6 +291,7 @@ export function AdminScrimList({ scrims, isAdmin }: { scrims: AdminScrim[]; isAd
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <ViewTeamsButton scrim={scrim} roster={bookingsByScrim[scrim.id] ?? []} />
             <PublishRoomButton scrim={scrim} />
             {scrim.roomPublished && (
               <Button

@@ -103,7 +103,9 @@ export async function publishResult(_prev: unknown, formData: FormData) {
     if (file instanceof File && file.size > 0) {
       if (file.size > 4 * 1024 * 1024) return { ok: false, error: "Screenshot must be under 4MB" }
       if (!file.type.startsWith("image/")) return { ok: false, error: "Screenshot must be an image" }
-      const blob = await put(`results/${randomUUID()}-${file.name}`, file, { access: "public" })
+      // The Blob store is private: upload privately and serve through the
+      // /api/screenshot proxy, which streams it with the store token.
+      const blob = await put(`results/${randomUUID()}-${file.name}`, file, { access: "private" })
       screenshotUrl = blob.url
     }
 

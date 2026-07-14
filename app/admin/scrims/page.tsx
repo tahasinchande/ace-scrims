@@ -27,7 +27,7 @@ export default async function AdminScrimsPage() {
         {isAdmin && <CreateScrimButton />}
       </header>
 
-      <AdminScrimList scrims={scrims} isAdmin={isAdmin} />
+      <AdminScrimList scrims={scrims} isAdmin={isAdmin} bookingsByScrim={bookingsByScrim} />
     </div>
   )
 }
