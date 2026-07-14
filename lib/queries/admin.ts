@@ -38,7 +38,7 @@ export async function getAdminStats() {
   }
 }
 
-/** All scrims with confirmed team counts, newest first. */
+/** All scrims with confirmed + pending team counts, newest first. */
 export async function getAdminScrims() {
   const rows = await db
     .select({
@@ -47,10 +47,35 @@ export async function getAdminScrims() {
         select count(*) from bookings b
         where b."scrimId" = ${scrims.id} and b.status = 'confirmed'
       )`,
+      pendingTeams: sql<number>`(
+        select count(*) from bookings b
+        where b."scrimId" = ${scrims.id} and b.status = 'pending'
+      )`,
     })
     .from(scrims)
     .orderBy(desc(scrims.createdAt))
-  return rows.map((r) => ({ ...r.scrim, confirmedTeams: Number(r.confirmedTeams) }))
+  return rows.map((r) => ({
+    ...r.scrim,
+    confirmedTeams: Number(r.confirmedTeams),
+    pendingTeams: Number(r.pendingTeams),
+  }))
+}
+
+/** Every booking (any status) grouped by scrim id, for the team roster dialogs. */
+export async function getAllBookingsByScrim() {
+  const rows = await db
+    .select({ booking: bookings, userEmail: user.email })
+    .from(bookings)
+    .leftJoin(user, eq(bookings.userId, user.id))
+    .orderBy(bookings.slotNumber, bookings.createdAt)
+
+  const grouped: Record<string, ((typeof rows)[number]["booking"] & { userEmail: string | null })[]> = {}
+  for (const r of rows) {
+    const key = r.booking.scrimId
+    if (!grouped[key]) grouped[key] = []
+    grouped[key].push({ ...r.booking, userEmail: r.userEmail })
+  }
+  return grouped
 }
 
 export async function getAdminUsers() {

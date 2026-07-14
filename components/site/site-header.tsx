@@ -51,7 +51,7 @@ export function SiteHeader({ user = null }: { user?: { name: string; role: strin
             <>
               {(user.role === "admin" || user.role === "moderator") && (
                 <Button asChild variant="ghost" size="sm">
-                  <Link href="/admin">Admin</Link>
+                  <Link href="/admin">{user.role === "admin" ? "Admin" : "Mod Panel"}</Link>
                 </Button>
               )}
               <Button asChild size="sm" className="font-semibold">
@@ -95,11 +95,20 @@ export function SiteHeader({ user = null }: { user?: { name: string; role: strin
             ))}
             <div className="mt-2 flex flex-col gap-2">
               {user ? (
-                <Button asChild className="font-semibold">
-                  <Link href="/dashboard" onClick={() => setOpen(false)}>
-                    Dashboard
-                  </Link>
-                </Button>
+                <>
+                  {(user.role === "admin" || user.role === "moderator") && (
+                    <Button asChild variant="outline">
+                      <Link href="/admin" onClick={() => setOpen(false)}>
+                        {user.role === "admin" ? "Admin Panel" : "Mod Panel"}
+                      </Link>
+                    </Button>
+                  )}
+                  <Button asChild className="font-semibold">
+                    <Link href="/dashboard" onClick={() => setOpen(false)}>
+                      Dashboard
+                    </Link>
+                  </Button>
+                </>
               ) : (
                 <>
                   <Button asChild variant="outline">

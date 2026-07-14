@@ -1,12 +1,16 @@
 import { getSessionUser } from "@/lib/session"
-import { getAdminScrims } from "@/lib/queries/admin"
+import { getAdminScrims, getAllBookingsByScrim } from "@/lib/queries/admin"
 import { AdminScrimList } from "@/components/admin/admin-scrim-list"
 import { CreateScrimButton } from "@/components/admin/scrim-form-dialog"
 
 export const metadata = { title: "Manage Scrims — Ace Scrims" }
 
 export default async function AdminScrimsPage() {
-  const [user, scrims] = await Promise.all([getSessionUser(), getAdminScrims()])
+  const [user, scrims, bookingsByScrim] = await Promise.all([
+    getSessionUser(),
+    getAdminScrims(),
+    getAllBookingsByScrim(),
+  ])
   const isAdmin = user?.role === "admin"
 
   return (
