@@ -60,6 +60,9 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
         full_name: input.fullName,
         email: input.email,
         amount: String(input.amount),
+        // Without an explicit currency the gateway defaults to USD, where no
+        // payment methods are enabled — the Pay button would do nothing.
+        currency: "BDT",
         metadata: input.metadata,
         redirect_url: input.redirectUrl,
         cancel_url: input.cancelUrl,
