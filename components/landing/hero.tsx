@@ -8,7 +8,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
   return (
     <section className="relative overflow-hidden">
       <Image
-        src="/images/hero-bg.png"
+        src="/images/hero-bg.jpg"
         alt=""
         fill
         priority

@@ -14,7 +14,7 @@ export function AuthShell({
   return (
     <main className="relative flex min-h-svh items-center justify-center overflow-hidden px-4 py-12">
       <Image
-        src="/images/squad.png"
+        src="/images/squad.jpg"
         alt=""
         fill
         priority

@@ -13,8 +13,11 @@ const API_KEY_HEADER = "RT-UDDOKTAPAY-API-KEY"
 
 function getConfig() {
   const apiKey = process.env.UDDOKTAPAY_API_KEY
-  const baseUrl = process.env.UDDOKTAPAY_BASE_URL?.replace(/\/+$/, "")
+  let baseUrl = process.env.UDDOKTAPAY_BASE_URL?.replace(/\/+$/, "")
   if (!apiKey || !baseUrl) return null
+  // Accept both forms: "https://pay.domain.com" and "https://pay.domain.com/api".
+  // Endpoints below always append "/api/...", so strip a trailing "/api".
+  baseUrl = baseUrl.replace(/\/api$/, "")
   return { apiKey, baseUrl }
 }
 

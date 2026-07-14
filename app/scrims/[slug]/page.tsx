@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils"
 import { Clock, Users, Trophy, MapPin, Swords, CalendarDays, ScrollText, StickyNote } from "lucide-react"
 
 const mapImages: Record<string, string> = {
-  Bermuda: "/images/map-bermuda.png",
-  Purgatory: "/images/map-purgatory.png",
-  Kalahari: "/images/map-kalahari.png",
+  Bermuda: "/images/map-bermuda.jpg",
+  Purgatory: "/images/map-purgatory.jpg",
+  Kalahari: "/images/map-kalahari.jpg",
 }
 
 const toneStyles: Record<string, string> = {
@@ -51,7 +51,7 @@ export default async function ScrimDetailPage({
   const status = scrimStatus(scrim.confirmedTeams, scrim.maxTeams, scrim.registrationOpen, scrim.status)
   const remaining = Math.max(0, scrim.maxTeams - scrim.confirmedTeams)
   const start = scrimStartDate(scrim.scrimDate, scrim.startTime)
-  const banner = scrim.bannerUrl || mapImages[scrim.map] || "/images/map-bermuda.png"
+  const banner = scrim.bannerUrl || mapImages[scrim.map] || "/images/map-bermuda.jpg"
   const bookable = status.tone === "open" || status.tone === "filling"
 
   const stats = [

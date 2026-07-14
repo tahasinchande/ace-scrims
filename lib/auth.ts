@@ -19,6 +19,16 @@ export const auth = betterAuth({
       await sendPasswordResetEmail(user.email, url)
     },
   },
+  socialProviders: {
+    google: {
+      clientId:
+        process.env.GOOGLE_CLIENT_ID ??
+        "1059205795454-1co5jbtc69b4okogp41lt00m39soui3b.apps.googleusercontent.com",
+      // The secret was added to the project env under the key "SECRET";
+      // GOOGLE_CLIENT_SECRET takes precedence if set later.
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? process.env.SECRET ?? "",
+    },
+  },
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
@@ -41,6 +51,9 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [
+    ...(process.env.NODE_ENV === "development"
+      ? ["http://localhost:3000", "http://localhost:3001"]
+      : []),
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
     ...(process.env.VERCEL_PROJECT_PRODUCTION_URL

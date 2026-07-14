@@ -164,7 +164,7 @@ export function WhyChooseUs() {
       <div className="grid items-center gap-10 lg:grid-cols-2">
         <div className="relative order-2 h-72 overflow-hidden rounded-3xl md:h-96 lg:order-1">
           <Image
-            src="/images/victory.png"
+            src="/images/victory.jpg"
             alt="Champion lifting a trophy under stage lights"
             fill
             className="object-cover"
