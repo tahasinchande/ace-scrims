@@ -106,7 +106,8 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       // The Blob store is private: upload privately and serve through the
       // /api/screenshot proxy, which streams it with the store token.
       const blob = await put(`results/${randomUUID()}-${file.name}`, file, { access: "private" })
-      screenshotUrl = blob.url
+      // Store the proxy path so <img> tags everywhere can render it directly.
+      screenshotUrl = `/api/screenshot?url=${encodeURIComponent(blob.url)}`
     }
 
     await db.insert(results).values({
