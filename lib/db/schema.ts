@@ -135,7 +135,6 @@ export const results = pgTable("results", {
   prizeBdt: integer("prizeBdt").notNull().default(0),
   placement: integer("placement").notNull().default(1),
   screenshotUrl: text("screenshotUrl"),
-  screenshotUrls: jsonb("screenshotUrls"),
   prizeStatus: text("prizeStatus").notNull().default("pending"), // pending | sent
   matchDate: date("matchDate").notNull(),
   publishedBy: text("publishedBy"),
@@ -169,7 +168,7 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
-// ── Types ───────────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────
 
 export type Scrim = typeof scrims.$inferSelect
 export type Booking = typeof bookings.$inferSelect
