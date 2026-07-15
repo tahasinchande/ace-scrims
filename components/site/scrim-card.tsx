@@ -108,7 +108,7 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
             <span>{remaining} spots left</span>
             <span>{Math.round((scrim.confirmedTeams / scrim.maxTeams) * 100)}% filled</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={scrim.confirmedTeams} aria-valuemin={0} aria-valuemax={scrim.maxTeams} aria-label="Slots filled">
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={scrim.confirmedTeams} aria-valuemin={0} aria-valuemax={scrim.maxTeams} aria-label="Slo[...]
             <div
               className={cn(
                 "h-full rounded-full transition-all",
