@@ -1,0 +1,6 @@
+{
+  "name": "Ace Scrims",
+  "description": "Free Fire Esports Scrims platform in Bangladesh with daily lobbies, booking, and prize management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

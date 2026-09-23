@@ -1,0 +1,833 @@
+"use server"
+
+import { randomUUID } from "crypto"
+import { revalidatePath } from "next/cache"
+import { db } from "@/lib/db"
+import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs } from "@/lib/db/schema"
+import { requireAdmin } from "@/lib/session"
+import { logActivity } from "@/lib/notify"
+import { eq, ne, and, sql } from "drizzle-orm"
+import { z } from "zod"
+import { saveUploadedFile } from "@/lib/upload"
+
+// ─────────────────────────────────────────────────────────────────────────
+// Admin-only actions. Every function begins with requireAdmin().
+// ─────────────────────────────────────────────────────────────────────────
+
+const scrimSchema = z.object({
+  title: z.string().trim().min(3).max(80),
+  description: z.string().trim().max(1000).optional().or(z.literal("")),
+  rules: z.string().trim().max(4000).optional().or(z.literal("")),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  map: z.enum(["Bermuda", "Purgatory", "Kalahari", "Alpine", "NeXTerra"]),
+  mode: z.string().trim().min(2).max(40),
+  startTime: z.string().trim().min(4).max(10),
+  priceBdt: z.coerce.number().int().min(0).max(10000),
+  prizePoolBdt: z.coerce.number().int().min(0).max(1000000),
+  maxTeams: z.coerce.number().int().min(2).max(48),
+})
+
+function slugify(title: string) {
+  return `${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}-${randomUUID().slice(0, 6)}`
+}
+
+async function maybeUploadBanner(formData: FormData): Promise<string | null> {
+  const directUrl = formData.get("bannerUrl")
+  if (typeof directUrl === "string" && directUrl.trim().length > 0) {
+    return directUrl.trim()
+  }
+  const file = formData.get("banner")
+  if (file instanceof File && file.size > 0) {
+    if (file.size > 20 * 1024 * 1024) throw new Error("Banner must be under 20MB")
+    if (!file.type.startsWith("image/")) throw new Error("Banner must be an image")
+    return await saveUploadedFile(file, "banners")
+  }
+  return null
+}
+
+function ensureGlobalRules(rules: string | null | undefined): string {
+  const HACKER_RULE = "If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed."
+  const PRIZE_FEE_RULE = "Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
+
+  if (!rules || !rules.trim()) {
+    return `1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. ${HACKER_RULE}\n6. ${PRIZE_FEE_RULE}`
+  }
+
+  const lines = rules
+    .split("\n")
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .filter(
+      (r) =>
+        !r.toLowerCase().includes("hacker report") &&
+        !r.toLowerCase().includes("5.00 bdt fee") &&
+        !r.toLowerCase().includes("final prize payout")
+    )
+
+  const renumbered = lines.map((r, i) => `${i + 1}. ${r.replace(/^\d+\.\s*/, "")}`)
+  renumbered.push(`${lines.length + 1}. ${HACKER_RULE}`)
+  renumbered.push(`${lines.length + 2}. ${PRIZE_FEE_RULE}`)
+  return renumbered.join("\n")
+}
+
+function parseScrimForm(formData: FormData) {
+  return scrimSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    rules: formData.get("rules"),
+    notes: formData.get("notes"),
+    map: formData.get("map"),
+    mode: formData.get("mode"),
+    startTime: formData.get("startTime"),
+    priceBdt: formData.get("priceBdt"),
+    prizePoolBdt: formData.get("prizePoolBdt"),
+    maxTeams: formData.get("maxTeams"),
+  })
+}
+
+export async function createScrim(_prev: unknown, formData: FormData) {
+  try {
+    const admin = await requireAdmin()
+    const parsed = parseScrimForm(formData)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
+    }
+    const bannerUrl = await maybeUploadBanner(formData)
+    const d = parsed.data
+
+    await db.insert(scrims).values({
+      id: randomUUID(),
+      title: d.title,
+      slug: slugify(d.title),
+      description: d.description || null,
+      rules: ensureGlobalRules(d.rules),
+      notes: d.notes || null,
+      map: d.map,
+      mode: d.mode,
+      startTime: d.startTime,
+      scrimDate: new Date().toISOString().slice(0, 10),
+      priceBdt: d.priceBdt,
+      prizePoolBdt: d.prizePoolBdt,
+      maxTeams: d.maxTeams,
+      bannerUrl,
+    })
+
+    await logActivity(admin.id, "admin", "create_scrim", d.title)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong" }
+  }
+}
+
+export async function updateScrim(_prev: unknown, formData: FormData) {
+  try {
+    const admin = await requireAdmin()
+    const scrimId = String(formData.get("scrimId") ?? "")
+    if (!scrimId) return { ok: false, error: "Missing scrim ID" }
+    const parsed = parseScrimForm(formData)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
+    }
+    const bannerUrl = await maybeUploadBanner(formData)
+    const d = parsed.data
+
+    await db
+      .update(scrims)
+      .set({
+        title: d.title,
+        description: d.description || null,
+        rules: ensureGlobalRules(d.rules),
+        notes: d.notes || null,
+        map: d.map,
+        mode: d.mode,
+        startTime: d.startTime,
+        priceBdt: d.priceBdt,
+        prizePoolBdt: d.prizePoolBdt,
+        maxTeams: d.maxTeams,
+        ...(bannerUrl ? { bannerUrl } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(scrims.id, scrimId))
+
+    await logActivity(admin.id, "admin", "update_scrim", d.title)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong" }
+  }
+}
+
+async function ensureScrimInDb(scrimId: string) {
+  try {
+    const existing = await db.select({ id: scrims.id }).from(scrims).where(eq(scrims.id, scrimId)).limit(1)
+    if (existing.length > 0) return
+
+    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const def = ALL_STANDARD_SCRIM_DEFINITIONS.find((d) => d.id === scrimId || d.slug === scrimId)
+    if (def) {
+      await db.insert(scrims).values({
+        id: def.id,
+        title: def.name,
+        slug: def.slug,
+        map: def.map,
+        mode: "BATTLE ROYALE",
+        startTime: def.time,
+        scrimDate: getBangladeshActiveDate(),
+        priceBdt: def.priceBdt,
+        prizePoolBdt: def.prizePoolBdt,
+        maxTeams: 12,
+        bannerUrl: def.bannerUrl || "/images/scrim-1.jpg",
+        hidden: false,
+        status: "upcoming",
+        registrationOpen: true,
+      }).onConflictDoNothing()
+    }
+  } catch (err) {
+    console.warn("[ensureScrimInDb] Error:", err)
+  }
+}
+
+export async function deleteScrim(scrimId: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, error: "Access Denied: Only Admins can delete scrims." }
+    }
+
+    // Soft-delete in DB: mark status as deleted with timestamp and isTrashed flag
+    const existing = await db.select({ id: scrims.id }).from(scrims).where(eq(scrims.id, scrimId)).limit(1)
+    if (existing.length > 0) {
+      await db
+        .update(scrims)
+        .set({
+          status: "deleted",
+          isTrashed: true,
+          deletedAt: new Date(),
+          hidden: true,
+          registrationOpen: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(scrims.id, scrimId))
+    } else {
+      // If it's a standard definition, insert it as soft-deleted
+      const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+      const def = ALL_STANDARD_SCRIM_DEFINITIONS.find((d) => d.id === scrimId || d.slug === scrimId)
+      if (def) {
+        await db.insert(scrims).values({
+          id: def.id,
+          title: def.name,
+          slug: def.slug,
+          map: def.map,
+          mode: "BATTLE ROYALE",
+          startTime: def.time,
+          scrimDate: getBangladeshActiveDate(),
+          priceBdt: def.priceBdt,
+          prizePoolBdt: def.prizePoolBdt,
+          maxTeams: 12,
+          bannerUrl: def.bannerUrl || "/images/scrim-1.jpg",
+          hidden: true,
+          status: "deleted",
+          isTrashed: true,
+          deletedAt: new Date(),
+          registrationOpen: false,
+        }).onConflictDoUpdate({
+          target: scrims.id,
+          set: {
+            hidden: true,
+            status: "deleted",
+            isTrashed: true,
+            deletedAt: new Date(),
+            registrationOpen: false,
+            updatedAt: new Date(),
+          }
+        })
+      }
+    }
+
+    await logActivity(user.id, "admin", "soft_delete_scrim", scrimId)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    console.error("[deleteScrim] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to move scrim to trash" }
+  }
+}
+
+/** Bulk soft-deletes multiple scrims */
+export async function bulkDeleteScrims(scrimIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, count: 0, error: "Access Denied: Only Admins can delete scrims." }
+    }
+    if (!scrimIds || scrimIds.length === 0) {
+      return { ok: true, count: 0, error: null }
+    }
+
+    let count = 0
+    for (const id of scrimIds) {
+      const res = await deleteScrim(id)
+      if (res.ok) count++
+    }
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    console.error("[bulkDeleteScrims] Error:", e)
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk delete scrims" }
+  }
+}
+
+/** Restores a soft-deleted scrim from Trash back to active */
+export async function restoreScrim(scrimId: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, error: "Access Denied: Only Admins can restore scrims." }
+    }
+
+    await db
+      .update(scrims)
+      .set({
+        status: "upcoming",
+        isTrashed: false,
+        deletedAt: null,
+        hidden: false,
+        registrationOpen: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(scrims.id, scrimId))
+
+    // Remove from permanently deleted settings if present
+    try {
+      const existingSetting = await db
+        .select({ value: settings.value })
+        .from(settings)
+        .where(eq(settings.key, "permanently_deleted_scrims"))
+        .limit(1)
+
+      if (existingSetting[0]?.value) {
+        const setList: string[] = JSON.parse(existingSetting[0].value)
+        const filtered = setList.filter((id) => id !== scrimId)
+        await db
+          .update(settings)
+          .set({ value: JSON.stringify(filtered), updatedAt: new Date() })
+          .where(eq(settings.key, "permanently_deleted_scrims"))
+      }
+    } catch {
+      // ignore
+    }
+
+    await logActivity(user.id, "admin", "restore_scrim", scrimId)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    console.error("[restoreScrim] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore scrim" }
+  }
+}
+
+/** Bulk restores multiple soft-deleted scrims from Trash */
+export async function bulkRestoreScrims(scrimIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, count: 0, error: "Access Denied: Only Admins can restore scrims." }
+    }
+    if (!scrimIds || scrimIds.length === 0) {
+      return { ok: true, count: 0, error: null }
+    }
+
+    let count = 0
+    for (const id of scrimIds) {
+      const res = await restoreScrim(id)
+      if (res.ok) count++
+    }
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    console.error("[bulkRestoreScrims] Error:", e)
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk restore scrims" }
+  }
+}
+
+/** Permanently deletes a soft-deleted scrim from database */
+export async function permanentlyDeleteScrim(scrimId: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, error: "Access Denied: Only Admins can permanently delete scrims." }
+    }
+
+    // Clean up any bookings, payments, and results for this scrim
+    await db.delete(bookings).where(eq(bookings.scrimId, scrimId))
+    await db.delete(payments).where(eq(payments.scrimId, scrimId))
+    await db.delete(results).where(eq(results.scrimId, scrimId))
+    await db.delete(scrims).where(eq(scrims.id, scrimId))
+
+    // Store in settings tombstone so standard definitions are never resurrected
+    try {
+      const existingSetting = await db
+        .select({ value: settings.value })
+        .from(settings)
+        .where(eq(settings.key, "permanently_deleted_scrims"))
+        .limit(1)
+
+      const setList: string[] = existingSetting[0]?.value ? JSON.parse(existingSetting[0].value) : []
+      if (!setList.includes(scrimId)) {
+        setList.push(scrimId)
+        await db
+          .insert(settings)
+          .values({
+            key: "permanently_deleted_scrims",
+            value: JSON.stringify(setList),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: settings.key,
+            set: {
+              value: JSON.stringify(setList),
+              updatedAt: new Date(),
+            },
+          })
+      }
+    } catch (settErr) {
+      console.warn("[permanentlyDeleteScrim] Failed to write tombstone:", settErr)
+    }
+
+    await logActivity(user.id, "admin", "permanent_delete_scrim", scrimId)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    console.error("[permanentlyDeleteScrim] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to permanently delete scrim" }
+  }
+}
+
+/** Bulk permanently deletes multiple scrims */
+export async function bulkPermanentlyDeleteScrims(scrimIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, count: 0, error: "Access Denied: Only Admins can permanently delete scrims." }
+    }
+    if (!scrimIds || scrimIds.length === 0) {
+      return { ok: true, count: 0, error: null }
+    }
+
+    let count = 0
+    for (const id of scrimIds) {
+      const res = await permanentlyDeleteScrim(id)
+      if (res.ok) count++
+    }
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    console.error("[bulkPermanentlyDeleteScrims] Error:", e)
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk delete permanently" }
+  }
+}
+
+/** Restores a soft-deleted result from Trash back to active */
+export async function restoreResult(resultId: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, error: "Access Denied: Only Admins can restore match results." }
+    }
+
+    await db
+      .update(results)
+      .set({
+        isTrashed: false,
+        deletedAt: null,
+      })
+      .where(eq(results.id, resultId))
+
+    await logActivity(user.id, "admin", "restore_result", resultId)
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/trash")
+    revalidatePath("/results")
+    revalidatePath("/dashboard/results")
+    return { ok: true, error: null }
+  } catch (e) {
+    console.error("[restoreResult] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore match result" }
+  }
+}
+
+/** Bulk restores multiple soft-deleted results from Trash */
+export async function bulkRestoreResults(resultIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, count: 0, error: "Access Denied: Only Admins can restore match results." }
+    }
+    if (!resultIds || resultIds.length === 0) {
+      return { ok: true, count: 0, error: null }
+    }
+
+    let count = 0
+    for (const id of resultIds) {
+      const res = await restoreResult(id)
+      if (res.ok) count++
+    }
+
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/trash")
+    revalidatePath("/results")
+    revalidatePath("/dashboard/results")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    console.error("[bulkRestoreResults] Error:", e)
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk restore results" }
+  }
+}
+
+/** Permanently deletes a result from database */
+export async function permanentlyDeleteResult(resultId: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, error: "Access Denied: Only Admins can permanently delete match results." }
+    }
+
+    await db.delete(results).where(eq(results.id, resultId))
+
+    await logActivity(user.id, "admin", "permanent_delete_result", resultId)
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/trash")
+    revalidatePath("/results")
+    revalidatePath("/dashboard/results")
+    return { ok: true, error: null }
+  } catch (e) {
+    console.error("[permanentlyDeleteResult] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to permanently delete match result" }
+  }
+}
+
+/** Bulk permanently deletes multiple results */
+export async function bulkPermanentlyDeleteResults(resultIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const user = await requireAdmin().catch(() => null)
+    if (!user) {
+      return { ok: false, count: 0, error: "Access Denied: Only Admins can permanently delete match results." }
+    }
+    if (!resultIds || resultIds.length === 0) {
+      return { ok: true, count: 0, error: null }
+    }
+
+    let count = 0
+    for (const id of resultIds) {
+      const res = await permanentlyDeleteResult(id)
+      if (res.ok) count++
+    }
+
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/trash")
+    revalidatePath("/results")
+    revalidatePath("/dashboard/results")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    console.error("[bulkPermanentlyDeleteResults] Error:", e)
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk delete results permanently" }
+  }
+}
+
+/** Admin Action: Data Reset / Wipe Test Data (preserves scrims, admin accounts, and user accounts) */
+export async function wipeTestData(): Promise<{ ok: boolean; message?: string; error?: string | null }> {
+  try {
+    const admin = await requireAdmin()
+
+    // 1. Delete test reports
+    await db.delete(reports)
+
+    // 2. Delete test payments and bookings
+    await db.delete(payments)
+    await db.delete(bookings)
+
+    // 3. Delete live chat history
+    await db.delete(chatMessages)
+
+    // 4. Delete not-hosted archived teams
+    await db.delete(notHostedTeams)
+
+    // 5. Delete test notifications & activity logs (overview stats history)
+    await db.delete(notifications)
+    await db.delete(activityLogs)
+
+    // 6. Delete test results
+    await db.delete(results)
+
+    // NOTE: SCRIMS ARE LEFT UNTOUCHED (DO NOT DELETE, RESET, OR MODIFY ANY SCRIMS)
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/not-hosted")
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/chat")
+    revalidatePath("/admin/logs")
+    revalidatePath("/admin")
+    revalidatePath("/dashboard")
+    revalidatePath("/scrims")
+
+    return { ok: true, message: "Testing history wiped successfully for Overview stats, Results, Live Chat, Reports, and Payments. Scrims and User accounts remain intact." }
+  } catch (e) {
+    console.error("[wipeTestData] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to reset test data" }
+  }
+}
+
+export async function toggleScrimHidden(scrimId: string, hidden: boolean): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await ensureScrimInDb(scrimId)
+    await db
+      .update(scrims)
+      .set({ hidden, updatedAt: new Date() })
+      .where(eq(scrims.id, scrimId))
+    await logActivity(admin.id, "admin", hidden ? "hide_scrim" : "show_scrim", scrimId)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update visibility" }
+  }
+}
+
+export async function toggleRegistration(scrimId: string, open: boolean): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await ensureScrimInDb(scrimId)
+    await db
+      .update(scrims)
+      .set({ registrationOpen: open, updatedAt: new Date() })
+      .where(eq(scrims.id, scrimId))
+    await logActivity(admin.id, "admin", open ? "open_registration" : "close_registration", scrimId)
+    revalidatePath("/admin/scrims")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to toggle registration" }
+  }
+}
+
+export async function toggleScrimStatus(
+  scrimId: string,
+  status: "upcoming" | "live" | "registration_closed" | "completed"
+): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await ensureScrimInDb(scrimId)
+    const isClosed = status === "registration_closed" || status === "completed"
+    await db
+      .update(scrims)
+      .set({
+        status,
+        registrationOpen: !isClosed,
+        updatedAt: new Date(),
+      })
+      .where(eq(scrims.id, scrimId))
+    await logActivity(admin.id, "admin", "toggle_scrim_status", scrimId, { status })
+    revalidatePath("/admin/scrims")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update scrim status" }
+  }
+}
+
+export async function markScrimNotHosted(scrimId: string) {
+  const admin = await requireAdmin()
+  const { executeMarkScrimNotHosted } = await import("@/app/actions/not-hosted")
+  return executeMarkScrimNotHosted(scrimId, admin.id, admin.role)
+}
+
+export async function deleteResult(resultId: string) {
+  const admin = await requireAdmin()
+  const { results } = await import("@/lib/db/schema")
+  await db.delete(results).where(eq(results.id, resultId))
+  await logActivity(admin.id, "admin", "delete_result", resultId)
+  revalidatePath("/admin/results")
+  revalidatePath("/results")
+  revalidatePath("/dashboard/results")
+}
+
+// ── User management ─────────────────────────────────────────────────────
+
+export async function setUserRole(userId: string, role: "user" | "moderator" | "admin") {
+  const admin = await requireAdmin()
+  if (userId === admin.id) throw new Error("You cannot change your own role")
+  await db.update(user).set({ role, updatedAt: new Date() }).where(eq(user.id, userId))
+  await logActivity(admin.id, "admin", "set_role", userId, { role })
+  revalidatePath("/admin/users")
+}
+
+export async function setUserBanned(userId: string, banned: boolean) {
+  const admin = await requireAdmin()
+  if (userId === admin.id) throw new Error("You cannot ban yourself")
+  await db.update(user).set({ banned, updatedAt: new Date() }).where(eq(user.id, userId))
+  await logActivity(admin.id, "admin", banned ? "ban_user" : "unban_user", userId)
+  revalidatePath("/admin/users")
+}
+
+// ── Settings & announcements ────────────────────────────────────────────
+
+export async function setSetting(key: string, value: string) {
+  const admin = await requireAdmin()
+  const allowed = [
+    "announcement",
+    "discord_url",
+    "facebook_url",
+    "youtube_url",
+    "tiktok_url",
+    "whatsapp_channel_url",
+    "telegram_url",
+    "instagram_url",
+    "support_phone",
+    "support_whatsapp",
+    "champion_rush_whatsapp_url",
+    "support_kori_url",
+    "show_room2",
+    "maintenance_mode",
+    "staff_portal_path",
+    "friday_scrims_override",
+    "rules_general",
+    "payment_note",
+    "site_logo_url",
+  ]
+  if (!allowed.includes(key)) throw new Error("Unknown setting: " + key)
+  await db
+    .insert(settings)
+    .values({ key, value, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } })
+  await logActivity(admin.id, "admin", "update_setting", key)
+  revalidatePath("/admin/settings")
+  revalidatePath("/")
+}
+
+export async function saveAllSiteSettings(
+  settingsMap: Record<string, string>
+): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    const allowedKeys = new Set([
+      "announcement",
+      "discord_url",
+      "facebook_url",
+      "youtube_url",
+      "tiktok_url",
+      "whatsapp_channel_url",
+      "telegram_url",
+      "instagram_url",
+      "support_phone",
+      "support_whatsapp",
+      "champion_rush_whatsapp_url",
+      "support_kori_url",
+      "show_room2",
+      "maintenance_mode",
+      "staff_portal_path",
+      "friday_scrims_override",
+      "rules_general",
+      "payment_note",
+      "site_logo_url",
+    ])
+
+    for (const [key, val] of Object.entries(settingsMap)) {
+      if (!allowedKeys.has(key)) continue
+      await db
+        .insert(settings)
+        .values({ key, value: String(val ?? ""), updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: String(val ?? ""), updatedAt: new Date() },
+        })
+    }
+
+    await logActivity(admin.id, "admin", "batch_update_settings")
+    revalidatePath("/admin/settings")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (e) {
+    console.error("[saveAllSiteSettings] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save settings" }
+  }
+}
+
+const broadcastSchema = z.object({
+  title: z.string().trim().min(3).max(120),
+  body: z.string().trim().max(500).optional().or(z.literal("")),
+})
+
+export async function broadcastNotification(_prev: unknown, formData: FormData) {
+  try {
+    const admin = await requireAdmin()
+    const parsed = broadcastSchema.safeParse({
+      title: formData.get("title"),
+      body: formData.get("body"),
+    })
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
+    }
+    const users = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(ne(user.banned, true))
+    if (users.length > 0) {
+      await db.insert(notifications).values(
+        users.map((u) => ({
+          id: randomUUID(),
+          userId: u.id,
+          type: "announcement",
+          title: parsed.data.title,
+          body: parsed.data.body || null,
+        })),
+      )
+    }
+    await logActivity(admin.id, "admin", "broadcast", parsed.data.title)
+    revalidatePath("/dashboard/notifications")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong" }
+  }
+}
+
+export async function deleteBroadcast(notificationId: string) {
+  const admin = await requireAdmin()
+  await db.delete(notifications).where(eq(notifications.id, notificationId))
+  await logActivity(admin.id, "admin", "delete_broadcast", notificationId)
+  revalidatePath("/dashboard/notifications")
+  revalidatePath("/admin/announcements")
+}

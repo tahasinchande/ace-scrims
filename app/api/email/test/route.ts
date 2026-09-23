@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from "next/server"
+import { sendEmail, getProductionAppUrl } from "@/lib/email"
+import { getSessionUser } from "@/lib/session"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getSessionUser().catch(() => null)
+    
+    // Allow admins or test secret param
+    const authHeader = req.headers.get("authorization")
+    const searchParams = req.nextUrl.searchParams
+    const testSecret = searchParams.get("secret")
+    const expectedSecret = process.env.BETTER_AUTH_SECRET
+
+    const isAuthorized =
+      user?.role === "admin" ||
+      (expectedSecret && testSecret === expectedSecret)
+
+    const targetEmail = searchParams.get("to") || user?.email || "test@example.com"
+
+    const hasResend = Boolean(process.env.RESEND_API_KEY?.trim())
+    const hasSmtp = Boolean(
+      process.env.SMTP_HOST?.trim() ||
+      (process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim())
+    )
+
+    const diagnostics = {
+      productionAppUrl: getProductionAppUrl(),
+      providers: {
+        resend: {
+          configured: hasResend,
+          apiKeyPrefix: process.env.RESEND_API_KEY ? `${process.env.RESEND_API_KEY.slice(0, 5)}...` : null,
+          from: process.env.EMAIL_FROM || process.env.RESEND_FROM || "ACE SCRIMS <noreply@mail.acescrims.online>",
+        },
+        smtp: {
+          configured: hasSmtp,
+          host: process.env.SMTP_HOST || (process.env.GMAIL_USER ? "smtp.gmail.com" : null),
+          port: process.env.SMTP_PORT || (process.env.SMTP_SECURE === "true" ? "465" : "587"),
+          user: process.env.SMTP_USER || process.env.GMAIL_USER || null,
+        },
+      },
+    }
+
+    // If query ?send=true and authorized, attempt sending a test email
+    if (searchParams.get("send") === "true") {
+      if (!isAuthorized) {
+        return NextResponse.json(
+          { ok: false, error: "Unauthorized. Admin authentication or ?secret=<BETTER_AUTH_SECRET> required to send test emails." },
+          { status: 401 }
+        )
+      }
+
+      const testResult = await sendEmail({
+        to: targetEmail,
+        subject: "Test Email from ACE SCRIMS",
+        html: `<h1>Email Configuration Test</h1><p>Your email service on ACE SCRIMS is working successfully!</p><p>Sent to: <strong>${targetEmail}</strong></p><p>Base URL: ${getProductionAppUrl()}</p>`,
+        text: `Your email service on ACE SCRIMS is working successfully! Base URL: ${getProductionAppUrl()}`,
+      })
+
+      return NextResponse.json({
+        ok: testResult.success,
+        targetEmail,
+        result: testResult,
+        diagnostics,
+      })
+    }
+
+    return NextResponse.json({
+      ok: true,
+      status: hasResend || hasSmtp ? "Email provider is configured" : "No email provider configured in environment variables",
+      diagnostics,
+      instructions: "To trigger a real test email, request GET /api/email/test?send=true&to=your@email.com&secret=YOUR_BETTER_AUTH_SECRET",
+    })
+  } catch (err: any) {
+    console.error("[Email Test API Error]", err)
+    return NextResponse.json(
+      { ok: false, error: err?.message || "Failed to run email diagnostics" },
+      { status: 500 }
+    )
+  }
+}
