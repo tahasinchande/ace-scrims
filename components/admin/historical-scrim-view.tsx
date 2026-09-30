@@ -335,7 +335,7 @@ export function HistoricalScrimView({
                 }]}
                 bookingsByScrim={{
                   [selectedScrim.id]: roster,
-                  ...(selectedScrim.slug ? { [selectedScrim.slug]: roster } : {}),
+                  [selectedScrim.slug]: roster,
                 }}
                 defaultScrimId={selectedScrim.id}
               />
