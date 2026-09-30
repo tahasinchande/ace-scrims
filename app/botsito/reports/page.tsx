@@ -12,7 +12,7 @@ export default async function AdminReportsPage() {
   const sessionUser = await getSessionUser()
   if (!sessionUser) redirect("/sign-in")
   // Strictly Admin-only. Moderators cannot view reports.
-  if (sessionUser.role !== "admin") redirect("/admin/scrims")
+  if (sessionUser.role !== "admin") redirect("/botsito/scrims")
 
   try {
     const rows = await db

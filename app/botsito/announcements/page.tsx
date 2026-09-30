@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 export default async function AdminAnnouncementsPage() {
   const user = await getSessionUser()
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (user?.role !== "admin") redirect("/botsito/scrims")
 
   const rows = await db
     .select()

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 export default async function AdminNotHostedPage() {
   const user = await getSessionUser()
   if (!user) redirect("/sign-in")
-  if (user.role !== "admin") redirect("/admin/scrims")
+  if (user.role !== "admin") redirect("/botsito/scrims")
 
   try {
     await ensureNotHostedTable().catch((err) => console.warn("[AdminNotHostedPage] ensure table warning:", err))

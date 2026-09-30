@@ -24,7 +24,7 @@ export async function GET() {
     const [scrims, results] = await Promise.all([getTrashScrims(), getTrashResults()])
     return NextResponse.json({ scrims, results })
   } catch (e) {
-    console.error("[API /admin/trash GET] Error:", e)
+    console.error("[API /botsito/trash GET] Error:", e)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 })
   } catch (e) {
-    console.error("[API /admin/trash POST] Error:", e)
+    console.error("[API /botsito/trash POST] Error:", e)
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Internal Server Error" },
       { status: 500 }

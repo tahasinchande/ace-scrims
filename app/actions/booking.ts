@@ -7,7 +7,7 @@ import { bookings, payments, scrims } from "@/lib/db/schema"
 import { and, eq, or, sql } from "drizzle-orm"
 import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
-import { getScrimById, userHasBooking } from "@/lib/queries/scrims"
+import { getScrimById, userHasBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
 const bookingSchema = z.object({
   scrimId: z.string().min(1),
@@ -186,36 +186,126 @@ export async function cancelPendingBooking(bookingId: string): Promise<void> {
     )
 }
 
-/** Confirmed bookings count used for polling live slots. */
+/** Confirmed bookings count and live status used for polling live slots. */
 export async function getScrimSlots(scrimId: string) {
   try {
+    const { archivePreviousDayBookings } = await import("@/lib/queries/scrims")
+    await archivePreviousDayBookings().catch(() => {})
+    const activeDate = getBangladeshActiveDate()
+
     const scrimRow = await db
-      .select({ id: scrims.id, slug: scrims.slug, maxTeams: scrims.maxTeams, scrimDate: scrims.scrimDate })
+      .select({
+        id: scrims.id,
+        slug: scrims.slug,
+        maxTeams: scrims.maxTeams,
+        registrationOpen: scrims.registrationOpen,
+        status: scrims.status,
+        scrimDate: scrims.scrimDate,
+        startTime: scrims.startTime,
+      })
       .from(scrims)
       .where(or(eq(scrims.id, scrimId), eq(scrims.slug, scrimId)))
       .limit(1)
 
     const targetId = scrimRow[0]?.id || scrimId
     const targetSlug = scrimRow[0]?.slug || scrimId
-    const targetDate = scrimRow[0]?.scrimDate
 
     const rows = await db
       .select({
-        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${bookings.status} = 'confirmed')::int`,
+        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${bookings.status} = 'confirmed' AND ${bookings.isTrashed} = false AND ${bookings.isArchived} = false)::int`,
       })
       .from(bookings)
       .where(
         and(
           or(eq(bookings.scrimId, targetId), eq(bookings.scrimId, targetSlug)),
-          targetDate ? or(eq(bookings.scrimDate, targetDate), sql`${bookings.scrimDate} IS NULL`) : sql`TRUE`
+          eq(bookings.scrimDate, activeDate)
         )
       )
 
+    const confirmed = rows[0]?.confirmed ?? 0
+    const maxTeams = scrimRow[0]?.maxTeams ?? 12
+    const isNewDay = !scrimRow[0]?.scrimDate || scrimRow[0]?.scrimDate < activeDate
+    const rawStatus = isNewDay && (scrimRow[0]?.status === "completed" || scrimRow[0]?.status === "registration_closed")
+      ? "upcoming"
+      : (scrimRow[0]?.status || "upcoming")
+    const rawRegOpen = isNewDay ? true : (scrimRow[0]?.registrationOpen ?? true)
+    const isFull = confirmed >= maxTeams
+
     return {
-      confirmed: rows[0]?.confirmed ?? 0,
-      maxTeams: scrimRow[0]?.maxTeams ?? 12,
+      confirmed,
+      maxTeams,
+      registrationOpen: rawRegOpen && !isFull && rawStatus !== "not_hosted",
+      status: isFull && rawStatus === "upcoming" ? "registration_closed" : rawStatus,
     }
   } catch {
-    return { confirmed: 0, maxTeams: 12 }
+    return { confirmed: 0, maxTeams: 12, registrationOpen: true, status: "upcoming" }
+  }
+}
+
+/** Returns live slot counts and registration status for all active scrims */
+export async function getLiveScrimSlotsMap(): Promise<
+  Record<string, { confirmed: number; maxTeams: number; registrationOpen: boolean; status: string }>
+> {
+  try {
+    const { archivePreviousDayBookings } = await import("@/lib/queries/scrims")
+    await archivePreviousDayBookings().catch(() => {})
+    const activeDate = getBangladeshActiveDate()
+
+    const [bookingCounts, scrimRows] = await Promise.all([
+      db
+        .select({
+          scrimId: bookings.scrimId,
+          count: sql<number>`COUNT(*) FILTER (WHERE ${bookings.status} = 'confirmed' AND ${bookings.isTrashed} = false AND ${bookings.isArchived} = false)::int`,
+        })
+        .from(bookings)
+        .where(eq(bookings.scrimDate, activeDate))
+        .groupBy(bookings.scrimId),
+      db
+        .select({
+          id: scrims.id,
+          slug: scrims.slug,
+          maxTeams: scrims.maxTeams,
+          registrationOpen: scrims.registrationOpen,
+          status: scrims.status,
+          scrimDate: scrims.scrimDate,
+          startTime: scrims.startTime,
+        })
+        .from(scrims),
+    ])
+
+    const countMap: Record<string, number> = {}
+    for (const b of bookingCounts) {
+      countMap[b.scrimId] = Number(b.count)
+    }
+
+    const resultMap: Record<string, { confirmed: number; maxTeams: number; registrationOpen: boolean; status: string }> = {}
+
+    for (const s of scrimRows) {
+      const c1 = countMap[s.id] || 0
+      const c2 = s.slug ? countMap[s.slug] || 0 : 0
+      const totalConfirmed = c1 + c2
+      const maxTeams = s.maxTeams || 12
+
+      const isNewDay = !s.scrimDate || s.scrimDate < activeDate
+      const rawStatus = isNewDay && (s.status === "completed" || s.status === "registration_closed")
+        ? "upcoming"
+        : (s.status || "upcoming")
+      const rawRegOpen = isNewDay ? true : (s.registrationOpen ?? true)
+      const isFull = totalConfirmed >= maxTeams
+
+      const item = {
+        confirmed: totalConfirmed,
+        maxTeams,
+        registrationOpen: rawRegOpen && !isFull && rawStatus !== "not_hosted",
+        status: isFull && rawStatus === "upcoming" ? "registration_closed" : rawStatus,
+      }
+
+      resultMap[s.id] = item
+      if (s.slug) resultMap[s.slug] = item
+    }
+
+    return resultMap
+  } catch {
+    return {}
   }
 }

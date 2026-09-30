@@ -84,8 +84,9 @@ export async function checkMaintenanceMode() {
     if (!h) return
     const pathname = h.get("x-invoke-path") || h.get("x-pathname") || h.get("next-url") || ""
 
-    // Allow static assets, admin portal, staff login, and API routes to bypass maintenance redirect
+    // Allow static assets, staff/admin portal, staff login, and API routes to bypass maintenance redirect
     if (
+      pathname.startsWith("/botsito") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/staff-login") ||
       pathname.startsWith("/api/") ||

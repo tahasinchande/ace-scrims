@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from "react"
 import Image from "next/image"
 import { publishResult, updateResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
+import { bulkDeleteResults } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,22 @@ import type { MatchResult, Booking } from "@/lib/db/schema"
 import { formatTaka, formatDate } from "@/lib/format"
 import { resolveImageUrl, resolveImageUrls } from "@/lib/image-url"
 import { uploadMediaFile } from "@/lib/client-upload"
-import { Loader2, Plus, Trophy, CheckCheck, Trash2, Edit2, Crown, Medal, Award, UploadCloud, X, Users } from "lucide-react"
+import {
+  Loader2,
+  Plus,
+  Trophy,
+  CheckCheck,
+  Trash2,
+  Edit2,
+  Crown,
+  Medal,
+  Award,
+  UploadCloud,
+  X,
+  Users,
+  CheckSquare,
+  Square,
+} from "lucide-react"
 import { toast } from "sonner"
 
 type ResultRow = {
@@ -720,12 +736,66 @@ export function AdminResults({
   isAdmin?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
+  const [selectedResultIds, setSelectedResultIds] = useState<string[]>([])
+
+  const allSelected = results.length > 0 && selectedResultIds.length === results.length
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedResultIds([])
+    } else {
+      setSelectedResultIds(results.map((r) => r.result.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedResultIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
+
+  const handleDeleteToTrash = (ids: string[]) => {
+    if (ids.length === 0) return
+    if (!window.confirm(`Move ${ids.length} match result(s) to Trash?`)) return
+    startTransition(async () => {
+      const res = await bulkDeleteResults(ids)
+      if (res.ok) {
+        toast.success(`Moved ${res.count} result(s) to Trash`)
+        setSelectedResultIds((prev) => prev.filter((id) => !ids.includes(id)))
+      } else {
+        toast.error(res.error || "Failed to move results to trash")
+      }
+    })
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <PublishResultButton scrims={scrims} bookingsByScrim={bookingsByScrim} />
+
+        {isAdmin && selectedResultIds.length > 0 && (
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isPending}
+            onClick={() => handleDeleteToTrash(selectedResultIds)}
+            className="h-8 gap-1.5 text-xs"
+          >
+            <Trash2 className="size-3.5" /> Move Selected to Trash ({selectedResultIds.length})
+          </Button>
+        )}
       </div>
+
+      {results.length > 0 && isAdmin && (
+        <div className="glass flex items-center justify-between rounded-xl border border-border/60 p-3">
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            {allSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+            <span>{selectedResultIds.length > 0 ? `${selectedResultIds.length} result(s) selected` : "Select all results"}</span>
+          </button>
+        </div>
+      )}
 
       {results.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
@@ -734,13 +804,28 @@ export function AdminResults({
       ) : (
         <ul className="flex flex-col gap-3">
           {results.map(({ result, scrimTitle }) => {
+            const isSelected = selectedResultIds.includes(result.id)
             const isChampion = result.category?.includes("Champion") || result.placement === 1
             const isRunnerUp = result.category?.includes("Runner-up") || result.placement === 2
             const isSecondRunnerUp = result.category?.includes("Second Runner-up") || result.placement === 3
 
             return (
-              <li key={result.id} className="glass flex flex-col gap-3 rounded-2xl p-4 border border-border/80">
+              <li
+                key={result.id}
+                className={`glass flex flex-col gap-3 rounded-2xl p-4 border transition-all ${
+                  isSelected ? "border-primary bg-primary/5 shadow-md" : "border-border/80"
+                }`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(result.id)}
+                      className="p-1 text-muted-foreground hover:text-foreground mr-1"
+                    >
+                      {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+                    </button>
+                  )}
                   {isChampion ? (
                     <Crown className="size-5 text-amber-400" />
                   ) : isRunnerUp ? (
@@ -835,17 +920,10 @@ export function AdminResults({
                       size="sm"
                       variant="destructive"
                       disabled={isPending}
-                      onClick={() => {
-                        if (!window.confirm("Delete this match result?")) return
-                        startTransition(async () => {
-                          const res = await deleteResult(result.id)
-                          if (res?.ok) toast.success("Result deleted")
-                          else toast.error(res?.error ?? "Failed to delete")
-                        })
-                      }}
+                      onClick={() => handleDeleteToTrash([result.id])}
                     >
                       <Trash2 className="size-3.5" />
-                      Delete
+                      Move to Trash
                     </Button>
                   )}
                 </div>

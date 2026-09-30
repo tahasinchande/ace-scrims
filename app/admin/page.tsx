@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
 import { getAdminStats, getAdminPayments } from "@/lib/queries/admin"
-import { formatTaka, timeAgo } from "@/lib/format"
-import { Badge } from "@/components/ui/badge"
+import { formatTaka } from "@/lib/format"
 import { BanknoteIcon, CalendarCheck, Users, Ticket, Wallet, Swords } from "lucide-react"
+import { AdminOverviewRecentPayments } from "@/components/admin/admin-overview-recent-payments"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Admin Overview — Ace Scrims" }
@@ -27,7 +27,7 @@ export default async function AdminOverviewPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Overview</h1>
-        <p className="text-sm text-muted-foreground">Platform analytics at a glance.</p>
+        <p className="text-sm text-muted-foreground">Platform analytics and trash management at a glance.</p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -45,36 +45,7 @@ export default async function AdminOverviewPage() {
         })}
       </div>
 
-      <section className="glass rounded-2xl p-5">
-        <h2 className="mb-4 font-display text-lg font-bold uppercase tracking-wide">
-          Recent Payments
-        </h2>
-        {recentPayments.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No payments yet.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {recentPayments.slice(0, 10).map(({ payment, teamName, scrimTitle, userEmail }) => (
-              <li key={payment.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">
-                    {teamName ?? "—"}{" "}
-                    <span className="text-muted-foreground">· {scrimTitle ?? "Deleted scrim"}</span>
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
-                </div>
-                <span className="font-display font-bold">{formatTaka(payment.amountBdt)}</span>
-                <Badge
-                  variant={payment.status === "completed" ? "default" : "secondary"}
-                  className="capitalize"
-                >
-                  {payment.status}
-                </Badge>
-                <span className="text-xs text-muted-foreground">{timeAgo(payment.createdAt)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <AdminOverviewRecentPayments payments={recentPayments.slice(0, 15) as any} />
     </div>
   )
 }

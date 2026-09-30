@@ -16,7 +16,6 @@ export function SiteSettingsForm({
   whatsappChannelUrl = "https://whatsapp.com/channel/0029Va9xyz",
   telegramUrl = "",
   instagramUrl = "",
-  supportPhone,
   supportWhatsapp = "+8801831510108",
   championRushWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
   supportKoriUrl = "https://www.supportkori.com/acescrims",
@@ -33,7 +32,6 @@ export function SiteSettingsForm({
   whatsappChannelUrl?: string
   telegramUrl?: string
   instagramUrl?: string
-  supportPhone: string
   supportWhatsapp?: string
   championRushWhatsappUrl?: string
   supportKoriUrl?: string
@@ -50,7 +48,6 @@ export function SiteSettingsForm({
   const [whatsappChannel, setWhatsappChannel] = useState(whatsappChannelUrl)
   const [telegram, setTelegram] = useState(telegramUrl)
   const [instagram, setInstagram] = useState(instagramUrl)
-  const [phone, setPhone] = useState(supportPhone || "+8801831510108")
   const [supportWa, setSupportWa] = useState(supportWhatsapp || "+8801831510108")
   const [championWhatsapp, setChampionWhatsapp] = useState(championRushWhatsappUrl || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V")
   const [supportKori, setSupportKori] = useState(supportKoriUrl || "https://www.supportkori.com/acescrims")
@@ -72,7 +69,6 @@ export function SiteSettingsForm({
           whatsapp_channel_url: whatsappChannel.trim(),
           telegram_url: telegram.trim(),
           instagram_url: instagram.trim(),
-          support_phone: phone.trim(),
           support_whatsapp: supportWa.trim(),
           champion_rush_whatsapp_url: championWhatsapp.trim(),
           support_kori_url: supportKori.trim(),
@@ -273,26 +269,14 @@ export function SiteSettingsForm({
           Support & Contact Info
         </h3>
         
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="support-whatsapp">Official Support WhatsApp</Label>
-            <Input
-              id="support-whatsapp"
-              value={supportWa}
-              onChange={(e) => setSupportWa(e.target.value)}
-              placeholder="+8801831510108"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="support-phone">Support Helpline Phone</Label>
-            <Input
-              id="support-phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+8801831510108"
-            />
-          </div>
+        <div className="flex flex-col gap-1.5 max-w-sm">
+          <Label htmlFor="support-whatsapp">Official Support WhatsApp</Label>
+          <Input
+            id="support-whatsapp"
+            value={supportWa}
+            onChange={(e) => setSupportWa(e.target.value)}
+            placeholder="+8801831510108"
+          />
         </div>
       </div>
 

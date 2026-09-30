@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { requestTeamImage } from "@/app/actions/image-requests"
+import { trashImageRequests } from "@/app/actions/admin"
 import { toast } from "sonner"
 import {
   Camera,
@@ -18,6 +19,9 @@ import {
   Clock,
   Copy,
   ChevronRight,
+  Trash2,
+  CheckSquare,
+  Square,
 } from "lucide-react"
 import type { Booking, Scrim, ImageRequest } from "@/lib/db/schema"
 import { formatDateTime, timeAgo } from "@/lib/format"
@@ -46,6 +50,35 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
 
   const submittedRequests = allRequests.filter((r) => r.status === "submitted")
   const pendingRequests = allRequests.filter((r) => r.status === "pending")
+  const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([])
+
+  const allSubmittedSelected = submittedRequests.length > 0 && selectedRequestIds.length === submittedRequests.length
+
+  const toggleSelectAllSubmitted = () => {
+    if (allSubmittedSelected) {
+      setSelectedRequestIds([])
+    } else {
+      setSelectedRequestIds(submittedRequests.map((r) => r.id))
+    }
+  }
+
+  const toggleSelectRequest = (id: string) => {
+    setSelectedRequestIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
+
+  const handleDeleteRequestsToTrash = (ids: string[]) => {
+    if (ids.length === 0) return
+    if (!window.confirm(`Move ${ids.length} photo request(s) to Trash?`)) return
+    startTransition(async () => {
+      const res = await trashImageRequests(ids)
+      if (res.ok) {
+        toast.success(`Moved ${res.count} image request(s) to Trash`)
+        setSelectedRequestIds((prev) => prev.filter((id) => !ids.includes(id)))
+      } else {
+        toast.error(res.error || "Failed to move requests to trash")
+      }
+    })
+  }
 
   const handleRequestClick = (bookingId: string, teamName: string) => {
     startTransition(async () => {
@@ -93,33 +126,79 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
       {/* Submitted Photos Gallery Section */}
       {submittedRequests.length > 0 && (
         <section className="glass rounded-2xl border border-primary/30 p-5 md:p-6 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="size-5 text-primary" />
               <h2 className="font-display text-lg font-bold uppercase tracking-wide">
                 Recent Player Photo Submissions ({submittedRequests.length})
               </h2>
             </div>
-            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40">
-              Ready for Banner Design
-            </Badge>
+            <div className="flex items-center gap-2">
+              {selectedRequestIds.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={isPending}
+                  onClick={() => handleDeleteRequestsToTrash(selectedRequestIds)}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  <Trash2 className="size-3.5" /> Move to Trash ({selectedRequestIds.length})
+                </Button>
+              )}
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40">
+                Ready for Banner Design
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-1">
+            <button
+              type="button"
+              onClick={toggleSelectAllSubmitted}
+              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              {allSubmittedSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+              <span>{selectedRequestIds.length > 0 ? `${selectedRequestIds.length} submission(s) selected` : "Select all submissions"}</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {submittedRequests.map((req) => {
               const urls = (req.uploadedImageUrls as string[]) || []
+              const isSelected = selectedRequestIds.includes(req.id)
               return (
                 <div
                   key={req.id}
-                  className="rounded-xl border border-border/80 bg-background/60 p-4 flex flex-col gap-3"
+                  className={`rounded-xl border bg-background/60 p-4 flex flex-col gap-3 transition-all ${
+                    isSelected ? "border-primary bg-primary/5 shadow-md" : "border-border/80"
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-display font-bold text-foreground truncate">
-                      {req.submittedTeamName || req.teamName}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      UID: {req.submittedPlayerUid || req.captainUid}
-                    </Badge>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectRequest(req.id)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                      >
+                        {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+                      </button>
+                      <span className="font-display font-bold text-foreground truncate">
+                        {req.submittedTeamName || req.teamName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        UID: {req.submittedPlayerUid || req.captainUid}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRequestsToTrash([req.id])}
+                        title="Move to Trash"
+                        className="p-1 text-muted-foreground hover:text-rose-400 transition-colors"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-muted-foreground truncate">{req.scrimTitle}</p>

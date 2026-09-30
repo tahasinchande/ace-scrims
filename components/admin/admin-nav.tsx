@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Trash2,
   Camera,
+  History,
 } from "lucide-react"
 
 type NavLink = {
@@ -31,6 +32,7 @@ type NavLink = {
 const adminLinks: NavLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
+  { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/image-requests", label: "Image Requests", icon: Camera },
   { href: "/admin/not-hosted", label: "Not Hosted", icon: AlertTriangle },
   { href: "/admin/results", label: "Results", icon: Trophy },
@@ -48,6 +50,7 @@ const adminLinks: NavLink[] = [
 // Moderators see room/result publishing and live support chat.
 const moderatorLinks: NavLink[] = [
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
+  { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/image-requests", label: "Image Requests", icon: Camera },
   { href: "/admin/results", label: "Results", icon: Trophy },
   { href: "/admin/chat", label: "Live Chat", icon: MessageSquare },

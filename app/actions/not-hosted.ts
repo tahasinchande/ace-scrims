@@ -213,8 +213,8 @@ export async function executeMarkScrimNotHosted(
       })
     }
 
-    revalidatePath("/admin/scrims")
-    revalidatePath("/admin/not-hosted")
+    revalidatePath("/botsito/scrims")
+    revalidatePath("/botsito/not-hosted")
     revalidatePath("/scrims")
     revalidatePath("/dashboard")
 
@@ -294,8 +294,8 @@ export async function autoCancelUnderfilledScrims(): Promise<{
     }
 
     if (cancelledCount > 0) {
-      revalidatePath("/admin/scrims")
-      revalidatePath("/admin/not-hosted")
+      revalidatePath("/botsito/scrims")
+      revalidatePath("/botsito/not-hosted")
       revalidatePath("/scrims")
       revalidatePath("/dashboard")
       revalidatePath("/")
@@ -479,8 +479,8 @@ export async function refundAllTeamsForScrim(scrimId: string) {
       failedCount: errors.length,
     })
 
-    revalidatePath("/admin/not-hosted")
-    revalidatePath("/admin/scrims")
+    revalidatePath("/botsito/not-hosted")
+    revalidatePath("/botsito/scrims")
     revalidatePath("/dashboard")
 
     return {
@@ -702,8 +702,8 @@ export async function processTeamRefund(bookingIdOrTeamId: string) {
       amount,
     })
 
-    revalidatePath("/admin/not-hosted")
-    revalidatePath("/admin/scrims")
+    revalidatePath("/botsito/not-hosted")
+    revalidatePath("/botsito/scrims")
     revalidatePath("/dashboard")
     return { ok: true, message: `Refund of ৳${amount} processed successfully for ${record.teamName}.` }
   } catch (e) {
@@ -759,10 +759,39 @@ export async function markRefundManual(notHostedId: string, refundRef: string) {
       refundRef: refStr,
     })
 
-    revalidatePath("/admin/not-hosted")
+    revalidatePath("/botsito/not-hosted")
     revalidatePath("/dashboard")
     return { ok: true, message: "Team marked as Refunded successfully." }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update refund status" }
+  }
+}
+
+export async function deleteNotHostedTeam(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.delete(notHostedTeams).where(eq(notHostedTeams.id, id))
+    await logActivity(admin.id, admin.role, "delete_not_hosted_team", id)
+    revalidatePath("/botsito/not-hosted")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to delete team" }
+  }
+}
+
+export async function bulkDeleteNotHostedTeams(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    let count = 0
+    for (const id of ids) {
+      await db.delete(notHostedTeams).where(eq(notHostedTeams.id, id))
+      count++
+    }
+    await logActivity(admin.id, admin.role, "bulk_delete_not_hosted_teams", `Deleted ${count} not hosted records`)
+    revalidatePath("/botsito/not-hosted")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk delete teams" }
   }
 }

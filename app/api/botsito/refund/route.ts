@@ -432,8 +432,8 @@ export async function POST(req: NextRequest) {
       console.warn("[Refund Route] Activity log warning:", logErr)
     }
 
-    revalidatePath("/admin/not-hosted")
-    revalidatePath("/admin/scrims")
+    revalidatePath("/botsito/not-hosted")
+    revalidatePath("/botsito/scrims")
     revalidatePath("/dashboard")
 
     return NextResponse.json({

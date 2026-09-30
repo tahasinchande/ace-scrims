@@ -10,7 +10,7 @@ export default async function AdminResultsPage() {
     getSessionUser(),
     getAdminResults(),
     getAdminScrims(),
-    getAllBookingsByScrim().catch(() => ({})),
+    getAllBookingsByScrim(undefined, true).catch(() => ({})),
   ])
 
   return (

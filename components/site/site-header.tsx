@@ -14,7 +14,6 @@ import { AceScrimsBrandLogo } from "@/components/site/brand-logo"
 
 export type HeaderSettings = {
   supportWhatsapp?: string
-  supportPhone?: string
   logoUrl?: string
 }
 

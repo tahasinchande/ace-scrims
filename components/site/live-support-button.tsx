@@ -16,7 +16,7 @@ export function openLiveSupportChat(router?: ReturnType<typeof useRouter>, pathn
   if (typeof window === "undefined") return
 
   // If in admin area where the widget is hidden, navigate to home with query param
-  if (pathname?.startsWith("/admin") && router) {
+  if ((pathname?.startsWith("/botsito") || pathname?.startsWith("/admin")) && router) {
     router.push("/?openChat=true")
     return
   }

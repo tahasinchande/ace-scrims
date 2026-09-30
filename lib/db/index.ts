@@ -185,7 +185,15 @@ async function ensureSchema() {
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
-        `INSERT INTO "settings" ("key", "value") VALUES ('support_phone', '+8801831510108') ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"`,
+        `ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "isArchived" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "archivedAt" timestamp`,
+        `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
+        `ALTER TABLE "image_requests" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "image_requests" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
+        `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
+        `DELETE FROM "settings" WHERE "key" = 'support_phone'`,
         `UPDATE "scrims" SET "map" = 'Champion Mode (Max 8 Matches)' WHERE "slug" = '10-pm-champion-rush' OR "id" = 'scrim-fri-10pm-cr' OR "title" ILIKE '%Champion Rush%'`
       ]
 

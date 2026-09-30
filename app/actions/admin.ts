@@ -3,10 +3,10 @@
 import { randomUUID } from "crypto"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs } from "@/lib/db/schema"
+import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs, imageRequests } from "@/lib/db/schema"
 import { requireAdmin } from "@/lib/session"
 import { logActivity } from "@/lib/notify"
-import { eq, ne, and, sql } from "drizzle-orm"
+import { eq, ne, and, or, sql, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { saveUploadedFile } from "@/lib/upload"
 
@@ -562,6 +562,330 @@ export async function bulkPermanentlyDeleteResults(resultIds: string[]): Promise
   }
 }
 
+/** Bulk Move Match Results to Trash */
+export async function bulkDeleteResults(resultIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!resultIds || resultIds.length === 0) return { ok: true, count: 0, error: null }
+
+    await db
+      .update(results)
+      .set({ isTrashed: true, deletedAt: new Date() })
+      .where(inArray(results.id, resultIds))
+
+    await logActivity(admin.id, "admin", "bulk_trash_results", undefined, { count: resultIds.length })
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/trash")
+    revalidatePath("/results")
+    revalidatePath("/dashboard/results")
+    return { ok: true, count: resultIds.length, error: null }
+  } catch (e) {
+    console.error("[bulkDeleteResults] Error:", e)
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to move results to trash" }
+  }
+}
+
+/** Trash Reports */
+export async function trashReports(reportIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!reportIds || reportIds.length === 0) return { ok: true, count: 0, error: null }
+
+    await db
+      .update(reports)
+      .set({ isTrashed: true, deletedAt: new Date() })
+      .where(inArray(reports.id, reportIds))
+
+    await logActivity(admin.id, "admin", "trash_reports", undefined, { count: reportIds.length })
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: reportIds.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to trash reports" }
+  }
+}
+
+export async function restoreReport(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.update(reports).set({ isTrashed: false, deletedAt: null }).where(eq(reports.id, id))
+    await logActivity(admin.id, "admin", "restore_report", id)
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/trash")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore report" }
+  }
+}
+
+export async function bulkRestoreReports(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.update(reports).set({ isTrashed: false, deletedAt: null }).where(inArray(reports.id, ids))
+    await logActivity(admin.id, "admin", "bulk_restore_reports", undefined, { count: ids.length })
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to restore reports" }
+  }
+}
+
+export async function permanentlyDeleteReport(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.delete(reports).where(eq(reports.id, id))
+    await logActivity(admin.id, "admin", "permanently_delete_report", id)
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/trash")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to permanently delete report" }
+  }
+}
+
+export async function bulkPermanentlyDeleteReports(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.delete(reports).where(inArray(reports.id, ids))
+    await logActivity(admin.id, "admin", "bulk_permanently_delete_reports", undefined, { count: ids.length })
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to permanently delete reports" }
+  }
+}
+
+/** Trash Image Requests */
+export async function trashImageRequests(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.update(imageRequests).set({ isTrashed: true, deletedAt: new Date() }).where(inArray(imageRequests.id, ids))
+    await logActivity(admin.id, "admin", "trash_image_requests", undefined, { count: ids.length })
+    revalidatePath("/admin/image-requests")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to trash image requests" }
+  }
+}
+
+export async function restoreImageRequest(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.update(imageRequests).set({ isTrashed: false, deletedAt: null }).where(eq(imageRequests.id, id))
+    await logActivity(admin.id, "admin", "restore_image_request", id)
+    revalidatePath("/admin/image-requests")
+    revalidatePath("/admin/trash")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore image request" }
+  }
+}
+
+export async function bulkRestoreImageRequests(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.update(imageRequests).set({ isTrashed: false, deletedAt: null }).where(inArray(imageRequests.id, ids))
+    await logActivity(admin.id, "admin", "bulk_restore_image_requests", undefined, { count: ids.length })
+    revalidatePath("/admin/image-requests")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to restore image requests" }
+  }
+}
+
+export async function permanentlyDeleteImageRequest(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.delete(imageRequests).where(eq(imageRequests.id, id))
+    await logActivity(admin.id, "admin", "permanently_delete_image_request", id)
+    revalidatePath("/admin/image-requests")
+    revalidatePath("/admin/trash")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to permanently delete image request" }
+  }
+}
+
+export async function bulkPermanentlyDeleteImageRequests(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.delete(imageRequests).where(inArray(imageRequests.id, ids))
+    await logActivity(admin.id, "admin", "bulk_permanently_delete_image_requests", undefined, { count: ids.length })
+    revalidatePath("/admin/image-requests")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to permanently delete image requests" }
+  }
+}
+
+/** Trash Users */
+export async function trashUsers(userIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    // Cannot trash oneself or other admins
+    const targets = await db
+      .select({ id: user.id, role: user.role })
+      .from(user)
+      .where(and(inArray(user.id, userIds), ne(user.id, admin.id), ne(user.role, "admin")))
+
+    if (targets.length === 0) {
+      return { ok: false, count: 0, error: "Cannot delete admin accounts or your own account." }
+    }
+
+    const idsToTrash = targets.map((t) => t.id)
+    await db
+      .update(user)
+      .set({ isTrashed: true, deletedAt: new Date() })
+      .where(inArray(user.id, idsToTrash))
+
+    await logActivity(admin.id, "admin", "trash_users", undefined, { count: idsToTrash.length })
+    revalidatePath("/admin/users")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: idsToTrash.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to trash users" }
+  }
+}
+
+export async function restoreUser(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.update(user).set({ isTrashed: false, deletedAt: null }).where(eq(user.id, id))
+    await logActivity(admin.id, "admin", "restore_user", id)
+    revalidatePath("/admin/users")
+    revalidatePath("/admin/trash")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore user" }
+  }
+}
+
+export async function bulkRestoreUsers(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.update(user).set({ isTrashed: false, deletedAt: null }).where(inArray(user.id, ids))
+    await logActivity(admin.id, "admin", "bulk_restore_users", undefined, { count: ids.length })
+    revalidatePath("/admin/users")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to restore users" }
+  }
+}
+
+export async function permanentlyDeleteUser(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (id === admin.id) return { ok: false, error: "Cannot delete your own account" }
+    await db.delete(user).where(and(eq(user.id, id), ne(user.role, "admin")))
+    await logActivity(admin.id, "admin", "permanently_delete_user", id)
+    revalidatePath("/admin/users")
+    revalidatePath("/admin/trash")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to permanently delete user" }
+  }
+}
+
+export async function bulkPermanentlyDeleteUsers(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.delete(user).where(and(inArray(user.id, ids), ne(user.id, admin.id), ne(user.role, "admin")))
+    await logActivity(admin.id, "admin", "bulk_permanently_delete_users", undefined, { count: ids.length })
+    revalidatePath("/admin/users")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to permanently delete users" }
+  }
+}
+
+/** Trash Payments */
+export async function trashPayments(paymentIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!paymentIds || paymentIds.length === 0) return { ok: true, count: 0, error: null }
+    await db.update(payments).set({ isTrashed: true, deletedAt: new Date() }).where(inArray(payments.id, paymentIds))
+    await logActivity(admin.id, "admin", "trash_payments", undefined, { count: paymentIds.length })
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/trash")
+    revalidatePath("/admin")
+    return { ok: true, count: paymentIds.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to trash payments" }
+  }
+}
+
+export async function restorePayment(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.update(payments).set({ isTrashed: false, deletedAt: null }).where(eq(payments.id, id))
+    await logActivity(admin.id, "admin", "restore_payment", id)
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/trash")
+    revalidatePath("/admin")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore payment" }
+  }
+}
+
+export async function bulkRestorePayments(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.update(payments).set({ isTrashed: false, deletedAt: null }).where(inArray(payments.id, ids))
+    await logActivity(admin.id, "admin", "bulk_restore_payments", undefined, { count: ids.length })
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/trash")
+    revalidatePath("/admin")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to restore payments" }
+  }
+}
+
+export async function permanentlyDeletePayment(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    await db.delete(payments).where(eq(payments.id, id))
+    await logActivity(admin.id, "admin", "permanently_delete_payment", id)
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/trash")
+    revalidatePath("/admin")
+    return { ok: true, error: null }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to permanently delete payment" }
+  }
+}
+
+export async function bulkPermanentlyDeletePayments(ids: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
+    await db.delete(payments).where(inArray(payments.id, ids))
+    await logActivity(admin.id, "admin", "bulk_permanently_delete_payments", undefined, { count: ids.length })
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/trash")
+    revalidatePath("/admin")
+    return { ok: true, count: ids.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to permanently delete payments" }
+  }
+}
+
 /** Admin Action: Data Reset / Wipe Test Data (preserves scrims, admin accounts, and user accounts) */
 export async function wipeTestData(): Promise<{ ok: boolean; message?: string; error?: string | null }> {
   try {
@@ -587,6 +911,9 @@ export async function wipeTestData(): Promise<{ ok: boolean; message?: string; e
     // 6. Delete test results
     await db.delete(results)
 
+    // 7. Delete test image requests
+    await db.delete(imageRequests)
+
     // NOTE: SCRIMS ARE LEFT UNTOUCHED (DO NOT DELETE, RESET, OR MODIFY ANY SCRIMS)
 
     revalidatePath("/admin/scrims")
@@ -594,16 +921,75 @@ export async function wipeTestData(): Promise<{ ok: boolean; message?: string; e
     revalidatePath("/admin/payments")
     revalidatePath("/admin/reports")
     revalidatePath("/admin/results")
+    revalidatePath("/admin/image-requests")
     revalidatePath("/admin/chat")
     revalidatePath("/admin/logs")
+    revalidatePath("/admin/trash")
     revalidatePath("/admin")
     revalidatePath("/dashboard")
     revalidatePath("/scrims")
+    revalidatePath("/")
 
-    return { ok: true, message: "Testing history wiped successfully for Overview stats, Results, Live Chat, Reports, and Payments. Scrims and User accounts remain intact." }
+    return { ok: true, message: "Testing history wiped successfully for Overview stats, Results, Live Chat, Reports, Image Requests, and Payments. Scrims and User accounts remain intact." }
   } catch (e) {
     console.error("[wipeTestData] Error:", e)
     return { ok: false, error: e instanceof Error ? e.message : "Failed to reset test data" }
+  }
+}
+
+/** Complete Fresh Deployment Wipe */
+export async function wipeDeploymentData(options?: { deleteNonAdminUsers?: boolean }): Promise<{ ok: boolean; message?: string; error?: string | null }> {
+  try {
+    const admin = await requireAdmin()
+
+    // 1. Wipe test payments and bookings
+    await db.delete(payments)
+    await db.delete(bookings)
+
+    // 2. Wipe player image requests
+    await db.delete(imageRequests)
+
+    // 3. Wipe not-hosted teams
+    await db.delete(notHostedTeams)
+
+    // 4. Wipe match results & banners
+    await db.delete(results)
+
+    // 5. Wipe reports
+    await db.delete(reports)
+
+    // 6. Wipe chat messages
+    await db.delete(chatMessages)
+
+    // 7. Wipe user notifications & activity logs
+    await db.delete(notifications)
+    await db.delete(activityLogs)
+
+    // 8. Optionally wipe non-admin test users (strictly preserving admin accounts)
+    if (options?.deleteNonAdminUsers) {
+      await db.delete(user).where(ne(user.role, "admin"))
+    }
+
+    revalidatePath("/")
+    revalidatePath("/admin")
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/payments")
+    revalidatePath("/admin/reports")
+    revalidatePath("/admin/image-requests")
+    revalidatePath("/admin/users")
+    revalidatePath("/admin/trash")
+    revalidatePath("/admin/chat")
+    revalidatePath("/dashboard")
+    revalidatePath("/scrims")
+
+    return {
+      ok: true,
+      message: "Database successfully cleared for fresh production deployment! All test payments, bookings, results, reports, chat, and dashboard histories have been truncated.",
+    }
+  } catch (e) {
+    console.error("[wipeDeploymentData] Error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to wipe database for deployment" }
   }
 }
 
@@ -716,7 +1102,6 @@ export async function setSetting(key: string, value: string) {
     "whatsapp_channel_url",
     "telegram_url",
     "instagram_url",
-    "support_phone",
     "support_whatsapp",
     "champion_rush_whatsapp_url",
     "support_kori_url",
@@ -752,7 +1137,6 @@ export async function saveAllSiteSettings(
       "whatsapp_channel_url",
       "telegram_url",
       "instagram_url",
-      "support_phone",
       "support_whatsapp",
       "champion_rush_whatsapp_url",
       "support_kori_url",
@@ -831,3 +1215,92 @@ export async function deleteBroadcast(notificationId: string) {
   revalidatePath("/dashboard/notifications")
   revalidatePath("/admin/announcements")
 }
+
+export async function bulkDeleteBookings(bookingIds: string[]): Promise<{ ok: boolean; count: number; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    if (!bookingIds || bookingIds.length === 0) return { ok: true, count: 0 }
+    
+    await db
+      .update(bookings)
+      .set({ isTrashed: true, deletedAt: new Date(), updatedAt: new Date() })
+      .where(inArray(bookings.id, bookingIds))
+
+    await logActivity(admin.id, "admin", "bulk_trash_bookings", undefined, { count: bookingIds.length })
+    revalidatePath("/admin/history")
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/trash")
+    return { ok: true, count: bookingIds.length }
+  } catch (err: any) {
+    return { ok: false, count: 0, error: err?.message || "Failed to delete bookings" }
+  }
+}
+
+export async function queryHistoricalScrimsAction(date: string, scrimId?: string) {
+  try {
+    const { getAdminScrims, getHistoricalBookings } = await import("@/lib/queries/admin")
+    const { results } = await import("@/lib/db/schema")
+    
+    const allScrims = await getAdminScrims({ includeDeleted: true })
+    const allBookings = await getHistoricalBookings({ date })
+    
+    const scrimMap = new Map<string, typeof allBookings>()
+    for (const b of allBookings) {
+      const list = scrimMap.get(b.scrimId) || []
+      list.push(b)
+      scrimMap.set(b.scrimId, list)
+    }
+
+    const scrimsMeta = allScrims.map((s) => {
+      const bList = scrimMap.get(s.id) || (s.slug ? scrimMap.get(s.slug) : []) || []
+      return {
+        id: s.id,
+        title: s.title,
+        slug: s.slug,
+        startTime: s.startTime,
+        map: s.map,
+        priceBdt: s.priceBdt,
+        prizePoolBdt: s.prizePoolBdt,
+        maxTeams: s.maxTeams,
+        confirmedCount: bList.filter((b: any) => b.status === "confirmed").length,
+      }
+    })
+
+    const targetScrim = scrimId 
+      ? scrimsMeta.find((s) => s.id === scrimId || s.slug === scrimId) || scrimsMeta[0] 
+      : scrimsMeta[0]
+
+    let roster: any[] = []
+    let result: any = null
+
+    if (targetScrim) {
+      roster = scrimMap.get(targetScrim.id) || (targetScrim.slug ? scrimMap.get(targetScrim.slug) : []) || []
+      
+      const foundResults = await db
+        .select()
+        .from(results)
+        .where(
+          and(
+            or(eq(results.scrimId, targetScrim.id), eq(results.scrimId, targetScrim.slug || "")),
+            eq(results.matchDate, date),
+            eq(results.isTrashed, false)
+          )
+        )
+        .limit(1)
+      result = foundResults[0] || null
+    }
+
+    return {
+      ok: true,
+      data: {
+        scrims: scrimsMeta,
+        selectedScrim: targetScrim || null,
+        roster,
+        result,
+      },
+    }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Failed to query historical scrims" }
+  }
+}
+

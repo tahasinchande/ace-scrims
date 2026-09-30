@@ -8,7 +8,7 @@ export const metadata = { title: "Manage Users — Ace Scrims" }
 
 export default async function AdminUsersPage() {
   const user = await getSessionUser()
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (user?.role !== "admin") redirect("/botsito/scrims")
 
   const users = await getAdminUsers()
 

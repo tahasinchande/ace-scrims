@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { updateReportStatus, deleteReport } from "@/app/actions/reports"
+import { updateReportStatus } from "@/app/actions/reports"
+import { trashReports } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/format"
@@ -19,6 +20,9 @@ import {
   Hash,
   CreditCard,
   AlertCircle,
+  CheckSquare,
+  Square,
+  RotateCcw,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -49,11 +53,40 @@ type ReportItem = {
 export function AdminReports({ reports }: { reports: ReportItem[] }) {
   const [isPending, startTransition] = useTransition()
   const [filter, setFilter] = useState<"all" | "pending" | "reviewed" | "resolved">("all")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const filteredReports = reports.filter((r) => {
     if (filter === "all") return true
     return r.status === filter
   })
+
+  const allSelected = filteredReports.length > 0 && selectedIds.length === filteredReports.length
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredReports.map((r) => r.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
+
+  const handleDeleteToTrash = (ids: string[]) => {
+    if (ids.length === 0) return
+    if (!window.confirm(`Move ${ids.length} report(s) to Trash?`)) return
+    startTransition(async () => {
+      const res = await trashReports(ids)
+      if (res.ok) {
+        toast.success(`Moved ${res.count} report(s) to Trash`)
+        setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+      } else {
+        toast.error(res.error || "Failed to move reports to trash")
+      }
+    })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,6 +115,34 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
         </div>
       </header>
 
+      {/* Batch Selection Toolbar */}
+      {filteredReports.length > 0 && (
+        <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 p-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              {allSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+              <span>{selectedIds.length > 0 ? `${selectedIds.length} report(s) selected` : "Select all"}</span>
+            </button>
+          </div>
+
+          {selectedIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => handleDeleteToTrash(selectedIds)}
+              className="h-8 gap-1.5 text-xs"
+            >
+              <Trash2 className="size-3.5" /> Move Selected to Trash ({selectedIds.length})
+            </Button>
+          )}
+        </div>
+      )}
+
       {filteredReports.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
           No reports found for the selected filter.
@@ -89,6 +150,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
       ) : (
         <ul className="flex flex-col gap-5">
           {filteredReports.map((report) => {
+            const isSelected = selectedIds.includes(report.id)
             const cleanWa = report.whatsapp?.replace(/[^0-9]/g, "")
             const imageProof = report.imageUrl || report.proofUrl
             const videoProof = report.videoUrl
@@ -96,10 +158,19 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
             return (
               <li
                 key={report.id}
-                className="glass flex flex-col gap-4 rounded-2xl p-5 border border-border/70 shadow-md transition-all"
+                className={`glass flex flex-col gap-4 rounded-2xl p-5 border transition-all ${
+                  isSelected ? "border-primary bg-primary/5" : "border-border/70"
+                } shadow-md`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(report.id)}
+                      className="p-1 text-muted-foreground hover:text-foreground"
+                    >
+                      {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+                    </button>
                     <Badge variant="destructive" className="font-bold uppercase tracking-wider">
                       {report.reportType}
                     </Badge>
@@ -302,18 +373,11 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                     size="sm"
                     variant="destructive"
                     disabled={isPending}
-                    onClick={() => {
-                      if (!window.confirm("Are you sure you want to permanently delete this report?")) return
-                      startTransition(async () => {
-                        const res = await deleteReport(report.id)
-                        if (res.ok) toast.success("Report deleted successfully")
-                        else toast.error(res.error)
-                      })
-                    }}
+                    onClick={() => handleDeleteToTrash([report.id])}
                     className="gap-1.5 text-xs"
                   >
                     <Trash2 className="size-3.5" />
-                    Delete
+                    Move to Trash
                   </Button>
                 </div>
               </li>

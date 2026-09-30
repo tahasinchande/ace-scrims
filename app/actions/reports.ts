@@ -202,7 +202,7 @@ export async function submitReport(_prev: unknown, formData: FormData): Promise<
     })
 
     revalidatePath("/dashboard/reports")
-    revalidatePath("/admin/reports")
+    revalidatePath("/botsito/reports")
     return { ok: true, error: null, reportId }
   } catch (e: any) {
     console.error("[Report Action] submitReport uncaught exception:", e)
@@ -217,7 +217,7 @@ export async function updateReportStatus(reportId: string, status: "pending" | "
   try {
     await requireAdmin()
     await db.update(reports).set({ status, updatedAt: new Date() }).where(eq(reports.id, reportId))
-    revalidatePath("/admin/reports")
+    revalidatePath("/botsito/reports")
     return { ok: true, error: null }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update report status" }
@@ -228,9 +228,25 @@ export async function deleteReport(reportId: string) {
   try {
     await requireAdmin()
     await db.delete(reports).where(eq(reports.id, reportId))
-    revalidatePath("/admin/reports")
+    revalidatePath("/botsito/reports")
     return { ok: true, error: null }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete report" }
+  }
+}
+
+export async function bulkDeleteReports(reportIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
+  try {
+    await requireAdmin()
+    if (!reportIds || reportIds.length === 0) return { ok: true, count: 0, error: null }
+    let count = 0
+    for (const id of reportIds) {
+      await db.delete(reports).where(eq(reports.id, id))
+      count++
+    }
+    revalidatePath("/botsito/reports")
+    return { ok: true, count, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to bulk delete reports" }
   }
 }

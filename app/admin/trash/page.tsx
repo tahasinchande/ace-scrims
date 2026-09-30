@@ -1,19 +1,37 @@
 import { getSessionUser } from "@/lib/session"
-import { getTrashScrims, getTrashResults } from "@/lib/queries/admin"
+import {
+  getTrashScrims,
+  getTrashResults,
+  getTrashReports,
+  getTrashImageRequests,
+  getTrashUsers,
+  getTrashPayments,
+} from "@/lib/queries/admin"
 import { AdminTrash } from "@/components/admin/admin-trash"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Trash & Soft-Deleted Items — Ace Scrims" }
 
 export default async function AdminTrashPage() {
-  const [user, trashScrims, trashResults] = await Promise.all([
-    getSessionUser(),
-    getTrashScrims(),
-    getTrashResults(),
-  ])
+  const [user, trashScrims, trashResults, trashReports, trashImageRequests, trashUsers, trashPayments] =
+    await Promise.all([
+      getSessionUser(),
+      getTrashScrims(),
+      getTrashResults(),
+      getTrashReports(),
+      getTrashImageRequests(),
+      getTrashUsers(),
+      getTrashPayments(),
+    ])
 
   const isAdmin = user?.role === "admin"
-  const totalTrashCount = trashScrims.length + trashResults.length
+  const totalTrashCount =
+    trashScrims.length +
+    trashResults.length +
+    trashReports.length +
+    trashImageRequests.length +
+    trashUsers.length +
+    trashPayments.length
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,13 +45,20 @@ export default async function AdminTrashPage() {
           </div>
           <p className="text-sm text-muted-foreground">
             {isAdmin
-              ? "View and restore soft-deleted scrims and match results, or purge them permanently."
-              : "View soft-deleted scrims and match results."}
+              ? "View and restore soft-deleted scrims, match results, player reports, photo requests, users, and transactions, or purge them permanently."
+              : "View soft-deleted items across all platform sections."}
           </p>
         </div>
       </header>
 
-      <AdminTrash scrims={trashScrims} results={trashResults} />
+      <AdminTrash
+        scrims={trashScrims}
+        results={trashResults}
+        reports={trashReports as any}
+        imageRequests={trashImageRequests as any}
+        users={trashUsers as any}
+        payments={trashPayments as any}
+      />
     </div>
   )
 }

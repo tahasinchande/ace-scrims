@@ -1,9 +1,9 @@
 import "server-only"
 
 import { db } from "@/lib/db"
-import { scrims, bookings, payments, results, user, activityLogs, settings } from "@/lib/db/schema"
-import { eq, desc, and, or, gte, sql, count } from "drizzle-orm"
-import { appendGlobalScrimRules } from "@/lib/queries/scrims"
+import { scrims, bookings, payments, results, user, activityLogs, settings, reports, imageRequests } from "@/lib/db/schema"
+import { eq, desc, and, or, gte, sql, count, isNull } from "drizzle-orm"
+import { appendGlobalScrimRules, getBangladeshActiveDate, archivePreviousDayBookings } from "@/lib/queries/scrims"
 
 /** Today's revenue, bookings, totals for the admin analytics cards. */
 export async function getAdminStats() {
@@ -217,8 +217,10 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
       }
     }
 
-    // Query exact confirmed and pending booking counts for all scrims from bookings table
+    // Query exact confirmed and pending booking counts for all scrims from bookings table for today's active schedule
     try {
+      archivePreviousDayBookings().catch(() => {})
+      const activeDate = getBangladeshActiveDate()
       const allCounts = await db
         .select({
           scrimId: bookings.scrimId,
@@ -226,6 +228,13 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           pending: sql<number>`count(case when status = 'pending' then 1 end)::int`,
         })
         .from(bookings)
+        .where(
+          and(
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false),
+            eq(bookings.scrimDate, activeDate)
+          )
+        )
         .groupBy(bookings.scrimId)
 
       const cMap = new Map<string, number>()
@@ -326,13 +335,24 @@ export async function getTrashResults() {
 }
 
 /** Only confirmed (successful) bookings grouped by scrim id, for the admin team roster. */
-export async function getAllBookingsByScrim() {
+export async function getAllBookingsByScrim(dateFilter?: string, includeAllDates: boolean = false) {
+  const activeDate = dateFilter || getBangladeshActiveDate()
+
+  const whereClause = includeAllDates
+    ? and(eq(bookings.status, "confirmed"), eq(bookings.isTrashed, false))
+    : and(
+        eq(bookings.status, "confirmed"),
+        eq(bookings.isTrashed, false),
+        eq(bookings.isArchived, false),
+        eq(bookings.scrimDate, activeDate)
+      )
+
   const [bookingRows, scrimRows] = await Promise.all([
     db
       .select({ booking: bookings, userEmail: user.email })
       .from(bookings)
       .leftJoin(user, eq(bookings.userId, user.id))
-      .where(eq(bookings.status, "confirmed"))
+      .where(whereClause)
       .orderBy(bookings.slotNumber, bookings.createdAt),
     db.select({ id: scrims.id, slug: scrims.slug }).from(scrims),
   ])
@@ -365,6 +385,87 @@ export async function getAllBookingsByScrim() {
   return grouped
 }
 
+/** Get distinct historical dates with bookings (descending) */
+export async function getHistoricalDates(): Promise<string[]> {
+  try {
+    const rows = await db
+      .select({
+        scrimDate: bookings.scrimDate,
+      })
+      .from(bookings)
+      .where(and(sql`${bookings.scrimDate} IS NOT NULL`, eq(bookings.isTrashed, false)))
+      .groupBy(bookings.scrimDate)
+      .orderBy(desc(bookings.scrimDate))
+
+    const dates = rows.map((r) => r.scrimDate).filter(Boolean) as string[]
+    return dates
+  } catch (err) {
+    console.warn("[Admin Queries] Error fetching historical dates:", err)
+    return []
+  }
+}
+
+/** Get historical team bookings for any chosen date and optional scrim */
+export async function getHistoricalBookings(options?: { date?: string; scrimId?: string }) {
+  try {
+    const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
+    const conditions = [eq(bookings.isTrashed, false)]
+
+    if (options?.date) {
+      conditions.push(eq(bookings.scrimDate, options.date))
+    }
+    if (options?.scrimId && options.scrimId !== "all") {
+      const altId = options.scrimId.replace(/^scrim-/, "")
+      const scrimMatch = or(eq(bookings.scrimId, options.scrimId), eq(bookings.scrimId, altId))
+      if (scrimMatch) conditions.push(scrimMatch)
+    }
+
+    const rows = await db
+      .select({
+        booking: bookings,
+        scrimTitle: scrims.title,
+        scrimStartTime: scrims.startTime,
+        scrimMap: scrims.map,
+        userEmail: user.email,
+        userName: user.name,
+      })
+      .from(bookings)
+      .leftJoin(scrims, eq(bookings.scrimId, scrims.id))
+      .leftJoin(user, eq(bookings.userId, user.id))
+      .where(and(...conditions))
+      .orderBy(desc(bookings.scrimDate), bookings.slotNumber, bookings.createdAt)
+
+    return rows.map((r) => {
+      let title = r.scrimTitle
+      let time = r.scrimStartTime
+      let map = r.scrimMap
+
+      if ((!title || !time) && r.booking.scrimId) {
+        const match = ALL_STANDARD_SCRIM_DEFINITIONS.find(
+          (d) => d.id === r.booking.scrimId || d.slug === r.booking.scrimId
+        )
+        if (match) {
+          title = match.name
+          time = match.time
+          map = match.map
+        }
+      }
+
+      return {
+        ...r.booking,
+        scrimTitle: title || r.booking.scrimId,
+        scrimStartTime: time || "N/A",
+        scrimMap: map || "Bermuda",
+        userEmail: r.userEmail,
+        userName: r.userName,
+      }
+    })
+  } catch (err) {
+    console.warn("[Admin Queries] Error fetching historical bookings:", err)
+    return []
+  }
+}
+
 export async function getAdminUsers() {
   return db
     .select({
@@ -378,6 +479,7 @@ export async function getAdminUsers() {
       createdAt: user.createdAt,
     })
     .from(user)
+    .where(eq(user.isTrashed, false))
     .orderBy(desc(user.createdAt))
     .limit(200)
 }
@@ -396,6 +498,7 @@ export async function getAdminPayments() {
     .leftJoin(bookings, eq(payments.bookingId, bookings.id))
     .leftJoin(scrims, eq(payments.scrimId, scrims.id))
     .leftJoin(user, eq(payments.userId, user.id))
+    .where(eq(payments.isTrashed, false))
     .orderBy(desc(payments.createdAt))
     .limit(200)
 
@@ -412,6 +515,99 @@ export async function getAdminPayments() {
       userEmail: r.userEmail,
     }
   })
+}
+
+/** Get soft-deleted reports for Trash page */
+export async function getTrashReports() {
+  try {
+    return await db
+      .select({
+        report: reports,
+        userName: user.name,
+        userEmail: user.email,
+      })
+      .from(reports)
+      .leftJoin(user, eq(reports.userId, user.id))
+      .where(or(eq(reports.isTrashed, true), sql`${reports.deletedAt} IS NOT NULL`))
+      .orderBy(desc(reports.deletedAt), desc(reports.createdAt))
+  } catch (err) {
+    console.warn("[Admin Queries] Error in getTrashReports:", err)
+    return []
+  }
+}
+
+/** Get soft-deleted image requests for Trash page */
+export async function getTrashImageRequests() {
+  try {
+    return await db
+      .select()
+      .from(imageRequests)
+      .where(or(eq(imageRequests.isTrashed, true), sql`${imageRequests.deletedAt} IS NOT NULL`))
+      .orderBy(desc(imageRequests.deletedAt), desc(imageRequests.createdAt))
+  } catch (err) {
+    console.warn("[Admin Queries] Error in getTrashImageRequests:", err)
+    return []
+  }
+}
+
+/** Get soft-deleted users for Trash page */
+export async function getTrashUsers() {
+  try {
+    return await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        image: user.image,
+        deletedAt: user.deletedAt,
+        createdAt: user.createdAt,
+      })
+      .from(user)
+      .where(or(eq(user.isTrashed, true), sql`${user.deletedAt} IS NOT NULL`))
+      .orderBy(desc(user.deletedAt), desc(user.createdAt))
+  } catch (err) {
+    console.warn("[Admin Queries] Error in getTrashUsers:", err)
+    return []
+  }
+}
+
+/** Get soft-deleted payments for Trash page */
+export async function getTrashPayments() {
+  try {
+    const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
+    const rows = await db
+      .select({
+        payment: payments,
+        teamName: bookings.teamName,
+        scrimTitle: scrims.title,
+        scrimId: payments.scrimId,
+        userEmail: user.email,
+      })
+      .from(payments)
+      .leftJoin(bookings, eq(payments.bookingId, bookings.id))
+      .leftJoin(scrims, eq(payments.scrimId, scrims.id))
+      .leftJoin(user, eq(payments.userId, user.id))
+      .where(or(eq(payments.isTrashed, true), sql`${payments.deletedAt} IS NOT NULL`))
+      .orderBy(desc(payments.deletedAt), desc(payments.createdAt))
+
+    return rows.map((r) => {
+      let resolvedTitle = r.scrimTitle
+      if (!resolvedTitle && r.scrimId) {
+        const match = ALL_STANDARD_SCRIM_DEFINITIONS.find((d) => d.id === r.scrimId || d.slug === r.scrimId)
+        if (match) resolvedTitle = match.name
+      }
+      return {
+        payment: r.payment,
+        teamName: r.teamName,
+        scrimTitle: resolvedTitle,
+        userEmail: r.userEmail,
+      }
+    })
+  } catch (err) {
+    console.warn("[Admin Queries] Error in getTrashPayments:", err)
+    return []
+  }
 }
 
 export async function getAdminResults() {
@@ -461,3 +657,22 @@ export async function getActivityLogs() {
     .orderBy(desc(activityLogs.createdAt))
     .limit(200)
 }
+
+export type HistoricalScrimMeta = {
+  id: string
+  title: string
+  slug?: string
+  startTime: string
+  map: string
+  priceBdt: number
+  prizePoolBdt: number
+  maxTeams: number
+  confirmedCount: number
+  category?: string
+  hasResult?: boolean
+}
+
+export type HistoricalRosterBooking = any
+
+export const getHistoricalScrimDates = getHistoricalDates
+

@@ -17,7 +17,6 @@ export async function GET() {
     return NextResponse.json(
       {
         supportWhatsapp: "+8801831510108",
-        supportPhone: "+8801831510108",
         discordUrl: "https://discord.gg/aKF4hMuhmA",
         facebookUrl: "https://facebook.com/acescrims",
       },

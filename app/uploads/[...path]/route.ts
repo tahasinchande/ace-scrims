@@ -3,6 +3,8 @@ import fs from "fs"
 import path from "path"
 import os from "os"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -16,14 +18,13 @@ export async function GET(
 
     // Sanitize path against directory traversal
     const safeSubPath = path.normalize(pathSegments.join("/")).replace(/^(\.\.[\/\\])+/, "")
-    
     // Check multiple candidate locations:
     const candidatePaths = [
-      path.join(process.cwd(), "public", "uploads", safeSubPath),
-      path.join(process.cwd(), "uploads", safeSubPath),
+      path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads", safeSubPath),
+      path.join(/*turbopackIgnore: true*/ process.cwd(), "uploads", safeSubPath),
       path.join(os.tmpdir(), "uploads", safeSubPath),
       path.join(os.tmpdir(), safeSubPath),
-      path.join(process.cwd(), "public", safeSubPath),
+      path.join(/*turbopackIgnore: true*/ process.cwd(), "public", safeSubPath),
     ]
 
     let filePath: string | null = null
@@ -36,7 +37,7 @@ export async function GET(
 
     if (!filePath) {
       // Graceful fallback for files uploaded in prior ephemeral containers or sample media
-      const fallbackPath = path.join(process.cwd(), "public", "images", "scrim-1.jpg")
+      const fallbackPath = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "images", "scrim-1.jpg")
       if (fs.existsSync(fallbackPath)) {
         const fallbackBuffer = await fs.promises.readFile(fallbackPath)
         return new NextResponse(fallbackBuffer, {

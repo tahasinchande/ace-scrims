@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
 import { formatDate } from "@/lib/format"
-import { Flame, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Trophy } from "lucide-react"
+import { Flame, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Trophy, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -20,13 +20,47 @@ export type MvpBannerItem = {
   imageUrl: string
 }
 
-export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] }) {
+const FALLBACK_MVP_BANNERS: MvpBannerItem[] = [
+  {
+    id: "sample-mvp-1",
+    playerName: "SHADOW 99",
+    teamName: "Team Vipers",
+    scrimTitle: "10:00 PM Champion Rush Lobby",
+    matchDate: new Date().toISOString().slice(0, 10),
+    kills: 18,
+    playerUid: "748920194",
+    imageUrl: "/images/scrim_squad_clash_1786956645507.jpg",
+  },
+  {
+    id: "sample-mvp-2",
+    playerName: "DEADSHOT",
+    teamName: "Black Mamba Esports",
+    scrimTitle: "09:00 PM Daily Scrim Room 1",
+    matchDate: new Date().toISOString().slice(0, 10),
+    kills: 14,
+    playerUid: "892013840",
+    imageUrl: "/images/scrim_cyber_arena_1786956594944.jpg",
+  },
+  {
+    id: "sample-mvp-3",
+    playerName: "SNIPER GOD",
+    teamName: "Apex Predators",
+    scrimTitle: "08:00 PM Daily Scrim Room 2",
+    matchDate: new Date().toISOString().slice(0, 10),
+    kills: 12,
+    playerUid: "612984029",
+    imageUrl: "/images/scrim_alpine_1786956632185.jpg",
+  },
+]
+
+export function MvpFaceBannersSection({ banners: rawBanners }: { banners: MvpBannerItem[] }) {
+  const banners = rawBanners && rawBanners.length > 0 ? rawBanners : FALLBACK_MVP_BANNERS
+  const count = banners.length
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [activeLightbox, setActiveLightbox] = useState<string | null>(null)
-  const autoPlayRef = useRef<NodeJS.Timeout | null>(null)
-
-  const count = banners.length
+  const [timerKey, setTimerKey] = useState(0)
 
   // Clamp index if banners change
   useEffect(() => {
@@ -35,31 +69,31 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
     }
   }, [count, currentIndex])
 
-  // Autoplay slideshow with smooth fade every 5 seconds
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % count)
+    setTimerKey((k) => k + 1)
+  }, [count])
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + count) % count)
+    setTimerKey((k) => k + 1)
+  }, [count])
+
+  const handleSelect = (idx: number) => {
+    setCurrentIndex(idx)
+    setTimerKey((k) => k + 1)
+  }
+
+  // Exact 5-second automatic slideshow transition
   useEffect(() => {
     if (count <= 1 || isPaused) return
 
-    autoPlayRef.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % count)
+    const timer = setInterval(() => {
+      handleNext()
     }, 5000)
 
-    return () => {
-      if (autoPlayRef.current) clearInterval(autoPlayRef.current)
-    }
-  }, [count, isPaused])
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + count) % count)
-  }
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % count)
-  }
-
-  // Only actual uploaded banners are displayed
-  if (!banners || banners.length === 0) {
-    return null
-  }
+    return () => clearInterval(timer)
+  }, [count, isPaused, handleNext, timerKey])
 
   const currentItem = banners[currentIndex] || banners[0]
   const currentImageSrc = resolveImageUrl(currentItem.imageUrl)
@@ -73,7 +107,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Centered Heading */}
-      <div className="flex flex-col items-center text-center max-w-2xl mb-10">
+      <div className="flex flex-col items-center text-center max-w-2xl mb-8">
         <div className="inline-flex items-center gap-2 text-primary text-xs font-display font-bold uppercase tracking-wider mb-2">
           <Flame className="size-4 text-primary animate-pulse" />
           <span>Tournament MVPs & Standout Fraggers</span>
@@ -92,8 +126,9 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
             {count} MVP Showcase{count > 1 ? "s" : ""}
           </Badge>
           {count > 1 && (
-            <Badge variant="secondary" className="font-mono text-xs">
-              Slide {currentIndex + 1} of {count}
+            <Badge variant="secondary" className="font-mono text-xs flex items-center gap-1.5">
+              <span>Slide {currentIndex + 1} of {count}</span>
+              {isPaused ? <Pause className="size-2.5 text-primary" /> : <Play className="size-2.5 text-emerald-400 fill-emerald-400" />}
             </Badge>
           )}
         </div>
@@ -103,6 +138,19 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
       <div className="relative w-full max-w-4xl flex flex-col items-center">
         {/* Banner Slide Frame */}
         <div className="relative w-full rounded-3xl border border-primary/30 bg-black/60 shadow-2xl p-3 sm:p-5 backdrop-blur-xl overflow-hidden flex flex-col items-center">
+          {/* 5-Second Animated Progress Bar */}
+          {count > 1 && !isPaused && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 overflow-hidden z-30">
+              <motion.div
+                key={`progress-mvp-${currentIndex}-${timerKey}`}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 5, ease: "linear" }}
+                className="h-full bg-gradient-to-r from-orange-600 via-primary to-amber-400 shadow-[0_0_8px_rgba(249,115,22,0.8)]"
+              />
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentItem.id || currentIndex}
@@ -112,7 +160,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
               transition={{ duration: 0.45, ease: "easeInOut" }}
               className="w-full flex flex-col items-center"
             >
-              {/* Dynamic Image Container - strictly respects natural image dimensions without cropping */}
+              {/* Natural Dimension Image Container */}
               <div className="relative group flex items-center justify-center max-w-full min-h-[260px] sm:min-h-[340px] overflow-hidden rounded-2xl bg-black/50 p-2 sm:p-4">
                 <img
                   src={currentImageSrc}
@@ -138,19 +186,19 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
               <div className="mt-4 w-full flex flex-col items-center text-center gap-2 px-4 pb-2">
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <span className="flex size-7 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-xs">
-                    MVP
+                    #{currentIndex + 1}
                   </span>
                   <h3 className="font-display text-xl sm:text-2xl font-bold text-foreground">
-                    {currentItem.playerName || currentItem.teamName}
+                    {currentItem.playerName ? `${currentItem.playerName}` : currentItem.teamName}
                   </h3>
-                  {currentItem.playerName && currentItem.teamName && (
+                  {currentItem.playerName && (
                     <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-bold text-xs">
                       {currentItem.teamName}
                     </Badge>
                   )}
                   {currentItem.kills != null && currentItem.kills > 0 && (
-                    <Badge variant="secondary" className="font-mono font-bold text-primary text-xs flex items-center gap-1">
-                      <Crosshair className="size-3" /> {currentItem.kills} Kills
+                    <Badge variant="secondary" className="font-mono font-bold text-orange-400 text-xs">
+                      <Crosshair className="size-3 mr-1 inline" /> {currentItem.kills} FRAGS
                     </Badge>
                   )}
                 </div>
@@ -161,19 +209,24 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                     <Calendar className="size-3.5 text-primary/80" />
                     {formatDate(currentItem.matchDate)}
                   </span>
+                  {currentItem.playerUid && (
+                    <span className="font-mono text-zinc-400">
+                      UID: {currentItem.playerUid}
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.div>
           </AnimatePresence>
 
-          {/* Navigation Controls (If multiple banners) */}
+          {/* Navigation Controls */}
           {count > 1 && (
             <>
               <button
                 type="button"
                 onClick={handlePrev}
                 aria-label="Previous MVP Banner"
-                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-black hover:border-primary transition-all shadow-lg active:scale-95 cursor-pointer"
+                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 cursor-pointer"
               >
                 <ChevronLeft className="size-5" />
               </button>
@@ -182,7 +235,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                 type="button"
                 onClick={handleNext}
                 aria-label="Next MVP Banner"
-                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-black hover:border-primary transition-all shadow-lg active:scale-95 cursor-pointer"
+                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 cursor-pointer"
               >
                 <ChevronRight className="size-5" />
               </button>
@@ -197,7 +250,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
               <button
                 key={idx}
                 type="button"
-                onClick={() => setCurrentIndex(idx)}
+                onClick={() => handleSelect(idx)}
                 aria-label={`Go to MVP Banner slide ${idx + 1}`}
                 className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                   idx === currentIndex
@@ -209,7 +262,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
           </div>
         )}
 
-        {/* Centered "View Full Leaderboard" Button below banners */}
+        {/* Centered "View Full Leaderboard" Button */}
         <div className="mt-8 flex justify-center">
           <Button
             asChild

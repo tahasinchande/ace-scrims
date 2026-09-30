@@ -121,6 +121,8 @@ export const bookings = pgTable("bookings", {
   teamMembersDriveLink: text("teamMembersDriveLink"),
   imageRequested: boolean("imageRequested").notNull().default(false),
   imageRequestedAt: timestamp("imageRequestedAt"),
+  isArchived: boolean("isArchived").notNull().default(false),
+  archivedAt: timestamp("archivedAt"),
   isTrashed: boolean("isTrashed").notNull().default(false),
   deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -139,6 +141,8 @@ export const payments = pgTable("payments", {
   senderNumber: text("senderNumber"),
   status: text("status").notNull().default("pending"), // pending | completed | failed | cancelled | refunded
   rawPayload: jsonb("rawPayload"),
+  isTrashed: boolean("isTrashed").notNull().default(false),
+  deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
@@ -182,6 +186,8 @@ export const reports = pgTable("reports", {
   additionalInfo: text("additionalInfo"),
   imageUrl: text("imageUrl"),
   videoUrl: text("videoUrl"),
+  isTrashed: boolean("isTrashed").notNull().default(false),
+  deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
@@ -280,6 +286,8 @@ export const imageRequests = pgTable("image_requests", {
   requestedBy: text("requestedBy"),
   requestedAt: timestamp("requestedAt").notNull().defaultNow(),
   submittedAt: timestamp("submittedAt"),
+  isTrashed: boolean("isTrashed").notNull().default(false),
+  deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })

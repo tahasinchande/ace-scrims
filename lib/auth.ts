@@ -4,12 +4,17 @@ import { sendPasswordResetEmail, sendVerificationEmail, resolveCleanUrl } from "
 
 async function sendGoogleWelcomeEmail(user: { name?: string | null; email: string }) {
   try {
+    const apiKey = process.env.RESEND_API_KEY?.trim()
+    if (!apiKey) {
+      console.log(`[Better Auth] RESEND_API_KEY not configured, skipping Google welcome email for ${user.email}`)
+      return
+    }
     const userName = user?.name ? user.name.trim() : "Player"
     const subject = `Welcome aboard, ${userName} — ACE SCRIMS`
 
     console.log(`[Better Auth] Sending Google OAuth Welcome email to ${user.email}`)
     const { Resend } = await import("resend")
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    const resend = new Resend(apiKey)
 
     const response = await resend.emails.send({
       from: "ACE SCRIMS <noreply@mail.acescrims.online>",

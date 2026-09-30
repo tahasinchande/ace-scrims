@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export default async function AdminLogsPage() {
   const user = await getSessionUser()
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (user?.role !== "admin") redirect("/botsito/scrims")
 
   const logs = await getActivityLogs()
 

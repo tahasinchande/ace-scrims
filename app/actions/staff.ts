@@ -101,7 +101,7 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
       console.warn("[Staff Action] Could not query confirmed participants for room release email:", emailDispatchErr)
     }
 
-    revalidatePath("/admin/scrims")
+    revalidatePath("/botsito/scrims")
     revalidatePath("/dashboard/scrims")
     return { ok: true, error: null }
   } catch (e) {
@@ -117,7 +117,7 @@ export async function unpublishRoom(scrimId: string): Promise<{ ok: boolean; err
       .set({ roomPublished: false, updatedAt: new Date() })
       .where(eq(scrims.id, scrimId))
     await logActivity(staff.id, staff.role, "unpublish_room", scrimId)
-    revalidatePath("/admin/scrims")
+    revalidatePath("/botsito/scrims")
     revalidatePath("/dashboard/scrims")
     return { ok: true, error: null }
   } catch (e) {
@@ -191,6 +191,7 @@ export async function publishResult(_prev: unknown, formData: FormData) {
     const primaryScreenshotUrl = uploadedUrls[0] || null
     const mvpPlayerName = (formData.get("mvpPlayerName") as string | null)?.trim() || null
     const mvpTeamName = (formData.get("mvpTeamName") as string | null)?.trim() || null
+    const customMatchDate = (formData.get("matchDate") as string | null)?.trim() || scrim.scrimDate
 
     await db.insert(results).values({
       id: randomUUID(),
@@ -205,7 +206,7 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       screenshotUrl: primaryScreenshotUrl,
       imageUrls: uploadedUrls,
       isTrashed: false,
-      matchDate: scrim.scrimDate,
+      matchDate: customMatchDate,
       publishedBy: staff.id,
     })
 
@@ -293,7 +294,7 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       category: parsed.data.category,
     })
 
-    revalidatePath("/admin/results")
+    revalidatePath("/botsito/results")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
     return { ok: true, error: null }
@@ -306,7 +307,7 @@ export async function markPrizeSent(resultId: string) {
   const admin = await requireAdmin()
   await db.update(results).set({ prizeStatus: "sent" }).where(eq(results.id, resultId))
   await logActivity(admin.id, admin.role, "prize_sent", resultId)
-  revalidatePath("/admin/results")
+  revalidatePath("/botsito/results")
   revalidatePath("/dashboard/results")
 }
 
@@ -384,7 +385,7 @@ export async function updateResult(_prev: unknown, formData: FormData) {
       category,
     })
 
-    revalidatePath("/admin/results")
+    revalidatePath("/botsito/results")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
     return { ok: true, error: null }
@@ -404,8 +405,8 @@ export async function deleteResult(resultId: string) {
       })
       .where(eq(results.id, resultId))
     await logActivity(staff.id, staff.role, "soft_delete_result", resultId)
-    revalidatePath("/admin/results")
-    revalidatePath("/admin/trash")
+    revalidatePath("/botsito/results")
+    revalidatePath("/botsito/trash")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
     return { ok: true, error: null }
@@ -421,7 +422,7 @@ export async function deleteBroadcast(notificationId: string) {
     await db.delete(notifications).where(eq(notifications.id, notificationId))
     await logActivity(staff.id, staff.role, "delete_broadcast", notificationId)
     revalidatePath("/dashboard/notifications")
-    revalidatePath("/admin/announcements")
+    revalidatePath("/botsito/announcements")
     return { ok: true, error: null }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete broadcast" }

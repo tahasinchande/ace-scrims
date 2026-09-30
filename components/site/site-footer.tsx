@@ -17,7 +17,6 @@ export type FooterSettings = {
   whatsappChannelUrl?: string
   telegramUrl?: string
   instagramUrl?: string
-  supportPhone?: string
   supportWhatsapp?: string
 }
 
@@ -32,9 +31,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
   const supportKori = settings?.supportKoriUrl || "https://www.supportkori.com/ace_scrims"
   const telegram = settings?.telegramUrl || ""
   const instagram = settings?.instagramUrl || ""
-  const supportPhone = settings?.supportPhone || "+8801831510108"
   const supportWhatsapp = settings?.supportWhatsapp || "+8801831510108"
-  const cleanPhone = supportPhone.replace(/[^0-9+]/g, "")
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
 
   return (

@@ -376,7 +376,7 @@ export function Faq() {
   )
 }
 
-export function Contact({ settings }: { settings?: { discordUrl?: string; facebookUrl?: string; supportWhatsapp?: string; supportPhone?: string } }) {
+export function Contact({ settings }: { settings?: { discordUrl?: string; facebookUrl?: string; supportWhatsapp?: string } }) {
   const { t } = useLanguage()
 
   const discord = settings?.discordUrl || "https://discord.gg/aKF4hMuhmA"

@@ -681,7 +681,7 @@ export function AdminScrimList({
             </button>
           )}
           <Link
-            href="/admin/trash"
+            href="/botsito/trash"
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-rose-400 transition-all"
           >
             <Trash2 className="size-3.5" />
@@ -705,7 +705,7 @@ export function AdminScrimList({
           {isAdmin && <WipeTestDataButton />}
           {notHostedCount > 0 && (
             <Link
-              href="/admin/not-hosted"
+              href="/botsito/not-hosted"
               className="hidden lg:flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition-all"
             >
               <AlertTriangle className="size-3.5" />

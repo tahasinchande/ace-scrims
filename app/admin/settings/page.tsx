@@ -28,7 +28,6 @@ export default async function AdminSettingsPage() {
         whatsappChannelUrl={map.whatsapp_channel_url ?? "https://whatsapp.com/channel/0029Va9xyz"}
         telegramUrl={map.telegram_url ?? ""}
         instagramUrl={map.instagram_url ?? ""}
-        supportPhone={map.support_phone ?? "+8801831510108"}
         supportWhatsapp={map.support_whatsapp ?? "+8801831510108"}
         championRushWhatsappUrl={map.champion_rush_whatsapp_url ?? "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"}
         supportKoriUrl={map.support_kori_url ?? "https://www.supportkori.com/acescrims"}

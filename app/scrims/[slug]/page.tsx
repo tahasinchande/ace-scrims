@@ -13,6 +13,7 @@ import { bookings } from "@/lib/db/schema"
 import { and, eq, or } from "drizzle-orm"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function generateMetadata({
   params,
@@ -53,7 +54,10 @@ export default async function ScrimDetailPage({
           and(
             eq(bookings.userId, user.id),
             or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
-            eq(bookings.status, "confirmed")
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false),
+            eq(bookings.scrimDate, scrim.scrimDate)
           )
         )
         .limit(1)

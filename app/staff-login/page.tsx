@@ -34,7 +34,7 @@ export default function StaffLoginPage() {
     }
 
     try {
-      const callbackURL = `${window.location.origin}/admin/scrims`
+      const callbackURL = `${window.location.origin}/botsito/scrims`
       const res = await authClient.signIn.social({
         provider: "google",
         callbackURL,
@@ -83,7 +83,7 @@ export default function StaffLoginPage() {
         return
       }
 
-      router.push("/admin/scrims")
+      router.push("/botsito/scrims")
       router.refresh()
     } catch (err) {
       setError("An unexpected error occurred during staff authentication.")

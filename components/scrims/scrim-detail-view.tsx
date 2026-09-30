@@ -37,29 +37,33 @@ export function ScrimDetailView({
   // Dynamic slot counting: poll slots in real-time
   const [confirmedCount, setConfirmedCount] = useState(scrim.confirmedTeams)
   const [maxCount, setMaxCount] = useState(scrim.maxTeams)
+  const [regOpen, setRegOpen] = useState(scrim.registrationOpen)
+  const [scrimState, setScrimState] = useState(scrim.status)
 
   useEffect(() => {
     let active = true
     async function poll() {
       try {
         const { getScrimSlots } = await import("@/app/actions/booking")
-        const res = await getScrimSlots(scrim.id)
+        const res = await getScrimSlots(scrim.id || scrim.slug)
         if (active && res) {
           setConfirmedCount(res.confirmed)
           if (res.maxTeams) setMaxCount(res.maxTeams)
+          if (res.registrationOpen !== undefined) setRegOpen(res.registrationOpen)
+          if (res.status) setScrimState(res.status)
         }
       } catch {}
     }
 
     poll()
-    const timer = setInterval(poll, 12000)
+    const timer = setInterval(poll, 10000)
     return () => {
       active = false
       clearInterval(timer)
     }
-  }, [scrim.id])
+  }, [scrim.id, scrim.slug])
 
-  const status = scrimStatus(confirmedCount, maxCount, scrim.registrationOpen, scrim.status)
+  const status = scrimStatus(confirmedCount, maxCount, regOpen, scrimState, scrim.scrimDate, scrim.startTime)
   const remaining = Math.max(0, maxCount - confirmedCount)
   const start = scrimStartDate(scrim.scrimDate, scrim.startTime)
   const banner = scrim.bannerUrl && !scrim.bannerUrl.includes("map-")

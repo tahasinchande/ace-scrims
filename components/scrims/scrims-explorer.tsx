@@ -7,11 +7,49 @@ import { ScrimCard, type ScrimCardData } from "@/components/site/scrim-card"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 
-export function ScrimsExplorer({ scrims, isAuthed: _isAuthed }: { scrims: ScrimCardData[]; isAuthed?: boolean }) {
+export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: { scrims: ScrimCardData[]; isAuthed?: boolean }) {
   const { t } = useLanguage()
+  const [scrims, setScrims] = useState<ScrimCardData[]>(initialScrims)
   const [query, setQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [time, setTime] = useState<string>("All")
+
+  // Sync if initial server props update
+  useEffect(() => {
+    setScrims(initialScrims)
+  }, [initialScrims])
+
+  // Live real-time slot polling to synchronize /scrims with outside view after reset
+  useEffect(() => {
+    let active = true
+    async function syncSlots() {
+      try {
+        const { getLiveScrimSlotsMap } = await import("@/app/actions/booking")
+        const slotMap = await getLiveScrimSlotsMap()
+        if (!active || !slotMap || Object.keys(slotMap).length === 0) return
+        setScrims((prev) =>
+          prev.map((s) => {
+            const live = slotMap[s.slug] || slotMap[(s as any).id]
+            if (!live) return s
+            return {
+              ...s,
+              confirmedTeams: live.confirmed,
+              maxTeams: live.maxTeams,
+              registrationOpen: live.registrationOpen,
+              status: live.status,
+            }
+          })
+        )
+      } catch {}
+    }
+
+    syncSlots()
+    const timer = setInterval(syncSlots, 10000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window !== "undefined") {

@@ -52,7 +52,7 @@ export async function addTutorial(_prev: unknown, formData: FormData): Promise<T
     })
 
     revalidatePath("/tutorial")
-    revalidatePath("/admin/tutorials")
+    revalidatePath("/botsito/tutorials")
     return { ok: true, error: null }
   } catch (e) {
     console.error("[Tutorials Action] Failed to add tutorial:", e)
@@ -93,7 +93,7 @@ export async function updateTutorial(tutorialId: string, formData: FormData): Pr
       .where(eq(tutorials.id, tutorialId))
 
     revalidatePath("/tutorial")
-    revalidatePath("/admin/tutorials")
+    revalidatePath("/botsito/tutorials")
     return { ok: true, error: null }
   } catch (e) {
     console.error("[Tutorials Action] Failed to update tutorial:", e)
@@ -109,7 +109,7 @@ export async function deleteTutorial(tutorialId: string): Promise<TutorialResult
     await requireAdmin()
     await db.delete(tutorials).where(eq(tutorials.id, tutorialId))
     revalidatePath("/tutorial")
-    revalidatePath("/admin/tutorials")
+    revalidatePath("/botsito/tutorials")
     return { ok: true, error: null }
   } catch (e) {
     console.error("[Tutorials Action] Failed to delete tutorial:", e)

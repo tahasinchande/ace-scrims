@@ -11,7 +11,7 @@ export const metadata = { title: "Tutorials — Admin — Ace Scrims" }
 export default async function AdminTutorialsPage() {
   const user = await getSessionUser()
   if (!user) redirect("/sign-in")
-  if (user.role !== "admin") redirect("/admin/scrims")
+  if (user.role !== "admin") redirect("/botsito/scrims")
 
   const rows = await db
     .select()

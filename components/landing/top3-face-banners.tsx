@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
 import { formatDate, bdt } from "@/lib/format"
-import { Trophy, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Award, Crosshair } from "lucide-react"
+import { Trophy, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -20,13 +20,47 @@ export type Top3BannerItem = {
   imageUrl: string
 }
 
-export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] }) {
+const FALLBACK_TOP3_BANNERS: Top3BannerItem[] = [
+  {
+    id: "sample-top3-1",
+    winningTeam: "Team Vipers",
+    scrimTitle: "10:00 PM Champion Rush · 8-Match Lobby",
+    matchDate: new Date().toISOString().slice(0, 10),
+    kills: 38,
+    prizeBdt: 1800,
+    category: "Top 3 Face Banner",
+    imageUrl: "/images/scrim_bermuda_1786956536583.jpg",
+  },
+  {
+    id: "sample-top3-2",
+    winningTeam: "Black Mamba Esports",
+    scrimTitle: "09:00 PM Daily Scrim Room 1",
+    matchDate: new Date().toISOString().slice(0, 10),
+    kills: 24,
+    prizeBdt: 330,
+    category: "Top 3 Face Banner",
+    imageUrl: "/images/scrim_purgatory_1786956554900.jpg",
+  },
+  {
+    id: "sample-top3-3",
+    winningTeam: "Apex Predators",
+    scrimTitle: "08:00 PM Daily Scrim Room 2",
+    matchDate: new Date().toISOString().slice(0, 10),
+    kills: 21,
+    prizeBdt: 330,
+    category: "Top 3 Face Banner",
+    imageUrl: "/images/scrim_kalahari_1786956572959.jpg",
+  },
+]
+
+export function Top3FaceBannersSection({ banners: rawBanners }: { banners: Top3BannerItem[] }) {
+  const banners = rawBanners && rawBanners.length > 0 ? rawBanners : FALLBACK_TOP3_BANNERS
+  const count = banners.length
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [activeLightbox, setActiveLightbox] = useState<string | null>(null)
-  const autoPlayRef = useRef<NodeJS.Timeout | null>(null)
-
-  const count = banners.length
+  const [timerKey, setTimerKey] = useState(0)
 
   // Clamp current index if banners change
   useEffect(() => {
@@ -35,31 +69,31 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
     }
   }, [count, currentIndex])
 
-  // Autoplay slideshow with smooth fade every 5 seconds
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % count)
+    setTimerKey((k) => k + 1)
+  }, [count])
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + count) % count)
+    setTimerKey((k) => k + 1)
+  }, [count])
+
+  const handleSelect = (idx: number) => {
+    setCurrentIndex(idx)
+    setTimerKey((k) => k + 1)
+  }
+
+  // Exact 5-second automatic slideshow transition
   useEffect(() => {
     if (count <= 1 || isPaused) return
 
-    autoPlayRef.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % count)
+    const timer = setInterval(() => {
+      handleNext()
     }, 5000)
 
-    return () => {
-      if (autoPlayRef.current) clearInterval(autoPlayRef.current)
-    }
-  }, [count, isPaused])
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + count) % count)
-  }
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % count)
-  }
-
-  // Only actual uploaded banners are displayed
-  if (!banners || banners.length === 0) {
-    return null
-  }
+    return () => clearInterval(timer)
+  }, [count, isPaused, handleNext, timerKey])
 
   const currentItem = banners[currentIndex] || banners[0]
   const currentImageSrc = resolveImageUrl(currentItem.imageUrl)
@@ -73,7 +107,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Centered Heading */}
-      <div className="flex flex-col items-center text-center max-w-2xl mb-10">
+      <div className="flex flex-col items-center text-center max-w-2xl mb-8">
         <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-display font-bold uppercase tracking-wider mb-2">
           <Trophy className="size-4 text-amber-400" />
           <span>Official Victory Gallery</span>
@@ -92,8 +126,9 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
             {count} Showcase{count > 1 ? "s" : ""}
           </Badge>
           {count > 1 && (
-            <Badge variant="secondary" className="font-mono text-xs">
-              Slide {currentIndex + 1} of {count}
+            <Badge variant="secondary" className="font-mono text-xs flex items-center gap-1.5">
+              <span>Slide {currentIndex + 1} of {count}</span>
+              {isPaused ? <Pause className="size-2.5 text-amber-400" /> : <Play className="size-2.5 text-emerald-400 fill-emerald-400" />}
             </Badge>
           )}
         </div>
@@ -103,6 +138,19 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
       <div className="relative w-full max-w-4xl flex flex-col items-center">
         {/* Banner Slide Frame */}
         <div className="relative w-full rounded-3xl border border-amber-500/30 bg-black/60 shadow-2xl p-3 sm:p-5 backdrop-blur-xl overflow-hidden flex flex-col items-center">
+          {/* 5-Second Animated Progress Bar */}
+          {count > 1 && !isPaused && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 overflow-hidden z-30">
+              <motion.div
+                key={`progress-${currentIndex}-${timerKey}`}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 5, ease: "linear" }}
+                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
+              />
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentItem.id || currentIndex}
@@ -112,7 +160,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
               transition={{ duration: 0.45, ease: "easeInOut" }}
               className="w-full flex flex-col items-center"
             >
-              {/* Dynamic Image Container - strictly respects natural image dimensions without cropping */}
+              {/* Natural Dimension Image Container */}
               <div className="relative group flex items-center justify-center max-w-full min-h-[260px] sm:min-h-[340px] overflow-hidden rounded-2xl bg-black/50 p-2 sm:p-4">
                 <img
                   src={currentImageSrc}
@@ -171,7 +219,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
             </motion.div>
           </AnimatePresence>
 
-          {/* Navigation Controls (If multiple banners) */}
+          {/* Navigation Controls */}
           {count > 1 && (
             <>
               <button
@@ -202,7 +250,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
               <button
                 key={idx}
                 type="button"
-                onClick={() => setCurrentIndex(idx)}
+                onClick={() => handleSelect(idx)}
                 aria-label={`Go to Top 3 Banner slide ${idx + 1}`}
                 className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                   idx === currentIndex
@@ -214,7 +262,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
           </div>
         )}
 
-        {/* Centered "View Full Leaderboard" Button below banners */}
+        {/* Centered "View Full Leaderboard" Button */}
         <div className="mt-8 flex justify-center">
           <Button
             asChild
