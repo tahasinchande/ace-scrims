@@ -657,3 +657,22 @@ export async function getActivityLogs() {
     .orderBy(desc(activityLogs.createdAt))
     .limit(200)
 }
+
+export type HistoricalScrimMeta = {
+  id: string
+  title: string
+  slug?: string
+  startTime: string
+  map: string
+  priceBdt: number
+  prizePoolBdt: number
+  maxTeams: number
+  confirmedCount: number
+  category?: string
+  hasResult?: boolean
+}
+
+export type HistoricalRosterBooking = any
+
+export const getHistoricalScrimDates = getHistoricalDates
+
