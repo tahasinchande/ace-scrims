@@ -28,7 +28,7 @@ export async function getUserBookings(userId: string): Promise<UserBooking[]> {
     .select({ booking: bookings, scrim: scrims })
     .from(bookings)
     .leftJoin(scrims, eq(bookings.scrimId, scrims.id))
-    .where(and(eq(bookings.userId, userId), eq(bookings.status, "confirmed")))
+    .where(and(eq(bookings.userId, userId), eq(bookings.status, "confirmed"), eq(bookings.isTrashed, false)))
     .orderBy(desc(bookings.createdAt))
 
   if (rows.length === 0) return []

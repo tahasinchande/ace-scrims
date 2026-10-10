@@ -20,14 +20,14 @@ export async function getAdminStats() {
         db
           .select({ n: count() })
           .from(bookings)
-          .where(and(eq(bookings.status, "confirmed"), gte(bookings.createdAt, todayStart))),
-        db.select({ n: count() }).from(user),
-        db.select({ n: count() }).from(bookings).where(eq(bookings.status, "confirmed")),
+          .where(and(eq(bookings.status, "confirmed"), eq(bookings.isTrashed, false), eq(bookings.isArchived, false), gte(bookings.createdAt, todayStart))),
+        db.select({ n: count() }).from(user).where(eq(user.isTrashed, false)),
+        db.select({ n: count() }).from(bookings).where(and(eq(bookings.status, "confirmed"), eq(bookings.isTrashed, false))),
         db
           .select({ total: sql<number>`coalesce(sum(${payments.amountBdt}), 0)` })
           .from(payments)
           .where(eq(payments.status, "completed")),
-        db.select({ n: count() }).from(scrims).where(eq(scrims.status, "upcoming")),
+        db.select({ n: count() }).from(scrims).where(and(eq(scrims.status, "upcoming"), eq(scrims.isTrashed, false))),
       ])
 
     return {
@@ -400,7 +400,7 @@ export async function getHistoricalDates(): Promise<string[]> {
         scrimDate: bookings.scrimDate,
       })
       .from(bookings)
-      .where(and(sql`${bookings.scrimDate} IS NOT NULL`, eq(bookings.isTrashed, false)))
+      .where(and(sql`${bookings.scrimDate} IS NOT NULL`, eq(bookings.status, "confirmed"), eq(bookings.isTrashed, false)))
       .groupBy(bookings.scrimDate)
       .orderBy(desc(bookings.scrimDate))
 
@@ -416,7 +416,10 @@ export async function getHistoricalDates(): Promise<string[]> {
 export async function getHistoricalBookings(options?: { date?: string; scrimId?: string }) {
   try {
     const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
-    const conditions = [eq(bookings.isTrashed, false)]
+    const conditions = [
+      eq(bookings.status, "confirmed"),
+      eq(bookings.isTrashed, false),
+    ]
 
     if (options?.date) {
       conditions.push(eq(bookings.scrimDate, options.date))
@@ -662,7 +665,14 @@ export async function getAdminBookingsForScrim(scrimId: string) {
   return db
     .select()
     .from(bookings)
-    .where(and(eq(bookings.scrimId, scrimId), eq(bookings.status, "confirmed")))
+    .where(
+      and(
+        eq(bookings.scrimId, scrimId),
+        eq(bookings.status, "confirmed"),
+        eq(bookings.isTrashed, false),
+        eq(bookings.isArchived, false)
+      )
+    )
     .orderBy(bookings.slotNumber)
 }
 

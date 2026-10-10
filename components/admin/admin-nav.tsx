@@ -33,18 +33,18 @@ const adminLinks: NavLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
   { href: "/admin/history", label: "Historical Data", icon: History },
-  { href: "/admin/image-requests", label: "Image Requests", icon: Camera },
-  { href: "/admin/not-hosted", label: "Not Hosted", icon: AlertTriangle },
-  { href: "/admin/results", label: "Results", icon: Trophy },
-  { href: "/admin/chat", label: "Live Chat", icon: MessageSquare },
-  { href: "/admin/reports", label: "Reports", icon: ScrollText },
+  { href: "/admin/announce", label: "Announce", icon: Megaphone },
   { href: "/admin/tutorials", label: "Tutorials", icon: Video },
+  { href: "/admin/logs", label: "Logs", icon: ScrollText },
+  { href: "/admin/live-chat", label: "Live Chat", icon: MessageSquare },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
-  { href: "/admin/announcements", label: "Announce", icon: Megaphone },
-  { href: "/admin/trash", label: "Trash", icon: Trash2 },
-  { href: "/admin/logs", label: "Logs", icon: ScrollText },
+  { href: "/admin/results", label: "Results", icon: Trophy },
   { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin/reports", label: "Reports", icon: ScrollText },
+  { href: "/admin/not-hosted", label: "Not Hosted", icon: AlertTriangle },
+  { href: "/admin/image-requests", label: "Image Requests", icon: Camera },
+  { href: "/admin/trash", label: "Trash", icon: Trash2 },
 ]
 
 // Moderators see room/result publishing and live support chat.
@@ -53,7 +53,7 @@ const moderatorLinks: NavLink[] = [
   { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/image-requests", label: "Image Requests", icon: Camera },
   { href: "/admin/results", label: "Results", icon: Trophy },
-  { href: "/admin/chat", label: "Live Chat", icon: MessageSquare },
+  { href: "/admin/live-chat", label: "Live Chat", icon: MessageSquare },
 ]
 
 export function AdminNav({ role, name, logoUrl }: { role: string; name: string; logoUrl?: string }) {

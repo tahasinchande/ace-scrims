@@ -32,10 +32,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!user || user.role !== "admin") {
+    if (!user) {
       return NextResponse.json(
-        { ok: false, error: "Unauthorized. Admin privileges required." },
+        { ok: false, error: "Unauthorized: Valid session token required." },
         { status: 401 }
+      )
+    }
+
+    if (user.role !== "admin") {
+      return NextResponse.json(
+        { ok: false, error: "Forbidden: Admin privileges required." },
+        { status: 403 }
       )
     }
 

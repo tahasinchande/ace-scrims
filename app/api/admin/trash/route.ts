@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/session"
+import { getSessionUser } from "@/lib/session"
 import { getTrashScrims, getTrashResults } from "@/lib/queries/admin"
 import {
   restoreScrim,
@@ -16,9 +16,12 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    const admin = await requireAdmin().catch(() => null)
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized: Valid session token required." }, { status: 401 })
+    }
+    if (user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden: Admin privileges required." }, { status: 403 })
     }
 
     const [scrims, results] = await Promise.all([getTrashScrims(), getTrashResults()])
@@ -31,9 +34,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin().catch(() => null)
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized: Valid session token required." }, { status: 401 })
+    }
+    if (user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden: Admin privileges required." }, { status: 403 })
     }
 
     const body = await req.json()

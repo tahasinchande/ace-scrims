@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/session"
+import { getSessionUser } from "@/lib/session"
 import { wipeDeploymentData } from "@/app/actions/admin"
 
 export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin().catch(() => null)
-    if (!admin) {
-      return NextResponse.json({ ok: false, error: "Unauthorized: Admin access required." }, { status: 401 })
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Unauthorized: Valid session token required." }, { status: 401 })
+    }
+    if (user.role !== "admin") {
+      return NextResponse.json({ ok: false, error: "Forbidden: Admin privileges required." }, { status: 403 })
     }
 
     let deleteNonAdminUsers = false

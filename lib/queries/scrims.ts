@@ -646,14 +646,45 @@ export async function getAllScrims(): Promise<ScrimWithSlots[]> {
   const isFriday = await isFridayScrimsActive()
   const samples = getAllSampleScrims()
   try {
-    const rows = await db
-      .select({ scrim: scrims, confirmedTeams: confirmedCount })
-      .from(scrims)
-      .orderBy(desc(scrims.scrimDate), asc(scrims.startTime))
-    const list = rows.map((r) => normalizeScrim({ ...r.scrim, confirmedTeams: r.confirmedTeams }, isFriday))
+    const activeDate = getBangladeshActiveDate()
+    const [rows, bookingCounts] = await Promise.all([
+      db
+        .select({ scrim: scrims, confirmedTeams: confirmedCount })
+        .from(scrims)
+        .orderBy(desc(scrims.scrimDate), asc(scrims.startTime)),
+      db
+        .select({
+          scrimId: bookings.scrimId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false),
+            eq(bookings.scrimDate, activeDate)
+          )
+        )
+        .groupBy(bookings.scrimId),
+    ])
+
+    const countMap = new Map<string, number>()
+    for (const b of bookingCounts) {
+      countMap.set(b.scrimId, Number(b.count))
+    }
+
+    const list = rows.map((r) => {
+      const c1 = countMap.get(r.scrim.id) ?? 0
+      const c2 = r.scrim.slug && r.scrim.slug !== r.scrim.id ? (countMap.get(r.scrim.slug) ?? 0) : 0
+      return normalizeScrim({ ...r.scrim, confirmedTeams: c1 + c2 }, isFriday)
+    })
     const combined = [...list.filter((s) => s.status !== "deleted")]
     for (const sample of samples) {
       if (!combined.some((s) => s.id === sample.id || s.slug === sample.slug)) {
+        const c1 = countMap.get(sample.id) ?? 0
+        const c2 = sample.slug && sample.slug !== sample.id ? (countMap.get(sample.slug) ?? 0) : 0
+        sample.confirmedTeams = c1 + c2
         combined.push(sample)
       }
     }
