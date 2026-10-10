@@ -74,7 +74,7 @@ export function LiveChatWidget() {
   }, [])
 
   useEffect(() => {
-    if (open && session?.user && !pathname?.startsWith("/botsito") && !pathname?.startsWith("/admin")) {
+    if (open && session?.user && !pathname?.startsWith("/admin")) {
       setLoading(true)
       loadMessages().finally(() => setLoading(false))
       const interval = setInterval(loadMessages, 3500)
@@ -91,7 +91,7 @@ export function LiveChatWidget() {
   }, [text])
 
   // Conditionally hide in admin panel to avoid overlapping admin controls
-  if (pathname?.startsWith("/botsito") || pathname?.startsWith("/admin")) {
+  if (pathname?.startsWith("/admin")) {
     return null
   }
 

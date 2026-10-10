@@ -83,9 +83,11 @@ export async function createBooking(
   if (scrim.confirmedTeams >= scrim.maxTeams)
     return { ok: false, error: "This scrim is full. Try another time slot." }
 
-  const existing = await userHasBooking(user.id, scrim.id)
+  const activeDate = getBangladeshActiveDate()
+  const targetDate = activeDate
+  const existing = await userHasBooking(user.id, scrim.id, targetDate)
   if (existing?.status === "confirmed")
-    return { ok: false, error: "You already have a confirmed booking for this scrim." }
+    return { ok: false, error: "You already have a confirmed booking for this scrim today." }
 
   const bookingId = existing?.id ?? randomUUID()
   const paymentId = randomUUID()
@@ -109,7 +111,7 @@ export async function createBooking(
         player5Uid: null,
         phone: data.phone,
         discordTelegram: teamTag,
-        scrimDate: scrim.scrimDate,
+        scrimDate: targetDate,
         teamLeaderImageUrl: data.teamLeaderImageUrl,
         paymentNumber: data.paymentNumber,
         teamMembersDriveLink: data.teamMembersDriveLink || null,
@@ -121,7 +123,7 @@ export async function createBooking(
       id: bookingId,
       userId: user.id,
       scrimId: scrim.id,
-      scrimDate: scrim.scrimDate,
+      scrimDate: targetDate,
       status: "pending",
       teamName: data.teamName,
       captainName: data.captainName,
@@ -304,8 +306,31 @@ export async function getLiveScrimSlotsMap(): Promise<
       if (s.slug) resultMap[s.slug] = item
     }
 
+    const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
+    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+      if (!resultMap[def.id]) {
+        const item = {
+          confirmed: 0,
+          maxTeams: 12,
+          registrationOpen: true,
+          status: "upcoming",
+        }
+        resultMap[def.id] = item
+        if (def.slug) resultMap[def.slug] = item
+      }
+    }
+
     return resultMap
   } catch {
     return {}
   }
+}
+
+/** Fetches fresh daily scrims state synchronized with daily reset */
+export async function getLiveActiveScrimsAction() {
+  const { archivePreviousDayBookings, getBangladeshActiveDate, getActiveScrims } = await import("@/lib/queries/scrims")
+  await archivePreviousDayBookings().catch(() => {})
+  const activeDate = getBangladeshActiveDate()
+  const scrims = await getActiveScrims()
+  return { activeDate, scrims }
 }

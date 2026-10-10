@@ -24,22 +24,10 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
     let active = true
     async function syncSlots() {
       try {
-        const { getLiveScrimSlotsMap } = await import("@/app/actions/booking")
-        const slotMap = await getLiveScrimSlotsMap()
-        if (!active || !slotMap || Object.keys(slotMap).length === 0) return
-        setScrims((prev) =>
-          prev.map((s) => {
-            const live = slotMap[s.slug] || slotMap[(s as any).id]
-            if (!live) return s
-            return {
-              ...s,
-              confirmedTeams: live.confirmed,
-              maxTeams: live.maxTeams,
-              registrationOpen: live.registrationOpen,
-              status: live.status,
-            }
-          })
-        )
+        const { getLiveActiveScrimsAction } = await import("@/app/actions/booking")
+        const live = await getLiveActiveScrimsAction()
+        if (!active || !live?.scrims || live.scrims.length === 0) return
+        setScrims(live.scrims as unknown as ScrimCardData[])
       } catch {}
     }
 

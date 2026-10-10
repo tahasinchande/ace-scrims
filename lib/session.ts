@@ -86,7 +86,6 @@ export async function checkMaintenanceMode() {
 
     // Allow static assets, staff/admin portal, staff login, and API routes to bypass maintenance redirect
     if (
-      pathname.startsWith("/botsito") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/staff-login") ||
       pathname.startsWith("/api/") ||

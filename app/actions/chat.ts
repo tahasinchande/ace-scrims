@@ -44,7 +44,7 @@ export async function sendChatMessage(
       createdAt: new Date(),
     })
 
-    revalidatePath("/botsito/chat")
+    revalidatePath("/admin/chat")
     return { ok: true, error: null }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to send message" }
@@ -199,7 +199,7 @@ export async function deleteChatMessage(messageId: string) {
       return { ok: false, error: "Message not found" }
     }
 
-    revalidatePath("/botsito/chat")
+    revalidatePath("/admin/chat")
     return { ok: true, error: null }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to delete message" }
@@ -223,7 +223,7 @@ export async function deleteUserChatHistory(targetUserId: string) {
       .where(eq(chatMessages.userId, targetUserId.trim()))
       .returning({ id: chatMessages.id })
 
-    revalidatePath("/botsito/chat")
+    revalidatePath("/admin/chat")
     return { ok: true, count: deleted.length, error: null }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to delete user chat history" }

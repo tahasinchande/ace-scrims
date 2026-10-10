@@ -107,8 +107,8 @@ export async function requestTeamImage(bookingId: string): Promise<ImageRequestS
     "/dashboard/image-requests"
   )
 
-  revalidatePath("/botsito/scrims")
-  revalidatePath("/botsito/results")
+  revalidatePath("/admin/scrims")
+  revalidatePath("/admin/results")
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/image-requests")
 
@@ -168,8 +168,8 @@ export async function submitPendingImageRequest(payload: {
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/image-requests")
-  revalidatePath("/botsito/scrims")
-  revalidatePath("/botsito/results")
+  revalidatePath("/admin/scrims")
+  revalidatePath("/admin/results")
 
   return {
     ok: true,

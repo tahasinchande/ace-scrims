@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useMemo } from "react"
+import { useState, useTransition, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import {
@@ -21,10 +21,20 @@ import {
   Eye,
   Hash,
   Download,
+  Trophy,
+  Medal,
+  Plus,
+  Trash2,
+  CheckCheck,
+  Loader2,
+  Crown,
+  UploadCloud,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -42,6 +52,9 @@ import {
 import { toast } from "sonner"
 import { formatTaka, formatDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { publishResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
+import { uploadMediaFile } from "@/lib/client-upload"
+import type { MatchResult } from "@/lib/db/schema"
 
 export type HistoricalBookingItem = {
   id: string
@@ -81,6 +94,13 @@ export type ScrimOption = {
   id: string
   title: string
   startTime: string
+  prizePoolBdt?: number
+}
+
+export type HistoricalResultItem = {
+  result: MatchResult
+  scrimTitle: string | null
+  startTime: string | null
 }
 
 export function AdminHistoryView({
@@ -89,12 +109,16 @@ export function AdminHistoryView({
   selectedDate,
   selectedScrimId = "all",
   bookings = [],
+  results = [],
+  isAdmin = false,
 }: {
   dates: string[]
   scrims: ScrimOption[]
   selectedDate: string
   selectedScrimId?: string
   bookings: HistoricalBookingItem[]
+  results?: HistoricalResultItem[]
+  isAdmin?: boolean
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -256,7 +280,16 @@ export function AdminHistoryView({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2 pt-2 sm:pt-0">
+          <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
+            <PublishHistoryResultDialog
+              selectedDate={dateInput}
+              scrims={scrims}
+              confirmedTeams={filteredBookings
+                .filter((b) => b.status === "confirmed")
+                .map((b) => ({ teamName: b.teamName, captainName: b.captainName, captainUid: b.captainUid }))}
+              defaultScrimId={scrimFilter}
+            />
+
             <Button
               variant="outline"
               size="sm"
@@ -295,6 +328,115 @@ export function AdminHistoryView({
           </div>
         </div>
       </div>
+
+      {/* Published Match Results for this Historical Date */}
+      {results && results.length > 0 && (
+        <div className="glass rounded-2xl border border-primary/30 p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trophy className="size-4 text-primary" />
+              <h3 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                Published Results for {selectedDate}
+              </h3>
+              <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
+                {results.length} Recorded
+              </Badge>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1">
+            {results.map((r) => {
+              const res = r.result
+              const isPaid = res.prizeStatus === "sent"
+
+              return (
+                <div key={res.id} className="rounded-xl border border-border/70 bg-card/60 p-3.5 flex flex-col justify-between gap-3 shadow-sm">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-primary truncate">
+                        {r.scrimTitle || "Scrim Lobby"} ({r.startTime || "N/A"})
+                      </span>
+                      <Badge variant="outline" className={cn("text-[9px] uppercase font-bold", isPaid ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "border-amber-500/40 text-amber-400 bg-amber-500/10")}>
+                        {isPaid ? "Paid" : "Pending"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Crown className="size-4 text-amber-400 shrink-0" />
+                      <h4 className="font-display font-bold text-sm text-foreground truncate">
+                        {res.winningTeam}
+                      </h4>
+                      <span className="text-[11px] text-muted-foreground">
+                        (#{res.placement})
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <span>Prize: <strong className="text-foreground">{formatTaka(res.prizeBdt)}</strong></span>
+                      <span>·</span>
+                      <span>Kills: <strong className="text-foreground">{res.kills}</strong></span>
+                      <span>·</span>
+                      <span className="truncate">{res.category}</span>
+                    </div>
+
+                    {res.mvpPlayerName && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        MVP: <span className="text-foreground font-semibold">{res.mvpPlayerName}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-border/50">
+                    {!isPaid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          startTransition(async () => {
+                            try {
+                              await markPrizeSent(res.id)
+                              toast.success("Prize marked as sent")
+                              router.refresh()
+                            } catch (err: any) {
+                              toast.error(err?.message || "Failed to update prize status")
+                            }
+                          })
+                        }}
+                        disabled={isPending}
+                        className="h-7 text-xs gap-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                      >
+                        <CheckCheck className="size-3" />
+                        Mark Paid
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!confirm("Are you sure you want to move this result to trash?")) return
+                        startTransition(async () => {
+                          try {
+                            await deleteResult(res.id)
+                            toast.success("Result moved to trash")
+                            router.refresh()
+                          } catch (err: any) {
+                            toast.error(err?.message || "Failed to delete result")
+                          }
+                        })
+                      }}
+                      disabled={isPending}
+                      className="h-7 text-xs gap-1 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-3" />
+                      Trash
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Bookings List Display */}
       {filteredBookings.length === 0 ? (
@@ -472,5 +614,364 @@ export function AdminHistoryView({
         </div>
       )}
     </div>
+  )
+}
+
+const WINNER_TYPES = [
+  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.55 },
+  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.30 },
+  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.15 },
+  { id: "MVP Face Banner", label: "MVP Face Banner", placement: 1, defaultPrizePct: 0 },
+  { id: "Top 3 Face Banner", label: "Top 3 Face Banner", placement: 1, defaultPrizePct: 0 },
+  { id: "Overall Standing Banner", label: "Overall Standing Banner", placement: 1, defaultPrizePct: 0 },
+]
+
+export function PublishHistoryResultDialog({
+  selectedDate,
+  scrims,
+  confirmedTeams,
+  defaultScrimId,
+}: {
+  selectedDate: string
+  scrims: ScrimOption[]
+  confirmedTeams: { teamName: string; captainName: string; captainUid?: string | null }[]
+  defaultScrimId?: string
+}) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [selectedScrimId, setSelectedScrimId] = useState(
+    defaultScrimId && defaultScrimId !== "all" ? defaultScrimId : scrims[0]?.id || ""
+  )
+  const [winnerType, setWinnerType] = useState("Champion — 1st place")
+  const [winningTeam, setWinningTeam] = useState("")
+  const [mvpPlayerName, setMvpPlayerName] = useState("")
+  const [mvpTeamName, setMvpTeamName] = useState("")
+  const [kills, setKills] = useState("0")
+  const [placement, setPlacement] = useState("1")
+  const [prizeBdt, setPrizeBdt] = useState("330")
+
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isPending, startTransition] = useTransition()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const selectedScrim = scrims.find((s) => s.id === selectedScrimId)
+
+  function handleWinnerTypeChange(typeId: string) {
+    setWinnerType(typeId)
+    const wt = WINNER_TYPES.find((w) => w.id === typeId)
+    if (wt) {
+      setPlacement(String(wt.placement))
+      if (selectedScrim?.prizePoolBdt && wt.defaultPrizePct > 0) {
+        const calculated = Math.round(selectedScrim.prizePoolBdt * wt.defaultPrizePct)
+        setPrizeBdt(String(calculated))
+      }
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    setUploadProgress(10)
+    try {
+      const urls: string[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const res = await uploadMediaFile(
+          file,
+          "results",
+          (p: number) => setUploadProgress(Math.round(((i + p / 100) / files.length) * 100))
+        )
+        urls.push(res.url)
+      }
+      setUploadedUrls((prev) => [...prev, ...urls])
+      setUploadProgress(100)
+      toast.success(`${urls.length} image(s) uploaded successfully`)
+    } catch (err) {
+      toast.error("Upload error: " + (err instanceof Error ? err.message : "Failed to upload"))
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (uploading) {
+      toast.info("Please wait for images to finish uploading")
+      return
+    }
+
+    if (!selectedScrimId) {
+      toast.error("Please select a scrim")
+      return
+    }
+    if (!winningTeam.trim()) {
+      toast.error("Please select or enter the winning team")
+      return
+    }
+
+    const actionData = new FormData()
+    actionData.append("scrimId", selectedScrimId)
+    actionData.append("winningTeam", winningTeam.trim())
+    if (mvpPlayerName.trim()) actionData.append("mvpPlayerName", mvpPlayerName.trim())
+    if (mvpTeamName.trim()) actionData.append("mvpTeamName", mvpTeamName.trim())
+    actionData.append("kills", kills)
+    actionData.append("placement", placement)
+    actionData.append("prizeBdt", prizeBdt)
+    actionData.append("category", winnerType)
+    actionData.append("matchDate", selectedDate)
+    if (uploadedUrls.length > 0) {
+      actionData.append("imageUrlsJson", JSON.stringify(uploadedUrls))
+    }
+
+    startTransition(async () => {
+      const res = await publishResult(null, actionData)
+      if (res.ok) {
+        toast.success("Historical result published successfully!")
+        setOpen(false)
+        setWinningTeam("")
+        setMvpPlayerName("")
+        setMvpTeamName("")
+        setUploadedUrls([])
+        router.refresh()
+      } else {
+        toast.error(res.error ?? "Failed to publish result")
+      }
+    })
+  }
+
+  const busy = uploading || isPending
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button size="sm" className="glow-primary font-display font-bold uppercase gap-2">
+            <Plus className="size-4" />
+            Publish Result for Date
+          </Button>
+        }
+      />
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+            <Trophy className="size-5 text-primary" />
+            Publish Result ({selectedDate})
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {/* Target Scrim */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Select Scrim Lobby</Label>
+            <Select
+              value={selectedScrimId}
+              onValueChange={(val) => {
+                if (!val) return
+                setSelectedScrimId(val)
+                const target = scrims.find((s) => s.id === val)
+                if (target?.prizePoolBdt) {
+                  const wt = WINNER_TYPES.find((w) => w.id === winnerType)
+                  if (wt && wt.defaultPrizePct > 0) {
+                    setPrizeBdt(String(Math.round(target.prizePoolBdt * wt.defaultPrizePct)))
+                  }
+                }
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select scrim..." />
+              </SelectTrigger>
+              <SelectContent>
+                {scrims.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.title} ({s.startTime})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Winner Category */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Category / Placement Type</Label>
+            <Select
+              value={winnerType}
+              onValueChange={(val) => {
+                if (val) handleWinnerTypeChange(val)
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WINNER_TYPES.map((wt) => (
+                  <SelectItem key={wt.id} value={wt.id}>
+                    {wt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Winning Team */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Winning Team Name</Label>
+              {confirmedTeams.length > 0 && (
+                <span className="text-[11px] text-muted-foreground">Quick pick from roster</span>
+              )}
+            </div>
+            {confirmedTeams.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pb-1 max-h-24 overflow-y-auto">
+                {confirmedTeams.map((t, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setWinningTeam(t.teamName)
+                      if (!mvpTeamName) setMvpTeamName(t.teamName)
+                      if (!mvpPlayerName && t.captainName) setMvpPlayerName(t.captainName)
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-xs border transition-colors",
+                      winningTeam === t.teamName
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary/40 hover:bg-secondary border-border text-foreground"
+                    )}
+                  >
+                    {t.teamName}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Input
+              value={winningTeam}
+              onChange={(e) => setWinningTeam(e.target.value)}
+              placeholder="e.g. VIP ESPORTS"
+              required
+            />
+          </div>
+
+          {/* Stats: Placement, Kills, Prize */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Placement (Rank)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="12"
+                value={placement}
+                onChange={(e) => setPlacement(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Total Kills</Label>
+              <Input
+                type="number"
+                min="0"
+                max="200"
+                value={kills}
+                onChange={(e) => setKills(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Prize (BDT)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100000"
+                value={prizeBdt}
+                onChange={(e) => setPrizeBdt(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          {/* MVP Player & Team */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">MVP Player (Optional)</Label>
+              <Input
+                value={mvpPlayerName}
+                onChange={(e) => setMvpPlayerName(e.target.value)}
+                placeholder="e.g. VIP・ALPHA"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">MVP Team (Optional)</Label>
+              <Input
+                value={mvpTeamName}
+                onChange={(e) => setMvpTeamName(e.target.value)}
+                placeholder="e.g. VIP ESPORTS"
+              />
+            </div>
+          </div>
+
+          {/* Screenshots Upload */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Match Screenshot(s) / Scoreboard</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={busy}
+                onChange={handleImageUpload}
+                className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+              />
+            </div>
+            {uploading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                <Loader2 className="size-3.5 animate-spin text-primary" />
+                <span>Uploading screenshots ({uploadProgress}%)...</span>
+              </div>
+            )}
+            {uploadedUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {uploadedUrls.map((url, idx) => (
+                  <div key={idx} className="relative group size-16 rounded border overflow-hidden bg-black/40">
+                    <Image src={url} alt={`Screenshot ${idx + 1}`} fill className="object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setUploadedUrls((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-0.5 right-0.5 bg-black/70 hover:bg-red-600 text-white rounded p-0.5 opacity-80 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Submit */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t">
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={busy} className="glow-primary font-bold">
+              {busy ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-1.5" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <CheckCheck className="size-4 mr-1.5" />
+                  Publish Result
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

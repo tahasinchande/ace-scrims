@@ -2,7 +2,7 @@ import "server-only"
 
 import { db } from "@/lib/db"
 import { scrims, bookings, payments, results, user, activityLogs, settings, reports, imageRequests } from "@/lib/db/schema"
-import { eq, desc, and, or, gte, sql, count, isNull } from "drizzle-orm"
+import { eq, desc, and, or, gte, sql, count, isNull, type SQL } from "drizzle-orm"
 import { appendGlobalScrimRules, getBangladeshActiveDate, archivePreviousDayBookings } from "@/lib/queries/scrims"
 
 /** Today's revenue, bookings, totals for the admin analytics cards. */
@@ -54,16 +54,20 @@ export async function getAdminStats() {
 /** All scrims with confirmed + pending team counts, integrated with all daily and Friday definitions. */
 export async function getAdminScrims(options: { includeDeleted?: boolean } = {}) {
   try {
+    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate, archivePreviousDayBookings } = await import("@/lib/queries/scrims")
+    await archivePreviousDayBookings().catch(() => {})
+    const activeDate = getBangladeshActiveDate()
+
     const rows = await db
       .select({
         scrim: scrims,
         confirmedTeams: sql<number>`(
           select count(*) from bookings b
-          where b."scrimId" = ${scrims.id} and b.status = 'confirmed'
+          where b."scrimId" = ${scrims.id} and b.status = 'confirmed' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate}
         )`,
         pendingTeams: sql<number>`(
           select count(*) from bookings b
-          where b."scrimId" = ${scrims.id} and b.status = 'pending'
+          where b."scrimId" = ${scrims.id} and b.status = 'pending' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate}
         )`,
       })
       .from(scrims)
@@ -74,10 +78,6 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
       confirmedTeams: Number(r.confirmedTeams),
       pendingTeams: Number(r.pendingTeams),
     }))
-
-    // Get all standard scrim definitions (Daily + Friday Special Blast + Champion Rush)
-    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
-    const activeDate = getBangladeshActiveDate()
 
     // Fetch permanently deleted IDs stored in settings tombstones
     let permanentlyDeletedIds = new Set<string>()
@@ -165,14 +165,21 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           bannerUrl: (existing.bannerUrl && !existing.bannerUrl.includes("map-")) ? existing.bannerUrl : (def.bannerUrl || "/images/scrim-1.jpg"),
         }
       } else {
-        // Query bookings for this defined scrim ID
+        // Query bookings for this defined scrim ID for the active date
         const bookingCounts = await db
           .select({
             confirmed: sql<number>`count(case when status = 'confirmed' then 1 end)`,
             pending: sql<number>`count(case when status = 'pending' then 1 end)`,
           })
           .from(bookings)
-          .where(eq(bookings.scrimId, def.id))
+          .where(
+            and(
+              eq(bookings.scrimId, def.id),
+              eq(bookings.isTrashed, false),
+              eq(bookings.isArchived, false),
+              eq(bookings.scrimDate, activeDate)
+            )
+          )
 
         merged.push({
           id: def.id,
@@ -610,13 +617,26 @@ export async function getTrashPayments() {
   }
 }
 
-export async function getAdminResults() {
+export async function getAdminResults(options?: { date?: string; scrimId?: string }) {
   const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
+  const conditions: (SQL<unknown> | undefined)[] = [eq(results.isTrashed, false), sql`${results.deletedAt} IS NULL`]
+
+  if (options?.date) {
+    conditions.push(eq(results.matchDate, options.date))
+  }
+  if (options?.scrimId && options.scrimId !== "all") {
+    const cleanId = options.scrimId
+    const altId = options.scrimId.replace(/^scrim-/, "")
+    conditions.push(or(eq(results.scrimId, cleanId), eq(results.scrimId, altId)))
+  }
+
+  const validConditions = conditions.filter((c): c is SQL<unknown> => Boolean(c))
+
   const rows = await db
     .select({ result: results, scrimTitle: scrims.title, startTime: scrims.startTime, scrimId: results.scrimId })
     .from(results)
     .leftJoin(scrims, eq(results.scrimId, scrims.id))
-    .where(and(eq(results.isTrashed, false), sql`${results.deletedAt} IS NULL`))
+    .where(and(...validConditions))
     .orderBy(desc(results.createdAt))
     .limit(100)
 

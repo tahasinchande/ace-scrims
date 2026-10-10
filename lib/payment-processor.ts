@@ -2,7 +2,7 @@ import "server-only"
 
 import { db } from "@/lib/db"
 import { bookings, payments, scrims, user } from "@/lib/db/schema"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, or, sql } from "drizzle-orm"
 import { verifyPayment } from "@/lib/uddoktapay"
 import { notifyUser } from "@/lib/notify"
 import { sendBookingConfirmationEmail } from "@/lib/email"
@@ -79,55 +79,118 @@ export async function processPayment(
     ((verified.raw as any)?.transactionId as string) ||
     null
 
-  // Idempotent completion — only the first caller flips pending -> completed
-  const updated = await db
-    .update(payments)
-    .set({
-      status: "completed",
-      invoiceId,
-      transactionId: trxId,
-      method: verified.paymentMethod ?? null,
-      senderNumber: verified.senderNumber ?? null,
-      rawPayload: verified.raw,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(payments.id, paymentId), sql`${payments.status} != 'completed'`))
-    .returning({ id: payments.id })
-  if (updated.length === 0) return { status: "already-confirmed" }
-
-  // Assign the next slot number and confirm the booking
-  const slotRows = await db
-    .select({
-      next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
-    })
-    .from(bookings)
-    .where(and(eq(bookings.scrimId, payment.scrimId), eq(bookings.status, "confirmed")))
-  const slotNumber = slotRows[0]?.next ?? 1
-
-  await db
-    .update(bookings)
-    .set({
-      status: "confirmed",
-      slotNumber,
-      transactionId: trxId,
-      invoiceId,
-      updatedAt: new Date(),
-    })
-    .where(eq(bookings.id, payment.bookingId))
-
+  const { getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+  const { revalidatePath } = await import("next/cache")
   const scrim = await resolveOrEnsureScrim(payment.scrimId)
+  const targetScrimDate = scrim?.scrimDate || getBangladeshActiveDate()
 
-  await notifyUser(
-    payment.userId,
-    "payment",
-    "Payment successful",
-    scrim
-      ? `Your slot #${slotNumber} for "${scrim.title}" (${scrim.startTime}) is confirmed. Room details will appear in your dashboard before the match.`
-      : "Your scrim booking is confirmed.",
-    "/dashboard/scrims",
-  )
+  let slotNumber = 1
+  let confirmedNow = false
 
-  // Send Booking Confirmation Transactional Email
+  // Atomic database transaction to prevent slot assignment race conditions
+  await db.transaction(async (tx) => {
+    // 1. Idempotently update payment status
+    const updated = await tx
+      .update(payments)
+      .set({
+        status: "completed",
+        invoiceId,
+        transactionId: trxId,
+        method: verified.paymentMethod ?? null,
+        senderNumber: verified.senderNumber ?? null,
+        rawPayload: verified.raw,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(payments.id, paymentId), sql`${payments.status} != 'completed'`))
+      .returning({ id: payments.id })
+
+    if (updated.length === 0) {
+      return
+    }
+
+    confirmedNow = true
+
+    // 2. Assign the next slot number for THIS TARGET SCRIM DATE atomically
+    const slotRows = await tx
+      .select({
+        next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
+      })
+      .from(bookings)
+      .where(
+        and(
+          or(
+            eq(bookings.scrimId, payment.scrimId),
+            eq(bookings.scrimId, scrim?.slug || payment.scrimId)
+          ),
+          eq(bookings.scrimDate, targetScrimDate),
+          eq(bookings.status, "confirmed"),
+          eq(bookings.isTrashed, false),
+          eq(bookings.isArchived, false)
+        )
+      )
+
+    slotNumber = slotRows[0]?.next ?? 1
+
+    // 3. Confirm the booking record
+    await tx
+      .update(bookings)
+      .set({
+        status: "confirmed",
+        slotNumber,
+        scrimDate: targetScrimDate,
+        transactionId: trxId,
+        invoiceId,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, payment.bookingId))
+
+    // 4. Auto-close registration if lobby reached maxTeams for today
+    if (scrim) {
+      const countRows = await tx
+        .select({ confirmed: sql<number>`COUNT(*)::int` })
+        .from(bookings)
+        .where(
+          and(
+            or(
+              eq(bookings.scrimId, payment.scrimId),
+              eq(bookings.scrimId, scrim.slug)
+            ),
+            eq(bookings.scrimDate, targetScrimDate),
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false)
+          )
+        )
+
+      if ((countRows[0]?.confirmed ?? 0) >= scrim.maxTeams) {
+        await tx
+          .update(scrims)
+          .set({ registrationOpen: false, updatedAt: new Date() })
+          .where(or(eq(scrims.id, payment.scrimId), eq(scrims.slug, payment.scrimId)))
+      }
+    }
+  })
+
+  if (!confirmedNow) {
+    return { status: "already-confirmed" }
+  }
+
+  // Notify user in-app (non-blocking)
+  try {
+    await notifyUser(
+      payment.userId,
+      "payment",
+      "Payment successful",
+      scrim
+        ? `Your slot #${slotNumber} for "${scrim.title}" (${scrim.startTime}) is confirmed. Room details will appear in your dashboard before the match.`
+        : "Your scrim booking is confirmed.",
+      "/dashboard/scrims",
+    )
+  } catch (notifyErr) {
+    console.warn("[Payment Processor] notifyUser error:", notifyErr)
+  }
+
+  // Send Booking Confirmation Transactional Email (resilient try/catch)
   try {
     const [bookingDetails, userDetails] = await Promise.all([
       db.select({ teamName: bookings.teamName, captainName: bookings.captainName }).from(bookings).where(eq(bookings.id, payment.bookingId)).limit(1),
@@ -152,19 +215,13 @@ export async function processPayment(
     console.warn("[Payment Processor] Could not fetch details for confirmation email:", emailQueryErr)
   }
 
-  // Auto-close registration when the lobby fills up
-  if (scrim) {
-    const countRows = await db
-      .select({ confirmed: sql<number>`COUNT(*)::int` })
-      .from(bookings)
-      .where(and(eq(bookings.scrimId, payment.scrimId), eq(bookings.status, "confirmed")))
-    if ((countRows[0]?.confirmed ?? 0) >= scrim.maxTeams) {
-      await db
-        .update(scrims)
-        .set({ registrationOpen: false, updatedAt: new Date() })
-        .where(eq(scrims.id, payment.scrimId))
-    }
-  }
+  // Flush cached views so /scrims and homepage immediately show fresh slot state
+  try {
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    revalidatePath("/dashboard/scrims")
+    revalidatePath("/admin/scrims")
+  } catch {}
 
   return { status: "confirmed" }
 }

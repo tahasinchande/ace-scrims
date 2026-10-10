@@ -14,6 +14,7 @@ import { MvpFaceBannersSection, type MvpBannerItem } from "@/components/landing/
 import { ScrimCard } from "@/components/site/scrim-card"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export default async function HomePage() {
   await checkMaintenanceMode()

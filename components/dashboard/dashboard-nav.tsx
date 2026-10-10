@@ -112,7 +112,7 @@ export function DashboardNav({
             {isStaff && (
               <li className="flex-1 lg:flex-none">
                 <Link
-                  href="/botsito"
+                  href={user.role === "admin" ? "/admin" : "/admin/scrims"}
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-secondary"
                 >
                   <Shield className="size-4 shrink-0" aria-hidden />

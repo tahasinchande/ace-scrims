@@ -52,22 +52,21 @@ export function isFridayBD(): boolean {
 export async function archivePreviousDayBookings(): Promise<number> {
   try {
     const activeDate = getBangladeshActiveDate()
-    // 1. Archive bookings from previous days so they are preserved in historical archive
+    // 1. Backfill and archive bookings from previous days so they are preserved in historical archive
     await db
       .update(bookings)
       .set({
         isArchived: true,
         archivedAt: new Date(),
+        scrimDate: sql`COALESCE(${bookings.scrimDate}, (${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text)`,
       })
       .where(
         and(
           eq(bookings.isArchived, false),
           or(
             lt(bookings.scrimDate, activeDate),
-            and(
-              sql`${bookings.scrimDate} IS NULL`,
-              sql`${bookings.createdAt} < CURRENT_DATE`
-            )
+            sql`${bookings.scrimDate} IS NULL`,
+            sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text < ${activeDate}`
           )
         )
       )
@@ -412,6 +411,9 @@ export function isDailyWeekdayScrim(s: { id?: string; slug?: string; title?: str
 
 /** All active scrims with confirmed team counts, ordered by start time. Filters out Room 2 for public if toggle is OFF. */
 export async function getActiveScrims(includeRoom2Override?: boolean, includeHidden?: boolean): Promise<ScrimWithSlots[]> {
+  // Synchronize past days and archive previous bookings before loading scrims
+  await archivePreviousDayBookings().catch(() => {})
+
   const isFriday = await isFridayScrimsActive()
   const samples = getSampleScrims(isFriday)
   const showRoom2 = includeRoom2Override ?? (await isRoom2Enabled())
@@ -549,6 +551,7 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
 }
 
 export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | null> {
+  await archivePreviousDayBookings().catch(() => {})
   const isFriday = await isFridayScrimsActive()
   const allSamples = getAllSampleScrims()
   let result: ScrimWithSlots | null = null
@@ -573,7 +576,6 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
     }
 
     try {
-      archivePreviousDayBookings().catch(() => {})
       const activeDate = getBangladeshActiveDate()
       const countRows = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -595,6 +597,7 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
 }
 
 export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
+  await archivePreviousDayBookings().catch(() => {})
   const isFriday = await isFridayScrimsActive()
   const allSamples = getAllSampleScrims()
   let result: ScrimWithSlots | null = null
@@ -619,7 +622,6 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
     }
 
     try {
-      archivePreviousDayBookings().catch(() => {})
       const activeDate = getBangladeshActiveDate()
       const countRows = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -662,20 +664,25 @@ export async function getAllScrims(): Promise<ScrimWithSlots[]> {
   }
 }
 
-/** Whether a user already has a non-cancelled booking for a scrim today. */
-export async function userHasBooking(userId: string, scrimId: string) {
+/** Whether a user already has a non-cancelled booking for a scrim on the target date (defaults to current active date). */
+export async function userHasBooking(userId: string, scrimIdOrSlug: string, targetDate?: string) {
   try {
     const activeDate = getBangladeshActiveDate()
+    const target = (targetDate && targetDate >= activeDate) ? targetDate : activeDate
+    const scrim = await getScrimById(scrimIdOrSlug).catch(() => null)
+    const targetId = scrim?.id || scrimIdOrSlug
+    const targetSlug = scrim?.slug || scrimIdOrSlug
+
     const rows = await db
-      .select({ id: bookings.id, status: bookings.status })
+      .select({ id: bookings.id, status: bookings.status, scrimDate: bookings.scrimDate })
       .from(bookings)
       .where(
         and(
           eq(bookings.userId, userId),
-          eq(bookings.scrimId, scrimId),
+          or(eq(bookings.scrimId, targetId), eq(bookings.scrimId, targetSlug)),
           eq(bookings.isTrashed, false),
           eq(bookings.isArchived, false),
-          eq(bookings.scrimDate, activeDate),
+          eq(bookings.scrimDate, target),
           sql`${bookings.status} IN ('pending', 'confirmed')`,
         ),
       )
@@ -700,7 +707,26 @@ export async function resolveOrEnsureScrim(scrimIdOrSlug: string) {
       .where(or(eq(scrims.id, scrimIdOrSlug), eq(scrims.slug, scrimIdOrSlug)))
       .limit(1)
 
+    const activeDate = getBangladeshActiveDate()
+
     if (rows.length > 0 && rows[0]) {
+      // If the scrim in the DB is from a previous date, immediately update it to the current active cycle
+      if (!rows[0].scrimDate || rows[0].scrimDate < activeDate) {
+        const [synced] = await db
+          .update(scrims)
+          .set({
+            scrimDate: activeDate,
+            status: "upcoming",
+            registrationOpen: true,
+            roomPublished: false,
+            roomId: null,
+            roomPassword: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(scrims.id, rows[0].id))
+          .returning()
+        return synced || { ...rows[0], scrimDate: activeDate }
+      }
       return rows[0]
     }
 

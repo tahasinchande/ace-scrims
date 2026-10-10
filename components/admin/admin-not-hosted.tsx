@@ -137,7 +137,7 @@ export function AdminNotHosted({
 
     setBulkLoadingScrimId(scrimId)
     try {
-      const res = await fetch("/api/botsito/refund", {
+      const res = await fetch("/api/admin/refund", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -166,7 +166,7 @@ export function AdminNotHosted({
   const handleAutoRefund = async (team: NotHostedTeam) => {
     setLoadingId(team.id)
     try {
-      const res = await fetch("/api/botsito/refund", {
+      const res = await fetch("/api/admin/refund", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

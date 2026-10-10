@@ -74,7 +74,10 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
         .where(
           and(
             or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
-            eq(bookings.status, "confirmed")
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false),
+            eq(bookings.scrimDate, scrim.scrimDate)
           )
         )
 
@@ -101,7 +104,7 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
       console.warn("[Staff Action] Could not query confirmed participants for room release email:", emailDispatchErr)
     }
 
-    revalidatePath("/botsito/scrims")
+    revalidatePath("/admin/scrims")
     revalidatePath("/dashboard/scrims")
     return { ok: true, error: null }
   } catch (e) {
@@ -117,7 +120,7 @@ export async function unpublishRoom(scrimId: string): Promise<{ ok: boolean; err
       .set({ roomPublished: false, updatedAt: new Date() })
       .where(eq(scrims.id, scrimId))
     await logActivity(staff.id, staff.role, "unpublish_room", scrimId)
-    revalidatePath("/botsito/scrims")
+    revalidatePath("/admin/scrims")
     revalidatePath("/dashboard/scrims")
     return { ok: true, error: null }
   } catch (e) {
@@ -210,10 +213,16 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       publishedBy: staff.id,
     })
 
-    await db
-      .update(scrims)
-      .set({ status: "completed", updatedAt: new Date() })
-      .where(eq(scrims.id, scrim.id))
+    // Only update live scrim status to completed if publishing results for today's active date.
+    // Historical matches published from the archive do not conflict with the active day's live scrim.
+    const { getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const activeDate = getBangladeshActiveDate()
+    if (customMatchDate === activeDate) {
+      await db
+        .update(scrims)
+        .set({ status: "completed", updatedAt: new Date() })
+        .where(eq(scrims.id, scrim.id))
+    }
 
     await notifyScrimParticipants(
       scrim.id,
@@ -239,7 +248,9 @@ export async function publishResult(_prev: unknown, formData: FormData) {
         .where(
           and(
             or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
-            eq(bookings.status, "confirmed")
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.scrimDate, customMatchDate)
           )
         )
 
@@ -294,7 +305,7 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       category: parsed.data.category,
     })
 
-    revalidatePath("/botsito/results")
+    revalidatePath("/admin/results")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
     return { ok: true, error: null }
@@ -307,7 +318,7 @@ export async function markPrizeSent(resultId: string) {
   const admin = await requireAdmin()
   await db.update(results).set({ prizeStatus: "sent" }).where(eq(results.id, resultId))
   await logActivity(admin.id, admin.role, "prize_sent", resultId)
-  revalidatePath("/botsito/results")
+  revalidatePath("/admin/results")
   revalidatePath("/dashboard/results")
 }
 
@@ -385,7 +396,7 @@ export async function updateResult(_prev: unknown, formData: FormData) {
       category,
     })
 
-    revalidatePath("/botsito/results")
+    revalidatePath("/admin/results")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
     return { ok: true, error: null }
@@ -405,8 +416,8 @@ export async function deleteResult(resultId: string) {
       })
       .where(eq(results.id, resultId))
     await logActivity(staff.id, staff.role, "soft_delete_result", resultId)
-    revalidatePath("/botsito/results")
-    revalidatePath("/botsito/trash")
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/trash")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
     return { ok: true, error: null }
@@ -422,7 +433,7 @@ export async function deleteBroadcast(notificationId: string) {
     await db.delete(notifications).where(eq(notifications.id, notificationId))
     await logActivity(staff.id, staff.role, "delete_broadcast", notificationId)
     revalidatePath("/dashboard/notifications")
-    revalidatePath("/botsito/announcements")
+    revalidatePath("/admin/announcements")
     return { ok: true, error: null }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete broadcast" }
