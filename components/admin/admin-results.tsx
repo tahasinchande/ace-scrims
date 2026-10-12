@@ -47,10 +47,9 @@ type ScrimOption = { id: string; title: string; startTime: string; prizePoolBdt?
 type RosterBooking = Booking & { userEmail: string | null }
 
 const WINNER_TYPES = [
-  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.375 },
-  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.2708 },
-  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.2083 },
-  { id: "Third Runner-up — 4th place", label: "Third Runner-up — 4th place", placement: 4, defaultPrizePct: 0.1458 },
+  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.485 },
+  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.303 },
+  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.212 },
   { id: "MVP Face Banner", label: "MVP Face Banner", placement: 1, defaultPrizePct: 0 },
   { id: "Top 3 Face Banner", label: "Top 3 Face Banner", placement: 1, defaultPrizePct: 0 },
   { id: "Overall Standing Banner", label: "Overall Standing Banner", placement: 1, defaultPrizePct: 0 },
@@ -388,17 +387,30 @@ export function PublishResultButton({
     const wt = WINNER_TYPES.find((w) => w.id === typeId)
     if (wt) {
       setPlacement(String(wt.placement))
-      if (selectedScrim?.prizePoolBdt && wt.defaultPrizePct > 0) {
-        if (selectedScrim.prizePoolBdt === 480) {
-          if (wt.placement === 1) setPrizeBdt("180")
-          else if (wt.placement === 2) setPrizeBdt("130")
-          else if (wt.placement === 3) setPrizeBdt("100")
-          else if (wt.placement === 4) setPrizeBdt("70")
-          else setPrizeBdt(String(Math.round(selectedScrim.prizePoolBdt * wt.defaultPrizePct)))
+      const pool = selectedScrim?.prizePoolBdt || 330
+      if (wt.defaultPrizePct > 0) {
+        if (pool === 330) {
+          if (wt.placement === 1) setPrizeBdt("160")
+          else if (wt.placement === 2) setPrizeBdt("100")
+          else if (wt.placement === 3) setPrizeBdt("70")
+          else setPrizeBdt("0")
+        } else if (pool === 320) {
+          if (wt.placement === 1) setPrizeBdt("140")
+          else if (wt.placement === 2) setPrizeBdt("100")
+          else if (wt.placement === 3) setPrizeBdt("80")
+          else setPrizeBdt("0")
+        } else if (pool === 850) {
+          if (wt.placement === 1) setPrizeBdt("300")
+          else if (wt.placement === 2) setPrizeBdt("190")
+          else if (wt.placement === 3) setPrizeBdt("140")
+          else if (wt.placement === 4) setPrizeBdt("120")
+          else if (wt.placement === 5) setPrizeBdt("100")
+          else setPrizeBdt("0")
         } else {
-          const calculated = Math.round(selectedScrim.prizePoolBdt * wt.defaultPrizePct)
-          setPrizeBdt(String(calculated))
+          setPrizeBdt(String(Math.round(pool * wt.defaultPrizePct)))
         }
+      } else {
+        setPrizeBdt("0")
       }
     }
   }

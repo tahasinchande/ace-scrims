@@ -37,22 +37,20 @@ export type ScrimPrizeBreakdown = {
 export const PRIZE_DISTRIBUTIONS: Record<"daily" | "champion_rush" | "friday_special", ScrimPrizeBreakdown> = {
   daily: {
     categoryName: "Daily Scrims",
-    totalPrizeBdt: 480,
+    totalPrizeBdt: 330,
     places: [
-      { rank: 1, place: "1st Place", prizeBdt: 180 },
-      { rank: 2, place: "2nd Place", prizeBdt: 130 },
-      { rank: 3, place: "3rd Place", prizeBdt: 100 },
-      { rank: 4, place: "4th Place", prizeBdt: 70 },
+      { rank: 1, place: "1st Place", prizeBdt: 160 },
+      { rank: 2, place: "2nd Place", prizeBdt: 100 },
+      { rank: 3, place: "3rd Place", prizeBdt: 70 },
     ],
   },
   champion_rush: {
     categoryName: "Champion Rush",
-    totalPrizeBdt: 480,
+    totalPrizeBdt: 320,
     places: [
-      { rank: 1, place: "1st Place", prizeBdt: 180 },
-      { rank: 2, place: "2nd Place", prizeBdt: 130 },
-      { rank: 3, place: "3rd Place", prizeBdt: 100 },
-      { rank: 4, place: "4th Place", prizeBdt: 70 },
+      { rank: 1, place: "1st Place", prizeBdt: 140 },
+      { rank: 2, place: "2nd Place", prizeBdt: 100 },
+      { rank: 3, place: "3rd Place", prizeBdt: 80 },
     ],
   },
   friday_special: {
