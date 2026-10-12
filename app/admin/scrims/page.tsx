@@ -1,4 +1,5 @@
 import { getAdminScrims, getAllBookingsByScrim } from "@/lib/queries/admin"
+import { isRoom2Enabled } from "@/lib/queries/scrims"
 import { AdminScrimList } from "@/components/admin/admin-scrim-list"
 import { CreateScrimButton } from "@/components/admin/scrim-form-dialog"
 import { getSessionUser } from "@/lib/session"
@@ -7,10 +8,11 @@ export const dynamic = "force-dynamic"
 export const metadata = { title: "Manage Scrims — Ace Scrims Admin" }
 
 export default async function AdminScrimsPage() {
-  const [user, scrims, bookingsByScrim] = await Promise.all([
+  const [user, scrims, bookingsByScrim, room2Enabled] = await Promise.all([
     getSessionUser(),
     getAdminScrims({ includeDeleted: true }),
     getAllBookingsByScrim().catch(() => ({})),
+    isRoom2Enabled().catch(() => false),
   ])
 
   const isAdmin = user?.role === "admin"
@@ -31,6 +33,7 @@ export default async function AdminScrimsPage() {
         scrims={scrims}
         isAdmin={isAdmin}
         bookingsByScrim={bookingsByScrim}
+        initialRoom2Enabled={room2Enabled}
       />
     </div>
   )

@@ -1091,36 +1091,42 @@ export async function setUserBanned(userId: string, banned: boolean) {
 
 // ── Settings & announcements ────────────────────────────────────────────
 
-export async function setSetting(key: string, value: string) {
-  const admin = await requireAdmin()
-  const allowed = [
-    "announcement",
-    "discord_url",
-    "facebook_url",
-    "youtube_url",
-    "tiktok_url",
-    "whatsapp_channel_url",
-    "telegram_url",
-    "instagram_url",
-    "support_whatsapp",
-    "champion_rush_whatsapp_url",
-    "support_kori_url",
-    "show_room2",
-    "maintenance_mode",
-    "staff_portal_path",
-    "friday_scrims_override",
-    "rules_general",
-    "payment_note",
-    "site_logo_url",
-  ]
-  if (!allowed.includes(key)) throw new Error("Unknown setting: " + key)
-  await db
-    .insert(settings)
-    .values({ key, value, updatedAt: new Date() })
-    .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } })
-  await logActivity(admin.id, "admin", "update_setting", key)
-  revalidatePath("/admin/settings")
-  revalidatePath("/")
+export async function setSetting(key: string, value: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const admin = await requireAdmin()
+    const allowed = [
+      "announcement",
+      "discord_url",
+      "facebook_url",
+      "youtube_url",
+      "tiktok_url",
+      "whatsapp_channel_url",
+      "telegram_url",
+      "instagram_url",
+      "support_whatsapp",
+      "champion_rush_whatsapp_url",
+      "support_kori_url",
+      "show_room2",
+      "maintenance_mode",
+      "staff_portal_path",
+      "friday_scrims_override",
+      "rules_general",
+      "payment_note",
+      "site_logo_url",
+    ]
+    if (!allowed.includes(key)) return { ok: false, error: "Unknown setting: " + key }
+    await db
+      .insert(settings)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } })
+    await logActivity(admin.id, "admin", "update_setting", key)
+    revalidatePath("/admin/settings")
+    revalidatePath("/admin/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Failed to update setting" }
+  }
 }
 
 export async function saveAllSiteSettings(

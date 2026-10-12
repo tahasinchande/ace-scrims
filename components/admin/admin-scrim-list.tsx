@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react"
 import Link from "next/link"
 import { publishRoom, unpublishRoom } from "@/app/actions/staff"
-import { deleteScrim, restoreScrim, permanentlyDeleteScrim, bulkDeleteScrims, wipeTestData, toggleRegistration, toggleScrimStatus, toggleScrimHidden } from "@/app/actions/admin"
+import { deleteScrim, restoreScrim, permanentlyDeleteScrim, bulkDeleteScrims, wipeTestData, toggleRegistration, toggleScrimStatus, toggleScrimHidden, setSetting } from "@/app/actions/admin"
 import { EditScrimButton } from "@/components/admin/scrim-form-dialog"
 import { PublishResultButton } from "@/components/admin/admin-results"
 import { Button } from "@/components/ui/button"
@@ -554,16 +554,23 @@ export function AdminScrimList({
   scrims,
   isAdmin,
   bookingsByScrim = {},
+  initialRoom2Enabled = false,
 }: {
   scrims: AdminScrim[]
   isAdmin: boolean
   bookingsByScrim?: Record<string, RosterBooking[]>
+  initialRoom2Enabled?: boolean
 }) {
   const [, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<"all" | "daily" | "friday" | "champion" | "not_hosted" | "trash">("all")
+  const [activeTab, setActiveTab] = useState<"all" | "daily" | "room2" | "friday" | "champion" | "not_hosted" | "trash">("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedScrimIds, setSelectedScrimIds] = useState<string[]>([])
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [room2Visible, setRoom2Visible] = useState(initialRoom2Enabled)
+  const [isTogglingRoom2, setIsTogglingRoom2] = useState(false)
+
+  const isRoom2Scrim = (s: AdminScrim) =>
+    s.id.includes("r2") || s.slug.includes("room-2") || s.title.toLowerCase().includes("room 2")
 
   const notHostedCount = scrims.filter((s) => s.status === "not_hosted").length
   const trashCount = scrims.filter((s) => s.status === "deleted" || s.deletedAt != null).length
@@ -582,8 +589,10 @@ export function AdminScrimList({
     const isCR = scrim.title.toLowerCase().includes("champion rush") || scrim.slug.includes("champion-rush")
     const isFridayBlast = scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
     const isDaily = !isCR && !isFridayBlast
+    const isR2 = isRoom2Scrim(scrim)
 
     if (activeTab === "daily" && !isDaily) return false
+    if (activeTab === "room2" && !isR2) return false
     if (activeTab === "friday" && !isFridayBlast) return false
     if (activeTab === "champion" && !isCR) return false
 
@@ -602,8 +611,27 @@ export function AdminScrimList({
 
   const activeScrimsCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
   const dailyCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !s.title.toLowerCase().includes("champion rush") && !s.title.toLowerCase().includes("friday special") && !s.slug.includes("champion-rush") && !s.slug.includes("friday-special")).length
+  const room2Count = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
   const fridayCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special"))).length
   const crCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush"))).length
+
+  async function handleToggleRoom2() {
+    setIsTogglingRoom2(true)
+    const nextVal = !room2Visible
+    try {
+      const res = await setSetting("show_room2", nextVal ? "true" : "false")
+      if (res.ok) {
+        setRoom2Visible(nextVal)
+        toast.success(nextVal ? "Room 2 Lobbies are now VISIBLE publicly" : "Room 2 Lobbies are now HIDDEN from public")
+      } else {
+        toast.error(res.error || "Failed to update Room 2 visibility")
+      }
+    } catch {
+      toast.error("Failed to update Room 2 visibility")
+    } finally {
+      setIsTogglingRoom2(false)
+    }
+  }
 
   async function handleBulkDelete() {
     if (selectedScrimIds.length === 0) return
@@ -650,6 +678,15 @@ export function AdminScrimList({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("room2")}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              activeTab === "room2" ? "bg-purple-600 text-white shadow" : "text-muted-foreground hover:text-purple-300"
+            }`}
+          >
+            Room 2 ({room2Count})
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("friday")}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
               activeTab === "friday" ? "bg-amber-500 text-black shadow" : "text-muted-foreground hover:text-amber-400"
@@ -666,7 +703,7 @@ export function AdminScrimList({
             }`}
           >
             <Trophy className="size-3.5" />
-            10 PM Champion Rush ({crCount})
+            Champion Rush ({crCount})
           </button>
           {notHostedCount > 0 && (
             <button
@@ -689,7 +726,32 @@ export function AdminScrimList({
           </Link>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isTogglingRoom2}
+              onClick={handleToggleRoom2}
+              className={cn(
+                "h-8 gap-1.5 text-xs font-semibold transition-all border",
+                room2Visible
+                  ? "border-purple-500/50 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
+                  : "border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              )}
+              title="Toggle Room 2 lobbies public visibility ON or OFF"
+            >
+              {isTogglingRoom2 ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : room2Visible ? (
+                <Eye className="size-3.5 text-purple-400" />
+              ) : (
+                <EyeOff className="size-3.5 text-muted-foreground" />
+              )}
+              <span>Room 2 Public: <strong className={room2Visible ? "text-purple-300 font-bold" : "text-muted-foreground font-bold"}>{room2Visible ? "ON" : "OFF"}</strong></span>
+            </Button>
+          )}
+
           {isAdmin && selectedScrimIds.length > 0 && (
             <Button
               size="sm"
@@ -785,6 +847,16 @@ export function AdminScrimList({
                     {isFridayBlast && (
                       <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px]">
                         3 Matches Blast
+                      </Badge>
+                    )}
+                    {isRoom2Scrim(scrim) && (
+                      <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px]">
+                        Room 2
+                      </Badge>
+                    )}
+                    {!isRoom2Scrim(scrim) && !isCR && !isFridayBlast && (scrim.title.includes("ROOM 1") || scrim.slug.includes("room-1") || scrim.id.includes("r1")) && (
+                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px]">
+                        Room 1
                       </Badge>
                     )}
                   </h2>

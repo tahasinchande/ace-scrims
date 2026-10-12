@@ -197,7 +197,8 @@ async function ensureSchema() {
         `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `DELETE FROM "settings" WHERE "key" = 'support_phone'`,
-        `UPDATE "scrims" SET "map" = 'Champion Mode (Max 8 Matches)' WHERE "slug" = '10-pm-champion-rush' OR "id" = 'scrim-fri-10pm-cr' OR "title" ILIKE '%Champion Rush%'`
+        `UPDATE "scrims" SET "map" = 'Champion Mode (Max 8 Matches)' WHERE "slug" = '10-pm-champion-rush' OR "slug" = '3-pm-champion-rush' OR "id" LIKE '%-cr' OR "title" ILIKE '%Champion Rush%'`,
+        `UPDATE "scrims" SET "priceBdt" = 50, "prizePoolBdt" = 480 WHERE "category" = 'Daily Scrims' OR "id" LIKE 'scrim-%' AND "category" NOT LIKE '%Blast%'`
       ]
 
       for (const stmt of statements) {

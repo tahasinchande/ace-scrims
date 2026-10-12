@@ -109,7 +109,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
       )
       if (deletedInDb) continue
 
-      const isCR = def.id === "scrim-fri-10pm-cr" || def.slug === "10-pm-champion-rush"
+      const isCR = def.id.includes("-cr") || def.slug.includes("champion-rush") || def.name.toLowerCase().includes("champion rush")
       const isBlast = def.category === "Friday Special Blast"
 
       const existingIdx = merged.findIndex(
@@ -186,7 +186,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           title: def.name,
           slug: def.slug,
           description: isCR
-            ? "10 PM Champion Rush Tournament: Free Fire squad survival championship format."
+            ? `${def.time} Champion Rush Tournament: Free Fire squad survival championship format.`
             : isBlast
               ? `Friday Special Blast (${def.name}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
               : `Competitive Free Fire squad scrim lobby (${def.name}).`,

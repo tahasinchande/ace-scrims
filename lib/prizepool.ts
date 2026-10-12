@@ -37,20 +37,22 @@ export type ScrimPrizeBreakdown = {
 export const PRIZE_DISTRIBUTIONS: Record<"daily" | "champion_rush" | "friday_special", ScrimPrizeBreakdown> = {
   daily: {
     categoryName: "Daily Scrims",
-    totalPrizeBdt: 330,
+    totalPrizeBdt: 480,
     places: [
-      { rank: 1, place: "1st Place", prizeBdt: 160 },
-      { rank: 2, place: "2nd Place", prizeBdt: 100 },
-      { rank: 3, place: "3rd Place", prizeBdt: 70 },
+      { rank: 1, place: "1st Place", prizeBdt: 180 },
+      { rank: 2, place: "2nd Place", prizeBdt: 130 },
+      { rank: 3, place: "3rd Place", prizeBdt: 100 },
+      { rank: 4, place: "4th Place", prizeBdt: 70 },
     ],
   },
   champion_rush: {
-    categoryName: "10 PM Champion Rush",
-    totalPrizeBdt: 320,
+    categoryName: "Champion Rush",
+    totalPrizeBdt: 480,
     places: [
-      { rank: 1, place: "1st Place", prizeBdt: 140 },
-      { rank: 2, place: "2nd Place", prizeBdt: 100 },
-      { rank: 3, place: "3rd Place", prizeBdt: 80 },
+      { rank: 1, place: "1st Place", prizeBdt: 180 },
+      { rank: 2, place: "2nd Place", prizeBdt: 130 },
+      { rank: 3, place: "3rd Place", prizeBdt: 100 },
+      { rank: 4, place: "4th Place", prizeBdt: 70 },
     ],
   },
   friday_special: {
@@ -88,13 +90,13 @@ export function getScrimPrizeBreakdown(scrim: {
     return PRIZE_DISTRIBUTIONS.friday_special
   }
 
-  // 2. 10 PM Champion Rush
+  // 2. Champion Rush (3 PM and 10 PM)
   if (
     title.includes("champion rush") ||
     slug.includes("champion-rush") ||
     category.includes("champion rush") ||
-    id.includes("10pm-cr") ||
-    id === "scrim-fri-10pm-cr"
+    id.includes("-cr") ||
+    id.includes("champion-rush")
   ) {
     return PRIZE_DISTRIBUTIONS.champion_rush
   }

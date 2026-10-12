@@ -110,18 +110,24 @@ function sortByStartTime(list: ScrimWithSlots[]): ScrimWithSlots[] {
 }
 
 export const DAILY_SCRIM_DEFINITIONS = [
-  { id: "scrim-7pm-r1", time: "7:00 PM", name: "7 PM SCRIM ROOM 1", slug: "7-pm-scrim-room-1", map: "Bermuda", isRoom2: false, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-1.jpg" },
-  { id: "scrim-7pm-r2", time: "7:00 PM", name: "7 PM SCRIM ROOM 2", slug: "7-pm-scrim-room-2", map: "Purgatory", isRoom2: true, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-2.jpg" },
-  { id: "scrim-8pm-r1", time: "8:00 PM", name: "8 PM SCRIM ROOM 1", slug: "8-pm-scrim-room-1", map: "Kalahari", isRoom2: false, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-3.jpg" },
-  { id: "scrim-8pm-r2", time: "8:00 PM", name: "8 PM SCRIM ROOM 2", slug: "8-pm-scrim-room-2", map: "Bermuda", isRoom2: true, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-4.jpg" },
-  { id: "scrim-9pm-r1", time: "9:00 PM", name: "9 PM SCRIM ROOM 1", slug: "9-pm-scrim-room-1", map: "Purgatory", isRoom2: false, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-5.jpg" },
-  { id: "scrim-9pm-r2", time: "9:00 PM", name: "9 PM SCRIM ROOM 2", slug: "9-pm-scrim-room-2", map: "Kalahari", isRoom2: true, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-6.jpg" },
-  { id: "scrim-10pm-r1", time: "10:00 PM", name: "10 PM SCRIM ROOM 1", slug: "10-pm-scrim-room-1", map: "Bermuda", isRoom2: false, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-7.jpg" },
-  { id: "scrim-10pm-r2", time: "10:00 PM", name: "10 PM SCRIM ROOM 2", slug: "10-pm-scrim-room-2", map: "Purgatory", isRoom2: true, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-8.jpg" },
-  { id: "scrim-11pm-r1", time: "11:00 PM", name: "11 PM SCRIM ROOM 1", slug: "11-pm-scrim-room-1", map: "Kalahari", isRoom2: false, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-9.jpg" },
-  { id: "scrim-11pm-r2", time: "11:00 PM", name: "11 PM SCRIM ROOM 2", slug: "11-pm-scrim-room-2", map: "Bermuda", isRoom2: true, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-10.jpg" },
-  { id: "scrim-12am-r1", time: "12:00 AM", name: "12 AM SCRIM ROOM 1", slug: "12-am-scrim-room-1", map: "Purgatory", isRoom2: false, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-11.jpg" },
-  { id: "scrim-12am-r2", time: "12:00 AM", name: "12 AM SCRIM ROOM 2", slug: "12-am-scrim-room-2", map: "Kalahari", isRoom2: true, priceBdt: 35, prizePoolBdt: 330, category: "Daily Scrims", bannerUrl: "/images/scrim-12.jpg" },
+  { id: "scrim-3pm-r1", time: "3:00 PM", name: "3 PM SCRIM ROOM 1", slug: "3-pm-scrim-room-1", map: "Bermuda", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-1.jpg" },
+  { id: "scrim-3pm-r2", time: "3:00 PM", name: "3 PM SCRIM ROOM 2", slug: "3-pm-scrim-room-2", map: "Purgatory", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-2.jpg" },
+  { id: "scrim-4pm-r1", time: "4:00 PM", name: "4 PM SCRIM ROOM 1", slug: "4-pm-scrim-room-1", map: "Kalahari", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-3.jpg" },
+  { id: "scrim-4pm-r2", time: "4:00 PM", name: "4 PM SCRIM ROOM 2", slug: "4-pm-scrim-room-2", map: "Bermuda", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-4.jpg" },
+  { id: "scrim-5pm-r1", time: "5:00 PM", name: "5 PM SCRIM ROOM 1", slug: "5-pm-scrim-room-1", map: "Purgatory", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-5.jpg" },
+  { id: "scrim-5pm-r2", time: "5:00 PM", name: "5 PM SCRIM ROOM 2", slug: "5-pm-scrim-room-2", map: "Kalahari", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-6.jpg" },
+  { id: "scrim-7pm-r1", time: "7:00 PM", name: "7 PM SCRIM ROOM 1", slug: "7-pm-scrim-room-1", map: "Bermuda", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-7.jpg" },
+  { id: "scrim-7pm-r2", time: "7:00 PM", name: "7 PM SCRIM ROOM 2", slug: "7-pm-scrim-room-2", map: "Purgatory", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-8.jpg" },
+  { id: "scrim-8pm-r1", time: "8:00 PM", name: "8 PM SCRIM ROOM 1", slug: "8-pm-scrim-room-1", map: "Kalahari", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-9.jpg" },
+  { id: "scrim-8pm-r2", time: "8:00 PM", name: "8 PM SCRIM ROOM 2", slug: "8-pm-scrim-room-2", map: "Bermuda", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-10.jpg" },
+  { id: "scrim-9pm-r1", time: "9:00 PM", name: "9 PM SCRIM ROOM 1", slug: "9-pm-scrim-room-1", map: "Purgatory", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-11.jpg" },
+  { id: "scrim-9pm-r2", time: "9:00 PM", name: "9 PM SCRIM ROOM 2", slug: "9-pm-scrim-room-2", map: "Kalahari", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-12.jpg" },
+  { id: "scrim-10pm-r1", time: "10:00 PM", name: "10 PM SCRIM ROOM 1", slug: "10-pm-scrim-room-1", map: "Bermuda", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-1.jpg" },
+  { id: "scrim-10pm-r2", time: "10:00 PM", name: "10 PM SCRIM ROOM 2", slug: "10-pm-scrim-room-2", map: "Purgatory", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-2.jpg" },
+  { id: "scrim-11pm-r1", time: "11:00 PM", name: "11 PM SCRIM ROOM 1", slug: "11-pm-scrim-room-1", map: "Kalahari", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-3.jpg" },
+  { id: "scrim-11pm-r2", time: "11:00 PM", name: "11 PM SCRIM ROOM 2", slug: "11-pm-scrim-room-2", map: "Bermuda", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-4.jpg" },
+  { id: "scrim-12am-r1", time: "12:00 AM", name: "12 AM SCRIM ROOM 1", slug: "12-am-scrim-room-1", map: "Purgatory", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-5.jpg" },
+  { id: "scrim-12am-r2", time: "12:00 AM", name: "12 AM SCRIM ROOM 2", slug: "12-am-scrim-room-2", map: "Kalahari", isRoom2: true, priceBdt: 50, prizePoolBdt: 480, category: "Daily Scrims", bannerUrl: "/images/scrim-6.jpg" },
 ]
 
 export const FRIDAY_SPECIAL_BLAST_DEFINITIONS = [
@@ -133,7 +139,8 @@ export const FRIDAY_SPECIAL_BLAST_DEFINITIONS = [
 ]
 
 export const CHAMPION_RUSH_DEFINITIONS = [
-  { id: "scrim-fri-10pm-cr", time: "10:00 PM", name: "10 PM Champion Rush", slug: "10-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 35, prizePoolBdt: 320, category: "10 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-12.jpg" },
+  { id: "scrim-fri-3pm-cr", time: "3:00 PM", name: "3 PM Champion Rush", slug: "3-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "3 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-11.jpg" },
+  { id: "scrim-fri-10pm-cr", time: "10:00 PM", name: "10 PM Champion Rush", slug: "10-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "10 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-12.jpg" },
 ]
 
 export const FRIDAY_SCRIM_DEFINITIONS = [
@@ -170,7 +177,7 @@ export async function getActiveDefinitions(): Promise<typeof DAILY_SCRIM_DEFINIT
 export function getAllSampleScrims(): ScrimWithSlots[] {
   const activeDate = getBangladeshActiveDate()
   return ALL_STANDARD_SCRIM_DEFINITIONS.map((def, idx) => {
-    const isCR = def.id === "scrim-fri-10pm-cr" || def.slug === "10-pm-champion-rush"
+    const isCR = def.id.includes("-cr") || def.slug.includes("champion-rush") || def.name.toLowerCase().includes("champion rush")
     const isBlast = def.category === "Friday Special Blast"
 
     return {
@@ -178,7 +185,7 @@ export function getAllSampleScrims(): ScrimWithSlots[] {
       title: def.name,
       slug: def.slug,
       description: isCR
-        ? "10 PM Champion Rush Tournament: Free Fire squad survival championship format."
+        ? `${def.time} Champion Rush Tournament: Free Fire squad survival championship format.`
         : isBlast
           ? `Friday Special Blast (${def.name}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
           : `Competitive Free Fire squad scrim lobby (${def.name}).`,
@@ -219,7 +226,7 @@ function getSampleScrims(isFriday: boolean = false): ScrimWithSlots[] {
   const activeDate = getBangladeshActiveDate()
   const defs = isFriday ? FRIDAY_SCRIM_DEFINITIONS : DAILY_SCRIM_DEFINITIONS
   return defs.map((def, idx) => {
-    const isCR = def.id === "scrim-fri-10pm-cr" || def.slug === "10-pm-champion-rush"
+    const isCR = def.id.includes("-cr") || def.slug.includes("champion-rush") || def.name.toLowerCase().includes("champion rush")
     const isBlast = def.category === "Friday Special Blast"
 
     return {
@@ -227,7 +234,7 @@ function getSampleScrims(isFriday: boolean = false): ScrimWithSlots[] {
       title: def.name,
       slug: def.slug,
       description: isCR
-        ? "10 PM Champion Rush Tournament: Free Fire squad survival championship format."
+        ? `${def.time} Champion Rush Tournament: Free Fire squad survival championship format.`
         : isBlast
           ? `Friday Special Blast (${def.name}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
           : `Competitive Free Fire squad scrim lobby (${def.name}).`,
@@ -312,7 +319,7 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     ? s.bannerUrl
     : bannerFallback
 
-  const isCR = s.id === "scrim-fri-10pm-cr" || s.slug === "10-pm-champion-rush"
+  const isCR = s.id?.includes("-cr") || s.slug?.includes("champion-rush") || s.title?.toLowerCase().includes("champion rush")
   const isBlast = match?.category === "Friday Special Blast"
 
   // Sanitize title if Champion Rush leaked onto standard scrims
@@ -393,10 +400,10 @@ export async function isRoom2Enabled(): Promise<boolean> {
 
 export function isFridayTournament(s: { id?: string; slug?: string; title?: string; category?: string; map?: string; scrimDate?: string }): boolean {
   if (!s) return false
-  if (s.id?.startsWith("scrim-fri-")) return true
+  if (s.id?.startsWith("scrim-fri-") || s.id?.includes("-cr")) return true
   if (s.slug?.includes("friday") || s.slug?.includes("champion-rush")) return true
   if (s.title?.toLowerCase().includes("friday") || s.title?.toLowerCase().includes("champion rush")) return true
-  if (s.category === "Friday Special Blast" || s.category === "10 PM Champion Rush") return true
+  if (s.category === "Friday Special Blast" || s.category?.toLowerCase().includes("champion rush")) return true
   if (s.map?.toLowerCase().includes("champion mode")) return true
   return false
 }

@@ -47,9 +47,10 @@ type ScrimOption = { id: string; title: string; startTime: string; prizePoolBdt?
 type RosterBooking = Booking & { userEmail: string | null }
 
 const WINNER_TYPES = [
-  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.55 },
-  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.30 },
-  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.15 },
+  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.375 },
+  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.2708 },
+  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.2083 },
+  { id: "Third Runner-up — 4th place", label: "Third Runner-up — 4th place", placement: 4, defaultPrizePct: 0.1458 },
   { id: "MVP Face Banner", label: "MVP Face Banner", placement: 1, defaultPrizePct: 0 },
   { id: "Top 3 Face Banner", label: "Top 3 Face Banner", placement: 1, defaultPrizePct: 0 },
   { id: "Overall Standing Banner", label: "Overall Standing Banner", placement: 1, defaultPrizePct: 0 },
@@ -388,8 +389,16 @@ export function PublishResultButton({
     if (wt) {
       setPlacement(String(wt.placement))
       if (selectedScrim?.prizePoolBdt && wt.defaultPrizePct > 0) {
-        const calculated = Math.round(selectedScrim.prizePoolBdt * wt.defaultPrizePct)
-        setPrizeBdt(String(calculated))
+        if (selectedScrim.prizePoolBdt === 480) {
+          if (wt.placement === 1) setPrizeBdt("180")
+          else if (wt.placement === 2) setPrizeBdt("130")
+          else if (wt.placement === 3) setPrizeBdt("100")
+          else if (wt.placement === 4) setPrizeBdt("70")
+          else setPrizeBdt(String(Math.round(selectedScrim.prizePoolBdt * wt.defaultPrizePct)))
+        } else {
+          const calculated = Math.round(selectedScrim.prizePoolBdt * wt.defaultPrizePct)
+          setPrizeBdt(String(calculated))
+        }
       }
     }
   }
