@@ -91,16 +91,9 @@ export function BookingCard({
         const isFridayChampionRush = Boolean(
           scrim &&
           (
-            scrim.title?.trim().toLowerCase() === "10 pm champion rush" ||
-            scrim.title?.trim().toLowerCase() === "friday 10 pm champion rush" ||
-            scrim.slug === "10-pm-champion-rush" ||
-            scrim.id === "scrim-fri-10pm-cr" ||
-            (
-              scrim.title?.toLowerCase().includes("champion rush") &&
-              (scrim.startTime?.includes("10:00") || scrim.startTime === "22:00") &&
-              !scrim.title?.toLowerCase().includes("8:00") &&
-              !scrim.startTime?.includes("8:00")
-            )
+            scrim.title?.toLowerCase().includes("champion rush") ||
+            scrim.slug?.toLowerCase().includes("champion-rush") ||
+            scrim.id?.includes("-cr")
           )
         )
         const isBookingSuccessful = booking.status === "confirmed" || (booking.status as string) === "successful"

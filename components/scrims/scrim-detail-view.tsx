@@ -85,15 +85,9 @@ export function ScrimDetailView({
           : status.label
 
   const isChampionRush =
-    scrim.title.trim().toLowerCase() === "10 pm champion rush" ||
-    scrim.title.trim().toLowerCase() === "friday 10 pm champion rush" ||
-    scrim.slug === "10-pm-champion-rush" ||
-    scrim.id === "scrim-fri-10pm-cr" ||
-    (
-      scrim.title.toLowerCase().includes("champion rush") &&
-      (scrim.startTime?.includes("10:00") || scrim.startTime === "22:00") &&
-      !scrim.title.toLowerCase().includes("8:00")
-    )
+    scrim.title.toLowerCase().includes("champion rush") ||
+    scrim.slug.toLowerCase().includes("champion-rush") ||
+    scrim.id.includes("-cr")
 
   const isFridaySpecial =
     scrim.title.toLowerCase().includes("friday special") ||
@@ -275,7 +269,11 @@ export function ScrimDetailView({
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex items-center gap-3 rounded-xl bg-secondary/50 p-3.5 text-sm font-medium">
                 <span className="flex size-7 items-center justify-center rounded-lg bg-primary/20 text-primary font-bold">1</span>
-                {t("facility_1", "Top 3 Prize Pool")}
+                {isChampionRush
+                  ? (isBn ? "টপ ৪ প্রাইজ পুল" : "Top 4 Prize Pool")
+                  : isFridaySpecial
+                  ? (isBn ? "টপ ৫ প্রাইজ পুল" : "Top 5 Prize Pool")
+                  : t("facility_1", "Top 3 Prize Pool")}
               </div>
               <div className="flex items-center gap-3 rounded-xl bg-secondary/50 p-3.5 text-sm font-medium">
                 <span className="flex size-7 items-center justify-center rounded-lg bg-primary/20 text-primary font-bold">2</span>

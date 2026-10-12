@@ -47,9 +47,10 @@ type ScrimOption = { id: string; title: string; startTime: string; prizePoolBdt?
 type RosterBooking = Booking & { userEmail: string | null }
 
 const WINNER_TYPES = [
-  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.485 },
-  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.303 },
-  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.212 },
+  { id: "Champion — 1st place", label: "Champion — 1st place", placement: 1, defaultPrizePct: 0.375 },
+  { id: "Runner-up — 2nd place", label: "Runner-up — 2nd place", placement: 2, defaultPrizePct: 0.2708 },
+  { id: "Second Runner-up — 3rd place", label: "Second Runner-up — 3rd place", placement: 3, defaultPrizePct: 0.2083 },
+  { id: "Third Runner-up — 4th place", label: "Third Runner-up — 4th place", placement: 4, defaultPrizePct: 0.1458 },
   { id: "MVP Face Banner", label: "MVP Face Banner", placement: 1, defaultPrizePct: 0 },
   { id: "Top 3 Face Banner", label: "Top 3 Face Banner", placement: 1, defaultPrizePct: 0 },
   { id: "Overall Standing Banner", label: "Overall Standing Banner", placement: 1, defaultPrizePct: 0 },
@@ -196,6 +197,7 @@ export function EditResultDialog({
                 <option value="Champion — 1st place">🏆 Champion — 1st place</option>
                 <option value="Runner-up — 2nd place">🥈 Runner-up — 2nd place</option>
                 <option value="Second Runner-up — 3rd place">🥉 Second Runner-up — 3rd place</option>
+                <option value="Third Runner-up — 4th place">🎖️ Third Runner-up — 4th place</option>
               </optgroup>
               <optgroup label="Special Banners">
                 <option value="MVP Face Banner">⭐ MVP Face Banner</option>
@@ -389,7 +391,13 @@ export function PublishResultButton({
       setPlacement(String(wt.placement))
       const pool = selectedScrim?.prizePoolBdt || 330
       if (wt.defaultPrizePct > 0) {
-        if (pool === 330) {
+        if (pool === 480) {
+          if (wt.placement === 1) setPrizeBdt("180")
+          else if (wt.placement === 2) setPrizeBdt("130")
+          else if (wt.placement === 3) setPrizeBdt("100")
+          else if (wt.placement === 4) setPrizeBdt("70")
+          else setPrizeBdt("0")
+        } else if (pool === 330) {
           if (wt.placement === 1) setPrizeBdt("160")
           else if (wt.placement === 2) setPrizeBdt("100")
           else if (wt.placement === 3) setPrizeBdt("70")
@@ -521,8 +529,34 @@ export function PublishResultButton({
               required
               value={selectedScrimId}
               onChange={(e) => {
-                setSelectedScrimId(e.target.value)
+                const newId = e.target.value
+                setSelectedScrimId(newId)
                 setWinningTeam("")
+                const target = scrims.find((s) => s.id === newId)
+                if (target?.prizePoolBdt) {
+                  const wt = WINNER_TYPES.find((w) => w.id === winnerType)
+                  if (wt && wt.defaultPrizePct > 0) {
+                    if (target.prizePoolBdt === 480) {
+                      if (wt.placement === 1) setPrizeBdt("180")
+                      else if (wt.placement === 2) setPrizeBdt("130")
+                      else if (wt.placement === 3) setPrizeBdt("100")
+                      else if (wt.placement === 4) setPrizeBdt("70")
+                      else setPrizeBdt("0")
+                    } else if (target.prizePoolBdt === 330) {
+                      if (wt.placement === 1) setPrizeBdt("160")
+                      else if (wt.placement === 2) setPrizeBdt("100")
+                      else if (wt.placement === 3) setPrizeBdt("70")
+                      else setPrizeBdt("0")
+                    } else if (target.prizePoolBdt === 850) {
+                      if (wt.placement === 1) setPrizeBdt("300")
+                      else if (wt.placement === 2) setPrizeBdt("190")
+                      else if (wt.placement === 3) setPrizeBdt("140")
+                      else if (wt.placement === 4) setPrizeBdt("120")
+                      else if (wt.placement === 5) setPrizeBdt("100")
+                      else setPrizeBdt("0")
+                    }
+                  }
+                }
               }}
               className="h-10 rounded-xl border border-input bg-secondary px-3 text-sm font-medium"
             >
@@ -548,6 +582,7 @@ export function PublishResultButton({
                 <option value="Champion — 1st place">🏆 Champion — 1st place</option>
                 <option value="Runner-up — 2nd place">🥈 Runner-up — 2nd place</option>
                 <option value="Second Runner-up — 3rd place">🥉 Second Runner-up — 3rd place</option>
+                <option value="Third Runner-up — 4th place">🎖️ Third Runner-up — 4th place</option>
               </optgroup>
               <optgroup label="Special Banners">
                 <option value="MVP Face Banner">⭐ MVP Face Banner</option>

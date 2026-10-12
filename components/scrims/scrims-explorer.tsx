@@ -164,10 +164,10 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
               </span>
               <div>
                 <h2 className="font-display text-base font-bold text-foreground">
-                  10 PM Champion Rush Tournament Rules & Format (Friday Only)
+                  Friday Champion Rush Tournament Rules & Format (3 PM & 10 PM)
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Entry: ৳35 · Prize Pool: ৳320 · Maximum 8 Matches Format
+                  Entry: ৳50 · Prize Pool: ৳480 · Maximum 8 Matches Format · Top 4 Payouts (1st: ৳180, 2nd: ৳130, 3rd: ৳100, 4th: ৳70)
                 </p>
               </div>
             </div>

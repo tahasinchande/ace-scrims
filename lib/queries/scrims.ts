@@ -139,8 +139,8 @@ export const FRIDAY_SPECIAL_BLAST_DEFINITIONS = [
 ]
 
 export const CHAMPION_RUSH_DEFINITIONS = [
-  { id: "scrim-fri-3pm-cr", time: "3:00 PM", name: "3 PM Champion Rush", slug: "3-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 35, prizePoolBdt: 320, category: "3 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-11.jpg" },
-  { id: "scrim-fri-10pm-cr", time: "10:00 PM", name: "10 PM Champion Rush", slug: "10-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 35, prizePoolBdt: 320, category: "10 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-12.jpg" },
+  { id: "scrim-fri-3pm-cr", time: "3:00 PM", name: "3 PM Champion Rush", slug: "3-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "3 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-11.jpg" },
+  { id: "scrim-fri-10pm-cr", time: "10:00 PM", name: "10 PM Champion Rush", slug: "10-pm-champion-rush", map: "Champion Mode (Max 8 Matches)", isRoom2: false, priceBdt: 50, prizePoolBdt: 480, category: "10 PM Champion Rush", matchCount: 8, bannerUrl: "/images/scrim-12.jpg" },
 ]
 
 export const FRIDAY_SCRIM_DEFINITIONS = [
@@ -382,6 +382,8 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     notes,
     mode: "BATTLE ROYALE",
     scrimDate: activeDate,
+    priceBdt: s.priceBdt || (isCR ? 50 : 35),
+    prizePoolBdt: s.prizePoolBdt || (isCR ? 480 : 330),
     bannerUrl: chosenBanner,
     registrationOpen: finalRegOpen,
     status: finalStatus,

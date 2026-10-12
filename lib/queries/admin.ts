@@ -160,8 +160,8 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           slug: def.slug,
           map: def.map,
           startTime: def.time,
-          priceBdt: existing.priceBdt || def.priceBdt,
-          prizePoolBdt: existing.prizePoolBdt || def.prizePoolBdt,
+          priceBdt: def.priceBdt ?? existing.priceBdt ?? 35,
+          prizePoolBdt: def.prizePoolBdt ?? existing.prizePoolBdt ?? 330,
           bannerUrl: (existing.bannerUrl && !existing.bannerUrl.includes("map-")) ? existing.bannerUrl : (def.bannerUrl || "/images/scrim-1.jpg"),
         }
       } else {

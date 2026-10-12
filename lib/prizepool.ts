@@ -19,11 +19,12 @@ export type ScrimPrizeBreakdown = {
  * - 2nd: 100 tk
  * - 3rd: 70 tk
  *
- * [10 PM Champion Rush]
- * - Total Prizepool: 320 tk
- * - 1st: 140 tk
- * - 2nd: 100 tk
- * - 3rd: 80 tk
+ * [Champion Rush (3 PM & 10 PM)]
+ * - Total Prizepool: 480 tk
+ * - 1st: 180 tk
+ * - 2nd: 130 tk
+ * - 3rd: 100 tk
+ * - 4th: 70 tk
  *
  * [Friday Special Blasts]
  * - Total Prizepool: 850 tk
@@ -46,11 +47,12 @@ export const PRIZE_DISTRIBUTIONS: Record<"daily" | "champion_rush" | "friday_spe
   },
   champion_rush: {
     categoryName: "Champion Rush",
-    totalPrizeBdt: 320,
+    totalPrizeBdt: 480,
     places: [
-      { rank: 1, place: "1st Place", prizeBdt: 140 },
-      { rank: 2, place: "2nd Place", prizeBdt: 100 },
-      { rank: 3, place: "3rd Place", prizeBdt: 80 },
+      { rank: 1, place: "1st Place", prizeBdt: 180 },
+      { rank: 2, place: "2nd Place", prizeBdt: 130 },
+      { rank: 3, place: "3rd Place", prizeBdt: 100 },
+      { rank: 4, place: "4th Place", prizeBdt: 70 },
     ],
   },
   friday_special: {
