@@ -37,16 +37,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "File size exceeds 100MB limit" }, { status: 413 })
     }
 
-    // Role validation for tutorials
-    const isStaff =
-      user?.role === "admin" ||
-      user?.role === "moderator" ||
-      user?.role === "staff" ||
-      user?.role === "mod"
-
-    if (folder === "tutorials" && user?.role !== "admin" && !isStaff) {
+    if (!user) {
       return NextResponse.json(
-        { ok: false, error: "Admin or staff privileges required for tutorial uploads" },
+        { ok: false, error: "Authentication required to upload files." },
+        { status: 401 }
+      )
+    }
+
+    // Role validation for protected folders
+    const isStaff =
+      user.role === "admin" ||
+      user.role === "moderator" ||
+      user.role === "staff" ||
+      user.role === "mod"
+
+    const protectedFolders = ["tutorials", "scrims", "banners", "results"]
+    if (protectedFolders.includes(folder) && !isStaff) {
+      return NextResponse.json(
+        { ok: false, error: `Admin or staff privileges required for ${folder} uploads` },
         { status: 403 }
       )
     }

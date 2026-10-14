@@ -13,6 +13,7 @@ export type PublicSiteSettings = {
   instagramUrl: string
   supportWhatsapp: string
   championRushWhatsappUrl: string
+  championRush3pmWhatsappUrl: string
   supportKoriUrl: string
   showRoom2: boolean
   maintenanceMode: boolean
@@ -35,6 +36,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       instagramUrl: map.instagram_url || "",
       supportWhatsapp: map.support_whatsapp || "+8801831510108",
       championRushWhatsappUrl: map.champion_rush_whatsapp_url || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
+      championRush3pmWhatsappUrl: map.champion_rush_3pm_whatsapp_url || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
       supportKoriUrl: map.support_kori_url || "https://www.supportkori.com/acescrims",
       showRoom2: map.show_room2 === "true",
       maintenanceMode: map.maintenance_mode === "true",
@@ -53,6 +55,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       instagramUrl: "",
       supportWhatsapp: "+8801831510108",
       championRushWhatsappUrl: "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
+      championRush3pmWhatsappUrl: "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
       supportKoriUrl: "https://www.supportkori.com/acescrims",
       showRoom2: false,
       maintenanceMode: false,

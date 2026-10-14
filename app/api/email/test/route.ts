@@ -19,6 +19,13 @@ export async function GET(req: NextRequest) {
       user?.role === "admin" ||
       (expectedSecret && testSecret === expectedSecret)
 
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized. Admin privileges or valid ?secret parameter required." },
+        { status: 401 }
+      )
+    }
+
     const targetEmail = searchParams.get("to") || user?.email || "test@example.com"
 
     const hasResend = Boolean(process.env.RESEND_API_KEY?.trim())

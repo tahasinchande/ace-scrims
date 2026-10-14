@@ -26,10 +26,12 @@ export function ScrimDetailView({
   scrim,
   isConfirmed = false,
   championRushWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
+  championRush3pmWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
 }: {
   scrim: ScrimWithSlots
   isConfirmed?: boolean
   championRushWhatsappUrl?: string
+  championRush3pmWhatsappUrl?: string
 }) {
   const { lang, t } = useLanguage()
   const isBn = lang === "bn"
@@ -295,30 +297,43 @@ export function ScrimDetailView({
           </section>
 
           {/* Official Champion Rush WhatsApp Channel Link - strictly visible ONLY to users with confirmed registration */}
-          {isChampionRush && isConfirmed && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 shadow-sm">
-              <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 font-display text-sm font-bold uppercase tracking-wider text-emerald-400">
+          {isChampionRush && isConfirmed && (() => {
+            const is3pmCR = Boolean(
+              scrim.id?.includes("3pm-cr") ||
+              scrim.slug?.includes("3-pm-champion-rush") ||
+              scrim.title?.toLowerCase().includes("3 pm champion rush") ||
+              (scrim.title?.toLowerCase().includes("champion rush") && (scrim.startTime?.includes("3:00") || scrim.startTime?.includes("15:00")))
+            )
+            const targetWhatsappUrl = (is3pmCR ? championRush3pmWhatsappUrl : championRushWhatsappUrl) || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"
+            const channelTitle = is3pmCR
+              ? (isBn ? "অফিসিয়াল ৩ টা চ্যাম্পিয়ন রাশ হোয়াটসঅ্যাপ চ্যানেল" : "Official 3 PM Champion Rush WhatsApp Channel")
+              : (isBn ? "অফিসিয়াল ১০ টা চ্যাম্পিয়ন রাশ হোয়াটসঅ্যাপ চ্যানেল" : "Official 10 PM Champion Rush WhatsApp Channel")
+
+            return (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 shadow-sm">
+                <div className="flex flex-col gap-1">
+                  <span className="flex items-center gap-1.5 font-display text-sm font-bold uppercase tracking-wider text-emerald-400">
+                    <MessageCircle className="size-4" />
+                    {channelTitle}
+                  </span>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {isBn
+                      ? "আপনার টিম নিশ্চিত করা হয়েছে। ম্যাচ রুম আইডি, পাসওয়ার্ড ও লাইভ আপডেট সরাসরি এই চ্যানেলে পোস্ট করা হবে।"
+                      : "Your squad is confirmed! Match credentials, announcements, and live room coordination are posted directly in this channel."}
+                  </p>
+                </div>
+                <a
+                  href={targetWhatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-500 transition-colors shadow-lg shrink-0"
+                >
                   <MessageCircle className="size-4" />
-                  {isBn ? "অফিসিয়াল চ্যাম্পিয়ন রাশ হোয়াটসঅ্যাপ চ্যানেল" : "Official Champion Rush WhatsApp Channel"}
-                </span>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {isBn
-                    ? "আপনার টিম নিশ্চিত করা হয়েছে। ম্যাচ রুম আইডি, পাসওয়ার্ড ও লাইভ আপডেট সরাসরি এই চ্যানেলে পোস্ট করা হবে।"
-                    : "Your squad is confirmed! Match credentials, announcements, and live room coordination are posted directly in this channel."}
-                </p>
+                  {isBn ? "হোয়াটসঅ্যাপ চ্যানেলে যোগ দিন" : "Join WhatsApp Channel"}
+                </a>
               </div>
-              <a
-                href={championRushWhatsappUrl || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-500 transition-colors shadow-lg shrink-0"
-              >
-                <MessageCircle className="size-4" />
-                {isBn ? "হোয়াটসঅ্যাপ চ্যানেলে যোগ দিন" : "Join WhatsApp Channel"}
-              </a>
-            </div>
-          )}
+            )
+          })()}
 
           <ScrimRules scrim={scrim} />
 

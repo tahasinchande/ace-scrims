@@ -25,18 +25,24 @@ import { useViewMode } from "@/lib/view-mode"
 import { GlobalCyberBackground } from "@/components/site/global-cyber-background"
 
 const SCRIM_SLIDES = [
-  { id: 1, title: "7 PM SCRIM ROOM 1", time: "7:00 PM", map: "Bermuda", image: "/images/scrim-1.jpg" },
-  { id: 2, title: "7 PM SCRIM ROOM 2", time: "7:00 PM", map: "Purgatory", image: "/images/scrim-2.jpg" },
-  { id: 3, title: "8 PM SCRIM ROOM 1", time: "8:00 PM", map: "Bermuda", image: "/images/scrim-3.jpg" },
-  { id: 4, title: "8 PM SCRIM ROOM 2", time: "8:00 PM", map: "Kalahari", image: "/images/scrim-4.jpg" },
-  { id: 5, title: "9 PM SCRIM ROOM 1", time: "9:00 PM", map: "Bermuda", image: "/images/scrim-5.jpg" },
-  { id: 6, title: "9 PM SCRIM ROOM 2", time: "9:00 PM", map: "Alpine", image: "/images/scrim-6.jpg" },
-  { id: 7, title: "10 PM SCRIM ROOM 1", time: "10:00 PM", map: "Bermuda", image: "/images/scrim-7.jpg" },
-  { id: 8, title: "10 PM SCRIM ROOM 2", time: "10:00 PM", map: "NeXTerra", image: "/images/scrim-8.jpg" },
-  { id: 9, title: "11 PM SCRIM ROOM 1", time: "11:00 PM", map: "Bermuda", image: "/images/scrim-9.jpg" },
-  { id: 10, title: "11 PM SCRIM ROOM 2", time: "11:00 PM", map: "Purgatory", image: "/images/scrim-10.jpg" },
-  { id: 11, title: "12 AM SCRIM ROOM 1", time: "12:00 AM", map: "Bermuda", image: "/images/scrim-11.jpg" },
-  { id: 12, title: "12 AM SCRIM ROOM 2", time: "12:00 AM", map: "Kalahari", image: "/images/scrim-12.jpg" },
+  { id: 1, title: "3 PM SCRIM ROOM 1", time: "3:00 PM", map: "Bermuda", image: "/images/scrim-1.jpg" },
+  { id: 2, title: "3 PM SCRIM ROOM 2", time: "3:00 PM", map: "Purgatory", image: "/images/scrim-2.jpg" },
+  { id: 3, title: "4 PM SCRIM ROOM 1", time: "4:00 PM", map: "Kalahari", image: "/images/scrim-3.jpg" },
+  { id: 4, title: "4 PM SCRIM ROOM 2", time: "4:00 PM", map: "Bermuda", image: "/images/scrim-4.jpg" },
+  { id: 5, title: "5 PM SCRIM ROOM 1", time: "5:00 PM", map: "Purgatory", image: "/images/scrim-5.jpg" },
+  { id: 6, title: "5 PM SCRIM ROOM 2", time: "5:00 PM", map: "Kalahari", image: "/images/scrim-6.jpg" },
+  { id: 7, title: "7 PM SCRIM ROOM 1", time: "7:00 PM", map: "Bermuda", image: "/images/scrim-7.jpg" },
+  { id: 8, title: "7 PM SCRIM ROOM 2", time: "7:00 PM", map: "Purgatory", image: "/images/scrim-8.jpg" },
+  { id: 9, title: "8 PM SCRIM ROOM 1", time: "8:00 PM", map: "Kalahari", image: "/images/scrim-9.jpg" },
+  { id: 10, title: "8 PM SCRIM ROOM 2", time: "8:00 PM", map: "Bermuda", image: "/images/scrim-10.jpg" },
+  { id: 11, title: "9 PM SCRIM ROOM 1", time: "9:00 PM", map: "Purgatory", image: "/images/scrim-11.jpg" },
+  { id: 12, title: "9 PM SCRIM ROOM 2", time: "9:00 PM", map: "Kalahari", image: "/images/scrim-12.jpg" },
+  { id: 13, title: "10 PM SCRIM ROOM 1", time: "10:00 PM", map: "Bermuda", image: "/images/bermuda.jpg" },
+  { id: 14, title: "10 PM SCRIM ROOM 2", time: "10:00 PM", map: "Purgatory", image: "/images/purgatory.jpg" },
+  { id: 15, title: "11 PM SCRIM ROOM 1", time: "11:00 PM", map: "Kalahari", image: "/images/kalahari.jpg" },
+  { id: 16, title: "11 PM SCRIM ROOM 2", time: "11:00 PM", map: "Bermuda", image: "/images/nexterra.jpg" },
+  { id: 17, title: "12 AM SCRIM ROOM 1", time: "12:00 AM", map: "Purgatory", image: "/images/alpine.jpg" },
+  { id: 18, title: "12 AM SCRIM ROOM 2", time: "12:00 AM", map: "Kalahari", image: "/images/scrim_squad_clash_1786956645507.jpg" },
 ]
 
 const SLIDE_DURATION = 4000 // 4 seconds per slide

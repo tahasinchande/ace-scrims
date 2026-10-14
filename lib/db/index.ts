@@ -197,8 +197,32 @@ async function ensureSchema() {
         `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `DELETE FROM "settings" WHERE "key" = 'support_phone'`,
+        `INSERT INTO "settings" ("key", "value", "updatedAt") VALUES ('champion_rush_3pm_whatsapp_url', 'https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V', NOW()) ON CONFLICT ("key") DO NOTHING`,
         `UPDATE "scrims" SET "map" = 'Champion Mode (Max 8 Matches)', "priceBdt" = 50, "prizePoolBdt" = 480 WHERE "slug" = '10-pm-champion-rush' OR "slug" = '3-pm-champion-rush' OR "id" LIKE '%-cr' OR "title" ILIKE '%Champion Rush%'`,
-        `UPDATE "scrims" SET "priceBdt" = 35, "prizePoolBdt" = 330 WHERE ("category" = 'Daily Scrims' OR "id" LIKE 'scrim-%') AND "category" NOT LIKE '%Blast%' AND "slug" NOT LIKE '%champion-rush%' AND "id" NOT LIKE '%-cr'`
+        `UPDATE "scrims" SET "priceBdt" = 35, "prizePoolBdt" = 330 WHERE ("category" = 'Daily Scrims' OR "id" LIKE 'scrim-%') AND "category" NOT LIKE '%Blast%' AND "slug" NOT LIKE '%champion-rush%' AND "id" NOT LIKE '%-cr'`,
+        `UPDATE "scrims" SET "bannerUrl" = CASE "slug"
+          WHEN '3-pm-scrim-room-1' THEN '/images/scrim-1.jpg'
+          WHEN '3-pm-scrim-room-2' THEN '/images/scrim-2.jpg'
+          WHEN '4-pm-scrim-room-1' THEN '/images/scrim-3.jpg'
+          WHEN '4-pm-scrim-room-2' THEN '/images/scrim-4.jpg'
+          WHEN '5-pm-scrim-room-1' THEN '/images/scrim-5.jpg'
+          WHEN '5-pm-scrim-room-2' THEN '/images/scrim-6.jpg'
+          WHEN '7-pm-scrim-room-1' THEN '/images/scrim-7.jpg'
+          WHEN '7-pm-scrim-room-2' THEN '/images/scrim-8.jpg'
+          WHEN '8-pm-scrim-room-1' THEN '/images/scrim-9.jpg'
+          WHEN '8-pm-scrim-room-2' THEN '/images/scrim-10.jpg'
+          WHEN '9-pm-scrim-room-1' THEN '/images/scrim-11.jpg'
+          WHEN '9-pm-scrim-room-2' THEN '/images/scrim-12.jpg'
+          WHEN '10-pm-scrim-room-1' THEN '/images/bermuda.jpg'
+          WHEN '10-pm-scrim-room-2' THEN '/images/purgatory.jpg'
+          WHEN '11-pm-scrim-room-1' THEN '/images/kalahari.jpg'
+          WHEN '11-pm-scrim-room-2' THEN '/images/nexterra.jpg'
+          WHEN '12-am-scrim-room-1' THEN '/images/alpine.jpg'
+          WHEN '12-am-scrim-room-2' THEN '/images/scrim_squad_clash_1786956645507.jpg'
+          WHEN '3-pm-champion-rush' THEN '/images/scrim_cyber_arena_1786956594944.jpg'
+          WHEN '10-pm-champion-rush' THEN '/images/sakura-wallpaper.jpg'
+          ELSE "bannerUrl"
+        END WHERE "slug" IN ('3-pm-scrim-room-1', '3-pm-scrim-room-2', '4-pm-scrim-room-1', '4-pm-scrim-room-2', '5-pm-scrim-room-1', '5-pm-scrim-room-2', '7-pm-scrim-room-1', '7-pm-scrim-room-2', '8-pm-scrim-room-1', '8-pm-scrim-room-2', '9-pm-scrim-room-1', '9-pm-scrim-room-2', '10-pm-scrim-room-1', '10-pm-scrim-room-2', '11-pm-scrim-room-1', '11-pm-scrim-room-2', '12-am-scrim-room-1', '12-am-scrim-room-2', '3-pm-champion-rush', '10-pm-champion-rush')`
       ]
 
       for (const stmt of statements) {

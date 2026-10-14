@@ -17,6 +17,18 @@ export async function getChampionRushWhatsappUrl(): Promise<string> {
   return "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"
 }
 
+export async function getChampionRush3pmWhatsappUrl(): Promise<string> {
+  try {
+    const row = await db.select().from(settings).where(eq(settings.key, "champion_rush_3pm_whatsapp_url")).limit(1)
+    if (row.length > 0 && row[0].value?.trim()) {
+      return row[0].value.trim()
+    }
+  } catch (e) {
+    console.warn("[Settings] Could not fetch champion_rush_3pm_whatsapp_url:", e)
+  }
+  return "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"
+}
+
 export type UserBooking = typeof bookings.$inferSelect & {
   scrim: typeof scrims.$inferSelect | null
   result: typeof results.$inferSelect | null

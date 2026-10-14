@@ -18,6 +18,7 @@ export function SiteSettingsForm({
   instagramUrl = "",
   supportWhatsapp = "+8801831510108",
   championRushWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
+  championRush3pmWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
   supportKoriUrl = "https://www.supportkori.com/acescrims",
   showRoom2,
   maintenanceMode,
@@ -34,6 +35,7 @@ export function SiteSettingsForm({
   instagramUrl?: string
   supportWhatsapp?: string
   championRushWhatsappUrl?: string
+  championRush3pmWhatsappUrl?: string
   supportKoriUrl?: string
   showRoom2: boolean
   maintenanceMode: boolean
@@ -50,6 +52,7 @@ export function SiteSettingsForm({
   const [instagram, setInstagram] = useState(instagramUrl)
   const [supportWa, setSupportWa] = useState(supportWhatsapp || "+8801831510108")
   const [championWhatsapp, setChampionWhatsapp] = useState(championRushWhatsappUrl || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V")
+  const [champion3pmWhatsapp, setChampion3pmWhatsapp] = useState(championRush3pmWhatsappUrl || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V")
   const [supportKori, setSupportKori] = useState(supportKoriUrl || "https://www.supportkori.com/acescrims")
   const [room2Enabled, setRoom2Enabled] = useState(showRoom2)
   const [maintEnabled, setMaintEnabled] = useState(maintenanceMode)
@@ -71,6 +74,7 @@ export function SiteSettingsForm({
           instagram_url: instagram.trim(),
           support_whatsapp: supportWa.trim(),
           champion_rush_whatsapp_url: championWhatsapp.trim(),
+          champion_rush_3pm_whatsapp_url: champion3pmWhatsapp.trim(),
           support_kori_url: supportKori.trim(),
           show_room2: room2Enabled ? "true" : "false",
           maintenance_mode: maintEnabled ? "true" : "false",
@@ -295,6 +299,24 @@ export function SiteSettingsForm({
         />
         <p className="text-xs text-muted-foreground">
           Displayed to registered squads on their Dashboard for the 10 PM Champion Rush 8-match lobby.
+        </p>
+      </div>
+
+      {/* 3 PM Champion Rush WhatsApp Channel Link */}
+      <div className="flex flex-col gap-2 border-t border-border pt-4">
+        <Label htmlFor="champion-3pm-whatsapp-url" className="font-display uppercase text-sm font-bold text-emerald-400 flex items-center gap-2">
+          3 PM Champion Rush WhatsApp Channel Link
+        </Label>
+        <Input
+          id="champion-3pm-whatsapp-url"
+          type="url"
+          value={champion3pmWhatsapp}
+          onChange={(e) => setChampion3pmWhatsapp(e.target.value)}
+          placeholder="https://whatsapp.com/channel/..."
+          className="border-emerald-500/30 focus-visible:ring-emerald-500"
+        />
+        <p className="text-xs text-muted-foreground">
+          Displayed to registered squads on their Dashboard for the Friday 3 PM Champion Rush 8-match lobby.
         </p>
       </div>
 

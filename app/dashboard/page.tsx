@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 
 import Link from "next/link"
 import { requireUser } from "@/lib/session"
-import { getUserBookings, splitBookings, getUserNotifications, getChampionRushWhatsappUrl } from "@/lib/queries/dashboard"
+import { getUserBookings, splitBookings, getUserNotifications, getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl } from "@/lib/queries/dashboard"
 import { getUserPendingImageRequests } from "@/app/actions/image-requests"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { PendingImageRequestsSection } from "@/components/dashboard/pending-image-requests"
@@ -12,10 +12,11 @@ import { Swords, Trophy, CalendarCheck, Bell } from "lucide-react"
 
 export default async function DashboardPage() {
   const user = await requireUser()
-  const [allBookings, recentNotifications, championRushWhatsappUrl, pendingImageRequests] = await Promise.all([
+  const [allBookings, recentNotifications, championRushWhatsappUrl, championRush3pmWhatsappUrl, pendingImageRequests] = await Promise.all([
     getUserBookings(user.id),
     getUserNotifications(user.id, 5),
     getChampionRushWhatsappUrl(),
+    getChampionRush3pmWhatsappUrl(),
     getUserPendingImageRequests(user.id),
   ])
   const { upcoming, past } = splitBookings(allBookings)
@@ -76,7 +77,12 @@ export default async function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {upcoming.slice(0, 3).map((b) => (
-              <BookingCard key={b.id} booking={b} championRushWhatsappUrl={championRushWhatsappUrl} />
+              <BookingCard
+                key={b.id}
+                booking={b}
+                championRushWhatsappUrl={championRushWhatsappUrl}
+                championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
+              />
             ))}
           </div>
         )}
@@ -114,7 +120,12 @@ export default async function DashboardPage() {
           </h2>
           <div className="flex flex-col gap-4">
             {past.slice(0, 2).map((b) => (
-              <BookingCard key={b.id} booking={b} championRushWhatsappUrl={championRushWhatsappUrl} />
+              <BookingCard
+                key={b.id}
+                booking={b}
+                championRushWhatsappUrl={championRushWhatsappUrl}
+                championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
+              />
             ))}
           </div>
         </section>

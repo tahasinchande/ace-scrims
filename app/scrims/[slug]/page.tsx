@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { getScrimBySlug } from "@/lib/queries/scrims"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
-import { getChampionRushWhatsappUrl } from "@/lib/queries/dashboard"
+import { getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl } from "@/lib/queries/dashboard"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
 import { bdt } from "@/lib/format"
 import { ScrimDetailView } from "@/components/scrims/scrim-detail-view"
@@ -36,11 +36,12 @@ export default async function ScrimDetailPage({
 }) {
   await checkMaintenanceMode()
   const { slug } = await params
-  const [scrim, user, settings, championRushWhatsappUrl] = await Promise.all([
+  const [scrim, user, settings, championRushWhatsappUrl, championRush3pmWhatsappUrl] = await Promise.all([
     getScrimBySlug(slug),
     getSessionUser().catch(() => null),
     getPublicSiteSettings().catch(() => undefined),
     getChampionRushWhatsappUrl().catch(() => "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"),
+    getChampionRush3pmWhatsappUrl().catch(() => "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"),
   ])
   if (!scrim) notFound()
 
@@ -74,6 +75,7 @@ export default async function ScrimDetailPage({
         scrim={scrim}
         isConfirmed={isConfirmed}
         championRushWhatsappUrl={championRushWhatsappUrl}
+        championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
       />
       <SiteFooter settings={settings} />
     </>
