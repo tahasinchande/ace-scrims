@@ -279,8 +279,11 @@ export const imageRequests = pgTable("image_requests", {
   captainUid: text("captainUid"),
   status: text("status").notNull().default("pending"), // pending | submitted | approved | rejected
   requestType: text("requestType").notNull().default("MVP/Top 3 Image"),
+  mvpPlayerName: text("mvpPlayerName"),
+  scrimDate: text("scrimDate"),
   submittedTeamName: text("submittedTeamName"),
   submittedPlayerUid: text("submittedPlayerUid"),
+  submittedPlayerName: text("submittedPlayerName"),
   uploadedImageUrls: jsonb("uploadedImageUrls"),
   notes: text("notes"),
   requestedBy: text("requestedBy"),

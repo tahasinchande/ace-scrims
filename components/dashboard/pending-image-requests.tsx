@@ -51,6 +51,7 @@ export function PendingImageRequestsSection({ requests }: { requests: ImageReque
 export function ImageRequestCard({ request }: { request: ImageRequest }) {
   const [teamName, setTeamName] = useState(request.teamName || "")
   const [playerUid, setPlayerUid] = useState(request.captainUid || "")
+  const [playerName, setPlayerName] = useState(request.mvpPlayerName || request.captainName || "")
   const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -93,6 +94,10 @@ export function ImageRequestCard({ request }: { request: ImageRequest }) {
       toast.error("Please enter your Team Name.")
       return
     }
+    if (!playerName.trim()) {
+      toast.error("Please enter the MVP / Player Name.")
+      return
+    }
     if (!playerUid.trim()) {
       toast.error("Please enter the Player UID.")
       return
@@ -108,6 +113,7 @@ export function ImageRequestCard({ request }: { request: ImageRequest }) {
         requestId: request.id,
         teamName: teamName.trim(),
         playerUid: playerUid.trim(),
+        playerName: playerName.trim(),
         imageUrls: uploadedUrls,
       })
 
@@ -131,7 +137,7 @@ export function ImageRequestCard({ request }: { request: ImageRequest }) {
           <CheckCircle2 className="size-6" />
         </div>
         <p className="font-display text-lg font-bold text-emerald-400 uppercase">
-          Photos Submitted for {teamName}
+          Photos Submitted for {teamName} {playerName ? `(${playerName})` : ""}
         </p>
         <p className="max-w-md text-xs text-muted-foreground">
           Thank you! Our design team is currently processing your photo for the official Ace Scrims Face Banners showcase.
@@ -172,7 +178,14 @@ export function ImageRequestCard({ request }: { request: ImageRequest }) {
 
       {/* Upload Form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {request.mvpPlayerName && (
+          <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/30 p-2.5 text-xs text-primary font-medium">
+            <Sparkles className="size-4 shrink-0" />
+            <span>Management explicitly nominated MVP Player: <strong>{request.mvpPlayerName}</strong>. Please confirm or edit the player name below.</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`team-name-${request.id}`} className="text-xs font-semibold text-muted-foreground">
               Team Name <span className="text-destructive">*</span>
@@ -188,8 +201,22 @@ export function ImageRequestCard({ request }: { request: ImageRequest }) {
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`player-name-${request.id}`} className="text-xs font-semibold text-muted-foreground">
+              MVP / Player Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id={`player-name-${request.id}`}
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="e.g. Abrar / RAJ-77"
+              required
+              maxLength={50}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`player-uid-${request.id}`} className="text-xs font-semibold text-muted-foreground">
-              Player UID <span className="text-destructive">*</span>
+              Player Free Fire UID <span className="text-destructive">*</span>
             </Label>
             <Input
               id={`player-uid-${request.id}`}

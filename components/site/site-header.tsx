@@ -117,43 +117,49 @@ export function SiteHeader({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute left-0 top-full mt-1 w-64 rounded-xl border border-zinc-800 bg-[#090a0f] p-2 shadow-xl backdrop-blur-xl z-50 flex flex-col gap-1"
+                  className="absolute left-0 top-full mt-1 w-72 rounded-xl border border-zinc-800 bg-[#090a0f] p-2 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1"
                 >
                   <Link
                     href="/scrims"
                     onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors group"
                   >
-                    <Calendar className="size-4 text-orange-500" />
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-orange-500/15 text-orange-400 group-hover:bg-orange-500/25">
+                      <Calendar className="size-4" />
+                    </div>
                     <div className="flex flex-col">
-                      <span>All Daily Scrims</span>
-                      <span className="text-[10px] text-zinc-400 font-normal">7 PM – 12 AM (12 Lobbies)</span>
+                      <span className="text-zinc-100 font-bold">All Scrims</span>
+                      <span className="text-[10px] text-zinc-400 font-normal">Browse all active lobbies & formats</span>
                     </div>
                   </Link>
 
-                  <div className="my-1 h-px bg-zinc-800" />
-
-                  <Link
-                    href="/scrims?category=friday-special-blast"
-                    onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors"
-                  >
-                    <Flame className="size-4 text-amber-500" />
-                    <div className="flex flex-col">
-                      <span className="text-amber-400 font-bold">Friday Special Blast</span>
-                      <span className="text-[10px] text-zinc-400 font-normal">5 Matches · ৳80 Entry / ৳850 Prize</span>
-                    </div>
-                  </Link>
+                  <div className="my-1 h-px bg-zinc-800/80" />
 
                   <Link
                     href="/scrims?category=champion-rush"
                     onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors group"
                   >
-                    <Trophy className="size-4 text-emerald-400" />
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-400 group-hover:bg-emerald-500/25">
+                      <Trophy className="size-4" />
+                    </div>
                     <div className="flex flex-col">
-                      <span className="text-emerald-400 font-bold">10 PM Champion Rush</span>
-                      <span className="text-[10px] text-zinc-400 font-normal">Max 8 Matches · Friday Special</span>
+                      <span className="text-emerald-400 font-bold">Champion Rush</span>
+                      <span className="text-[10px] text-zinc-400 font-normal">3 PM & 10 PM · 8-Match Survival Challenge</span>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/scrims?category=friday-special-blast"
+                    onClick={() => setScrimsDropdownOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors group"
+                  >
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-400 group-hover:bg-amber-500/25">
+                      <Flame className="size-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-amber-400 font-bold">Friday Special Blast</span>
+                      <span className="text-[10px] text-zinc-400 font-normal">5 Premium Matches · ৳80 Entry / ৳850 Prize</span>
                     </div>
                   </Link>
                 </motion.div>
@@ -336,11 +342,30 @@ export function SiteHeader({
               </Link>
               <Link
                 href="/scrims"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white"
                 onClick={() => setOpen(false)}
               >
-                {t("nav_scrims", "Daily Scrims (12 Rooms)")}
+                <span>{t("nav_scrims", "All Scrims & Tournaments")}</span>
+                <span className="text-[10px] uppercase font-bold text-primary font-mono">Live</span>
               </Link>
+              <div className="pl-4 flex flex-col gap-1 border-l border-zinc-800/80 ml-3">
+                <Link
+                  href="/scrims?category=champion-rush"
+                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-950/30 flex items-center gap-2"
+                  onClick={() => setOpen(false)}
+                >
+                  <Trophy className="size-3.5" />
+                  <span>Champion Rush (3 PM & 10 PM)</span>
+                </Link>
+                <Link
+                  href="/scrims?category=friday-special-blast"
+                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-950/30 flex items-center gap-2"
+                  onClick={() => setOpen(false)}
+                >
+                  <Flame className="size-3.5" />
+                  <span>Friday Special Blast</span>
+                </Link>
+              </div>
               <Link
                 href="/results"
                 className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white"

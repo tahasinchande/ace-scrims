@@ -200,6 +200,14 @@ export function ImageRequestsView({ requests }: { requests: ImageRequest[] }) {
                       {request.submittedTeamName || request.teamName}
                     </span>
                   </div>
+                  {(request.submittedPlayerName || request.mvpPlayerName) && (
+                    <div>
+                      <span className="text-muted-foreground block">MVP Player:</span>
+                      <span className="font-semibold text-emerald-400">
+                        {request.submittedPlayerName || request.mvpPlayerName}
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-muted-foreground block">Player UID:</span>
                     <span className="font-semibold text-foreground font-mono">

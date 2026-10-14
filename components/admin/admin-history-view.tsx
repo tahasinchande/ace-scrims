@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import Image from "next/image"
 import {
   Calendar as CalendarIcon,
@@ -30,6 +31,8 @@ import {
   Crown,
   UploadCloud,
   X,
+  Camera,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,6 +56,7 @@ import { toast } from "sonner"
 import { formatTaka, formatDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { publishResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
+import { requestTeamImage } from "@/app/actions/image-requests"
 import { uploadMediaFile } from "@/lib/client-upload"
 import type { MatchResult } from "@/lib/db/schema"
 
@@ -84,6 +88,7 @@ export type HistoricalBookingItem = {
   teamLeaderImageUrl?: string | null
   paymentNumber?: string | null
   teamMembersDriveLink?: string | null
+  imageRequested?: boolean | null
   isArchived?: boolean
   createdAt: Date | string
   userEmail?: string | null
@@ -299,6 +304,18 @@ export function AdminHistoryView({
             >
               {copiedRoster ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
               {copiedRoster ? "Roster Copied!" : "Copy Team List"}
+            </Button>
+
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+            >
+              <Link href={`/admin/image-requests?date=${encodeURIComponent(dateInput)}&scrim=${encodeURIComponent(scrimFilter)}`}>
+                <Camera className="size-4" />
+                Image Requests Hub →
+              </Link>
             </Button>
           </div>
         </div>
@@ -607,6 +624,9 @@ export function AdminHistoryView({
                       </a>
                     </Button>
                   )}
+
+                  {/* Request MVP / Winner Photo Asset directly from History */}
+                  <RequestHistoricalPhotoDialog booking={b} selectedDate={selectedDate} />
                 </div>
               </div>
             )
@@ -614,6 +634,144 @@ export function AdminHistoryView({
         </div>
       )}
     </div>
+  )
+}
+
+export function RequestHistoricalPhotoDialog({
+  booking,
+  selectedDate,
+}: {
+  booking: HistoricalBookingItem
+  selectedDate: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [isRequested, setIsRequested] = useState(Boolean(booking.imageRequested))
+  const [mvpName, setMvpName] = useState(booking.captainName || "")
+  const [requestType, setRequestType] = useState("MVP Image")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    startTransition(async () => {
+      try {
+        const res = await requestTeamImage(booking.id, {
+          mvpPlayerName: mvpName.trim() || null,
+          requestType,
+          scrimDate: selectedDate,
+        })
+        if (res.ok) {
+          setIsRequested(true)
+          toast.success(res.message || `${requestType} requested for ${booking.teamName}`)
+          setOpen(false)
+        } else {
+          toast.error(res.error || "Failed to request image")
+        }
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to request image")
+      }
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        type="button"
+        onClick={() => setOpen(true)}
+        variant={isRequested ? "secondary" : "outline"}
+        size="sm"
+        className={cn(
+          "h-7 text-xs gap-1.5 font-semibold",
+          isRequested
+            ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+            : "border-primary/40 text-primary hover:bg-primary/10"
+        )}
+      >
+        <Camera className="size-3" />
+        {isRequested ? "Requested" : "Request Photo"}
+      </Button>
+      <DialogContent className="max-w-md bg-zinc-950 border-border/80 p-6">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 font-display text-lg uppercase">
+            <Camera className="size-5 text-primary" />
+            Request Player Photo / Assets
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-xs">
+          <div className="rounded-xl bg-secondary/50 p-3 border border-border/60 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-foreground text-sm">{booking.teamName}</span>
+              <Badge variant="outline" className="font-mono text-[10px]">
+                UID: {booking.captainUid}
+              </Badge>
+            </div>
+            <div className="text-muted-foreground">
+              Match: <strong className="text-foreground">{booking.scrimTitle}</strong> · Date: {selectedDate}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`mvp-player-${booking.id}`} className="text-xs font-semibold text-foreground">
+              MVP Player Name (Optional or Specific Player)
+            </Label>
+            <Input
+              id={`mvp-player-${booking.id}`}
+              value={mvpName}
+              onChange={(e) => setMvpName(e.target.value)}
+              placeholder="e.g. Abrar / RAJ-77 (leave blank or specify player)"
+              className="h-9 text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              The team captain will see this name and be asked to upload the player&apos;s waist-up photo.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`asset-type-${booking.id}`} className="text-xs font-semibold text-foreground">
+              Request Asset Type
+            </Label>
+            <Select value={requestType} onValueChange={(val) => val && setRequestType(val)}>
+              <SelectTrigger id={`asset-type-${booking.id}`} className="h-9 text-xs bg-background/80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MVP Image" className="text-xs">
+                  MVP Image (Waist-up Player Cutout)
+                </SelectItem>
+                <SelectItem value="Winner Team Photo" className="text-xs">
+                  Winner Team Photo (Podium Banner)
+                </SelectItem>
+                <SelectItem value="Top 3 Banner Photo" className="text-xs">
+                  Top 3 Banner Photo
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpen(false)}
+              disabled={isPending}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isPending}
+              className="gap-1.5 text-xs font-bold glow-primary"
+            >
+              {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+              Send Photo Request
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -1019,21 +1019,29 @@ export async function sendMvpImageRequestEmail({
   recipientName,
   teamName,
   scrimTitle,
+  mvpPlayerName,
+  requestType = "MVP Face Banner Image",
+  scrimDate,
 }: {
   to: string
   recipientName: string
   teamName: string
   scrimTitle: string
+  mvpPlayerName?: string | null
+  requestType?: string | null
+  scrimDate?: string | null
 }): Promise<boolean> {
   const appUrl = getProductionAppUrl()
-  const dashboardUrl = `${appUrl}/dashboard#image-requests`
+  const dashboardUrl = `${appUrl}/dashboard/image-requests`
+
+  const targetPlayerStr = mvpPlayerName ? `player <strong>${mvpPlayerName}</strong> from squad <strong>${teamName}</strong>` : `your squad <strong>${teamName}</strong>`
 
   const contentHtml = `
     <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
       Hello <strong>${recipientName}</strong>,
     </p>
     <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      Congratulations! Ace Scrims management has officially requested an <strong>MVP Image</strong> for your squad <strong>${teamName}</strong> from <em>${scrimTitle}</em> to be featured in the official Ace Scrims Face Banners showcase.
+      Congratulations! Ace Scrims management has officially requested an image asset for ${targetPlayerStr} from <em>${scrimTitle}</em>${scrimDate ? ` (${scrimDate})` : ""} to be featured in the official Ace Scrims Face Banners showcase.
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
@@ -1044,13 +1052,19 @@ export async function sendMvpImageRequestEmail({
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SQUAD:</td>
               <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${teamName}</td>
             </tr>
+            ${mvpPlayerName ? `
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">MVP PLAYER:</td>
+              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:700;">${mvpPlayerName}</td>
+            </tr>
+            ` : ""}
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">EVENT:</td>
-              <td style="padding:6px 0;color:#f97316;font-size:14px;font-weight:700;">${scrimTitle}</td>
+              <td style="padding:6px 0;color:#f97316;font-size:14px;font-weight:700;">${scrimTitle}${scrimDate ? ` · ${scrimDate}` : ""}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">REQUEST TYPE:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:800;">MVP Face Banner Image</td>
+              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:800;">${requestType || "MVP Face Banner Image"}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">PHOTO GUIDELINES:</td>

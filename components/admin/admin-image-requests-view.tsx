@@ -1,9 +1,25 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { requestTeamImage } from "@/app/actions/image-requests"
 import { trashImageRequests } from "@/app/actions/admin"
 import { toast } from "sonner"
@@ -22,6 +38,9 @@ import {
   Trash2,
   CheckSquare,
   Square,
+  Calendar,
+  History,
+  Trophy,
 } from "lucide-react"
 import type { Booking, Scrim, ImageRequest } from "@/lib/db/schema"
 import { formatDateTime, timeAgo } from "@/lib/format"
@@ -31,14 +50,47 @@ type Props = {
   scrims: Scrim[]
   bookingsByScrim: Record<string, (Booking & { userEmail: string | null })[]>
   allRequests: ImageRequest[]
+  dates?: string[]
+  selectedDate?: string
+  todayDate?: string
+  initialSelectedScrimId?: string
 }
 
-export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }: Props) {
-  const [selectedScrimId, setSelectedScrimId] = useState<string>(scrims[0]?.id || "")
+export function AdminImageRequestsView({
+  scrims,
+  bookingsByScrim,
+  allRequests,
+  dates = [],
+  selectedDate: initialSelectedDate,
+  todayDate,
+  initialSelectedScrimId,
+}: Props) {
+  const router = useRouter()
+  const [selectedDate, setSelectedDate] = useState<string>(initialSelectedDate || todayDate || "")
+  const [selectedScrimId, setSelectedScrimId] = useState<string>(
+    initialSelectedScrimId || scrims[0]?.id || ""
+  )
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<"pending" | "submitted" | "all">("all")
   const [isPending, startTransition] = useTransition()
   const [localRequestedIds, setLocalRequestedIds] = useState<Record<string, boolean>>({})
+
+  // Request Photo Dialog State
+  const [requestModalTeam, setRequestModalTeam] = useState<any | null>(null)
+  const [inputMvpName, setInputMvpName] = useState("")
+  const [requestType, setRequestType] = useState("MVP Image")
+
+  const isToday = !selectedDate || selectedDate === todayDate
+
+  const handleDateChange = (newDate: string) => {
+    setSelectedDate(newDate)
+    router.push(`/admin/image-requests?date=${encodeURIComponent(newDate)}&scrim=${encodeURIComponent(selectedScrimId)}`)
+  }
+
+  const handleScrimSelect = (scrimId: string) => {
+    setSelectedScrimId(scrimId)
+    router.push(`/admin/image-requests?date=${encodeURIComponent(selectedDate)}&scrim=${encodeURIComponent(scrimId)}`)
+  }
 
   const selectedScrim = scrims.find((s) => s.id === selectedScrimId || s.slug === selectedScrimId)
   const roster = selectedScrimId ? (bookingsByScrim[selectedScrimId] || []) : []
@@ -80,13 +132,26 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
     })
   }
 
-  const handleRequestClick = (bookingId: string, teamName: string) => {
+  const openRequestModal = (team: any) => {
+    setRequestModalTeam(team)
+    setInputMvpName(team.captainName || "")
+    setRequestType("MVP Image")
+  }
+
+  const submitModalRequest = () => {
+    if (!requestModalTeam) return
+    const team = requestModalTeam
     startTransition(async () => {
       try {
-        const res = await requestTeamImage(bookingId)
+        const res = await requestTeamImage(team.id, {
+          mvpPlayerName: inputMvpName.trim() || null,
+          requestType,
+          scrimDate: selectedDate || undefined,
+        })
         if (res.ok) {
-          setLocalRequestedIds((prev) => ({ ...prev, [bookingId]: true }))
-          toast.success(res.message || `MVP Image requested for "${teamName}"`)
+          setLocalRequestedIds((prev) => ({ ...prev, [team.id]: true }))
+          toast.success(res.message || `${requestType} requested for "${team.teamName}"`)
+          setRequestModalTeam(null)
         } else {
           toast.error(res.error || "Failed to request image")
         }
@@ -98,11 +163,64 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Top Toolbar: Date Selector & Seamless History Switcher */}
+      <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/80 p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="size-4 text-primary" />
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Match Date:</span>
+          </div>
+
+          <Select value={selectedDate} onValueChange={(val) => val && handleDateChange(val)}>
+            <SelectTrigger className="w-[200px] h-9 text-xs font-semibold bg-background/80">
+              <SelectValue placeholder="Select Match Date" />
+            </SelectTrigger>
+            <SelectContent>
+              {todayDate && (
+                <SelectItem value={todayDate} className="text-xs font-bold text-emerald-400">
+                  Today ({todayDate}) · Live
+                </SelectItem>
+              )}
+              {dates
+                .filter((d) => d !== todayDate)
+                .map((d) => (
+                  <SelectItem key={d} value={d} className="text-xs">
+                    {d} (Historical Archive)
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs font-mono",
+              isToday
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                : "bg-primary/10 text-primary border-primary/30"
+            )}
+          >
+            {isToday ? "Live Active Scrims" : `Archived Date: ${selectedDate}`}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold">
+            <Link href={`/admin/history?date=${encodeURIComponent(selectedDate)}&scrim=${encodeURIComponent(selectedScrimId)}`}>
+              <History className="size-3.5 text-primary" />
+              Open in Match History Archive →
+            </Link>
+          </Button>
+        </div>
+      </div>
+
       {/* Top Banner Stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="glass rounded-xl p-4 border border-border/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground uppercase font-semibold">Active Scrims</span>
+            <span className="text-xs text-muted-foreground uppercase font-semibold">
+              {isToday ? "Active Scrims" : "Archived Scrims"}
+            </span>
             <Users className="size-4 text-primary" />
           </div>
           <p className="mt-2 font-display text-2xl font-bold">{scrims.length}</p>
@@ -201,7 +319,21 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
                     </div>
                   </div>
 
-                  <p className="text-xs text-muted-foreground truncate">{req.scrimTitle}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <p className="text-muted-foreground truncate">{req.scrimTitle}</p>
+                    {req.scrimDate && (
+                      <span className="text-[10px] text-muted-foreground font-mono">({req.scrimDate})</span>
+                    )}
+                  </div>
+
+                  {(req.mvpPlayerName || req.submittedPlayerName) && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-xs">
+                      <Trophy className="size-3 text-emerald-400 shrink-0" />
+                      <span className="text-emerald-300 font-semibold truncate">
+                        MVP: {req.submittedPlayerName || req.mvpPlayerName}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Photo Previews */}
                   {urls.length > 0 ? (
@@ -273,7 +405,7 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
                 <button
                   key={scrim.id}
                   type="button"
-                  onClick={() => setSelectedScrimId(scrim.id)}
+                  onClick={() => handleScrimSelect(scrim.id)}
                   className={cn(
                     "flex flex-col gap-1.5 rounded-xl p-3.5 text-left border transition-all",
                     isSelected
@@ -419,14 +551,10 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
                                 ? "border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
                                 : "glow-primary"
                             )}
-                            onClick={() => handleRequestClick(team.id, team.teamName)}
+                            onClick={() => openRequestModal(team)}
                           >
-                            {isPending ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Camera className="size-3.5" />
-                            )}
-                            {isRequested ? "Request Again" : "Request MVP Image"}
+                            <Camera className="size-3.5" />
+                            {isRequested ? "Request Again" : "Request MVP Photo"}
                           </Button>
                         </div>
                       </div>
@@ -442,6 +570,95 @@ export function AdminImageRequestsView({ scrims, bookingsByScrim, allRequests }:
           )}
         </div>
       </div>
+
+      {/* Modal for Requesting MVP Photo with Explicit Player Name Input */}
+      {requestModalTeam && (
+        <Dialog open={!!requestModalTeam} onOpenChange={(open) => !open && setRequestModalTeam(null)}>
+          <DialogContent className="max-w-md border-border/80 bg-zinc-950 p-6">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 font-display text-lg uppercase">
+                <Camera className="size-5 text-primary" />
+                Request Player Photo / Assets
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-4 text-xs">
+              <div className="rounded-xl bg-secondary/50 p-3 border border-border/60 flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground text-sm">{requestModalTeam.teamName}</span>
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    UID: {requestModalTeam.captainUid}
+                  </Badge>
+                </div>
+                <div className="text-muted-foreground">
+                  Match: <strong className="text-foreground">{selectedScrim?.title}</strong> · {selectedDate}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="mvp-name" className="text-xs font-semibold text-foreground">
+                  MVP Player Name (Optional or Specific Player)
+                </Label>
+                <Input
+                  id="mvp-name"
+                  value={inputMvpName}
+                  onChange={(e) => setInputMvpName(e.target.value)}
+                  placeholder="e.g. Abrar / RAJ-77 (leave blank or specify MVP)"
+                  className="h-9 text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  The captain will see this name and be asked to upload the player&apos;s waist-up photo.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="req-type" className="text-xs font-semibold text-foreground">
+                  Request Asset Type
+                </Label>
+                <Select value={requestType} onValueChange={(val) => val && setRequestType(val)}>
+                  <SelectTrigger id="req-type" className="h-9 text-xs bg-background/80">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MVP Image" className="text-xs">
+                      MVP Image (Waist-up Player Cutout)
+                    </SelectItem>
+                    <SelectItem value="Winner Team Photo" className="text-xs">
+                      Winner Team Photo (Podium Banner)
+                    </SelectItem>
+                    <SelectItem value="Top 3 Banner Photo" className="text-xs">
+                      Top 3 Banner Photo
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRequestModalTeam(null)}
+                  disabled={isPending}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={submitModalRequest}
+                  disabled={isPending}
+                  className="gap-1.5 text-xs font-bold glow-primary"
+                >
+                  {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                  Send Photo Request
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

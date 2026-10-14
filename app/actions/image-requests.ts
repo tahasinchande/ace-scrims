@@ -15,14 +15,28 @@ export type ImageRequestState = {
   error?: string
 }
 
+export type RequestTeamImageOptions = {
+  mvpPlayerName?: string | null
+  requestType?: string | null
+  scrimDate?: string | null
+}
+
 /**
- * Admin action: Request MVP image from a registered team
+ * Admin action: Request MVP image or winner assets from a registered team
  */
-export async function requestTeamImage(bookingId: string): Promise<ImageRequestState> {
+export async function requestTeamImage(
+  bookingId: string,
+  optionsOrMvpName?: RequestTeamImageOptions | string
+): Promise<ImageRequestState> {
   const admin = await getSessionUser()
   if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
     return { ok: false, error: "Unauthorized. Staff privileges required." }
   }
+
+  const options: RequestTeamImageOptions =
+    typeof optionsOrMvpName === "string"
+      ? { mvpPlayerName: optionsOrMvpName }
+      : optionsOrMvpName || {}
 
   const [booking] = await db
     .select()
@@ -41,6 +55,9 @@ export async function requestTeamImage(bookingId: string): Promise<ImageRequestS
     .limit(1)
 
   const scrimTitle = scrim?.title || "Match Scrim"
+  const mvpPlayerName = options.mvpPlayerName?.trim() || null
+  const requestType = options.requestType || "MVP Image"
+  const scrimDate = options.scrimDate?.trim() || booking.scrimDate || null
 
   // Check if an open/pending request already exists for this booking
   const existingRequests = await db
@@ -61,11 +78,24 @@ export async function requestTeamImage(bookingId: string): Promise<ImageRequestS
       teamName: booking.teamName,
       captainName: booking.captainName,
       captainUid: booking.captainUid,
+      mvpPlayerName,
+      scrimDate,
       status: "pending",
-      requestType: "MVP Image",
+      requestType,
       requestedBy: admin.id,
       requestedAt: new Date(),
     })
+  } else {
+    // Update existing pending request with new MVP player name or request type
+    await db
+      .update(imageRequests)
+      .set({
+        mvpPlayerName: mvpPlayerName || existingRequests[0].mvpPlayerName,
+        requestType,
+        scrimDate: scrimDate || existingRequests[0].scrimDate,
+        updatedAt: new Date(),
+      })
+      .where(eq(imageRequests.id, existingRequests[0].id))
   }
 
   // Update booking record
@@ -92,6 +122,9 @@ export async function requestTeamImage(bookingId: string): Promise<ImageRequestS
         recipientName: userRecord.name || booking.captainName,
         teamName: booking.teamName,
         scrimTitle,
+        mvpPlayerName,
+        requestType,
+        scrimDate,
       })
     } catch (e) {
       console.warn("[requestTeamImage] Email sending error:", e)
@@ -99,22 +132,25 @@ export async function requestTeamImage(bookingId: string): Promise<ImageRequestS
   }
 
   // Notify user in app
+  const targetLabel = mvpPlayerName ? `for player "${mvpPlayerName}" (${booking.teamName})` : `for squad "${booking.teamName}"`
   await notifyUser(
     booking.userId,
     "image_request",
-    "MVP Image Requested!",
-    `Congratulations! Management has requested an MVP waist-up banner photo for "${booking.teamName}" (${scrimTitle}). Please upload it on your Dashboard.`,
+    `${requestType} Requested!`,
+    `Congratulations! Management has requested a waist-up banner photo ${targetLabel} from ${scrimTitle}${scrimDate ? ` (${scrimDate})` : ""}. Please upload it on your Dashboard.`,
     "/dashboard/image-requests"
   )
 
   revalidatePath("/admin/scrims")
+  revalidatePath("/admin/history")
+  revalidatePath("/admin/image-requests")
   revalidatePath("/admin/results")
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/image-requests")
 
   return {
     ok: true,
-    message: `MVP image requested for "${booking.teamName}". Email notification sent to user.`,
+    message: `${requestType} requested for "${booking.teamName}"${mvpPlayerName ? ` (Player: ${mvpPlayerName})` : ""}. Notification sent.`,
   }
 }
 
@@ -125,6 +161,8 @@ export async function submitPendingImageRequest(payload: {
   requestId: string
   teamName: string
   playerUid: string
+  playerName?: string | null
+  mvpPlayerName?: string | null
   imageUrls: string[]
   notes?: string
 }): Promise<ImageRequestState> {
@@ -153,11 +191,14 @@ export async function submitPendingImageRequest(payload: {
     return { ok: false, error: "Image request not found or you are not authorized to submit for it." }
   }
 
+  const submittedPlayer = payload.playerName?.trim() || payload.mvpPlayerName?.trim() || null
+
   await db
     .update(imageRequests)
     .set({
       submittedTeamName: payload.teamName.trim(),
       submittedPlayerUid: payload.playerUid.trim(),
+      submittedPlayerName: submittedPlayer,
       uploadedImageUrls: payload.imageUrls,
       notes: payload.notes?.trim() || null,
       status: "submitted",
@@ -169,6 +210,8 @@ export async function submitPendingImageRequest(payload: {
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/image-requests")
   revalidatePath("/admin/scrims")
+  revalidatePath("/admin/history")
+  revalidatePath("/admin/image-requests")
   revalidatePath("/admin/results")
 
   return {
