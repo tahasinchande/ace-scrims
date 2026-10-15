@@ -203,6 +203,7 @@ export function getAllSampleScrims(): ScrimWithSlots[] {
       mode: "BATTLE ROYALE",
       startTime: def.time,
       scrimDate: activeDate,
+      category: def.category || null,
       priceBdt: def.priceBdt,
       prizePoolBdt: def.prizePoolBdt,
       maxTeams: 12,
@@ -252,6 +253,7 @@ function getSampleScrims(isFriday: boolean = false): ScrimWithSlots[] {
       mode: "BATTLE ROYALE",
       startTime: def.time,
       scrimDate: activeDate,
+      category: def.category || null,
       priceBdt: def.priceBdt,
       prizePoolBdt: def.prizePoolBdt,
       maxTeams: 12,
@@ -404,7 +406,7 @@ export async function isRoom2Enabled(): Promise<boolean> {
   }
 }
 
-export function isFridayTournament(s: { id?: string; slug?: string; title?: string; category?: string; map?: string; scrimDate?: string }): boolean {
+export function isFridayTournament(s: { id?: string; slug?: string; title?: string; category?: string | null; map?: string; scrimDate?: string }): boolean {
   if (!s) return false
   if (s.id?.startsWith("scrim-fri-") || s.id?.includes("-cr")) return true
   if (s.slug?.includes("friday") || s.slug?.includes("champion-rush")) return true
@@ -414,7 +416,7 @@ export function isFridayTournament(s: { id?: string; slug?: string; title?: stri
   return false
 }
 
-export function isDailyWeekdayScrim(s: { id?: string; slug?: string; title?: string; category?: string }): boolean {
+export function isDailyWeekdayScrim(s: { id?: string; slug?: string; title?: string; category?: string | null }): boolean {
   if (!s) return false
   if (DAILY_SCRIM_DEFINITIONS.some((d) => d.id === s.id || d.slug === s.slug)) return true
   if (s.category === "Daily Scrims") return true

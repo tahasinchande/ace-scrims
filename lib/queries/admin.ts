@@ -204,6 +204,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           mode: "BATTLE ROYALE",
           startTime: def.time,
           scrimDate: activeDate,
+          category: def.category || null,
           priceBdt: def.priceBdt,
           prizePoolBdt: def.prizePoolBdt,
           maxTeams: 12,

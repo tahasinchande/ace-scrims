@@ -41,6 +41,7 @@ async function ensureSchema() {
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "mvpTeamName" text`,
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
+        `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "category" text`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "hidden" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
@@ -201,8 +202,10 @@ async function ensureSchema() {
         `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `DELETE FROM "settings" WHERE "key" = 'support_phone'`,
         `INSERT INTO "settings" ("key", "value", "updatedAt") VALUES ('champion_rush_3pm_whatsapp_url', 'https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V', NOW()) ON CONFLICT ("key") DO NOTHING`,
-        `UPDATE "scrims" SET "map" = 'Champion Mode (Max 8 Matches)', "priceBdt" = 50, "prizePoolBdt" = 480 WHERE "slug" = '10-pm-champion-rush' OR "slug" = '3-pm-champion-rush' OR "id" LIKE '%-cr' OR "title" ILIKE '%Champion Rush%'`,
-        `UPDATE "scrims" SET "priceBdt" = 35, "prizePoolBdt" = 330 WHERE ("category" = 'Daily Scrims' OR "id" LIKE 'scrim-%') AND "category" NOT LIKE '%Blast%' AND "slug" NOT LIKE '%champion-rush%' AND "id" NOT LIKE '%-cr'`,
+        `UPDATE "scrims" SET "category" = 'Friday Special Blast' WHERE "slug" LIKE '%friday-special%' OR "title" ILIKE '%Friday Special%' OR "title" ILIKE '%Special Blast%'`,
+        `UPDATE "scrims" SET "category" = 'Champion Rush', "map" = 'Champion Mode (Max 8 Matches)', "priceBdt" = 50, "prizePoolBdt" = 480 WHERE "slug" = '10-pm-champion-rush' OR "slug" = '3-pm-champion-rush' OR "slug" LIKE '%champion-rush%' OR "title" ILIKE '%Champion Rush%' OR "id" LIKE '%-cr'`,
+        `UPDATE "scrims" SET "category" = 'Daily Scrims' WHERE ("category" IS NULL OR "category" = '') AND "slug" NOT LIKE '%champion-rush%' AND "slug" NOT LIKE '%friday-special%' AND "title" NOT ILIKE '%Champion Rush%' AND "title" NOT ILIKE '%Friday Special%'`,
+        `UPDATE "scrims" SET "priceBdt" = 35, "prizePoolBdt" = 330 WHERE ("id" LIKE 'scrim-%' OR "slug" NOT LIKE '%champion-rush%') AND "slug" NOT LIKE '%champion-rush%' AND "slug" NOT LIKE '%friday-special%' AND "id" NOT LIKE '%-cr' AND "id" NOT LIKE '%-fri%' AND "title" NOT ILIKE '%Champion Rush%' AND "title" NOT ILIKE '%Friday Special%'`,
         `UPDATE "scrims" SET "bannerUrl" = CASE "slug"
           WHEN '3-pm-scrim-room-1' THEN '/images/scrim-1.jpg'
           WHEN '3-pm-scrim-room-2' THEN '/images/scrim-2.jpg'

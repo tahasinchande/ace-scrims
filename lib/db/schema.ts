@@ -78,6 +78,7 @@ export const scrims = pgTable("scrims", {
   mode: text("mode").notNull().default("BATTLE ROYALE"),
   startTime: text("startTime").notNull(), // e.g. "7:00 PM"
   scrimDate: date("scrimDate").notNull(),
+  category: text("category"),
   priceBdt: integer("priceBdt").notNull().default(35),
   prizePoolBdt: integer("prizePoolBdt").notNull().default(330),
   maxTeams: integer("maxTeams").notNull().default(12),
