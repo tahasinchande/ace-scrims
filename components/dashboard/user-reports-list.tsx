@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { formatDate } from "@/lib/format"
-import { resolveImageUrl } from "@/lib/image-url"
+import { resolveImageUrl, extractImageUrls } from "@/lib/image-url"
 import {
   ShieldAlert,
   AlertTriangle,
@@ -567,7 +567,7 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
                   Report Description
                 </label>
-                <div className="rounded-xl bg-secondary/40 p-3.5 text-xs sm:text-sm leading-relaxed text-foreground border border-border/40 whitespace-pre-wrap">
+                <div className="rounded-xl bg-secondary/40 p-3.5 text-xs sm:text-sm leading-relaxed text-foreground border border-border/40 whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full">
                   {selectedReport.description}
                 </div>
               </div>
@@ -611,14 +611,14 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
                 {selectedReport.bookingDetails && (
                   <div className="rounded-xl bg-secondary/50 p-3 border border-border/40 space-y-0.5 sm:col-span-2">
                     <span className="text-[11px] text-muted-foreground font-bold uppercase">Booking Reference</span>
-                    <p className="text-xs text-foreground">{selectedReport.bookingDetails}</p>
+                    <p className="text-xs text-foreground break-words [overflow-wrap:anywhere]">{selectedReport.bookingDetails}</p>
                   </div>
                 )}
 
                 {selectedReport.additionalInfo && (
                   <div className="rounded-xl bg-secondary/50 p-3 border border-border/40 space-y-0.5 sm:col-span-2">
                     <span className="text-[11px] text-muted-foreground font-bold uppercase">Additional Details</span>
-                    <p className="text-xs text-foreground whitespace-pre-wrap">{selectedReport.additionalInfo}</p>
+                    <p className="text-xs text-foreground whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full">{selectedReport.additionalInfo}</p>
                   </div>
                 )}
               </div>
@@ -650,11 +650,11 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
                     Attached Proof Screenshots
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {(selectedReport.imageUrls && selectedReport.imageUrls.length > 0
-                      ? selectedReport.imageUrls
-                      : [selectedReport.proofUrl!]
-                    ).map((imgUrl, idx) => {
-                      const resolved = resolveImageUrl(imgUrl)
+                    {extractImageUrls(
+                      selectedReport.imageUrls && selectedReport.imageUrls.length > 0
+                        ? selectedReport.imageUrls
+                        : selectedReport.proofUrl
+                    ).map((resolved, idx) => {
                       return (
                         <div
                           key={idx}

@@ -165,25 +165,53 @@ export async function POST(req: NextRequest) {
       finalAdditionalInfo ||
       `Report filed for ${reportType} (${data.incidentDate || "No date"})`
 
-    // Normalize image proofs
-    let imageUrls: string[] = []
+    // Normalize image proofs strictly
+    const rawImageCandidates: string[] = []
     if (Array.isArray(data.imageUrls)) {
-      imageUrls = data.imageUrls.filter((u) => typeof u === "string" && u.trim().length > 0)
+      for (const item of data.imageUrls) {
+        if (typeof item === "string" && item.trim().length > 0) {
+          rawImageCandidates.push(item.trim())
+        }
+      }
     } else if (typeof data.imageUrls === "string" && data.imageUrls.trim().length > 0) {
       try {
         const parsedUrls = JSON.parse(data.imageUrls)
         if (Array.isArray(parsedUrls)) {
-          imageUrls = parsedUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
-        } else {
-          imageUrls = [data.imageUrls]
+          for (const item of parsedUrls) {
+            if (typeof item === "string" && item.trim().length > 0) {
+              rawImageCandidates.push(item.trim())
+            }
+          }
+        } else if (typeof parsedUrls === "string" && parsedUrls.trim().length > 0) {
+          rawImageCandidates.push(parsedUrls.trim())
         }
       } catch {
-        imageUrls = [data.imageUrls]
+        rawImageCandidates.push(data.imageUrls.trim())
       }
     }
 
-    if (data.proofUrlInput && !imageUrls.includes(data.proofUrlInput)) {
-      imageUrls.unshift(data.proofUrlInput)
+    // Only fallback to proofUrlInput if NO imageUrls were provided
+    if (rawImageCandidates.length === 0 && data.proofUrlInput && data.proofUrlInput.trim().length > 0) {
+      rawImageCandidates.push(data.proofUrlInput.trim())
+    }
+
+    // Strictly normalize and deduplicate URLs so each uploaded image is stored and submitted exactly once
+    const seenImageKeys = new Set<string>()
+    const imageUrls: string[] = []
+    for (const url of rawImageCandidates) {
+      const trimmed = url.trim().replace(/^["']|["']$/g, "")
+      if (!trimmed) continue
+      let canonical = trimmed
+      try {
+        canonical = decodeURIComponent(trimmed)
+      } catch {
+        // ignore
+      }
+      canonical = canonical.toLowerCase().replace(/\/+$/, "")
+      if (!seenImageKeys.has(canonical)) {
+        seenImageKeys.add(canonical)
+        imageUrls.push(trimmed)
+      }
     }
 
     const primaryProofUrl = imageUrls.length > 0 ? imageUrls[0] : null
@@ -205,7 +233,7 @@ export async function POST(req: NextRequest) {
       bookingDetails: data.bookingDetails || null,
       additionalInfo: finalAdditionalInfo,
       proofUrl: primaryProofUrl,
-      imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : primaryProofUrl,
+      imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null,
       videoUrl,
       status: "pending",
     })

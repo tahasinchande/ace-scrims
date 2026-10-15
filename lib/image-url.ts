@@ -72,41 +72,73 @@ export function resolveImageUrl(url: string | null | undefined, fallback: string
  * - A JSON stringified array string e.g. '["url1", "url2"]'
  * - An array of strings
  * - A comma-delimited string
+ * Strictly deduplicates all URLs so each image is only returned once.
  */
 export function extractImageUrls(input: unknown): string[] {
   if (!input) return []
 
-  if (Array.isArray(input)) {
-    return input.flatMap((item) => extractImageUrls(item))
-  }
+  const collected: string[] = []
 
-  if (typeof input === "string") {
-    const trimmed = input.trim()
-    if (!trimmed) return []
+  function traverse(item: unknown) {
+    if (!item) return
 
-    // JSON array string
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(trimmed)
-        if (Array.isArray(parsed)) {
-          return parsed.flatMap((item) => extractImageUrls(item))
-        }
-      } catch {
-        // Fallback: comma split
-        return trimmed
-          .slice(1, -1)
-          .split(",")
-          .map((s) => s.trim().replace(/^["']|["']$/g, ""))
-          .map((u) => resolveImageUrl(u, ""))
-          .filter((u): u is string => u.length > 0 && u !== "/placeholder.svg")
-      }
+    if (Array.isArray(item)) {
+      for (const sub of item) traverse(sub)
+      return
     }
 
-    const resolved = resolveImageUrl(trimmed, "")
-    return resolved && resolved !== "/placeholder.svg" ? [resolved] : []
+    if (typeof item === "string") {
+      const trimmed = item.trim()
+      if (!trimmed) return
+
+      // JSON array string
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(trimmed)
+          if (Array.isArray(parsed)) {
+            for (const sub of parsed) traverse(sub)
+            return
+          }
+        } catch {
+          // Fallback: comma split
+          const parts = trimmed
+            .slice(1, -1)
+            .split(",")
+            .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+          for (const sub of parts) traverse(sub)
+          return
+        }
+      }
+
+      const resolved = resolveImageUrl(trimmed, "")
+      if (resolved && resolved !== "/placeholder.svg") {
+        collected.push(resolved)
+      }
+    }
   }
 
-  return []
+  traverse(input)
+
+  // Deduplicate URLs while preserving order using canonical keys
+  const seen = new Set<string>()
+  const uniqueUrls: string[] = []
+  for (const url of collected) {
+    if (!url) continue
+    let canonical = url.trim()
+    try {
+      canonical = decodeURIComponent(canonical)
+    } catch {
+      // ignore URI decode error
+    }
+    canonical = canonical.toLowerCase().replace(/\/+$/, "")
+
+    if (!seen.has(canonical)) {
+      seen.add(canonical)
+      uniqueUrls.push(url)
+    }
+  }
+
+  return uniqueUrls
 }
 
 export function resolveImageUrls(urls: (string | null | undefined)[] | null | undefined): string[] {

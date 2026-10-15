@@ -55,17 +55,22 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
   const [imageProgress, setImageProgress] = useState(0)
   const [videoLink, setVideoLink] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const processedFileSigs = useRef<Set<string>>(new Set())
+  const isSubmittingRef = useRef<boolean>(false)
 
   async function handleMultipleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
-    if (!files || files.length === 0) return
+    if (!files || files.length === 0 || uploadingImage) return
+
+    // Immediately clear input element value to prevent accidental double-firing on some browsers
+    const fileList = Array.from(files)
+    if (e.target) e.target.value = ""
 
     setUploadingImage(true)
     setImageProgress(10)
 
     try {
       const newUrls: string[] = []
-      const fileList = Array.from(files)
       const total = fileList.length
 
       for (let i = 0; i < total; i++) {
@@ -74,16 +79,42 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
           toast.error(`"${file.name}" is over 50MB and was skipped.`)
           continue
         }
+
+        const sig = `${file.name}_${file.size}_${file.lastModified}`
+        if (processedFileSigs.current.has(sig)) {
+          continue
+        }
+
         const result = await uploadMediaFile(file, "reports", (pct) => {
           const overall = Math.round(((i + pct / 100) / total) * 100)
           setImageProgress(overall)
         })
-        newUrls.push(result.url)
+
+        if (result?.url) {
+          processedFileSigs.current.add(sig)
+          newUrls.push(result.url)
+        }
       }
 
-      setUploadedImages((prev) => [...prev, ...newUrls])
+      if (newUrls.length > 0) {
+        setUploadedImages((prev) => {
+          const seen = new Set<string>()
+          const combined: string[] = []
+          for (const u of [...prev, ...newUrls]) {
+            if (!u || typeof u !== "string") continue
+            const trimmed = u.trim()
+            if (!trimmed) continue
+            const key = trimmed.toLowerCase().replace(/\/+$/, "")
+            if (!seen.has(key)) {
+              seen.add(key)
+              combined.push(trimmed)
+            }
+          }
+          return combined
+        })
+        toast.success(`${newUrls.length} image(s) uploaded successfully!`)
+      }
       setImageProgress(100)
-      toast.success(`${newUrls.length} image(s) uploaded successfully!`)
     } catch (err) {
       toast.error("Image upload failed: " + (err instanceof Error ? err.message : "Network error"))
     } finally {
@@ -102,6 +133,10 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
       toast.info("Please wait for images to finish uploading")
       return
     }
+    if (isSubmittingRef.current || isPending) {
+      return
+    }
+    isSubmittingRef.current = true
 
     const form = e.currentTarget
     const formData = new FormData(form)
@@ -120,13 +155,33 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
       formData.set("customScrimName", "")
     }
 
-    if (uploadedImages.length > 0) {
-      formData.set("imageUrls", JSON.stringify(uploadedImages))
-      formData.set("proofUrlInput", uploadedImages[0])
+    // Strictly deduplicate attached proof images
+    const seen = new Set<string>()
+    const uniqueImages: string[] = []
+    for (const u of uploadedImages) {
+      if (!u || typeof u !== "string") continue
+      const cleaned = u.trim()
+      if (!cleaned) continue
+      const key = cleaned.toLowerCase().replace(/\/+$/, "")
+      if (!seen.has(key)) {
+        seen.add(key)
+        uniqueImages.push(cleaned)
+      }
+    }
+
+    if (uniqueImages.length > 0) {
+      formData.set("imageUrls", JSON.stringify(uniqueImages))
+      // Do not set proofUrlInput so backend uses imageUrls directly without duplicate unshifting
+      formData.delete("proofUrlInput")
     } else {
       formData.set("imageUrls", "")
-      formData.set("proofUrlInput", "")
+      formData.delete("proofUrlInput")
     }
+
+    // Avoid duplicate parsing from raw multipart file fields
+    formData.delete("proof")
+    formData.delete("imageProof")
+    formData.delete("file")
     
     if (videoLink.trim()) {
       formData.set("videoLink", videoLink.trim())
@@ -139,6 +194,8 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
         const res = await submitReport(null, formData)
         if (res.ok) {
           setIsSuccess(true)
+          setUploadedImages([])
+          processedFileSigs.current.clear()
           toast.success("Report submitted successfully! Status set to In Review.")
         } else {
           console.error("[Report Submit Error]", res.error)
@@ -151,6 +208,8 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
             ? `Submission error: ${submitErr.message}`
             : "Network error occurred while submitting report."
         )
+      } finally {
+        isSubmittingRef.current = false
       }
     })
   }

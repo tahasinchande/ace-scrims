@@ -155,13 +155,13 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
           {filteredReports.map((report) => {
             const isSelected = selectedIds.includes(report.id)
             const cleanWa = report.whatsapp?.replace(/[^0-9]/g, "")
-            const imageProofs = extractImageUrls([report.imageUrl, report.proofUrl])
+            const imageProofs = extractImageUrls(report.imageUrl || report.proofUrl)
             const videoProof = report.videoUrl
 
             return (
               <li
                 key={report.id}
-                className={`glass flex flex-col gap-4 rounded-2xl p-5 border transition-all ${
+                className={`glass flex flex-col gap-4 rounded-2xl p-5 border transition-all min-w-0 max-w-full overflow-hidden ${
                   isSelected ? "border-primary bg-primary/5" : "border-border/70"
                 } shadow-md`}
               >
@@ -199,21 +199,21 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                   <span className="text-xs text-muted-foreground font-mono">{formatDate(report.createdAt)}</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm min-w-0 max-w-full w-full">
+                  <div className="flex flex-col gap-2 min-w-0 max-w-full w-full overflow-hidden">
                     <div className="flex items-center gap-2 text-foreground font-medium">
-                      <User className="size-4 text-primary" />
-                      <span>Reporter: {report.userName || "Guest"} ({report.userPhone || report.userId})</span>
+                      <User className="size-4 text-primary shrink-0" />
+                      <span className="truncate">Reporter: {report.userName || "Guest"} ({report.userPhone || report.userId})</span>
                     </div>
 
                     {report.whatsapp && (
                       <div className="flex items-center gap-2">
-                        <MessageSquare className="size-4 text-emerald-400" />
+                        <MessageSquare className="size-4 text-emerald-400 shrink-0" />
                         <a
                           href={`https://wa.me/${cleanWa}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-emerald-400 hover:underline font-semibold text-xs"
+                          className="text-emerald-400 hover:underline font-semibold text-xs truncate"
                         >
                           WhatsApp: {report.whatsapp} (Click to Chat)
                         </a>
@@ -222,47 +222,61 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
 
                     {report.scrimTitle && (
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                        <AlertCircle className="size-4 text-primary" />
-                        <span>Related Scrim: <strong className="text-foreground">{report.scrimTitle}</strong></span>
+                        <AlertCircle className="size-4 text-primary shrink-0" />
+                        <span className="truncate">Related Scrim: <strong className="text-foreground">{report.scrimTitle}</strong></span>
                       </div>
                     )}
 
                     {/* Specific details based on report */}
                     {(report.hackerUid || report.hackerName) && (
-                      <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-xs flex flex-col gap-1">
+                      <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-xs flex flex-col gap-1 min-w-0 max-w-full">
                         <span className="font-bold text-destructive flex items-center gap-1">
                           <AlertCircle className="size-3.5" /> Accused Hacker Info:
                         </span>
-                        {report.hackerName && <div>Name: <strong>{report.hackerName}</strong></div>}
-                        {report.hackerUid && <div>UID: <strong className="font-mono">{report.hackerUid}</strong></div>}
+                        {report.hackerName && <div className="break-words [overflow-wrap:break-word] [word-break:break-word]">Name: <strong>{report.hackerName}</strong></div>}
+                        {report.hackerUid && <div className="break-words [overflow-wrap:break-word] [word-break:break-word]">UID: <strong className="font-mono">{report.hackerUid}</strong></div>}
                       </div>
                     )}
 
                     {report.trxid && (
-                      <div className="rounded-xl bg-primary/10 border border-primary/30 p-3 text-xs flex flex-col gap-1">
+                      <div className="rounded-xl bg-primary/10 border border-primary/30 p-3 text-xs flex flex-col gap-1 min-w-0 max-w-full">
                         <span className="font-bold text-primary flex items-center gap-1">
                           <CreditCard className="size-3.5" /> Claimed Payment TrxID:
                         </span>
-                        <div className="font-mono font-bold text-foreground">{report.trxid}</div>
+                        <div className="font-mono font-bold text-foreground break-all">{report.trxid}</div>
                       </div>
                     )}
 
                     {report.bookingDetails && (
-                      <div className="rounded-xl bg-secondary/50 p-2.5 text-xs text-muted-foreground">
-                        <strong>Registration Info:</strong> {report.bookingDetails}
+                      <div
+                        className="rounded-xl bg-secondary/50 p-2.5 text-xs text-muted-foreground break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full overflow-hidden"
+                        style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
+                      >
+                        <strong className="text-foreground">Registration Info:</strong> {report.bookingDetails}
                       </div>
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 min-w-0 max-w-full w-full overflow-hidden">
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Report Statement & Info:
                     </div>
-                    <div className="rounded-xl bg-secondary/60 p-3 text-sm leading-relaxed whitespace-pre-wrap flex-1 border border-border/50">
-                      {report.description}
+                    <div
+                      className="rounded-xl bg-secondary/60 p-3 text-sm leading-relaxed whitespace-pre-wrap flex-1 border border-border/50 break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full overflow-hidden"
+                      style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
+                    >
+                      <div
+                        className="break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full"
+                        style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
+                      >
+                        {report.description}
+                      </div>
                       {report.additionalInfo && (
-                        <div className="mt-2 pt-2 border-t border-border/40 text-xs text-muted-foreground">
-                          <strong>Additional Info:</strong> {report.additionalInfo}
+                        <div
+                          className="mt-2 pt-2 border-t border-border/40 text-xs text-muted-foreground break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full"
+                          style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
+                        >
+                          <strong className="text-foreground">Additional Info:</strong> {report.additionalInfo}
                         </div>
                       )}
                     </div>

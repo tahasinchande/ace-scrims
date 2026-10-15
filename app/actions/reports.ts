@@ -150,30 +150,58 @@ export async function submitReport(_prev: unknown, formData: FormData): Promise<
       `Report filed for ${reportType} (${data.incidentDate || "No date"})`
 
     // Process image proofs (from Cloudinary JSON array, single URL, or multipart file)
-    let imageUrls: string[] = []
+    const rawImageCandidates: string[] = []
     if (data.imageUrlsJson) {
       try {
         const parsedUrls = JSON.parse(data.imageUrlsJson)
         if (Array.isArray(parsedUrls)) {
-          imageUrls = parsedUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+          for (const item of parsedUrls) {
+            if (typeof item === "string" && item.trim().length > 0) {
+              rawImageCandidates.push(item.trim())
+            }
+          }
+        } else if (typeof parsedUrls === "string" && parsedUrls.trim().length > 0) {
+          rawImageCandidates.push(parsedUrls.trim())
         }
       } catch {
-        imageUrls = [data.imageUrlsJson]
+        if (typeof data.imageUrlsJson === "string" && data.imageUrlsJson.trim().length > 0) {
+          rawImageCandidates.push(data.imageUrlsJson.trim())
+        }
       }
     }
 
-    if (data.proofUrlInput && !imageUrls.includes(data.proofUrlInput)) {
-      imageUrls.unshift(data.proofUrlInput)
+    // Only fallback to proofUrlInput if NO imageUrls were provided
+    if (rawImageCandidates.length === 0 && data.proofUrlInput && data.proofUrlInput.trim().length > 0) {
+      rawImageCandidates.push(data.proofUrlInput.trim())
     }
 
-    // Fallback file upload if a raw File was submitted in FormData
+    // Fallback file upload if a raw File was submitted in FormData and no images were uploaded yet
     const proofFile = formData.get("proof") || formData.get("imageProof")
-    if (imageUrls.length === 0 && proofFile instanceof File && proofFile.size > 0) {
+    if (rawImageCandidates.length === 0 && proofFile instanceof File && proofFile.size > 0) {
       try {
         const savedUrl = await saveUploadedFile(proofFile, "reports")
-        if (savedUrl) imageUrls.push(savedUrl)
+        if (savedUrl) rawImageCandidates.push(savedUrl)
       } catch (uploadErr) {
         console.error("[Report Action] File upload failed:", uploadErr)
+      }
+    }
+
+    // Strictly normalize and deduplicate URLs so each uploaded image is stored and submitted exactly once
+    const seenImageKeys = new Set<string>()
+    const imageUrls: string[] = []
+    for (const url of rawImageCandidates) {
+      const trimmed = url.trim().replace(/^["']|["']$/g, "")
+      if (!trimmed) continue
+      let canonical = trimmed
+      try {
+        canonical = decodeURIComponent(trimmed)
+      } catch {
+        // ignore
+      }
+      canonical = canonical.toLowerCase().replace(/\/+$/, "")
+      if (!seenImageKeys.has(canonical)) {
+        seenImageKeys.add(canonical)
+        imageUrls.push(trimmed)
       }
     }
 
@@ -196,7 +224,7 @@ export async function submitReport(_prev: unknown, formData: FormData): Promise<
       bookingDetails: data.bookingDetails || null,
       additionalInfo: finalAdditionalInfo,
       proofUrl: primaryProofUrl,
-      imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : primaryProofUrl,
+      imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null,
       videoUrl,
       status: "pending",
     })
