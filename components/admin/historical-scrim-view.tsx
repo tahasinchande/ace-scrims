@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatTaka, formatDateTime } from "@/lib/format"
+import { formatTaka, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   Calendar as CalendarIcon,
@@ -57,7 +57,8 @@ export function HistoricalScrimView({
     startTransition(async () => {
       const res = await queryHistoricalScrimsAction(date, scrimId)
       if (res.ok && res.data) {
-        setScrims(res.data.scrims)
+        const sorted = sortScrimsAscending(res.data.scrims)
+        setScrims(sorted)
         setSelectedScrim(res.data.selectedScrim)
         if (res.data.selectedScrim) {
           setSelectedScrimId(res.data.selectedScrim.id)

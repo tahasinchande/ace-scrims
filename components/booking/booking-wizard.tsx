@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { bdt, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { Check, ChevronLeft, Loader2, Lock, ShieldCheck, Users, CreditCard, Award, Upload, Image as ImageIcon, CheckCircle2, AlertCircle, Trash2 } from "lucide-react"
+import { Check, ChevronLeft, Loader2, Lock, ShieldCheck, Users, CreditCard, Award, Upload, Image as ImageIcon, CheckCircle2, AlertCircle, Trash2, Wallet } from "lucide-react"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
 import { uploadMediaFile } from "@/lib/client-upload"
 import { toast } from "sonner"
@@ -69,6 +69,7 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
   const [leaderImageUrl, setLeaderImageUrl] = useState("")
   const [isUploadingLeader, setIsUploadingLeader] = useState(false)
   const [leaderUploadError, setLeaderUploadError] = useState<string | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap">("bKash")
 
   // Redirect to the payment gateway when the action returns a payment URL
   useEffect(() => {
@@ -279,16 +280,76 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
               <Field id="captainUid" label="Team Leader Free Fire UID" placeholder="e.g. 1234567890" error={state.fieldErrors?.captainUid} required maxLength={30} />
               <Field id="phone" label="WhatsApp Number" type="tel" placeholder="01XXXXXXXXX" error={state.fieldErrors?.phone} required className="sm:col-span-2" />
 
-              {/* Required Payment Number */}
-              <Field
-                id="paymentNumber"
-                label="Payment Number (bKash / Nagad Number Used)"
-                type="tel"
-                placeholder="01XXXXXXXXX"
-                error={state.fieldErrors?.paymentNumber}
-                required
-                className="sm:col-span-2"
-              />
+              {/* Payment Provider Selection for Prizepool Disbursement */}
+              <div className="sm:col-span-2 flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs font-bold uppercase tracking-wide text-foreground flex items-center gap-1.5">
+                    <Wallet className="size-4 text-primary" />
+                    Prizepool Disbursement Method <span className="text-destructive">*</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Select one payment provider (bKash, Nagad, or Tap) to receive your tournament prizepool.
+                  </p>
+                </div>
+
+                <input type="hidden" name="paymentMethod" value={paymentMethod} />
+
+                <div className="grid grid-cols-3 gap-2.5 mt-1">
+                  {(
+                    [
+                      { id: "bKash", label: "bKash" },
+                      { id: "Nagad", label: "Nagad" },
+                      { id: "Tap", label: "Tap" },
+                    ] as const
+                  ).map((provider) => {
+                    const active = paymentMethod === provider.id
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(provider.id)}
+                        className={cn(
+                          "flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border font-display font-bold text-sm uppercase transition-all",
+                          active
+                            ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary"
+                            : "border-border/60 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                        )}
+                      >
+                        <span className="text-base font-extrabold tracking-wide">{provider.label}</span>
+                        <span className="text-[10px] font-medium tracking-normal text-muted-foreground">
+                          {active ? "Selected" : "Select"}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Dynamic Payment Number Field with Prizepool Declaration */}
+              <div className="sm:col-span-2 flex flex-col gap-2">
+                <Field
+                  id="paymentNumber"
+                  label={`Payment Number (${paymentMethod} Account for Prizepool Disbursement)`}
+                  type="tel"
+                  placeholder={`01XXXXXXXXX (${paymentMethod} Personal Account)`}
+                  error={state.fieldErrors?.paymentNumber}
+                  required
+                />
+
+                {/* Dynamic Prizepool Declaration Bracket */}
+                <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-xs text-foreground flex flex-col gap-1 shadow-sm">
+                  <div className="flex items-center gap-1.5 font-bold text-primary">
+                    <CheckCircle2 className="size-4 shrink-0" />
+                    <span>Prizepool Disbursement Declaration ({paymentMethod}):</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Tournament winning prizepool will be disbursed strictly to the specific <strong>{paymentMethod}</strong> number/account you provide above.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    (আপনার টুর্নামেন্ট প্রাইজপুল বিজয়ী হলে সরাসরি আপনার দেওয়া এই <strong>{paymentMethod}</strong> একাউন্ট নম্বরে পাঠানো হবে।)
+                  </p>
+                </div>
+              </div>
 
               {/* Optional Team Members Drive Link */}
               <div className="sm:col-span-2 flex flex-col gap-1.5">

@@ -3,7 +3,7 @@ import "server-only"
 import { db } from "@/lib/db"
 import { scrims, bookings, settings } from "@/lib/db/schema"
 import { and, or, eq, ne, lt, sql, asc, desc } from "drizzle-orm"
-import { scrimStartDate } from "@/lib/format"
+import { scrimStartDate, sortScrimsAscending } from "@/lib/format"
 import { getRandomScrimImage, SCRIM_BACKGROUND_IMAGES } from "@/lib/scrim-images"
 export { getRandomScrimImage, SCRIM_BACKGROUND_IMAGES }
 
@@ -102,11 +102,7 @@ export async function archivePreviousDayBookings(): Promise<number> {
 const confirmedCount = sql<number>`0`.as("confirmedTeams")
 
 function sortByStartTime(list: ScrimWithSlots[]): ScrimWithSlots[] {
-  return [...list].sort(
-    (a, b) =>
-      scrimStartDate(a.scrimDate, a.startTime).getTime() -
-      scrimStartDate(b.scrimDate, b.startTime).getTime(),
-  )
+  return sortScrimsAscending(list)
 }
 
 export const DAILY_SCRIM_DEFINITIONS = [
@@ -703,10 +699,10 @@ export async function getAllScrims(): Promise<ScrimWithSlots[]> {
         combined.push(sample)
       }
     }
-    return combined
+    return sortScrimsAscending(combined)
   } catch (err) {
     console.warn("[Queries] Database error in getAllScrims:", err)
-    return samples
+    return sortScrimsAscending(samples)
   }
 }
 

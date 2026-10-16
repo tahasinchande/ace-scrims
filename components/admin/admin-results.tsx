@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useTransition, useRef } from "react"
+import { useState, useTransition, useRef, useEffect } from "react"
 import Image from "next/image"
 import { publishResult, updateResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
-import { bulkDeleteResults } from "@/app/actions/admin"
+import { bulkDeleteResults, queryHistoricalScrimsAction } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import type { MatchResult, Booking } from "@/lib/db/schema"
-import { formatTaka, formatDate } from "@/lib/format"
+import { formatTaka, formatDate, sortScrimsAscending } from "@/lib/format"
 import { resolveImageUrl, resolveImageUrls } from "@/lib/image-url"
 import { uploadMediaFile } from "@/lib/client-upload"
 import {
@@ -34,6 +34,7 @@ import {
   Users,
   CheckSquare,
   Square,
+  Calendar,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -359,13 +360,20 @@ export function PublishResultButton({
   scrims,
   bookingsByScrim = {},
   defaultScrimId,
+  availableDates = [],
+  initialDate,
 }: {
   scrims: ScrimOption[]
   bookingsByScrim?: Record<string, RosterBooking[]>
   defaultScrimId?: string
+  availableDates?: string[]
+  initialDate?: string
 }) {
+  const sortedScrims = sortScrimsAscending(scrims)
+  const todayStr = initialDate || new Date().toISOString().slice(0, 10)
   const [open, setOpen] = useState(false)
-  const [selectedScrimId, setSelectedScrimId] = useState(defaultScrimId || scrims[0]?.id || "")
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [selectedScrimId, setSelectedScrimId] = useState(defaultScrimId || sortedScrims[0]?.id || "")
   const [winnerType, setWinnerType] = useState("Champion — 1st place")
   const [winningTeam, setWinningTeam] = useState("")
   const [mvpPlayerName, setMvpPlayerName] = useState("")
@@ -374,6 +382,10 @@ export function PublishResultButton({
   const [placement, setPlacement] = useState("1")
   const [prizeBdt, setPrizeBdt] = useState("330")
 
+  // Historical data teams state
+  const [historicalTeams, setHistoricalTeams] = useState<any[]>([])
+  const [loadingTeams, setLoadingTeams] = useState(false)
+
   // Client side image uploads
   const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
@@ -381,8 +393,41 @@ export function PublishResultButton({
   const [isPending, startTransition] = useTransition()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const selectedScrim = scrims.find((s) => s.id === selectedScrimId)
-  const registeredTeams = selectedScrimId ? bookingsByScrim[selectedScrimId] || [] : []
+  const selectedScrim = sortedScrims.find((s) => s.id === selectedScrimId)
+
+  // Dynamically load teams from Historical Data when selectedDate or selectedScrimId changes
+  useEffect(() => {
+    if (!open || !selectedScrimId) {
+      setHistoricalTeams([])
+      return
+    }
+    let active = true
+    setLoadingTeams(true)
+    queryHistoricalScrimsAction(selectedDate, selectedScrimId)
+      .then((res) => {
+        if (!active) return
+        if (res.ok && res.data?.roster && res.data.roster.length > 0) {
+          setHistoricalTeams(res.data.roster)
+        } else {
+          // Fallback to bookingsByScrim for today
+          const fallback = bookingsByScrim[selectedScrimId] || []
+          setHistoricalTeams(fallback)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          const fallback = bookingsByScrim[selectedScrimId] || []
+          setHistoricalTeams(fallback)
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingTeams(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [open, selectedDate, selectedScrimId, bookingsByScrim])
 
   function handleWinnerTypeChange(typeId: string) {
     setWinnerType(typeId)
@@ -473,6 +518,7 @@ export function PublishResultButton({
 
     const actionData = new FormData()
     actionData.append("scrimId", selectedScrimId)
+    actionData.append("matchDate", selectedDate)
     actionData.append("winningTeam", winningTeam.trim())
     if (mvpPlayerName.trim()) actionData.append("mvpPlayerName", mvpPlayerName.trim())
     if (mvpTeamName.trim()) actionData.append("mvpTeamName", mvpTeamName.trim())
@@ -515,61 +561,83 @@ export function PublishResultButton({
         <DialogHeader>
           <DialogTitle className="font-display uppercase flex items-center gap-2">
             <Trophy className="size-5 text-amber-400" />
-            Select Scrim Winner & Publish Result
+            Select Scrim Winner &amp; Publish Result
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
-          {/* 1. Scrim Selection */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="result-scrim">Scrim *</Label>
-            <select
-              id="result-scrim"
-              name="scrimId"
-              required
-              value={selectedScrimId}
-              onChange={(e) => {
-                const newId = e.target.value
-                setSelectedScrimId(newId)
-                setWinningTeam("")
-                const target = scrims.find((s) => s.id === newId)
-                if (target?.prizePoolBdt) {
-                  const wt = WINNER_TYPES.find((w) => w.id === winnerType)
-                  if (wt && wt.defaultPrizePct > 0) {
-                    if (target.prizePoolBdt === 480) {
-                      if (wt.placement === 1) setPrizeBdt("180")
-                      else if (wt.placement === 2) setPrizeBdt("130")
-                      else if (wt.placement === 3) setPrizeBdt("100")
-                      else if (wt.placement === 4) setPrizeBdt("70")
-                      else setPrizeBdt("0")
-                    } else if (target.prizePoolBdt === 330) {
-                      if (wt.placement === 1) setPrizeBdt("160")
-                      else if (wt.placement === 2) setPrizeBdt("100")
-                      else if (wt.placement === 3) setPrizeBdt("70")
-                      else setPrizeBdt("0")
-                    } else if (target.prizePoolBdt === 850) {
-                      if (wt.placement === 1) setPrizeBdt("300")
-                      else if (wt.placement === 2) setPrizeBdt("190")
-                      else if (wt.placement === 3) setPrizeBdt("140")
-                      else if (wt.placement === 4) setPrizeBdt("120")
-                      else if (wt.placement === 5) setPrizeBdt("100")
-                      else setPrizeBdt("0")
+          {/* Match Date & Scrim Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="result-date" className="flex items-center gap-1.5 font-bold text-xs uppercase text-primary">
+                <Calendar className="size-3.5" />
+                Match Date *
+              </Label>
+              <Input
+                id="result-date"
+                type="date"
+                required
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value)
+                  setWinningTeam("")
+                }}
+                className="h-10 rounded-xl border border-input bg-secondary px-3 text-sm font-medium"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="result-scrim" className="font-bold text-xs uppercase text-muted-foreground">
+                Scrim *
+              </Label>
+              <select
+                id="result-scrim"
+                name="scrimId"
+                required
+                value={selectedScrimId}
+                onChange={(e) => {
+                  const newId = e.target.value
+                  setSelectedScrimId(newId)
+                  setWinningTeam("")
+                  const target = sortedScrims.find((s) => s.id === newId)
+                  if (target?.prizePoolBdt) {
+                    const wt = WINNER_TYPES.find((w) => w.id === winnerType)
+                    if (wt && wt.defaultPrizePct > 0) {
+                      if (target.prizePoolBdt === 480) {
+                        if (wt.placement === 1) setPrizeBdt("180")
+                        else if (wt.placement === 2) setPrizeBdt("130")
+                        else if (wt.placement === 3) setPrizeBdt("100")
+                        else if (wt.placement === 4) setPrizeBdt("70")
+                        else setPrizeBdt("0")
+                      } else if (target.prizePoolBdt === 330) {
+                        if (wt.placement === 1) setPrizeBdt("160")
+                        else if (wt.placement === 2) setPrizeBdt("100")
+                        else if (wt.placement === 3) setPrizeBdt("70")
+                        else setPrizeBdt("0")
+                      } else if (target.prizePoolBdt === 850) {
+                        if (wt.placement === 1) setPrizeBdt("300")
+                        else if (wt.placement === 2) setPrizeBdt("190")
+                        else if (wt.placement === 3) setPrizeBdt("140")
+                        else if (wt.placement === 4) setPrizeBdt("120")
+                        else if (wt.placement === 5) setPrizeBdt("100")
+                        else setPrizeBdt("0")
+                      }
                     }
                   }
-                }
-              }}
-              className="h-10 rounded-xl border border-input bg-secondary px-3 text-sm font-medium"
-            >
-              <option value="">Select a scrim…</option>
-              {scrims.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title} — {s.startTime} {s.prizePoolBdt ? `(Prize: ৳${s.prizePoolBdt})` : ""}
-                </option>
-              ))}
-            </select>
+                }}
+                className="h-10 rounded-xl border border-input bg-secondary px-3 text-sm font-medium"
+              >
+                <option value="">Select a scrim…</option>
+                {sortedScrims.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title} — {s.startTime} {s.prizePoolBdt ? `(Prize: ৳${s.prizePoolBdt})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* 2. Winner Type (Required in Prompt) */}
+          {/* 2. Winner Type */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="winnerType">Winner Type *</Label>
             <select
@@ -592,7 +660,7 @@ export function PublishResultButton({
             </select>
           </div>
 
-          {/* MVP Details (Shown when MVP Face Banner is selected or user enters MVP) */}
+          {/* MVP Details */}
           {(winnerType === "MVP Face Banner" || mvpPlayerName) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10">
               <div className="flex flex-col gap-1.5">
@@ -627,20 +695,38 @@ export function PublishResultButton({
             </div>
           )}
 
-          {/* 3. Winning Team Selection from registered team list */}
+          {/* 3. Winning Team Selection dynamically populated from Historical Data */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="winningTeam">
-              Winning Team (Pick from registered teams or enter name) *
+            <Label htmlFor="winningTeam" className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Users className="size-3.5 text-primary" />
+                Winning Team (from Historical Data for {selectedDate}) *
+              </span>
+              {loadingTeams ? (
+                <span className="text-xs text-primary flex items-center gap-1 font-normal">
+                  <Loader2 className="size-3 animate-spin" /> Querying historical teams...
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground font-normal">
+                  {historicalTeams.length} registered team(s)
+                </span>
+              )}
             </Label>
-            {registeredTeams.length > 0 ? (
+            {historicalTeams.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <select
                   value={winningTeam}
-                  onChange={(e) => setWinningTeam(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setWinningTeam(val)
+                    if (val && (!mvpTeamName || mvpTeamName === winningTeam)) {
+                      setMvpTeamName(val)
+                    }
+                  }}
                   className="h-10 rounded-xl border border-input bg-secondary px-3 text-sm font-medium"
                 >
-                  <option value="">-- Choose registered team ({registeredTeams.length} teams) --</option>
-                  {registeredTeams.map((team) => (
+                  <option value="">-- Choose registered team ({historicalTeams.length} teams) --</option>
+                  {historicalTeams.map((team: any) => (
                     <option key={team.id} value={team.teamName}>
                       {team.slotNumber ? `[Slot ${team.slotNumber}] ` : ""}{team.teamName} (Leader: {team.captainName})
                     </option>
@@ -659,14 +745,19 @@ export function PublishResultButton({
                 </div>
               </div>
             ) : (
-              <Input
-                id="winningTeam"
-                value={winningTeam}
-                onChange={(e) => setWinningTeam(e.target.value)}
-                placeholder="Winning team name"
-                required
-                className="h-10 text-sm"
-              />
+              <div className="flex flex-col gap-1.5">
+                <Input
+                  id="winningTeam"
+                  value={winningTeam}
+                  onChange={(e) => setWinningTeam(e.target.value)}
+                  placeholder="Enter winning team name"
+                  required
+                  className="h-10 text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  No registered squads recorded in Historical Data for {selectedDate} in this scrim. You can enter the winning team manually.
+                </p>
+              </div>
             )}
           </div>
 
@@ -784,11 +875,15 @@ export function AdminResults({
   results,
   scrims,
   bookingsByScrim = {},
+  availableDates = [],
+  initialDate,
   isAdmin = true,
 }: {
   results: ResultRow[]
   scrims: ScrimOption[]
   bookingsByScrim?: Record<string, RosterBooking[]>
+  availableDates?: string[]
+  initialDate?: string
   isAdmin?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
@@ -825,7 +920,12 @@ export function AdminResults({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <PublishResultButton scrims={scrims} bookingsByScrim={bookingsByScrim} />
+        <PublishResultButton
+          scrims={scrims}
+          bookingsByScrim={bookingsByScrim}
+          availableDates={availableDates}
+          initialDate={initialDate}
+        />
 
         {isAdmin && selectedResultIds.length > 0 && (
           <Button

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { ScrimCard, type ScrimCardData } from "@/components/site/scrim-card"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
+import { sortScrimsAscending } from "@/lib/format"
 
 export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: { scrims: ScrimCardData[]; isAuthed?: boolean }) {
   const { t } = useLanguage()
@@ -50,32 +51,34 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
   }, [])
 
   const filtered = useMemo(() => {
-    return scrims.filter((s) => {
-      // Category filter
-      if (selectedCategory === "friday-special-blast") {
-        const isBlast = s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special")
-        if (!isBlast) return false
-      } else if (selectedCategory === "champion-rush") {
-        const isCR = s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush")
-        if (!isCR) return false
-      }
+    return sortScrimsAscending(
+      scrims.filter((s) => {
+        // Category filter
+        if (selectedCategory === "friday-special-blast") {
+          const isBlast = s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special")
+          if (!isBlast) return false
+        } else if (selectedCategory === "champion-rush") {
+          const isCR = s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush")
+          if (!isCR) return false
+        }
 
-      // Time filter
-      const normTime = s.startTime.replace(/\s*(AM|PM)/i, "").trim()
-      const filterNorm = time.replace(/\s*(AM|PM)/i, "").trim()
-      const matchesTime = time === "All" || s.startTime.includes(time) || normTime === filterNorm
+        // Time filter
+        const normTime = s.startTime.replace(/\s*(AM|PM)/i, "").trim()
+        const filterNorm = time.replace(/\s*(AM|PM)/i, "").trim()
+        const matchesTime = time === "All" || s.startTime.includes(time) || normTime === filterNorm
 
-      // Query filter
-      const q = query.trim().toLowerCase()
-      const matchesQuery =
-        q.length === 0 ||
-        s.title.toLowerCase().includes(q) ||
-        s.map.toLowerCase().includes(q) ||
-        s.mode.toLowerCase().includes(q) ||
-        s.startTime.toLowerCase().includes(q)
+        // Query filter
+        const q = query.trim().toLowerCase()
+        const matchesQuery =
+          q.length === 0 ||
+          s.title.toLowerCase().includes(q) ||
+          s.map.toLowerCase().includes(q) ||
+          s.mode.toLowerCase().includes(q) ||
+          s.startTime.toLowerCase().includes(q)
 
-      return matchesTime && matchesQuery
-    })
+        return matchesTime && matchesQuery
+      })
+    )
   }, [scrims, query, time, selectedCategory])
 
   const isChampionRushActive = selectedCategory === "champion-rush" || filtered.some((f) => f.slug.includes("champion-rush"))

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { requireUser } from "@/lib/session"
-import { getUserBookings, splitBookings, getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl } from "@/lib/queries/dashboard"
+import { getUserBookings, splitBookings, getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl, getMainWhatsappUrl } from "@/lib/queries/dashboard"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,10 +11,11 @@ export const metadata = { title: "My Scrims — Ace Scrims" }
 
 export default async function MyScrimsPage() {
   const user = await requireUser()
-  const [bookings, championRushWhatsappUrl, championRush3pmWhatsappUrl] = await Promise.all([
+  const [bookings, championRushWhatsappUrl, championRush3pmWhatsappUrl, mainWhatsappUrl] = await Promise.all([
     getUserBookings(user.id),
     getChampionRushWhatsappUrl(),
     getChampionRush3pmWhatsappUrl(),
+    getMainWhatsappUrl(),
   ])
   const { upcoming, past } = splitBookings(bookings)
 
@@ -52,6 +53,7 @@ export default async function MyScrimsPage() {
                 <BookingCard
                   key={b.id}
                   booking={b}
+                  mainWhatsappUrl={mainWhatsappUrl}
                   championRushWhatsappUrl={championRushWhatsappUrl}
                   championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
                 />
@@ -66,6 +68,7 @@ export default async function MyScrimsPage() {
                 <BookingCard
                   key={b.id}
                   booking={b}
+                  mainWhatsappUrl={mainWhatsappUrl}
                   championRushWhatsappUrl={championRushWhatsappUrl}
                   championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
                 />

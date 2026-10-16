@@ -119,6 +119,7 @@ export const bookings = pgTable("bookings", {
   invoiceId: text("invoiceId"),
   teamLeaderImageUrl: text("teamLeaderImageUrl"),
   paymentNumber: text("paymentNumber"),
+  paymentMethod: text("paymentMethod"),
   teamMembersDriveLink: text("teamMembersDriveLink"),
   imageRequested: boolean("imageRequested").notNull().default(false),
   imageRequestedAt: timestamp("imageRequestedAt"),

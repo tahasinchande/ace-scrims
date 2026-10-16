@@ -177,3 +177,68 @@ export function scrimStatus(
   if (confirmedTeams >= maxTeams - 3) return { label: "Filling Fast", tone: "filling" }
   return { label: "Open", tone: "open" }
 }
+
+/** Calculate chronological weight in minutes for esports tournament daily schedules */
+export function getScrimChronologicalWeight(startTime?: string | null): number {
+  if (!startTime) return 99999
+  const m = startTime.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i)
+  if (!m) return 99999
+  let h = Number.parseInt(m[1], 10)
+  const min = m[2] ? Number.parseInt(m[2], 10) : 0
+  const period = (m[3] || "").toUpperCase()
+
+  if (period === "AM") {
+    // 12:00 AM is midnight following 11 PM (24:00)
+    if (h === 12) return 24 * 60 + min
+    if (h <= 5) return (24 + h) * 60 + min
+    return h * 60 + min
+  } else if (period === "PM") {
+    if (h !== 12) h += 12
+    return h * 60 + min
+  }
+  return h * 60 + min
+}
+
+/** Room priority: Room 1 precedes Room 2, followed by Champion Rush or Special Tournaments */
+export function getScrimRoomWeight(s: { title?: string | null; slug?: string | null; id?: string | null }): number {
+  const str = `${s.id || ""} ${s.slug || ""} ${s.title || ""}`.toLowerCase()
+  if (str.includes("room 2") || str.includes("room-2") || str.includes("-r2")) return 2
+  if (str.includes("room 1") || str.includes("room-1") || str.includes("-r1")) return 1
+  if (str.includes("champion-rush") || str.includes("champion rush")) return 3
+  if (str.includes("special") || str.includes("blast")) return 4
+  return 0
+}
+
+/**
+ * Strictly sort any list of scrims in ascending serial order:
+ * 1. Chronological date (if different)
+ * 2. Time of day in ascending order (3 PM -> 4 PM -> 5 PM -> 7 PM -> 8 PM -> 9 PM -> 10 PM -> 11 PM -> 12 AM)
+ * 3. Room 1 before Room 2
+ * 4. Stable title/ID fallback
+ */
+export function sortScrimsAscending<T extends { startTime?: string | null; title?: string | null; slug?: string | null; id?: string | null; scrimDate?: any }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    // 1. Scrim date ascending (if dates are different)
+    if (a.scrimDate && b.scrimDate) {
+      const dateA = typeof a.scrimDate === "string" ? a.scrimDate.slice(0, 10) : new Date(a.scrimDate).toISOString().slice(0, 10)
+      const dateB = typeof b.scrimDate === "string" ? b.scrimDate.slice(0, 10) : new Date(b.scrimDate).toISOString().slice(0, 10)
+      if (dateA !== dateB) return dateA.localeCompare(dateB)
+    }
+
+    // 2. Chronological start time (3 PM -> 4 PM -> 5 PM -> 7 PM -> 8 PM -> 9 PM -> 10 PM -> 11 PM -> 12 AM)
+    const timeA = getScrimChronologicalWeight(a.startTime)
+    const timeB = getScrimChronologicalWeight(b.startTime)
+    if (timeA !== timeB) return timeA - timeB
+
+    // 3. Room 1 before Room 2
+    const roomA = getScrimRoomWeight(a)
+    const roomB = getScrimRoomWeight(b)
+    if (roomA !== roomB) return roomA - roomB
+
+    // 4. Alphabetical by title/id fallback
+    const nameA = a.title || a.id || ""
+    const nameB = b.title || b.id || ""
+    return nameA.localeCompare(nameB)
+  })
+}
+

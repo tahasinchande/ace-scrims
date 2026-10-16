@@ -1,4 +1,5 @@
-import { getAdminResults, getAdminScrims, getAllBookingsByScrim } from "@/lib/queries/admin"
+import { getAdminResults, getAdminScrims, getAllBookingsByScrim, getHistoricalDates } from "@/lib/queries/admin"
+import { getBangladeshActiveDate } from "@/lib/queries/scrims"
 import { AdminResults } from "@/components/admin/admin-results"
 import { getSessionUser } from "@/lib/session"
 
@@ -6,12 +7,15 @@ export const dynamic = "force-dynamic"
 export const metadata = { title: "Manage Results — Ace Scrims" }
 
 export default async function AdminResultsPage() {
-  const [user, results, scrims, bookingsByScrim] = await Promise.all([
+  const [user, results, scrims, bookingsByScrim, historicalDates] = await Promise.all([
     getSessionUser(),
     getAdminResults(),
     getAdminScrims(),
     getAllBookingsByScrim(undefined, true).catch(() => ({})),
+    getHistoricalDates().catch(() => []),
   ])
+
+  const activeDate = getBangladeshActiveDate()
 
   return (
     <div className="flex flex-col gap-6">
@@ -30,6 +34,8 @@ export default async function AdminResultsPage() {
           prizePoolBdt: s.prizePoolBdt,
         }))}
         bookingsByScrim={bookingsByScrim}
+        availableDates={historicalDates}
+        initialDate={activeDate}
         isAdmin={user?.role === "admin"}
       />
     </div>

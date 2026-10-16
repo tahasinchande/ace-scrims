@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { scrims, bookings, payments, results, user, activityLogs, settings, reports, imageRequests } from "@/lib/db/schema"
 import { eq, desc, and, or, gte, sql, count, isNull, type SQL } from "drizzle-orm"
 import { appendGlobalScrimRules, getBangladeshActiveDate, archivePreviousDayBookings } from "@/lib/queries/scrims"
+import { sortScrimsAscending } from "@/lib/format"
 
 /** Today's revenue, bookings, totals for the admin analytics cards. */
 export async function getAdminStats() {
@@ -266,7 +267,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
     }
 
     // Filter out invalid/corrupt test scrim entries, and exclude soft-deleted scrims (they belong in Trash)
-    return merged.filter((s) => {
+    const valid = merged.filter((s) => {
       if (!s.title || s.title.trim().length === 0 || s.title.startsWith("test-scrim-fake")) return false
       if (!options.includeDeleted) {
         if (
@@ -280,6 +281,8 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
       }
       return true
     })
+
+    return sortScrimsAscending(valid)
   } catch (err) {
     console.warn("[Admin Queries] Error in getAdminScrims:", err)
     return []

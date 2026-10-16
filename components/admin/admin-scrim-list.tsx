@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react"
 import Link from "next/link"
 import { publishRoom, unpublishRoom } from "@/app/actions/staff"
-import { deleteScrim, restoreScrim, permanentlyDeleteScrim, bulkDeleteScrims, wipeTestData, toggleRegistration, toggleScrimStatus, toggleScrimHidden, setSetting } from "@/app/actions/admin"
+import { deleteScrim, restoreScrim, permanentlyDeleteScrim, bulkDeleteScrims, toggleRegistration, toggleScrimStatus, toggleScrimHidden, setSetting } from "@/app/actions/admin"
 import { EditScrimButton } from "@/components/admin/scrim-form-dialog"
 import { PublishResultButton } from "@/components/admin/admin-results"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import type { Booking, Scrim } from "@/lib/db/schema"
-import { formatTaka, timeAgo, formatDateTime } from "@/lib/format"
+import { formatTaka, timeAgo, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -478,78 +478,6 @@ function TrashControls({ scrim }: { scrim: AdminScrim }) {
   )
 }
 
-function WipeTestDataButton() {
-  const [open, setOpen] = useState(false)
-  const [confirmText, setConfirmText] = useState("")
-  const [isPending, startTransition] = useTransition()
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs">
-            <Trash2 className="size-3.5" />
-            Wipe Test Data
-          </Button>
-        }
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-destructive flex items-center gap-2">
-            <AlertTriangle className="size-5 text-destructive" />
-            Wipe All Test Data
-          </DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-3 py-2 text-sm text-muted-foreground">
-          <p>
-            This action will reset and wipe all test bookings, payments, results, notifications, and reports.
-          </p>
-          <p className="font-semibold text-foreground">
-            Admin accounts, site settings, and default scrim schedules will NOT be deleted.
-          </p>
-          <p className="text-xs">
-            To confirm, please type <span className="font-mono font-bold text-destructive">WIPE</span> below:
-          </p>
-          <Input
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="Type WIPE"
-            className="font-mono"
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={confirmText !== "WIPE" || isPending}
-            onClick={() => {
-              startTransition(async () => {
-                try {
-                  const res = await wipeTestData()
-                  if (res?.ok) {
-                    toast.success(res.message || "Test data wiped successfully")
-                    setOpen(false)
-                    setConfirmText("")
-                  } else {
-                    toast.error(res?.error || "Failed to wipe test data")
-                  }
-                } catch (err: any) {
-                  toast.error(err?.message || "Failed to wipe test data")
-                }
-              })
-            }}
-          >
-            {isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Confirm Wipe"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 export function AdminScrimList({
   scrims,
   isAdmin,
@@ -575,39 +503,41 @@ export function AdminScrimList({
   const notHostedCount = scrims.filter((s) => s.status === "not_hosted").length
   const trashCount = scrims.filter((s) => s.status === "deleted" || s.deletedAt != null).length
 
-  const filteredScrims = scrims.filter((scrim) => {
-    const isDeleted = scrim.status === "deleted" || scrim.deletedAt != null
-    if (activeTab === "trash") {
-      return isDeleted
-    }
-    if (isDeleted) return false
+  const filteredScrims = sortScrimsAscending(
+    scrims.filter((scrim) => {
+      const isDeleted = scrim.status === "deleted" || scrim.deletedAt != null
+      if (activeTab === "trash") {
+        return isDeleted
+      }
+      if (isDeleted) return false
 
-    if (activeTab === "not_hosted" && scrim.status !== "not_hosted") {
-      return false
-    }
+      if (activeTab === "not_hosted" && scrim.status !== "not_hosted") {
+        return false
+      }
 
-    const isCR = scrim.title.toLowerCase().includes("champion rush") || scrim.slug.includes("champion-rush")
-    const isFridayBlast = scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
-    const isDaily = !isCR && !isFridayBlast
-    const isR2 = isRoom2Scrim(scrim)
+      const isCR = scrim.title.toLowerCase().includes("champion rush") || scrim.slug.includes("champion-rush")
+      const isFridayBlast = scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
+      const isDaily = !isCR && !isFridayBlast
+      const isR2 = isRoom2Scrim(scrim)
 
-    if (activeTab === "daily" && !isDaily) return false
-    if (activeTab === "room2" && !isR2) return false
-    if (activeTab === "friday" && !isFridayBlast) return false
-    if (activeTab === "champion" && !isCR) return false
+      if (activeTab === "daily" && !isDaily) return false
+      if (activeTab === "room2" && !isR2) return false
+      if (activeTab === "friday" && !isFridayBlast) return false
+      if (activeTab === "champion" && !isCR) return false
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      const match =
-        scrim.title.toLowerCase().includes(q) ||
-        scrim.startTime.toLowerCase().includes(q) ||
-        scrim.map.toLowerCase().includes(q) ||
-        scrim.slug.toLowerCase().includes(q)
-      if (!match) return false
-    }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const match =
+          scrim.title.toLowerCase().includes(q) ||
+          scrim.startTime.toLowerCase().includes(q) ||
+          scrim.map.toLowerCase().includes(q) ||
+          scrim.slug.toLowerCase().includes(q)
+        if (!match) return false
+      }
 
-    return true
-  })
+      return true
+    })
+  )
 
   const activeScrimsCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
   const dailyCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !s.title.toLowerCase().includes("champion rush") && !s.title.toLowerCase().includes("friday special") && !s.slug.includes("champion-rush") && !s.slug.includes("friday-special")).length
@@ -764,7 +694,6 @@ export function AdminScrimList({
               Delete Selected ({selectedScrimIds.length})
             </Button>
           )}
-          {isAdmin && <WipeTestDataButton />}
           {notHostedCount > 0 && (
             <Link
               href="/admin/not-hosted"

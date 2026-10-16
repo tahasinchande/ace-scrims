@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 
 import Link from "next/link"
 import { requireUser } from "@/lib/session"
-import { getUserBookings, splitBookings, getUserNotifications, getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl } from "@/lib/queries/dashboard"
+import { getUserBookings, splitBookings, getUserNotifications, getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl, getMainWhatsappUrl } from "@/lib/queries/dashboard"
 import { getUserPendingImageRequests } from "@/app/actions/image-requests"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { PendingImageRequestsSection } from "@/components/dashboard/pending-image-requests"
@@ -12,11 +12,12 @@ import { Swords, Trophy, CalendarCheck, Bell } from "lucide-react"
 
 export default async function DashboardPage() {
   const user = await requireUser()
-  const [allBookings, recentNotifications, championRushWhatsappUrl, championRush3pmWhatsappUrl, pendingImageRequests] = await Promise.all([
+  const [allBookings, recentNotifications, championRushWhatsappUrl, championRush3pmWhatsappUrl, mainWhatsappUrl, pendingImageRequests] = await Promise.all([
     getUserBookings(user.id),
     getUserNotifications(user.id, 5),
     getChampionRushWhatsappUrl(),
     getChampionRush3pmWhatsappUrl(),
+    getMainWhatsappUrl(),
     getUserPendingImageRequests(user.id),
   ])
   const { upcoming, past } = splitBookings(allBookings)
@@ -80,6 +81,7 @@ export default async function DashboardPage() {
               <BookingCard
                 key={b.id}
                 booking={b}
+                mainWhatsappUrl={mainWhatsappUrl}
                 championRushWhatsappUrl={championRushWhatsappUrl}
                 championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
               />
@@ -123,6 +125,7 @@ export default async function DashboardPage() {
               <BookingCard
                 key={b.id}
                 booking={b}
+                mainWhatsappUrl={mainWhatsappUrl}
                 championRushWhatsappUrl={championRushWhatsappUrl}
                 championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}
               />

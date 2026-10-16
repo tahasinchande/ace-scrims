@@ -5,6 +5,18 @@ import { bookings, payments, scrims, results, notifications, settings, reports }
 import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import { scrimStartDate } from "@/lib/format"
 
+export async function getMainWhatsappUrl(): Promise<string> {
+  try {
+    const row = await db.select().from(settings).where(eq(settings.key, "whatsapp_channel_url")).limit(1)
+    if (row.length > 0 && row[0].value?.trim()) {
+      return row[0].value.trim()
+    }
+  } catch (e) {
+    console.warn("[Settings] Could not fetch whatsapp_channel_url:", e)
+  }
+  return "https://whatsapp.com/channel/0029Va9xyz"
+}
+
 export async function getChampionRushWhatsappUrl(): Promise<string> {
   try {
     const row = await db.select().from(settings).where(eq(settings.key, "champion_rush_whatsapp_url")).limit(1)

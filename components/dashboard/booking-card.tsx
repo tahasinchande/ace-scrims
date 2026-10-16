@@ -35,10 +35,12 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
 export function BookingCard({
   booking,
+  mainWhatsappUrl = "https://whatsapp.com/channel/0029Va9xyz",
   championRushWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
   championRush3pmWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
 }: {
   booking: UserBooking
+  mainWhatsappUrl?: string
   championRushWhatsappUrl?: string
   championRush3pmWhatsappUrl?: string
 }) {
@@ -88,9 +90,12 @@ export function BookingCard({
         </div>
       </div>
 
-      {/* Official Champion Rush WhatsApp Channel Link - strictly visible ONLY to users with confirmed registration for Champion Rush */}
+      {/* WhatsApp Channel Links for Confirmed Bookings */}
       {(() => {
-        const isFridayChampionRush = Boolean(
+        const isBookingSuccessful = booking.status === "confirmed" || (booking.status as string) === "successful"
+        if (!isBookingSuccessful) return null
+
+        const isChampionRush = Boolean(
           scrim &&
           (
             scrim.title?.toLowerCase().includes("champion rush") ||
@@ -98,9 +103,6 @@ export function BookingCard({
             scrim.id?.includes("-cr")
           )
         )
-        const isBookingSuccessful = booking.status === "confirmed" || (booking.status as string) === "successful"
-
-        if (!isFridayChampionRush || !isBookingSuccessful) return null
 
         const is3pmCR = Boolean(
           scrim && (
@@ -110,24 +112,79 @@ export function BookingCard({
             (scrim.title?.toLowerCase().includes("champion rush") && (scrim.startTime?.includes("3:00") || scrim.startTime?.includes("15:00")))
           )
         )
-        const targetWhatsappUrl = (is3pmCR ? championRush3pmWhatsappUrl : championRushWhatsappUrl) || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"
-        const channelLabel = is3pmCR
+
+        const targetCRWhatsappUrl = (is3pmCR ? championRush3pmWhatsappUrl : championRushWhatsappUrl) || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"
+        const crChannelLabel = is3pmCR
           ? "Official 3 PM Champion Rush WhatsApp Channel"
           : "Official 10 PM Champion Rush WhatsApp Channel"
 
+        const mainUrl = mainWhatsappUrl || "https://whatsapp.com/channel/0029Va9xyz"
+
+        // For Champion Rush (Friday 3 PM & 10 PM), render BOTH Main WhatsApp Channel & Specific Champion Rush Channel
+        if (isChampionRush) {
+          return (
+            <div className="flex flex-col gap-3">
+              {/* 1. Main WhatsApp Channel URL */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3.5">
+                <div className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 font-display text-xs font-bold uppercase tracking-wider text-primary">
+                    <MessageCircle className="size-4" />
+                    Main Ace Scrims WhatsApp Channel
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    General announcements, daily lobby updates, and tournament schedules.
+                  </p>
+                </div>
+                <a
+                  href={mainUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity shadow-sm shrink-0"
+                >
+                  <MessageCircle className="size-3.5" />
+                  Join Main Channel
+                </a>
+              </div>
+
+              {/* 2. Specific Champion Rush WhatsApp Channel Link */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5">
+                <div className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 font-display text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    <MessageCircle className="size-4" />
+                    {crChannelLabel}
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Exclusive room credentials, live leaderboard, and match updates for all 8 matches.
+                  </p>
+                </div>
+                <a
+                  href={targetCRWhatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition-colors shadow-sm shrink-0"
+                >
+                  <MessageCircle className="size-3.5" />
+                  Join Champion Rush Channel
+                </a>
+              </div>
+            </div>
+          )
+        }
+
+        // For all other registered scrims: render the Main WhatsApp Channel URL
         return (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
             <div className="flex flex-col gap-1">
               <span className="flex items-center gap-1.5 font-display text-sm font-bold uppercase tracking-wider text-emerald-400">
                 <MessageCircle className="size-4" />
-                {channelLabel}
+                Main WhatsApp Channel
               </span>
               <p className="text-xs text-muted-foreground">
-                Room credentials, live leaderboard, and match updates for all 8 matches are posted directly in this channel.
+                Join our official WhatsApp channel for instant lobby updates, room credentials notice, and announcements.
               </p>
             </div>
             <a
-              href={targetWhatsappUrl}
+              href={mainUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition-colors shadow-lg shrink-0"

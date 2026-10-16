@@ -20,7 +20,8 @@ const bookingSchema = z.object({
     .trim()
     .regex(/^(\+?880|0)1[3-9]\d{8}$/, "Enter a valid Bangladeshi WhatsApp number"),
   teamLeaderImageUrl: z.string().min(1, "Team Leader image is required. Please upload a waist-up photo."),
-  paymentNumber: z.string().trim().min(5, "Payment Number is required (bKash or Nagad number used)").max(30),
+  paymentMethod: z.enum(["bKash", "Nagad", "Tap"]).default("bKash"),
+  paymentNumber: z.string().trim().min(5, "Payment Number is required for prizepool disbursement").max(30),
   teamMembersDriveLink: z.string().trim().optional().transform((val) => val || ""),
 })
 
@@ -113,6 +114,7 @@ export async function createBooking(
         discordTelegram: teamTag,
         scrimDate: targetDate,
         teamLeaderImageUrl: data.teamLeaderImageUrl,
+        paymentMethod: data.paymentMethod,
         paymentNumber: data.paymentNumber,
         teamMembersDriveLink: data.teamMembersDriveLink || null,
         updatedAt: new Date(),
@@ -139,6 +141,7 @@ export async function createBooking(
       phone: data.phone,
       discordTelegram: teamTag,
       teamLeaderImageUrl: data.teamLeaderImageUrl,
+      paymentMethod: data.paymentMethod,
       paymentNumber: data.paymentNumber,
       teamMembersDriveLink: data.teamMembersDriveLink || null,
     })
