@@ -509,10 +509,20 @@ export function HistoricalScrimView({
 
                       <div>
                         <span className="text-foreground/70 font-semibold block">Payment Info</span>
-                        <span className="font-mono text-foreground">
-                          {team.transactionId ? `Trx: ${team.transactionId}` : team.invoiceId ? `Inv: ${team.invoiceId}` : "Online Payment"}
-                        </span>
-                        <span className="block text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Badge variant="outline" className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 border-primary/40 text-primary bg-primary/10">
+                            {team.paymentMethod || "bKash"}
+                          </Badge>
+                          <span className="font-mono text-foreground text-xs">
+                            {team.transactionId ? `Trx: ${team.transactionId}` : team.invoiceId ? `Inv: ${team.invoiceId}` : "Online Payment"}
+                          </span>
+                        </div>
+                        {team.paymentNumber && (
+                          <span className="block font-mono text-[11px] text-muted-foreground mt-0.5">
+                            Account: {team.paymentNumber}
+                          </span>
+                        )}
+                        <span className="block text-[10px] text-muted-foreground">
                           Registered: {formatDateTime(team.createdAt)}
                         </span>
                       </div>

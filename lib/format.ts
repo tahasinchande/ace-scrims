@@ -162,6 +162,13 @@ export function scrimStatus(
   startTime?: string,
 ): ScrimStatusInfo {
   if (status === "completed") return { label: "Completed", tone: "closed" }
+  if (status === "not_hosted") return { label: "Closed", tone: "closed" }
+  // When admin sets "Force Turn On", registration stays open overriding match start time expiration
+  if (status === "force_open" || status === "force_turn_on") {
+    if (confirmedTeams >= maxTeams) return { label: "Full", tone: "full" }
+    if (confirmedTeams >= maxTeams - 3) return { label: "Filling Fast", tone: "filling" }
+    return { label: "Open", tone: "open" }
+  }
   if (!registrationOpen) return { label: "Closed", tone: "closed" }
   if (scrimDate && startTime) {
     try {

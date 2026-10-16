@@ -180,6 +180,9 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             <Link href="/refund-policy" className="text-sm text-muted-foreground hover:text-foreground">
               {t("nav_refund", "Refund Policy")}
             </Link>
+            <Link href="/copyright" className="text-sm text-muted-foreground hover:text-foreground">
+              {t("nav_copyright", "Copyright")}
+            </Link>
           </nav>
 
           <div className="flex flex-col gap-2">

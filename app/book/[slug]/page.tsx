@@ -31,7 +31,14 @@ export default async function BookPage({
   if (!user) redirect(`/sign-in?next=/book/${slug}`)
   if (!user.emailVerified) redirect(`/verify-email?next=/book/${slug}`)
 
-  const status = scrimStatus(scrim.confirmedTeams, scrim.maxTeams, scrim.registrationOpen, scrim.status)
+  const status = scrimStatus(
+    scrim.confirmedTeams,
+    scrim.maxTeams,
+    scrim.registrationOpen,
+    scrim.status,
+    scrim.scrimDate,
+    scrim.startTime
+  )
   const bookable = status.tone === "open" || status.tone === "filling"
   if (!bookable) redirect(`/scrims/${slug}`)
 

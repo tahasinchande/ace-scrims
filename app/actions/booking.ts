@@ -79,8 +79,23 @@ export async function createBooking(
 
   const scrim = await getScrimById(data.scrimId)
   if (!scrim) return { ok: false, error: "Scrim not found." }
-  if (!scrim.registrationOpen || scrim.status === "completed" || scrim.status === "not_hosted")
+
+  const isForcedOpen = scrim.status === "force_open" || scrim.status === "force_turn_on"
+  if (!isForcedOpen && (!scrim.registrationOpen || scrim.status === "completed" || scrim.status === "not_hosted" || scrim.status === "registration_closed"))
     return { ok: false, error: "Registration for this scrim is closed." }
+
+  if (!isForcedOpen && scrim.scrimDate && scrim.startTime) {
+    try {
+      const { scrimStartDate } = await import("@/lib/format")
+      const start = scrimStartDate(scrim.scrimDate, scrim.startTime)
+      if (new Date() >= start) {
+        return { ok: false, error: "Registration for this scrim has closed as the match start time has passed." }
+      }
+    } catch {
+      // Ignore parse error
+    }
+  }
+
   if (scrim.confirmedTeams >= scrim.maxTeams)
     return { ok: false, error: "This scrim is full. Try another time slot." }
 

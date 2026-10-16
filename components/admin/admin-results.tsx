@@ -395,7 +395,7 @@ export function PublishResultButton({
 
   const selectedScrim = sortedScrims.find((s) => s.id === selectedScrimId)
 
-  // Dynamically load teams from Historical Data when selectedDate or selectedScrimId changes
+  // Dynamically load teams strictly from Historical Data matching selectedDate and selectedScrimId
   useEffect(() => {
     if (!open || !selectedScrimId) {
       setHistoricalTeams([])
@@ -406,18 +406,16 @@ export function PublishResultButton({
     queryHistoricalScrimsAction(selectedDate, selectedScrimId)
       .then((res) => {
         if (!active) return
-        if (res.ok && res.data?.roster && res.data.roster.length > 0) {
+        if (res.ok && res.data?.roster) {
+          // Strictly and exclusively populate teams registered for this selected date and scrim
           setHistoricalTeams(res.data.roster)
         } else {
-          // Fallback to bookingsByScrim for today
-          const fallback = bookingsByScrim[selectedScrimId] || []
-          setHistoricalTeams(fallback)
+          setHistoricalTeams([])
         }
       })
       .catch(() => {
         if (active) {
-          const fallback = bookingsByScrim[selectedScrimId] || []
-          setHistoricalTeams(fallback)
+          setHistoricalTeams([])
         }
       })
       .finally(() => {
@@ -427,7 +425,7 @@ export function PublishResultButton({
     return () => {
       active = false
     }
-  }, [open, selectedDate, selectedScrimId, bookingsByScrim])
+  }, [open, selectedDate, selectedScrimId])
 
   function handleWinnerTypeChange(typeId: string) {
     setWinnerType(typeId)

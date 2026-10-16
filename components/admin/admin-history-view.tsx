@@ -86,6 +86,7 @@ export type HistoricalBookingItem = {
   transactionId?: string | null
   invoiceId?: string | null
   teamLeaderImageUrl?: string | null
+  paymentMethod?: string | null
   paymentNumber?: string | null
   teamMembersDriveLink?: string | null
   imageRequested?: boolean | null
@@ -598,22 +599,26 @@ export function AdminHistoryView({
                     )}
                   </div>
 
-                  {/* Payment Details */}
-                  {(b.transactionId || b.paymentNumber) && (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">Payment Verification</span>
-                      {b.transactionId && (
-                        <span className="font-mono text-[11px] text-muted-foreground">
-                          Trx: <span className="text-foreground">{b.transactionId}</span>
-                        </span>
-                      )}
-                      {b.paymentNumber && (
-                        <span className="font-mono text-[11px] text-muted-foreground">
-                          Sender: <span className="text-foreground">{b.paymentNumber}</span>
-                        </span>
-                      )}
+                  {/* Payment Details & Explicit Method Display */}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Payment Info</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[11px] font-medium text-muted-foreground">Method:</span>
+                      <Badge variant="outline" className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 border-primary/40 text-primary bg-primary/10">
+                        {b.paymentMethod || "bKash"}
+                      </Badge>
                     </div>
-                  )}
+                    {b.transactionId && (
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        Trx: <span className="text-foreground">{b.transactionId}</span>
+                      </span>
+                    )}
+                    {b.paymentNumber && (
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        Account: <span className="text-foreground">{b.paymentNumber}</span>
+                      </span>
+                    )}
+                  </div>
 
                   {/* Google Drive Link if provided */}
                   {b.teamMembersDriveLink && (

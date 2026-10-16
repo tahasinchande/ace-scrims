@@ -442,10 +442,13 @@ export async function getHistoricalBookings(options?: { date?: string; scrimId?:
         scrimMap: scrims.map,
         userEmail: user.email,
         userName: user.name,
+        paymentMethodFromPayment: payments.method,
+        senderNumberFromPayment: payments.senderNumber,
       })
       .from(bookings)
       .leftJoin(scrims, eq(bookings.scrimId, scrims.id))
       .leftJoin(user, eq(bookings.userId, user.id))
+      .leftJoin(payments, or(eq(bookings.id, payments.bookingId), eq(bookings.invoiceId, payments.invoiceId)))
       .where(and(...conditions))
       .orderBy(desc(bookings.scrimDate), bookings.slotNumber, bookings.createdAt)
 
@@ -465,8 +468,13 @@ export async function getHistoricalBookings(options?: { date?: string; scrimId?:
         }
       }
 
+      const resolvedPaymentMethod = r.booking.paymentMethod || r.paymentMethodFromPayment || "bKash"
+      const resolvedSenderNumber = r.booking.paymentNumber || r.senderNumberFromPayment
+
       return {
         ...r.booking,
+        paymentMethod: resolvedPaymentMethod,
+        paymentNumber: resolvedSenderNumber,
         scrimTitle: title || r.booking.scrimId,
         scrimStartTime: time || "N/A",
         scrimMap: map || "Bermuda",

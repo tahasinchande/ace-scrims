@@ -19,9 +19,8 @@ export function middleware(request: NextRequest) {
         )
       }
 
-      const loginUrl = new URL("/staff-login", request.url)
-      loginUrl.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(loginUrl)
+      // Non-authenticated visitors hitting /admin are safely redirected to homepage
+      return NextResponse.redirect(new URL("/", request.url))
     }
   }
 

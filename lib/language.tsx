@@ -203,6 +203,8 @@ const translations: Record<Language, Record<string, string>> = {
     privacy_policy: "Privacy Policy",
     terms_conditions: "Terms & Conditions",
     refund_policy: "Refund Policy",
+    nav_copyright: "Copyright",
+    copyright_notice: "Copyright Notice",
     rights_reserved: "Ace Scrims. All rights reserved. Not affiliated with Garena.",
   },
   bn: {
@@ -397,6 +399,8 @@ const translations: Record<Language, Record<string, string>> = {
     privacy_policy: "প্রাইভেসি পলিসি",
     terms_conditions: "টার্মস ও কন্ডিশনস",
     refund_policy: "রিফান্ড পলিসি",
+    nav_copyright: "কপিরাইট",
+    copyright_notice: "কপিরাইট নোটিশ",
     rights_reserved: "Ace Scrims. সর্বস্বত্ব সংরক্ষিত। এটি গ্যারেনার সাথে সম্পর্কিত নয়।",
   },
 }

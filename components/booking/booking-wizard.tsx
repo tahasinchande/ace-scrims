@@ -285,10 +285,10 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs font-bold uppercase tracking-wide text-foreground flex items-center gap-1.5">
                     <Wallet className="size-4 text-primary" />
-                    Prizepool Disbursement Method <span className="text-destructive">*</span>
+                    Prize Pool Payout Method <span className="text-destructive">*</span>
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Select one payment provider (bKash, Nagad, or Tap) to receive your tournament prizepool.
+                    Select your preferred prize pool payout provider (bKash, Nagad, or Tap) to receive your tournament winnings.
                   </p>
                 </div>
 
@@ -329,7 +329,7 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
               <div className="sm:col-span-2 flex flex-col gap-2">
                 <Field
                   id="paymentNumber"
-                  label={`Payment Number (${paymentMethod} Account for Prizepool Disbursement)`}
+                  label={`Payment Number (${paymentMethod} Personal Account for Prize Pool Payout)`}
                   type="tel"
                   placeholder={`01XXXXXXXXX (${paymentMethod} Personal Account)`}
                   error={state.fieldErrors?.paymentNumber}
@@ -340,10 +340,10 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
                 <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-xs text-foreground flex flex-col gap-1 shadow-sm">
                   <div className="flex items-center gap-1.5 font-bold text-primary">
                     <CheckCircle2 className="size-4 shrink-0" />
-                    <span>Prizepool Disbursement Declaration ({paymentMethod}):</span>
+                    <span>Prize Pool Payout Declaration ({paymentMethod}):</span>
                   </div>
                   <p className="leading-relaxed">
-                    Tournament winning prizepool will be disbursed strictly to the specific <strong>{paymentMethod}</strong> number/account you provide above.
+                    Tournament winning prize pool will be disbursed strictly to the specific <strong>{paymentMethod}</strong> number/account you provide above.
                   </p>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     (আপনার টুর্নামেন্ট প্রাইজপুল বিজয়ী হলে সরাসরি আপনার দেওয়া এই <strong>{paymentMethod}</strong> একাউন্ট নম্বরে পাঠানো হবে।)

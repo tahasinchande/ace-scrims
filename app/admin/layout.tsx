@@ -12,7 +12,7 @@ export default async function AdminLayout({
 }) {
   const user = await getSessionUser()
   if (!user || (user.role !== "admin" && user.role !== "moderator")) {
-    redirect("/staff-login")
+    redirect("/")
   }
 
   const settings = await getPublicSiteSettings().catch(() => undefined)

@@ -225,12 +225,15 @@ function ViewTeamsButton({
                     <span className="text-muted-foreground">WhatsApp: </span>
                     {b.phone}
                   </span>
-                  {b.paymentNumber && (
-                    <span>
-                      <span className="text-muted-foreground">Payment Number: </span>
+                  <span>
+                    <span className="text-muted-foreground">Payout Method: </span>
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold px-1.5 py-0 border-primary/40 text-primary bg-primary/10 mr-1.5">
+                      {b.paymentMethod || "bKash"}
+                    </Badge>
+                    {b.paymentNumber && (
                       <span className="font-mono text-xs font-semibold text-primary">{b.paymentNumber}</span>
-                    </span>
-                  )}
+                    )}
+                  </span>
                   {b.userEmail && (
                     <span className="truncate">
                       <span className="text-muted-foreground">Account: </span>
@@ -300,7 +303,7 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
         value={scrim.status}
         disabled={isPending}
         onChange={(e) => {
-          const nextStatus = e.target.value as "upcoming" | "live" | "registration_closed" | "completed" | "not_hosted"
+          const nextStatus = e.target.value as "upcoming" | "force_open" | "live" | "registration_closed" | "completed" | "not_hosted"
           if (nextStatus === "not_hosted") {
             if (!window.confirm(`Mark "${scrim.title}" as NOT HOSTED? Registered teams will be moved to the Not Hosted section for refund processing.`)) return
             startTransition(async () => {
@@ -320,7 +323,7 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
             try {
               const res = await toggleScrimStatus(scrim.id, nextStatus)
               if (res?.ok) {
-                toast.success(`Scrim status set to ${nextStatus}`)
+                toast.success(nextStatus === "force_open" ? "Registration FORCE TURNED ON (overriding match time)!" : `Scrim status set to ${nextStatus}`)
               } else {
                 toast.error(res?.error || "Failed to update status")
               }
@@ -332,6 +335,7 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
         className="h-8 rounded-md border border-border bg-background px-2 text-xs font-semibold"
       >
         <option value="upcoming">Upcoming</option>
+        <option value="force_open">Force Turn On</option>
         <option value="live">Live</option>
         <option value="registration_closed">Closed</option>
         <option value="completed">Completed</option>
@@ -795,10 +799,11 @@ export function AdminScrimList({
                     variant={scrim.status === "completed" ? "outline" : isDeleted ? "destructive" : scrim.status === "not_hosted" ? "outline" : "default"}
                     className={cn(
                       "capitalize",
-                      scrim.status === "not_hosted" && "border-amber-500/50 bg-amber-500/10 text-amber-400 font-bold"
+                      scrim.status === "not_hosted" && "border-amber-500/50 bg-amber-500/10 text-amber-400 font-bold",
+                      scrim.status === "force_open" && "border-emerald-500/50 bg-emerald-500/20 text-emerald-400 font-bold"
                     )}
                   >
-                    {isDeleted ? "In Trash" : scrim.status === "not_hosted" ? "Not Hosted" : scrim.status}
+                    {isDeleted ? "In Trash" : scrim.status === "not_hosted" ? "Not Hosted" : scrim.status === "force_open" ? "Force Open" : scrim.status}
                   </Badge>
                 </div>
 

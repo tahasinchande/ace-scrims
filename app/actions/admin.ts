@@ -1031,12 +1031,12 @@ export async function toggleRegistration(scrimId: string, open: boolean): Promis
 
 export async function toggleScrimStatus(
   scrimId: string,
-  status: "upcoming" | "live" | "registration_closed" | "completed"
+  status: "upcoming" | "live" | "registration_closed" | "completed" | "not_hosted" | "force_open"
 ): Promise<{ ok: boolean; error: string | null }> {
   try {
     const admin = await requireAdmin()
     await ensureScrimInDb(scrimId)
-    const isClosed = status === "registration_closed" || status === "completed"
+    const isClosed = status === "registration_closed" || status === "completed" || status === "not_hosted"
     await db
       .update(scrims)
       .set({
@@ -1260,7 +1260,9 @@ export async function queryHistoricalScrimsAction(date: string, scrimId?: string
     }
 
     const scrimsMeta = allScrims.map((s) => {
-      const bList = scrimMap.get(s.id) || (s.slug ? scrimMap.get(s.slug) : []) || []
+      const targetIds = new Set<string>([s.id])
+      if (s.slug) targetIds.add(s.slug)
+      const bList = allBookings.filter((b) => targetIds.has(b.scrimId))
       return {
         id: s.id,
         title: s.title,
@@ -1282,7 +1284,19 @@ export async function queryHistoricalScrimsAction(date: string, scrimId?: string
     let result: any = null
 
     if (targetScrim) {
-      roster = scrimMap.get(targetScrim.id) || (targetScrim.slug ? scrimMap.get(targetScrim.slug) : []) || []
+      const targetIds = new Set<string>([targetScrim.id])
+      if (targetScrim.slug) targetIds.add(targetScrim.slug)
+      if (scrimId) targetIds.add(scrimId)
+
+      const seen = new Set<string>()
+      const matched: typeof allBookings = []
+      for (const b of allBookings) {
+        if (targetIds.has(b.scrimId) && !seen.has(b.id)) {
+          seen.add(b.id)
+          matched.push(b)
+        }
+      }
+      roster = matched.sort((a, b) => (a.slotNumber ?? 99) - (b.slotNumber ?? 99))
       
       const foundResults = await db
         .select()
