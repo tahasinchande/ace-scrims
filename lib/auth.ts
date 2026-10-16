@@ -234,6 +234,11 @@ export const auth = betterAuth({
         defaultValue: false,
         input: false,
       },
+      balance: {
+        type: "number",
+        defaultValue: 0,
+        input: false,
+      },
     },
   },
   trustedOrigins: [
@@ -266,4 +271,5 @@ export type SessionUser = {
   image?: string | null
   role: string
   banned: boolean
+  balance?: number
 }

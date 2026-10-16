@@ -17,10 +17,12 @@ import {
   ShieldAlert,
   User as UserIcon,
   Camera,
+  Wallet,
 } from "lucide-react"
 
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/wallet", label: "Wallet & Balance", icon: Wallet },
   { href: "/dashboard/scrims", label: "My Scrims", icon: Swords },
   { href: "/dashboard/results", label: "My Results", icon: Trophy },
   { href: "/dashboard/image-requests", label: "Image Requests", icon: Camera },

@@ -46,7 +46,7 @@ export default function CopyrightPage() {
 
       <h2>5. Copyright Infringement &amp; Takedown Requests</h2>
       <p>
-        If you believe that any material available on or through the Ace Scrims platform infringes upon your copyright, please submit an infringement notice including proof of ownership, identification of the copyrighted work, and contact details via our official Direct WhatsApp Support or email at <span className="font-mono text-foreground">support@acescrims.online</span>.
+        If you believe that any material available on or through the Ace Scrims platform infringes upon your copyright, please submit an infringement notice including proof of ownership, identification of the copyrighted work, and contact details via our official Direct WhatsApp Support or Live Support channels.
       </p>
     </LegalPage>
   )

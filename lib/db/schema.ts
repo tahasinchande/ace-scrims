@@ -18,6 +18,7 @@ export const user = pgTable("user", {
   image: text("image"),
   phone: text("phone"),
   role: text("role").notNull().default("user"), // user | moderator | admin
+  balance: integer("balance").notNull().default(0),
   banned: boolean("banned").notNull().default(false),
   isTrashed: boolean("isTrashed").notNull().default(false),
   deletedAt: timestamp("deletedAt"),
@@ -297,6 +298,19 @@ export const imageRequests = pgTable("image_requests", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: text("id").primaryKey(),
+  userId: text("userId").notNull(),
+  type: text("type").notNull(), // deposit | scrim_booking | refund | adjustment
+  amountBdt: integer("amountBdt").notNull(),
+  balanceBefore: integer("balanceBefore").notNull().default(0),
+  balanceAfter: integer("balanceAfter").notNull().default(0),
+  description: text("description"),
+  referenceId: text("referenceId"), // invoiceId, bookingId, paymentId
+  status: text("status").notNull().default("completed"), // completed | pending | failed
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
 // ── Types ───────────────────────────────────────────────────────────────
 
 export type Scrim = typeof scrims.$inferSelect
@@ -310,3 +324,4 @@ export type AppUser = typeof user.$inferSelect
 export type ChatMessage = typeof chatMessages.$inferSelect
 export type NotHostedTeam = typeof notHostedTeams.$inferSelect
 export type ImageRequest = typeof imageRequests.$inferSelect
+export type WalletTransaction = typeof walletTransactions.$inferSelect

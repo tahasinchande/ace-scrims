@@ -42,12 +42,30 @@ export default async function BookPage({
   const bookable = status.tone === "open" || status.tone === "filling"
   if (!bookable) redirect(`/scrims/${slug}`)
 
+  let userBalance = 0
+  if (user) {
+    const { db } = await import("@/lib/db")
+    const { user: userTable } = await import("@/lib/db/schema")
+    const { eq } = await import("drizzle-orm")
+    const userRow = await db
+      .select({ balance: userTable.balance })
+      .from(userTable)
+      .where(eq(userTable.id, user.id))
+      .limit(1)
+    userBalance = userRow[0]?.balance ?? 0
+  }
+
   return (
     <>
-      <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
+      <SiteHeader
+        user={user ? { name: user.name, role: user.role } : null}
+        initialBalance={userBalance}
+        settings={settings}
+      />
       <main className="min-h-screen pb-20 pt-28">
         <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 flex flex-col gap-8">
           <BookingWizard
+            userBalance={userBalance}
             scrim={{
               id: scrim.id,
               slug: scrim.slug,

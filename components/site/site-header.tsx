@@ -5,7 +5,15 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Globe, ChevronDown, Flame, Trophy, Calendar, Layers, Boxes } from "lucide-react"
+import { Menu, X, Globe, ChevronDown, Flame, Trophy, Calendar, Layers, Boxes, MoreVertical, Wallet, MessageSquare } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { UserBalanceWidget } from "@/components/site/user-balance-widget"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { useSession } from "@/lib/auth-client"
@@ -19,10 +27,12 @@ export type HeaderSettings = {
 
 export function SiteHeader({
   user: initialUser = null,
+  initialBalance,
   settings: initialSettings,
   supportWhatsapp: initialWa,
 }: {
-  user?: { name: string; role: string } | null
+  user?: { name: string; role: string; balance?: number } | null
+  initialBalance?: number
   settings?: HeaderSettings
   supportWhatsapp?: string
 }) {
@@ -269,12 +279,65 @@ export function SiteHeader({
                   <Link href="/admin">{currentUser.role === "admin" ? "Admin" : "Mod Panel"}</Link>
                 </Button>
               )}
+              {/* Persistent User Balance Widget directly next to Dashboard */}
+              <UserBalanceWidget initialBalance={initialBalance} />
               <Button asChild size="sm" className="h-9 px-4 rounded-lg font-semibold bg-orange-600 hover:bg-orange-500 text-white shadow-sm transition-colors">
                 <Link href="/dashboard">{t("nav_dashboard", "Dashboard")}</Link>
               </Button>
+
+              {/* 3-Dot Navigation Dropdown on Desktop */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label="More navigation options"
+                  className="flex size-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:border-zinc-700 hover:text-white transition-colors cursor-pointer"
+                >
+                  <MoreVertical className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-[#090a0f] border-zinc-800 text-zinc-200">
+                  <div className="px-2 py-1.5 border-b border-zinc-800/80">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">Ace Scrims Wallet</span>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-xs text-zinc-300">Live Balance:</span>
+                      <UserBalanceWidget initialBalance={initialBalance} compact />
+                    </div>
+                  </div>
+                  <DropdownMenuItem className="p-0">
+                    <Link href="/dashboard/wallet" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer text-emerald-400 font-semibold focus:text-emerald-300">
+                      <Wallet className="size-4 text-emerald-400" />
+                      <span>Load / View Balance</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="p-0">
+                    <Link href="/dashboard/scrims" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer">
+                      <Calendar className="size-4 text-orange-400" />
+                      <span>My Scrims</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="p-0">
+                    <Link href="/results" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer">
+                      <Trophy className="size-4 text-amber-400" />
+                      <span>Results & Leaderboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="p-0">
+                    <Link href="/tutorial" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer">
+                      <Boxes className="size-4 text-blue-400" />
+                      <span>Tutorial Video</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  <DropdownMenuItem className="p-0">
+                    <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer text-emerald-400">
+                      <MessageSquare className="size-4 text-emerald-400" />
+                      <span>WhatsApp Support</span>
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ) : (
             <div className="flex items-center gap-2">
+              <UserBalanceWidget initialBalance={0} isGuest />
               <Link
                 href="/sign-in"
                 className="px-3 py-1.5 text-xs sm:text-sm font-medium text-zinc-300 hover:text-white transition-colors"
@@ -292,8 +355,63 @@ export function SiteHeader({
           )}
         </div>
 
-        {/* Mobile Hamburger & Quick Actions */}
-        <div className="flex items-center gap-2 md:hidden">
+        {/* Mobile Top-Right Direct View Controls */}
+        <div className="flex items-center gap-1.5 md:hidden">
+          {/* Direct view of site on top right: Balance will ALWAYS be shown */}
+          <UserBalanceWidget initialBalance={initialBalance} compact isGuest={!currentUser} />
+
+          {/* Mobile 3-Dot Navigation Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="3-dot quick navigation"
+              className="flex size-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <MoreVertical className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-[#090a0f] border-zinc-800 text-zinc-200">
+              <div className="px-2 py-1.5 border-b border-zinc-800/80">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">Ace Scrims Wallet</span>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-xs text-zinc-300">Live Balance:</span>
+                  <UserBalanceWidget initialBalance={initialBalance} compact isGuest={!currentUser} />
+                </div>
+              </div>
+              <DropdownMenuItem className="p-0">
+                <Link href={currentUser ? "/dashboard/wallet" : "/sign-in?next=/dashboard/wallet"} className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer text-emerald-400 font-semibold focus:text-emerald-300">
+                  <Wallet className="size-4 text-emerald-400" />
+                  <span>Load / View Balance</span>
+                </Link>
+              </DropdownMenuItem>
+              {currentUser && (
+                <DropdownMenuItem className="p-0">
+                  <Link href="/dashboard" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer text-orange-400 font-semibold">
+                    <Trophy className="size-4 text-orange-400" />
+                    <span>My Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem className="p-0">
+                <Link href="/scrims" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer">
+                  <Calendar className="size-4 text-zinc-300" />
+                  <span>All Scrims</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="p-0">
+                <Link href="/results" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer">
+                  <Trophy className="size-4 text-amber-400" />
+                  <span>Results & Leaderboard</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-zinc-800" />
+              <DropdownMenuItem className="p-0">
+                <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-2 px-2.5 py-1.5 cursor-pointer text-emerald-400">
+                  <MessageSquare className="size-4 text-emerald-400" />
+                  <span>WhatsApp Support</span>
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <button
             type="button"
             onClick={() => setMode(mode === "2d" ? "3d" : "2d")}
@@ -312,7 +430,7 @@ export function SiteHeader({
           </button>
 
           <button
-            className="flex size-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white"
+            className="flex size-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label="Toggle menu"
@@ -333,6 +451,27 @@ export function SiteHeader({
             aria-label="Mobile Navigation"
           >
             <div className="flex flex-col gap-1.5">
+              {/* Account Balance Highlight in Mobile Drawer */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/25 p-3 flex items-center justify-between my-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                    <Wallet className="size-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Account Balance</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <UserBalanceWidget initialBalance={initialBalance} compact isGuest={!currentUser} />
+                    </div>
+                  </div>
+                </div>
+                <Link
+                  href={currentUser ? "/dashboard/wallet" : "/sign-in?next=/dashboard/wallet"}
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white transition-colors shadow-sm"
+                >
+                  + Load
+                </Link>
+              </div>
               <Link
                 href="/"
                 className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white"

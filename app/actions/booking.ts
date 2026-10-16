@@ -3,8 +3,8 @@
 import { randomUUID } from "crypto"
 import { z } from "zod"
 import { db } from "@/lib/db"
-import { bookings, payments, scrims } from "@/lib/db/schema"
-import { and, eq, or, sql } from "drizzle-orm"
+import { bookings, payments, scrims, user as userTable, walletTransactions } from "@/lib/db/schema"
+import { and, eq, or, sql, gte } from "drizzle-orm"
 import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
 import { getScrimById, userHasBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
@@ -30,6 +30,8 @@ export type BookingFormState = {
   error?: string
   fieldErrors?: Record<string, string>
   paymentUrl?: string
+  paidWithBalance?: boolean
+  redirectUrl?: string
 }
 
 function getBaseUrl(): string {
@@ -109,6 +111,204 @@ export async function createBooking(
   const paymentId = randomUUID()
   const teamTag = data.teamTag
 
+  // 1. Fetch user live balance
+  const userRow = await db
+    .select({ balance: userTable.balance })
+    .from(userTable)
+    .where(eq(userTable.id, user.id))
+    .limit(1)
+  const currentBalance = userRow[0]?.balance ?? 0
+
+  // 2. If user has sufficient balance: automatically deduct from wallet, log transaction & confirm booking instantly
+  if (currentBalance >= scrim.priceBdt) {
+    let confirmedSlotNumber = 1
+    let balanceDeducted = false
+
+    await db.transaction(async (tx) => {
+      // Atomic deduction: ensure balance >= priceBdt at the moment of update
+      const updateBalResult = await tx
+        .update(userTable)
+        .set({
+          balance: sql`${userTable.balance} - ${scrim.priceBdt}`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(userTable.id, user.id), gte(userTable.balance, scrim.priceBdt)))
+        .returning({ newBalance: userTable.balance })
+
+      if (updateBalResult.length === 0) {
+        return // insufficient balance or concurrent deduction
+      }
+
+      balanceDeducted = true
+      const newBal = updateBalResult[0].newBalance
+
+      // Assign slot number for targetDate
+      const slotRows = await tx
+        .select({
+          next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
+        })
+        .from(bookings)
+        .where(
+          and(
+            or(
+              eq(bookings.scrimId, scrim.id),
+              eq(bookings.scrimId, scrim.slug)
+            ),
+            eq(bookings.scrimDate, targetDate),
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false)
+          )
+        )
+
+      confirmedSlotNumber = slotRows[0]?.next ?? 1
+      const walletTrxId = `WALLET_${randomUUID().slice(0, 8).toUpperCase()}`
+
+      if (existing) {
+        await tx
+          .update(bookings)
+          .set({
+            status: "confirmed",
+            slotNumber: confirmedSlotNumber,
+            teamName: data.teamName,
+            captainName: data.captainName,
+            captainUid: data.captainUid,
+            player2Name: "N/A",
+            player2Uid: "N/A",
+            player3Name: "N/A",
+            player3Uid: "N/A",
+            player4Name: "N/A",
+            player4Uid: "N/A",
+            player5Name: null,
+            player5Uid: null,
+            phone: data.phone,
+            discordTelegram: teamTag,
+            scrimDate: targetDate,
+            teamLeaderImageUrl: data.teamLeaderImageUrl,
+            paymentMethod: data.paymentMethod,
+            paymentNumber: data.paymentNumber,
+            teamMembersDriveLink: data.teamMembersDriveLink || null,
+            transactionId: walletTrxId,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(bookings.id, bookingId), eq(bookings.userId, user.id)))
+      } else {
+        await tx.insert(bookings).values({
+          id: bookingId,
+          userId: user.id,
+          scrimId: scrim.id,
+          scrimDate: targetDate,
+          status: "confirmed",
+          slotNumber: confirmedSlotNumber,
+          teamName: data.teamName,
+          captainName: data.captainName,
+          captainUid: data.captainUid,
+          player2Name: "N/A",
+          player2Uid: "N/A",
+          player3Name: "N/A",
+          player3Uid: "N/A",
+          player4Name: "N/A",
+          player4Uid: "N/A",
+          player5Name: null,
+          player5Uid: null,
+          phone: data.phone,
+          discordTelegram: teamTag,
+          teamLeaderImageUrl: data.teamLeaderImageUrl,
+          paymentMethod: data.paymentMethod,
+          paymentNumber: data.paymentNumber,
+          teamMembersDriveLink: data.teamMembersDriveLink || null,
+          transactionId: walletTrxId,
+        })
+      }
+
+      await tx.insert(payments).values({
+        id: paymentId,
+        userId: user.id,
+        bookingId,
+        scrimId: scrim.id,
+        amountBdt: scrim.priceBdt,
+        method: "wallet_balance",
+        transactionId: walletTrxId,
+        status: "completed",
+      })
+
+      await tx.insert(walletTransactions).values({
+        id: randomUUID(),
+        userId: user.id,
+        type: "scrim_registration",
+        amountBdt: scrim.priceBdt,
+        balanceBefore: currentBalance,
+        balanceAfter: newBal,
+        description: `Scrim Registration: "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber}`,
+        referenceId: bookingId,
+        status: "completed",
+      })
+
+      const countRows = await tx
+        .select({ confirmed: sql<number>`COUNT(*)::int` })
+        .from(bookings)
+        .where(
+          and(
+            or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+            eq(bookings.scrimDate, targetDate),
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false)
+          )
+        )
+
+      if ((countRows[0]?.confirmed ?? 0) >= scrim.maxTeams) {
+        await tx
+          .update(scrims)
+          .set({ registrationOpen: false, updatedAt: new Date() })
+          .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
+      }
+    })
+
+    if (balanceDeducted) {
+      try {
+        const { notifyUser } = await import("@/lib/notify")
+        await notifyUser(
+          user.id,
+          "booking",
+          "Scrim Slot Confirmed (Paid with Balance)",
+          `৳${scrim.priceBdt} was deducted from your wallet balance. Slot #${confirmedSlotNumber} for "${scrim.title}" (${scrim.startTime}) is confirmed!`,
+          "/dashboard/scrims"
+        )
+      } catch {}
+
+      try {
+        const { sendBookingConfirmationEmail } = await import("@/lib/email")
+        sendBookingConfirmationEmail({
+          to: user.email,
+          recipientName: data.captainName || user.name,
+          teamName: data.teamName,
+          scrimTitle: scrim.title,
+          startTime: scrim.startTime,
+          slotNumber: confirmedSlotNumber,
+          amountBdt: scrim.priceBdt,
+        }).catch(() => {})
+      } catch {}
+
+      try {
+        const { revalidatePath } = await import("next/cache")
+        revalidatePath("/scrims")
+        revalidatePath("/")
+        revalidatePath("/dashboard/scrims")
+        revalidatePath("/dashboard/wallet")
+        revalidatePath("/dashboard")
+        revalidatePath("/admin/scrims")
+      } catch {}
+
+      return {
+        ok: true,
+        paidWithBalance: true,
+        redirectUrl: "/dashboard/scrims?booked=true",
+      }
+    }
+  }
+
+  // 3. If balance is insufficient: gracefully redirect user to pay for that scrim via UddoktaPay
   if (existing) {
     // Reuse the pending booking, update the team info
     await db

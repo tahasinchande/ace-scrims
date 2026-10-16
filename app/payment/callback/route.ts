@@ -20,7 +20,13 @@ export async function GET(req: NextRequest) {
 
   // Ownership / existence check
   const rows = await db
-    .select({ id: payments.id, status: payments.status, invoiceId: payments.invoiceId })
+    .select({
+      id: payments.id,
+      status: payments.status,
+      invoiceId: payments.invoiceId,
+      bookingId: payments.bookingId,
+      scrimId: payments.scrimId,
+    })
     .from(payments)
     .where(eq(payments.id, paymentId))
     .limit(1)
@@ -41,13 +47,27 @@ export async function GET(req: NextRequest) {
 
   const outcome = await processPayment(paymentId, effectiveInvoice, callbackTrxId)
 
+  const isWallet =
+    url.searchParams.get("type") === "wallet" ||
+    payment.bookingId === "wallet_deposit" ||
+    payment.scrimId === "wallet_deposit"
+
   switch (outcome.status) {
     case "confirmed":
     case "already-confirmed":
+      if (isWallet) {
+        return NextResponse.redirect(new URL("/dashboard/wallet?status=success", url.origin))
+      }
       return NextResponse.redirect(new URL("/payment/result?status=success", url.origin))
     case "pending":
+      if (isWallet) {
+        return NextResponse.redirect(new URL("/dashboard/wallet?status=pending", url.origin))
+      }
       return NextResponse.redirect(new URL("/payment/result?status=pending", url.origin))
     default:
+      if (isWallet) {
+        return NextResponse.redirect(new URL("/dashboard/wallet?status=failed", url.origin))
+      }
       return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
   }
 }

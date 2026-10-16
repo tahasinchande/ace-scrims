@@ -63,7 +63,13 @@ function Field({
   )
 }
 
-export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
+export function BookingWizard({
+  scrim,
+  userBalance = 0,
+}: {
+  scrim: WizardScrim
+  userBalance?: number
+}) {
   const [step, setStep] = useState(1)
   const [state, formAction, pending] = useActionState(createBooking, initialState)
   const [leaderImageUrl, setLeaderImageUrl] = useState("")
@@ -71,12 +77,17 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
   const [leaderUploadError, setLeaderUploadError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap">("bKash")
 
-  // Redirect to the payment gateway when the action returns a payment URL
+  // Redirect to the payment gateway or dashboard when the action completes
   useEffect(() => {
-    if (state.ok && state.paymentUrl) {
-      window.location.href = state.paymentUrl
+    if (state.ok) {
+      if (state.paidWithBalance && state.redirectUrl) {
+        toast.success("Slot booked successfully using your account balance!")
+        window.location.href = state.redirectUrl
+      } else if (state.paymentUrl) {
+        window.location.href = state.paymentUrl
+      }
     }
-  }, [state.ok, state.paymentUrl])
+  }, [state.ok, state.paidWithBalance, state.redirectUrl, state.paymentUrl])
 
   async function handleLeaderImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -495,9 +506,11 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
           {/* Step 3: Payment summary + submit */}
           <div className={step === 3 ? "flex flex-col gap-6" : "hidden"}>
             <div>
-              <h1 className="font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">Payment</h1>
+              <h1 className="font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">Payment &amp; Confirmation</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                You&apos;ll be redirected to our secure gateway to pay via bKash or Nagad.
+                {userBalance >= scrim.priceBdt
+                  ? "You have sufficient account balance. Your slot will confirm instantly with zero gateway redirects."
+                  : "Review your squad and click pay to reserve your slot via UddoktaPay."}
               </p>
             </div>
 
@@ -506,6 +519,43 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
                 {state.error}
               </div>
             )}
+
+            {/* Wallet Balance Status Card */}
+            <div
+              className={`rounded-xl border p-4 ${
+                userBalance >= scrim.priceBdt
+                  ? "border-emerald-500/40 bg-emerald-950/20 text-emerald-300"
+                  : "border-border/80 bg-secondary/40 text-muted-foreground"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`flex size-7 items-center justify-center rounded-lg ${
+                    userBalance >= scrim.priceBdt ? "bg-emerald-500/20 text-emerald-400" : "bg-secondary text-muted-foreground"
+                  }`}>
+                    <Wallet className="size-4" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Your Account Balance
+                  </span>
+                </div>
+                <span className="font-mono text-base font-bold text-emerald-400">
+                  {bdt(userBalance)}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed">
+                {userBalance >= scrim.priceBdt ? (
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5 shrink-0" />
+                    Sufficient balance! ৳{scrim.priceBdt} will be automatically deducted from your account for instant confirmation.
+                  </span>
+                ) : (
+                  <span className="text-zinc-400">
+                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via UddoktaPay.
+                  </span>
+                )}
+              </p>
+            </div>
 
             <div className="flex flex-col gap-3 rounded-xl bg-secondary/60 p-5">
               <div className="flex items-center justify-between text-sm">
@@ -516,7 +566,7 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
               </div>
               <div className="h-px bg-border" aria-hidden />
               <div className="flex items-center justify-between">
-                <span className="font-display font-bold uppercase">Total</span>
+                <span className="font-display font-bold uppercase">Total Entry Fee</span>
                 <span className="font-display text-2xl font-bold text-primary">{bdt(scrim.priceBdt)}</span>
               </div>
             </div>
@@ -524,10 +574,10 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
             <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/10 p-4 text-xs leading-relaxed text-warning-foreground">
               <p className="font-bold text-amber-300">⚠️ জরুরি নির্দেশনা (Important Disclaimer):</p>
               <p className="flex items-start gap-1.5">
-                • <span>পেমেন্ট করার পর ট্রানজ্যাকশন আইডি এবং যে নাম্বার থেকে টাকা পাঠিয়েছেন তা সঠিকভাবে দিন।</span>
+                • <span>প্রাইজপুলের টাকা পাওয়ার জন্য আপনার বিকাশ/নগদ/ট্যাপ নাম্বারটি সঠিকভাবে দিয়েছেন কি না নিশ্চিত করুন।</span>
               </p>
               <p className="flex items-start gap-1.5">
-                • <span>ভুল তথ্য দিলে স্লট কনফার্ম হবে না।</span>
+                • <span>স্লট কনফার্ম হওয়ার পর আপনার ড্যাশবোর্ডে রুম আইডি এবং পাসওয়ার্ড দেখতে পাবেন।</span>
               </p>
               <p className="flex items-start gap-1.5">
                 • <span>যেকোনো সমস্যায় আমাদের সাথে সাপোর্ট চ্যানেলে যোগাযোগ করুন।</span>
@@ -537,11 +587,13 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
             <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4 text-xs leading-relaxed text-muted-foreground">
               <p className="flex items-center gap-2">
                 <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden />
-                Payment is verified automatically. Your booking confirms instantly on success.
+                {userBalance >= scrim.priceBdt
+                  ? "Instant wallet deduction with atomic server validation. No waiting for payment callbacks."
+                  : "Payment is verified automatically via UddoktaPay. Your booking confirms instantly on success."}
               </p>
               <p className="flex items-center gap-2">
                 <Lock className="size-4 shrink-0 text-success" aria-hidden />
-                Processed securely via official payment gateway. We never see your wallet PIN.
+                Processed securely via encrypted server. We never see your payment PIN.
               </p>
             </div>
 
@@ -554,15 +606,19 @@ export function BookingWizard({ scrim }: { scrim: WizardScrim }) {
                 type="submit"
                 size="lg"
                 disabled={pending || (state.ok && !!state.paymentUrl)}
-                className="glow-primary font-display font-bold uppercase"
+                className={`glow-primary font-display font-bold uppercase ${
+                  userBalance >= scrim.priceBdt ? "bg-emerald-600 hover:bg-emerald-500 text-white" : ""
+                }`}
               >
-                {pending || (state.ok && state.paymentUrl) ? (
+                {pending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden />
-                    Redirecting...
+                    {userBalance >= scrim.priceBdt ? "Confirming with Balance..." : "Connecting to UddoktaPay..."}
                   </>
+                ) : userBalance >= scrim.priceBdt ? (
+                  <>Register with Balance ({bdt(scrim.priceBdt)})</>
                 ) : (
-                  <>Pay {bdt(scrim.priceBdt)} Now</>
+                  <>Pay {bdt(scrim.priceBdt)} via UddoktaPay</>
                 )}
               </Button>
             </div>
