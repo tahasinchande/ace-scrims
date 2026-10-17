@@ -417,7 +417,7 @@ export async function POST(req: NextRequest) {
           targetUserId,
           "refund",
           `Refund processed for ${record?.scrimTitle || "Scrim Match"}`,
-          `Your entry fee of ৳${amount} for squad "${teamName}" has been refunded via UddoktaPay. Reference: ${refundRef}`,
+          `Your entry fee of ৳${amount} for squad "${teamName}" has been refunded via Automated Gateway. Reference: ${refundRef}`,
           "/dashboard"
         )
       }

@@ -62,7 +62,7 @@ export function Features() {
     {
       icon: CreditCard,
       title: t("feat1_title", "Instant Auto Payment"),
-      body: t("feat1_body", "Pay with bKash or Nagad through automated gateway. Your slot is confirmed the second your payment clears."),
+      body: t("feat1_body", "Pay through secure automated gateway or account balance. Your slot is confirmed the second your payment clears."),
       color: "text-orange-400",
     },
     {
@@ -156,7 +156,7 @@ export function HowItWorks() {
       icon: CreditCard,
       step: "02",
       title: t("step2_title", "Pay ৳35"),
-      body: t("step2_body", "Checkout with bKash or Nagad. Payment is verified automatically in seconds."),
+      body: t("step2_body", "Checkout with automated gateway or wallet balance. Payment is verified automatically in seconds."),
       actionHref: "#schedule",
       actionText: "Book Now",
       onClick: (e: React.MouseEvent) => {
@@ -328,10 +328,10 @@ export function Faq() {
   const { t } = useLanguage()
 
   const faqs = [
-    { q: t("faq1_q", "How do I book a scrim slot?"), a: t("faq1_a", "Create an account, pick a scrim from tonight's schedule, enter your squad details, and pay ৳35 with bKash or Nagad. Your slot is confirmed automatically.") },
+    { q: t("faq1_q", "How do I book a scrim slot?"), a: t("faq1_a", "Create an account, pick a scrim from tonight's schedule, enter your squad details, and pay ৳35 via secure gateway or account balance. Your slot is confirmed automatically.") },
     { q: t("faq2_q", "When do I get the Room ID and password?"), a: t("faq2_a", "Room credentials are published by our moderators 10-15 minutes before match start in your dashboard and sent via WhatsApp.") },
     { q: t("faq3_q", "What happens if the lobby is full?"), a: t("faq3_a", "Each scrim is capped at 12 teams. Once full, booking closes automatically. Check the other 11 nightly time slots.") },
-    { q: t("faq4_q", "How are prizes paid out?"), a: t("faq4_a", "Winners are published on the Results page with kills and screenshots. Prizes are sent to the leader's bKash/Nagad number within 6 hours.") },
+    { q: t("faq4_q", "How are prizes paid out?"), a: t("faq4_a", "Winners are published on the Results page with kills and screenshots. Prizes are sent to the leader's digital payout wallet within 6 hours.") },
     { q: t("faq5_q", "Can I get a refund?"), a: t("faq5_a", "If a scrim is cancelled by us, you get a full automatic refund. See our Refund Policy for details.") },
     { q: t("faq6_q", "Are emulator players allowed?"), a: t("faq6_a", "No. Ace Scrims is mobile-only. Emulator players are banned without refund per our fair play rules.") },
   ]

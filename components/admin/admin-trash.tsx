@@ -1115,7 +1115,7 @@ export function AdminTrash({
                             {teamName ?? "—"} <span className="text-muted-foreground">· {scrimTitle ?? "Scrim"}</span>
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {userEmail} · TRX: {payment.transactionId ?? "—"} · Method: {payment.method ?? "UddoktaPay"}
+                            {userEmail} · TRX: {payment.transactionId ?? "—"} · Method: {payment.method ?? "Automated Gateway"}
                           </p>
                         </div>
                       </div>

@@ -20,7 +20,7 @@ export default async function AdminPaymentsPage() {
         <div>
           <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Payments</h1>
           <p className="text-sm text-muted-foreground">
-            Every UddoktaPay transaction with verification status and trash management.
+            Every automated gateway transaction with verification status and trash management.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

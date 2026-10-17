@@ -42,8 +42,8 @@ export function translateRuleText(rule: string, isBn: boolean): string {
   if (lower.includes("room id") && (lower.includes("share") || lower.includes("sharing"))) {
     return "রুম আইডি ও পাসওয়ার্ড অন্য কারো সাথে শেয়ার করা সম্পূর্ণ নিষেধ।"
   }
-  if (lower.includes("prize") && (lower.includes("6 hour") || lower.includes("payout") || lower.includes("bKash"))) {
-    return "ম্যাচের ফলাফল প্রকাশের ৬ ঘণ্টার মধ্যে ক্যাপ্টেনের বিকাশ/নগদে প্রাইজ মানি পাঠানো হবে।"
+  if (lower.includes("prize") && (lower.includes("6 hour") || lower.includes("payout") || lower.includes("wallet") || lower.includes("bkash"))) {
+    return "ম্যাচের ফলাফল প্রকাশের ৬ ঘণ্টার মধ্যে ক্যাপ্টেনের ডিজিটাল ওয়ালেটে প্রাইজ মানি পাঠানো হবে।"
   }
   if (lower.includes("5.00 bdt fee") || lower.includes("transfer charges")) {
     return "লক্ষ্য রাখবেন ক্যাশআউট চার্জ বাবদ প্রাইজ মানি থেকে ৫.০০ টাকা ফি কর্তন করা হবে।"

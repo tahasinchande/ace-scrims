@@ -105,7 +105,7 @@ export function WalletView({
           Wallet &amp; Account Balance
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deposit funds securely via UddoktaPay to register for scrims instantly with 1-click booking.
+          Deposit funds securely via Secure Automated Gateway to register for scrims instantly with 1-click booking.
         </p>
       </div>
 
@@ -175,13 +175,13 @@ export function WalletView({
           </div>
         </div>
 
-        {/* Right Column: Top-Up / Add Funds via UddoktaPay */}
+        {/* Right Column: Top-Up / Add Funds via Secure Automated Gateway */}
         <div className="glass rounded-2xl p-6 lg:col-span-7 border border-border/80">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-lg font-bold uppercase">Load Account Balance</h2>
               <p className="text-xs text-muted-foreground">
-                Instant checkout via UddoktaPay (bKash, Nagad, Tap)
+                Instant Mobile Checkout · Secure Automated Gateway
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
@@ -247,13 +247,12 @@ export function WalletView({
               </div>
             )}
 
-            {/* Supported Payment Providers */}
+            {/* Supported Payment Channels */}
             <div className="flex items-center justify-between rounded-xl border border-border/40 bg-background/40 px-3.5 py-2.5 text-xs text-muted-foreground">
-              <span>Accepted Providers:</span>
+              <span>Payment Processing:</span>
               <div className="flex items-center gap-2 font-semibold text-foreground">
-                <span className="rounded bg-[#E2136E]/20 px-2 py-0.5 text-[#E2136E] text-[10px] font-bold">bKash</span>
-                <span className="rounded bg-[#F7941D]/20 px-2 py-0.5 text-[#F7941D] text-[10px] font-bold">Nagad</span>
-                <span className="rounded bg-[#00A19D]/20 px-2 py-0.5 text-[#00A19D] text-[10px] font-bold">Tap</span>
+                <span className="rounded bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-emerald-400 text-[10px] font-bold">Secure Automated Gateway</span>
+                <span className="rounded bg-primary/10 border border-primary/30 px-2 py-0.5 text-primary text-[10px] font-bold">Instant Verification</span>
               </div>
             </div>
 
@@ -266,7 +265,7 @@ export function WalletView({
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Connecting to UddoktaPay...
+                  Connecting to Secure Gateway...
                 </>
               ) : (
                 <>

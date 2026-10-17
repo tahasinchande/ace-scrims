@@ -299,7 +299,7 @@ export function BookingWizard({
                     Prize Pool Payout Method <span className="text-destructive">*</span>
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Select your preferred prize pool payout provider (bKash, Nagad, or Tap) to receive your tournament winnings.
+                    Select your preferred prize pool payout account type to receive your tournament winnings.
                   </p>
                 </div>
 
@@ -308,9 +308,9 @@ export function BookingWizard({
                 <div className="grid grid-cols-3 gap-2.5 mt-1">
                   {(
                     [
-                      { id: "bKash", label: "bKash" },
-                      { id: "Nagad", label: "Nagad" },
-                      { id: "Tap", label: "Tap" },
+                      { id: "bKash", label: "Digital Wallet" },
+                      { id: "Nagad", label: "Mobile Banking" },
+                      { id: "Tap", label: "Instant Pay" },
                     ] as const
                   ).map((provider) => {
                     const active = paymentMethod === provider.id
@@ -326,7 +326,7 @@ export function BookingWizard({
                             : "border-border/60 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                         )}
                       >
-                        <span className="text-base font-extrabold tracking-wide">{provider.label}</span>
+                        <span className="text-sm font-extrabold tracking-wide">{provider.label}</span>
                         <span className="text-[10px] font-medium tracking-normal text-muted-foreground">
                           {active ? "Selected" : "Select"}
                         </span>
@@ -340,9 +340,9 @@ export function BookingWizard({
               <div className="sm:col-span-2 flex flex-col gap-2">
                 <Field
                   id="paymentNumber"
-                  label={`Payment Number (${paymentMethod} Personal Account for Prize Pool Payout)`}
+                  label="Payout Account Number (Personal Mobile Account for Tournament Winnings)"
                   type="tel"
-                  placeholder={`01XXXXXXXXX (${paymentMethod} Personal Account)`}
+                  placeholder="01XXXXXXXXX (Personal Mobile Account)"
                   error={state.fieldErrors?.paymentNumber}
                   required
                 />
@@ -510,7 +510,7 @@ export function BookingWizard({
               <p className="mt-1 text-sm text-muted-foreground">
                 {userBalance >= scrim.priceBdt
                   ? "You have sufficient account balance. Your slot will confirm instantly with zero gateway redirects."
-                  : "Review your squad and click pay to reserve your slot via UddoktaPay."}
+                  : "Review your squad and click pay to reserve your slot via Secure Automated Gateway."}
               </p>
             </div>
 
@@ -551,7 +551,7 @@ export function BookingWizard({
                   </span>
                 ) : (
                   <span className="text-zinc-400">
-                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via UddoktaPay.
+                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via Secure Automated Gateway.
                   </span>
                 )}
               </p>
@@ -574,7 +574,7 @@ export function BookingWizard({
             <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/10 p-4 text-xs leading-relaxed text-warning-foreground">
               <p className="font-bold text-amber-300">⚠️ জরুরি নির্দেশনা (Important Disclaimer):</p>
               <p className="flex items-start gap-1.5">
-                • <span>প্রাইজপুলের টাকা পাওয়ার জন্য আপনার বিকাশ/নগদ/ট্যাপ নাম্বারটি সঠিকভাবে দিয়েছেন কি না নিশ্চিত করুন।</span>
+                • <span>প্রাইজপুলের টাকা পাওয়ার জন্য আপনার অ্যাকাউন্ট/ওয়ালেট নাম্বারটি সঠিকভাবে দিয়েছেন কি না নিশ্চিত করুন।</span>
               </p>
               <p className="flex items-start gap-1.5">
                 • <span>স্লট কনফার্ম হওয়ার পর আপনার ড্যাশবোর্ডে রুম আইডি এবং পাসওয়ার্ড দেখতে পাবেন।</span>
@@ -589,7 +589,7 @@ export function BookingWizard({
                 <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden />
                 {userBalance >= scrim.priceBdt
                   ? "Instant wallet deduction with atomic server validation. No waiting for payment callbacks."
-                  : "Payment is verified automatically via UddoktaPay. Your booking confirms instantly on success."}
+                  : "Payment is verified automatically via Secure Automated Gateway. Your booking confirms instantly on success."}
               </p>
               <p className="flex items-center gap-2">
                 <Lock className="size-4 shrink-0 text-success" aria-hidden />
@@ -613,12 +613,12 @@ export function BookingWizard({
                 {pending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden />
-                    {userBalance >= scrim.priceBdt ? "Confirming with Balance..." : "Connecting to UddoktaPay..."}
+                    {userBalance >= scrim.priceBdt ? "Confirming with Balance..." : "Connecting to Secure Gateway..."}
                   </>
                 ) : userBalance >= scrim.priceBdt ? (
                   <>Register with Balance ({bdt(scrim.priceBdt)})</>
                 ) : (
-                  <>Pay {bdt(scrim.priceBdt)} via UddoktaPay</>
+                  <>Pay {bdt(scrim.priceBdt)} via Instant Mobile Checkout</>
                 )}
               </Button>
             </div>

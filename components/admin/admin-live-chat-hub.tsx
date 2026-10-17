@@ -57,7 +57,7 @@ type MessageItem = {
 const QUICK_REPLIES = [
   "Room credentials have been published in your lobby. Good luck!",
   "Your transaction has been verified and team slot confirmed.",
-  "Refund has been processed via UddoktaPay. Check your statement.",
+  "Refund has been processed via automated gateway. Check your statement.",
   "Please provide your Free Fire Captain UID and registered phone number.",
   "Our support team is reviewing your match report. Please allow up to 1 hour.",
 ]
