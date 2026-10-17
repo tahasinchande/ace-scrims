@@ -12,21 +12,14 @@ export async function GET(req: NextRequest) {
     // Allow admins or test secret param
     const authHeader = req.headers.get("authorization")
     const searchParams = req.nextUrl.searchParams
-    const testSecret = searchParams.get("secret")
-    const expectedSecret = process.env.BETTER_AUTH_SECRET
-
-    const isAuthorized =
-      user?.role === "admin" ||
-      (expectedSecret && testSecret === expectedSecret)
-
-    if (!isAuthorized) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { ok: false, error: "Unauthorized. Admin privileges or valid ?secret parameter required." },
+        { ok: false, error: "Unauthorized. Admin privileges required." },
         { status: 401 }
       )
     }
 
-    const targetEmail = searchParams.get("to") || user?.email || "test@example.com"
+    const targetEmail = searchParams.get("to") || user.email
 
     const hasResend = Boolean(process.env.RESEND_API_KEY?.trim())
     const hasSmtp = Boolean(
@@ -39,27 +32,17 @@ export async function GET(req: NextRequest) {
       providers: {
         resend: {
           configured: hasResend,
-          apiKeyPrefix: process.env.RESEND_API_KEY ? `${process.env.RESEND_API_KEY.slice(0, 5)}...` : null,
           from: process.env.EMAIL_FROM || process.env.RESEND_FROM || "ACE SCRIMS <noreply@mail.acescrims.online>",
         },
         smtp: {
           configured: hasSmtp,
-          host: process.env.SMTP_HOST || (process.env.GMAIL_USER ? "smtp.gmail.com" : null),
           port: process.env.SMTP_PORT || (process.env.SMTP_SECURE === "true" ? "465" : "587"),
-          user: process.env.SMTP_USER || process.env.GMAIL_USER || null,
         },
       },
     }
 
     // If query ?send=true and authorized, attempt sending a test email
     if (searchParams.get("send") === "true") {
-      if (!isAuthorized) {
-        return NextResponse.json(
-          { ok: false, error: "Unauthorized. Admin authentication or ?secret=<BETTER_AUTH_SECRET> required to send test emails." },
-          { status: 401 }
-        )
-      }
-
       const testResult = await sendEmail({
         to: targetEmail,
         subject: "Test Email from ACE SCRIMS",
@@ -79,7 +62,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       status: hasResend || hasSmtp ? "Email provider is configured" : "No email provider configured in environment variables",
       diagnostics,
-      instructions: "To trigger a real test email, request GET /api/email/test?send=true&to=your@email.com&secret=YOUR_BETTER_AUTH_SECRET",
+      instructions: "To trigger a real test email, request GET /api/email/test?send=true&to=your@email.com",
     })
   } catch (err: any) {
     console.error("[Email Test API Error]", err)

@@ -20,41 +20,10 @@ export type Top3BannerItem = {
   imageUrl: string
 }
 
-const FALLBACK_TOP3_BANNERS: Top3BannerItem[] = [
-  {
-    id: "sample-top3-1",
-    winningTeam: "Team Vipers",
-    scrimTitle: "10:00 PM Champion Rush · 8-Match Lobby",
-    matchDate: new Date().toISOString().slice(0, 10),
-    kills: 38,
-    prizeBdt: 1800,
-    category: "Top 3 Face Banner",
-    imageUrl: "/images/scrim_bermuda_1786956536583.jpg",
-  },
-  {
-    id: "sample-top3-2",
-    winningTeam: "Black Mamba Esports",
-    scrimTitle: "09:00 PM Daily Scrim Room 1",
-    matchDate: new Date().toISOString().slice(0, 10),
-    kills: 24,
-    prizeBdt: 330,
-    category: "Top 3 Face Banner",
-    imageUrl: "/images/scrim_purgatory_1786956554900.jpg",
-  },
-  {
-    id: "sample-top3-3",
-    winningTeam: "Apex Predators",
-    scrimTitle: "08:00 PM Daily Scrim Room 2",
-    matchDate: new Date().toISOString().slice(0, 10),
-    kills: 21,
-    prizeBdt: 330,
-    category: "Top 3 Face Banner",
-    imageUrl: "/images/scrim_kalahari_1786956572959.jpg",
-  },
-]
-
-export function Top3FaceBannersSection({ banners: rawBanners }: { banners: Top3BannerItem[] }) {
-  const banners = rawBanners && rawBanners.length > 0 ? rawBanners : FALLBACK_TOP3_BANNERS
+export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] }) {
+  if (!banners || banners.length === 0) {
+    return null
+  }
   const count = banners.length
 
   const [currentIndex, setCurrentIndex] = useState(0)

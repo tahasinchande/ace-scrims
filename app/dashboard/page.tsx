@@ -11,7 +11,7 @@ import { BookingCard } from "@/components/dashboard/booking-card"
 import { PendingImageRequestsSection } from "@/components/dashboard/pending-image-requests"
 import { Button } from "@/components/ui/button"
 import { bdt, timeAgo } from "@/lib/format"
-import { Swords, Trophy, CalendarCheck, Bell, Wallet, Plus, ArrowRight } from "lucide-react"
+import { Swords, Trophy, CalendarCheck, Bell, Wallet, Plus, ArrowRight, UserCog } from "lucide-react"
 
 export default async function DashboardPage() {
   const user = await requireUser()
@@ -87,6 +87,31 @@ export default async function DashboardPage() {
               </Link>
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* Info Setup Quick Callout */}
+      <div className="glass relative overflow-hidden rounded-2xl border border-primary/30 bg-secondary/30 p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <UserCog className="size-5" />
+            </div>
+            <div>
+              <p className="font-display text-sm font-bold uppercase text-foreground">
+                Squad Info Setup &amp; Auto-Fill
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Save your team name, captain UID, WhatsApp number &amp; prize payout account once to auto-fill every registration.
+              </p>
+            </div>
+          </div>
+          <Button asChild size="sm" variant="secondary" className="border border-primary/30 text-primary hover:bg-primary/10 shrink-0">
+            <Link href="/dashboard/info-setup">
+              Setup Squad Info
+              <ArrowRight className="size-3.5 ml-1" />
+            </Link>
+          </Button>
         </div>
       </div>
 

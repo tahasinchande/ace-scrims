@@ -43,16 +43,22 @@ export default async function BookPage({
   if (!bookable) redirect(`/scrims/${slug}`)
 
   let userBalance = 0
+  let defaultInfo = null
   if (user) {
+    const { getUserDefaultInfo } = await import("@/lib/queries/user-info")
     const { db } = await import("@/lib/db")
     const { user: userTable } = await import("@/lib/db/schema")
     const { eq } = await import("drizzle-orm")
-    const userRow = await db
-      .select({ balance: userTable.balance })
-      .from(userTable)
-      .where(eq(userTable.id, user.id))
-      .limit(1)
+    const [userRow, savedInfo] = await Promise.all([
+      db
+        .select({ balance: userTable.balance })
+        .from(userTable)
+        .where(eq(userTable.id, user.id))
+        .limit(1),
+      getUserDefaultInfo(user.id),
+    ])
     userBalance = userRow[0]?.balance ?? 0
+    defaultInfo = savedInfo
   }
 
   return (
@@ -66,6 +72,7 @@ export default async function BookPage({
         <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 flex flex-col gap-8">
           <BookingWizard
             userBalance={userBalance}
+            defaultInfo={defaultInfo}
             scrim={{
               id: scrim.id,
               slug: scrim.slug,

@@ -2,11 +2,12 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 import * as schema from "./schema"
 
-const defaultUrl =
-  "postgresql://neondb_owner:npg_pohQHa4w0bsg@ep-noisy-wind-at1cd952-pooler.c-9.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
-
 function getDatabaseConnectionString(): string {
-  let url = (process.env.DATABASE_URL || defaultUrl).trim()
+  let url = (process.env.DATABASE_URL || "").trim()
+  if (!url) {
+    console.warn("[Database] DATABASE_URL is not set.")
+    return ""
+  }
   if (!url.includes("sslmode=")) {
     url += (url.includes("?") ? "&" : "?") + "sslmode=require"
   }
@@ -203,6 +204,22 @@ async function ensureSchema() {
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "paymentMethod" text DEFAULT 'bKash'`,
         `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "balance" integer NOT NULL DEFAULT 0`,
+        `CREATE TABLE IF NOT EXISTS "user_default_info" (
+          "id" text PRIMARY KEY,
+          "userId" text NOT NULL UNIQUE REFERENCES "user"("id") ON DELETE CASCADE,
+          "teamName" text,
+          "teamTag" text,
+          "captainName" text,
+          "captainUid" text,
+          "phone" text,
+          "paymentMethod" text DEFAULT 'bKash',
+          "paymentNumber" text,
+          "teamMembersDriveLink" text,
+          "teamLeaderImageUrl" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE INDEX IF NOT EXISTS "idx_user_default_info_user_id" ON "user_default_info" ("userId")`,
         `CREATE TABLE IF NOT EXISTS "wallet_transactions" (
           "id" text PRIMARY KEY,
           "userId" text NOT NULL,

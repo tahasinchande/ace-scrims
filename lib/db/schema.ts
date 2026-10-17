@@ -311,6 +311,25 @@ export const walletTransactions = pgTable("wallet_transactions", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+export const userDefaultInfo = pgTable("user_default_info", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  teamName: text("teamName"),
+  teamTag: text("teamTag"),
+  captainName: text("captainName"),
+  captainUid: text("captainUid"),
+  phone: text("phone"),
+  paymentMethod: text("paymentMethod").default("bKash"),
+  paymentNumber: text("paymentNumber"),
+  teamMembersDriveLink: text("teamMembersDriveLink"),
+  teamLeaderImageUrl: text("teamLeaderImageUrl"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 // ── Types ───────────────────────────────────────────────────────────────
 
 export type Scrim = typeof scrims.$inferSelect
@@ -325,3 +344,5 @@ export type ChatMessage = typeof chatMessages.$inferSelect
 export type NotHostedTeam = typeof notHostedTeams.$inferSelect
 export type ImageRequest = typeof imageRequests.$inferSelect
 export type WalletTransaction = typeof walletTransactions.$inferSelect
+export type UserDefaultInfo = typeof userDefaultInfo.$inferSelect
+

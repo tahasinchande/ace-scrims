@@ -21,8 +21,7 @@ const gatewayDispatcher = new Agent({
 })
 
 export function getUddoktaPayConfig() {
-  const apiKey =
-    process.env.UDDOKTAPAY_API_KEY || "RfnON4FhjDHkcw1egBAx1uTAgbhAr8VE1TPBblsy"
+  const apiKey = (process.env.UDDOKTAPAY_API_KEY || "").trim()
   let baseUrl = (
     process.env.UDDOKTAPAY_BASE_URL ||
     process.env.UDDOKTAPAY_PANEL_URL ||
@@ -107,9 +106,6 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
     }
     if (!res.ok || !data.payment_url) {
       let errorMsg = data.message ?? "Failed to create payment charge."
-      if (errorMsg.includes("Limit reached") || errorMsg.includes("Allowed:")) {
-        errorMsg = `${errorMsg}. (Action required: Please update your Allowed Domain to 'acescrims.online' in your UddoktaPay self-hosted merchant panel under Settings > API / Whitelist)`
-      }
       return { ok: false, error: errorMsg }
     }
     return { ok: true, paymentUrl: data.payment_url }
@@ -351,7 +347,7 @@ export async function refundPayment(
             ? Object.values(data.errors).flat().join(", ")
             : String(data.errors)
           : null) ||
-        `UddoktaPay refund API returned status ${res.status}.`
+        `Payment gateway refund API returned status ${res.status}.`
       return {
         ok: false,
         message: String(errMsg).trim(),
@@ -368,18 +364,18 @@ export async function refundPayment(
 
     return {
       ok: true,
-      message: data?.message || "Refund processed successfully via UddoktaPay.",
+      message: data?.message || "Refund processed successfully.",
       refundRef,
       raw: data,
     }
   } catch (err) {
-    console.error("[UddoktaPay Refund Exception]:", err)
+    console.error("[Payment Gateway Refund Exception]:", err)
     return {
       ok: false,
       message:
         err instanceof Error
           ? err.message
-          : "Could not reach UddoktaPay refund endpoint. Please check gateway connection.",
+          : "Could not reach payment gateway refund endpoint. Please check connection.",
     }
   }
 }

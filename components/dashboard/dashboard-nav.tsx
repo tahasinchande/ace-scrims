@@ -18,10 +18,12 @@ import {
   User as UserIcon,
   Camera,
   Wallet,
+  UserCog,
 } from "lucide-react"
 
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/info-setup", label: "Info Setup", icon: UserCog },
   { href: "/dashboard/wallet", label: "Wallet & Balance", icon: Wallet },
   { href: "/dashboard/scrims", label: "My Scrims", icon: Swords },
   { href: "/dashboard/results", label: "My Results", icon: Trophy },

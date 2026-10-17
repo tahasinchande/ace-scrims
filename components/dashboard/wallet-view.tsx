@@ -48,7 +48,7 @@ export function WalletView({
     )
   }, [balance])
 
-  // Show status toasts on redirect back from UddoktaPay
+  // Show status toasts on redirect back from payment gateway
   useEffect(() => {
     if (statusParam === "success") {
       toast.success("Wallet deposit successful! Your balance has been updated.")
@@ -88,7 +88,7 @@ export function WalletView({
           toast.error(res.error || "Failed to initialize payment")
           return
         }
-        // Redirect to UddoktaPay
+        // Redirect to Payment Gateway
         window.location.href = res.paymentUrl
       } catch (err: any) {
         setErrorMsg(err?.message || "An unexpected error occurred.")
@@ -105,7 +105,7 @@ export function WalletView({
           Wallet &amp; Account Balance
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deposit funds securely via UddoktaPay to register for scrims instantly with 1-click booking.
+          Deposit funds securely to register for scrims instantly with 1-click booking.
         </p>
       </div>
 
@@ -175,13 +175,13 @@ export function WalletView({
           </div>
         </div>
 
-        {/* Right Column: Top-Up / Add Funds via UddoktaPay */}
+        {/* Right Column: Top-Up / Add Funds */}
         <div className="glass rounded-2xl p-6 lg:col-span-7 border border-border/80">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-lg font-bold uppercase">Load Account Balance</h2>
               <p className="text-xs text-muted-foreground">
-                Instant checkout via UddoktaPay (bKash, Nagad, Tap)
+                Instant checkout with bKash, Nagad, or Tap
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
@@ -266,7 +266,7 @@ export function WalletView({
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Connecting to UddoktaPay...
+                  Connecting to Payment Gateway...
                 </>
               ) : (
                 <>

@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
       const errorMsg =
         fetchErr instanceof Error
           ? fetchErr.message
-          : "Could not establish connection with UddoktaPay refund server."
+          : "Could not establish connection with payment gateway refund server."
       return NextResponse.json(
         {
           ok: false,
@@ -326,7 +326,7 @@ export async function POST(req: NextRequest) {
             ? Object.values(gatewayData.errors).flat().join(", ")
             : String(gatewayData.errors)
           : null) ||
-        `UddoktaPay refund API returned status ${gatewayRes.status}`
+        `Payment gateway refund API returned status ${gatewayRes.status}`
 
       if (typeof extractedError === "string") {
         extractedError = extractedError.trim()
@@ -417,7 +417,7 @@ export async function POST(req: NextRequest) {
           targetUserId,
           "refund",
           `Refund processed for ${record?.scrimTitle || "Scrim Match"}`,
-          `Your entry fee of ৳${amount} for squad "${teamName}" has been refunded via UddoktaPay. Reference: ${refundRef}`,
+          `Your entry fee of ৳${amount} for squad "${teamName}" has been refunded to your payment account. Reference: ${refundRef}`,
           "/dashboard"
         )
       }

@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { bdt, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { Check, ChevronLeft, Loader2, Lock, ShieldCheck, Users, CreditCard, Award, Upload, Image as ImageIcon, CheckCircle2, AlertCircle, Trash2, Wallet } from "lucide-react"
+import { Check, ChevronLeft, Loader2, Lock, ShieldCheck, Users, CreditCard, Award, Upload, Image as ImageIcon, CheckCircle2, AlertCircle, Trash2, Wallet, Sparkles } from "lucide-react"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
 import { uploadMediaFile } from "@/lib/client-upload"
 import { toast } from "sonner"
+import type { UserDefaultInfo } from "@/lib/db/schema"
 
 type WizardScrim = {
   id: string
@@ -66,16 +67,20 @@ function Field({
 export function BookingWizard({
   scrim,
   userBalance = 0,
+  defaultInfo = null,
 }: {
   scrim: WizardScrim
   userBalance?: number
+  defaultInfo?: UserDefaultInfo | null
 }) {
   const [step, setStep] = useState(1)
   const [state, formAction, pending] = useActionState(createBooking, initialState)
-  const [leaderImageUrl, setLeaderImageUrl] = useState("")
+  const [leaderImageUrl, setLeaderImageUrl] = useState(defaultInfo?.teamLeaderImageUrl || "")
   const [isUploadingLeader, setIsUploadingLeader] = useState(false)
   const [leaderUploadError, setLeaderUploadError] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap">("bKash")
+  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap">(
+    (defaultInfo?.paymentMethod as "bKash" | "Nagad" | "Tap") || "bKash"
+  )
 
   // Redirect to the payment gateway or dashboard when the action completes
   useEffect(() => {
@@ -278,6 +283,23 @@ export function BookingWizard({
               </p>
             </div>
 
+            {/* Auto-Fill Status Banner */}
+            {defaultInfo ? (
+              <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-xs text-primary shadow-sm">
+                <Sparkles className="size-4 shrink-0 text-primary" />
+                <span>
+                  <strong>⚡ Auto-Filled:</strong> Default squad details have been automatically loaded from your <strong>Info Setup</strong>. You can freely edit, update, or overwrite any field before registering.
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-secondary/30 px-4 py-2.5 text-xs text-muted-foreground">
+                <span>💡 Tip: Save your squad details in Dashboard to auto-fill every registration instantly.</span>
+                <Link href="/dashboard/info-setup" className="font-semibold text-primary hover:underline shrink-0">
+                  Setup Info →
+                </Link>
+              </div>
+            )}
+
             {state.error && !state.ok && (
               <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {state.error}
@@ -285,11 +307,52 @@ export function BookingWizard({
             )}
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field id="teamName" label="Team Name" placeholder="e.g. Team Inferno" error={state.fieldErrors?.teamName} required maxLength={40} />
-              <Field id="teamTag" label="Team Tag" placeholder="e.g. INF" error={state.fieldErrors?.teamTag} required maxLength={10} />
-              <Field id="captainName" label="Team Leader Name" placeholder="e.g. Leader / Captain IG Name" error={state.fieldErrors?.captainName} required maxLength={40} />
-              <Field id="captainUid" label="Team Leader Free Fire UID" placeholder="e.g. 1234567890" error={state.fieldErrors?.captainUid} required maxLength={30} />
-              <Field id="phone" label="WhatsApp Number" type="tel" placeholder="01XXXXXXXXX" error={state.fieldErrors?.phone} required className="sm:col-span-2" />
+              <Field
+                id="teamName"
+                label="Team Name"
+                placeholder="e.g. Team Inferno"
+                defaultValue={defaultInfo?.teamName || ""}
+                error={state.fieldErrors?.teamName}
+                required
+                maxLength={40}
+              />
+              <Field
+                id="teamTag"
+                label="Team Tag"
+                placeholder="e.g. INF"
+                defaultValue={defaultInfo?.teamTag || ""}
+                error={state.fieldErrors?.teamTag}
+                required
+                maxLength={10}
+              />
+              <Field
+                id="captainName"
+                label="Team Leader Name"
+                placeholder="e.g. Leader / Captain IG Name"
+                defaultValue={defaultInfo?.captainName || ""}
+                error={state.fieldErrors?.captainName}
+                required
+                maxLength={40}
+              />
+              <Field
+                id="captainUid"
+                label="Team Leader Free Fire UID"
+                placeholder="e.g. 1234567890"
+                defaultValue={defaultInfo?.captainUid || ""}
+                error={state.fieldErrors?.captainUid}
+                required
+                maxLength={30}
+              />
+              <Field
+                id="phone"
+                label="WhatsApp Number"
+                type="tel"
+                placeholder="01XXXXXXXXX"
+                defaultValue={defaultInfo?.phone || ""}
+                error={state.fieldErrors?.phone}
+                required
+                className="sm:col-span-2"
+              />
 
               {/* Payment Provider Selection for Prizepool Disbursement */}
               <div className="sm:col-span-2 flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
@@ -343,6 +406,7 @@ export function BookingWizard({
                   label={`Payment Number (${paymentMethod} Personal Account for Prize Pool Payout)`}
                   type="tel"
                   placeholder={`01XXXXXXXXX (${paymentMethod} Personal Account)`}
+                  defaultValue={defaultInfo?.paymentNumber || ""}
                   error={state.fieldErrors?.paymentNumber}
                   required
                 />
@@ -369,6 +433,7 @@ export function BookingWizard({
                   label="Team Members Drive Link"
                   type="url"
                   placeholder="https://drive.google.com/drive/folders/..."
+                  defaultValue={defaultInfo?.teamMembersDriveLink || ""}
                   error={state.fieldErrors?.teamMembersDriveLink}
                   optional
                 />
@@ -510,7 +575,7 @@ export function BookingWizard({
               <p className="mt-1 text-sm text-muted-foreground">
                 {userBalance >= scrim.priceBdt
                   ? "You have sufficient account balance. Your slot will confirm instantly with zero gateway redirects."
-                  : "Review your squad and click pay to reserve your slot via UddoktaPay."}
+                  : "Review your squad and click pay to reserve your slot securely."}
               </p>
             </div>
 
@@ -551,7 +616,7 @@ export function BookingWizard({
                   </span>
                 ) : (
                   <span className="text-zinc-400">
-                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via UddoktaPay.
+                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via bKash, Nagad, or Tap.
                   </span>
                 )}
               </p>
@@ -589,7 +654,7 @@ export function BookingWizard({
                 <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden />
                 {userBalance >= scrim.priceBdt
                   ? "Instant wallet deduction with atomic server validation. No waiting for payment callbacks."
-                  : "Payment is verified automatically via UddoktaPay. Your booking confirms instantly on success."}
+                  : "Payment is verified automatically. Your booking confirms instantly on success."}
               </p>
               <p className="flex items-center gap-2">
                 <Lock className="size-4 shrink-0 text-success" aria-hidden />
@@ -613,12 +678,12 @@ export function BookingWizard({
                 {pending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden />
-                    {userBalance >= scrim.priceBdt ? "Confirming with Balance..." : "Connecting to UddoktaPay..."}
+                    {userBalance >= scrim.priceBdt ? "Confirming with Balance..." : "Connecting to Payment Gateway..."}
                   </>
                 ) : userBalance >= scrim.priceBdt ? (
                   <>Register with Balance ({bdt(scrim.priceBdt)})</>
                 ) : (
-                  <>Pay {bdt(scrim.priceBdt)} via UddoktaPay</>
+                  <>Pay {bdt(scrim.priceBdt)} (bKash / Nagad / Tap)</>
                 )}
               </Button>
             </div>

@@ -62,7 +62,7 @@ export async function createWalletDeposit(amountBdt: number): Promise<WalletDepo
     bookingId: "wallet_deposit",
     scrimId: "wallet_deposit",
     amountBdt: amount,
-    method: "uddoktapay",
+    method: "online_gateway",
     status: "pending",
   })
 

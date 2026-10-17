@@ -20,41 +20,10 @@ export type MvpBannerItem = {
   imageUrl: string
 }
 
-const FALLBACK_MVP_BANNERS: MvpBannerItem[] = [
-  {
-    id: "sample-mvp-1",
-    playerName: "SHADOW 99",
-    teamName: "Team Vipers",
-    scrimTitle: "10:00 PM Champion Rush Lobby",
-    matchDate: new Date().toISOString().slice(0, 10),
-    kills: 18,
-    playerUid: "748920194",
-    imageUrl: "/images/scrim_squad_clash_1786956645507.jpg",
-  },
-  {
-    id: "sample-mvp-2",
-    playerName: "DEADSHOT",
-    teamName: "Black Mamba Esports",
-    scrimTitle: "09:00 PM Daily Scrim Room 1",
-    matchDate: new Date().toISOString().slice(0, 10),
-    kills: 14,
-    playerUid: "892013840",
-    imageUrl: "/images/scrim_cyber_arena_1786956594944.jpg",
-  },
-  {
-    id: "sample-mvp-3",
-    playerName: "SNIPER GOD",
-    teamName: "Apex Predators",
-    scrimTitle: "08:00 PM Daily Scrim Room 2",
-    matchDate: new Date().toISOString().slice(0, 10),
-    kills: 12,
-    playerUid: "612984029",
-    imageUrl: "/images/scrim_alpine_1786956632185.jpg",
-  },
-]
-
-export function MvpFaceBannersSection({ banners: rawBanners }: { banners: MvpBannerItem[] }) {
-  const banners = rawBanners && rawBanners.length > 0 ? rawBanners : FALLBACK_MVP_BANNERS
+export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] }) {
+  if (!banners || banners.length === 0) {
+    return null
+  }
   const count = banners.length
 
   const [currentIndex, setCurrentIndex] = useState(0)
