@@ -148,8 +148,8 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
         let cleanNotes = existing.notes
         if (!isCR && (!cleanNotes || cleanNotes.toLowerCase().includes("champion rush") || cleanNotes.toLowerCase().includes("80 pts"))) {
           cleanNotes = isBlast
-            ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-            : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+            ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+            : "Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
         }
 
         merged[existingIdx] = {
@@ -197,10 +197,10 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
               ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
               : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.",
           notes: isCR
-            ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAN THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours)."
+            ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAN THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours)."
             : isBlast
-              ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-              : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
+              ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+              : "Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
           map: def.map,
           mode: "BATTLE ROYALE",
           startTime: def.time,
@@ -468,7 +468,7 @@ export async function getHistoricalBookings(options?: { date?: string; scrimId?:
         }
       }
 
-      const resolvedPaymentMethod = r.booking.paymentMethod || r.paymentMethodFromPayment || "Digital Wallet"
+      const resolvedPaymentMethod = r.booking.paymentMethod || r.paymentMethodFromPayment || "bKash"
       const resolvedSenderNumber = r.booking.paymentNumber || r.senderNumberFromPayment
 
       return {

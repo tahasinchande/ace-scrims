@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       </p>
       <h2>2. Payment Information</h2>
       <p>
-        Payments are processed via secure automated payment gateways. We never store your payment PIN,
+        Payments are processed via secure payment gateways (bKash, Nagad, and cards). We never store your payment PIN,
         card number, or wallet credentials. We only store the transaction ID, amount, payment method, and status
         needed to confirm your booking and handle refunds.
       </p>

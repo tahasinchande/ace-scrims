@@ -25,7 +25,7 @@ export default async function AdminNotHostedPage() {
       <header>
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Not Hosted Teams & Refunds</h1>
         <p className="text-sm text-muted-foreground">
-          Process automatic gateway refunds or manual refunds for teams whose scrims could not be hosted.
+          Process automatic bKash/Nagad gateway refunds or manual refunds for teams whose scrims could not be hosted.
         </p>
       </header>
       <AdminNotHosted teams={teams} scrims={scrims} />

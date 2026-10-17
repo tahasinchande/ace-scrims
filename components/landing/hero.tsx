@@ -136,7 +136,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
             </motion.h2>
 
             <motion.p variants={itemFadeUp} className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground text-pretty md:text-lg">
-              {t("hero_subtitle", "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pool. Your squad vs the best.")}
+              {t("hero_subtitle", "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automatic bKash/Nagad payments, and cash prize pool. Your squad vs the best.")}
             </motion.p>
 
             {/* Action Buttons */}

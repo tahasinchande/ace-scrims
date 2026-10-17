@@ -890,7 +890,7 @@ export async function sendScrimNotHostedEmail({
         Refund Processing Notice
       </h3>
       <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.65;">
-        Your squad's entry fee has been transferred to our refund queue. It will be credited back via your original payment method / digital wallet. You can track this and other matches from your player dashboard.
+        Your squad's entry fee has been transferred to our refund queue. It will be credited back via bKash/Nagad. You can track this and other matches from your player dashboard.
       </p>
     </div>
   `

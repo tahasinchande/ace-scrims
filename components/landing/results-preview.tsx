@@ -35,7 +35,7 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
       {displayResults.length === 0 ? (
         <div className="glass flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 p-12 text-center">
           <Trophy className="size-12 text-muted-foreground/40 mb-3" />
-          <h3 className="font-display text-lg font-bold text-foreground">No match results published yet</h3>
+          <h3 className="font-display text-lg font-bold text-foreground">No results available yet</h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-md">
             Official match results and podium face banners will appear here as soon as upcoming scrim rooms conclude.
           </p>

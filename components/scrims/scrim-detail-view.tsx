@@ -254,8 +254,8 @@ export function ScrimDetailView({
               <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
               <span>
                 {isBn
-                  ? "রেজাল্ট প্রকাশের ৬ ঘণ্টার মধ্যে (সর্বোচ্চ ২৪ ঘণ্টা) ক্যাপ্টেনের ডিজিটাল ওয়ালেটে প্রাইজ ডিস্ট্রিবিউট করা হবে।"
-                  : "Prize money is sent directly to the captain's digital wallet within 6 hours (Max 24 hours) after match verification."}
+                  ? "রেজাল্ট প্রকাশের ৬ ঘণ্টার মধ্যে (সর্বোচ্চ ২৪ ঘণ্টা) ক্যাপ্টেনের বিকাশ/নগদ নাম্বারে প্রাইজ ডিস্ট্রিবিউট করা হবে।"
+                  : "Prize money is sent directly to the captain's bKash/Nagad within 6 hours (Max 24 hours) after match verification."}
               </span>
             </div>
           </section>
@@ -422,8 +422,8 @@ export function ScrimDetailView({
               )}
               <p className="text-center text-xs leading-relaxed text-muted-foreground">
                 {isBn
-                  ? "সুরক্ষিত গেটওয়ে অথবা ওয়ালেট ব্যালেন্সের মাধ্যমে পেমেন্ট সম্পন্ন করার সাথে সাথেই বুকিং নিশ্চিত হবে। প্রকাশ হওয়ার পর রুম আইডি ও পাসওয়ার্ড আপনার ড্যাশবোর্ডে দেখতে পাবেন।"
-                  : "Instant confirmation after payment via Secure Automated Gateway or account balance. Room ID & password appear in your dashboard once published."}
+                  ? "বিকাশ বা নগদে পেমেন্ট করার সাথে সাথেই বুকিং নিশ্চিত হবে। প্রকাশ হওয়ার পর রুম আইডি ও পাসওয়ার্ড আপনার ড্যাশবোর্ডে দেখতে পাবেন।"
+                  : "Instant confirmation after payment via bKash or Nagad. Room ID & password appear in your dashboard once published."}
               </p>
             </div>
           </div>

@@ -24,10 +24,10 @@ export function TutorialView({ tutorials = [] }: { tutorials?: Tutorial[] }) {
     {
       num: "02",
       icon: CreditCard,
-      title: isBn ? "২. অটোমেটেড গেটওয়ে দিয়ে ৳৩৫ পেমেন্ট করুন" : "02. Pay ৳35 via Instant Automated Gateway",
+      title: isBn ? "২. বিকাশ বা নগদে ৳৩৫ পেমেন্ট করুন" : "02. Pay ৳35 via bKash or Nagad",
       desc: isBn
-        ? "আমাদের অটোমেটিক গেটওয়ে বা ওয়ালেট ব্যালেন্স দিয়ে সহজে ৳৩৫ রেজিস্ট্রেশন ফি পেমেন্ট করুন। পেমেন্ট সফল হওয়ার সাথে সাথেই আপনার স্লট কনফার্ম হয়ে যাবে।"
-        : "Complete the ৳35 registration payment securely using our automated payment gateway or account balance. Your spot is confirmed immediately upon successful transaction.",
+        ? "আমাদের অটোমেটিক গেটওয়ে দিয়ে সহজে ৳৩৫ রেজিস্ট্রেশন ফি পেমেন্ট করুন। পেমেন্ট সফল হওয়ার সাথে সাথেই আপনার স্লট কনফার্ম হয়ে যাবে।"
+        : "Complete the ৳35 registration payment securely using our automated bKash or Nagad payment gateway. Your spot is confirmed immediately upon successful transaction.",
     },
     {
       num: "03",
@@ -42,8 +42,8 @@ export function TutorialView({ tutorials = [] }: { tutorials?: Tutorial[] }) {
       icon: Trophy,
       title: isBn ? "৪. ৩টি ম্যাচ খেলুন ও প্রাইজ জিতুন" : "04. Play 3 Matches & Win Prizes",
       desc: isBn
-        ? "বারমুডা, পারগেটরি ও কালাহারি - ৩টি ম্যাপে অংশ নিন। পয়েন্ট টেবিলে শীর্ষে থেকে জিতে নিন প্রাইজ পুল (৳৩৩০), যা ৬ ঘণ্টার মধ্যে আপনার ডিজিটাল ওয়ালেটে পৌঁছে দেওয়া হবে।"
-        : "Compete in 3 map matches (Bermuda, Purgatory, Kalahari). Top placed teams win cash prize pool (৳330) transferred directly to your digital wallet within 6 hours!",
+        ? "বারমুডা, পারগেটরি ও কালাহারি - ৩টি ম্যাপে অংশ নিন। পয়েন্ট টেবিলে শীর্ষে থেকে জিতে নিন প্রাইজ পুল (৳৩৩০), যা ৬ ঘণ্টার মধ্যে আপনার বিকাশ/নগদে পৌঁছে দেওয়া হবে।"
+        : "Compete in 3 map matches (Bermuda, Purgatory, Kalahari). Top placed teams win cash prize pool (৳330) transferred directly to your bKash/Nagad within 6 hours!",
     },
   ]
 

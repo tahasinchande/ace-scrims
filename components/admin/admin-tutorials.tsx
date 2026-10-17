@@ -121,7 +121,7 @@ function AddTutorialButton() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="title">Tutorial Title / শিরোনাম *</Label>
-            <Input id="title" name="title" required placeholder="e.g. How to book slots via automated gateway" />
+            <Input id="title" name="title" required placeholder="e.g. How to book slots via bKash/Nagad" />
           </div>
 
           <div className="flex flex-col gap-1.5">

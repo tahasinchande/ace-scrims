@@ -12,14 +12,14 @@ import { resolveImageUrl, resolveImageUrls } from "@/lib/image-url"
 import type { MatchResult } from "@/lib/db/schema"
 import type { ResultWithScrim } from "@/lib/queries/results"
 
-export type LeaderboardEntry = {
+type LeaderboardEntry = {
   teamName: string
   wins: number
   totalKills: number
   totalPrizeBdt: number
 }
 
-export type ScrimSector = {
+type ScrimSector = {
   id: string
   title: string
   startTime: string
@@ -29,9 +29,9 @@ export type ScrimSector = {
 const medalColor = ["text-primary", "text-muted-foreground", "text-chart-3"]
 
 export function ResultsView({
-  recent = [],
+  recent,
   scrimSectors = [],
-  leaderboard = [],
+  leaderboard,
 }: {
   recent: ResultWithScrim[]
   scrimSectors?: ScrimSector[]
@@ -41,27 +41,23 @@ export function ResultsView({
   const isBn = lang === "bn"
   const [showAllSectors, setShowAllSectors] = useState(false)
 
-  // Use real sectors provided from active scrims in the database; or extract from results if available
-  const availableSectors: ScrimSector[] = scrimSectors.length > 0
-    ? scrimSectors
-    : Array.from(
-        new Map(
-          recent
-            .filter((r) => r.scrimId)
-            .map((r) => [
-              r.scrimId,
-              {
-                id: r.scrimId!,
-                title: r.scrimTitle || "Scrim Match",
-                startTime: r.scrimTime || "7:00 PM",
-                map: r.scrimMap || "Bermuda",
-              },
-            ])
-        ).values()
-      )
+  // Fallback 12 default scrim sectors if none passed
+  const sectors: ScrimSector[] = scrimSectors.length > 0 ? scrimSectors : [
+    { id: "scrim-7pm-r1", title: "7 PM SCRIM ROOM 1", startTime: "7:00 PM", map: "Bermuda" },
+    { id: "scrim-7pm-r2", title: "7 PM SCRIM ROOM 2", startTime: "7:00 PM", map: "Purgatory" },
+    { id: "scrim-8pm-r1", title: "8 PM SCRIM ROOM 1", startTime: "8:00 PM", map: "Kalahari" },
+    { id: "scrim-8pm-r2", title: "8 PM SCRIM ROOM 2", startTime: "8:00 PM", map: "Bermuda" },
+    { id: "scrim-9pm-r1", title: "9 PM SCRIM ROOM 1", startTime: "9:00 PM", map: "Purgatory" },
+    { id: "scrim-9pm-r2", title: "9 PM SCRIM ROOM 2", startTime: "9:00 PM", map: "Kalahari" },
+    { id: "scrim-10pm-r1", title: "10 PM SCRIM ROOM 1", startTime: "10:00 PM", map: "Bermuda" },
+    { id: "scrim-10pm-r2", title: "10 PM SCRIM ROOM 2", startTime: "10:00 PM", map: "Purgatory" },
+    { id: "scrim-11pm-r1", title: "11 PM SCRIM ROOM 1", startTime: "11:00 PM", map: "Kalahari" },
+    { id: "scrim-11pm-r2", title: "11 PM SCRIM ROOM 2", startTime: "11:00 PM", map: "Bermuda" },
+    { id: "scrim-12am-r1", title: "12 AM SCRIM ROOM 1", startTime: "12:00 AM", map: "Purgatory" },
+    { id: "scrim-12am-r2", title: "12 AM SCRIM ROOM 2", startTime: "12:00 AM", map: "Kalahari" },
+  ]
 
-  const visibleSectors = showAllSectors ? availableSectors : availableSectors.slice(0, 6)
-  const hasResults = recent.length > 0
+  const visibleSectors = showAllSectors ? sectors : sectors.slice(0, 6)
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
@@ -88,79 +84,53 @@ export function ResultsView({
       </header>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px]">
-        {/* Scrim Results Column */}
+        {/* Scrim Sectors Column */}
         <section aria-label="Scrim match sectors" className="flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-border/80 pb-3">
             <h2 className="font-display text-xl font-bold uppercase tracking-wide flex items-center gap-2">
               <Trophy className="size-5 text-primary" />
-              {isBn ? "ফলাফল ও ম্যাচ প্রুফ" : "Match Results & Proofs"}
+              {isBn ? "ফলাফল সেক্টরসমূহ" : "Daily Scrim Results Sectors"}
             </h2>
-            {hasResults && (
-              <Badge variant="outline" className="border-primary/40 text-primary font-bold">
-                {recent.length} {isBn ? "টি ফলাফল প্রকাশিত" : "Published Results"}
-              </Badge>
-            )}
+            <Badge variant="outline" className="border-primary/40 text-primary font-bold">
+              {sectors.length} {isBn ? "টি স্ক্রিম স্লট" : "Active Scrim Slots"}
+            </Badge>
           </div>
 
-          {/* Conditional Empty State when no results published yet */}
-          {!hasResults ? (
-            <div className="glass flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/80 p-12 text-center bg-secondary/20">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-inner">
-                <Trophy className="size-7" />
-              </div>
-              <div className="max-w-md">
-                <h3 className="font-display text-xl font-bold uppercase text-foreground">
-                  {isBn ? "এখনো কোনো ফলাফল প্রকাশিত হয়নি" : "No match results published yet"}
-                </h3>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {isBn
-                    ? "আজকের স্ক্রিম লবির ম্যাচ ফলাফল এবং যাচাইকৃত স্ক্রিনশট প্রুফ ম্যাচ সম্পন্ন হওয়ার পর মডারেটর দ্বারা প্রকাশ করা হবে।"
-                    : "Verified match results, kill tallies, and screenshot proofs for tournament lobbies will appear here once verified and published by match moderators."}
-                </p>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-                <Button asChild variant="outline" size="sm" className="font-display text-xs font-bold uppercase gap-1.5">
-                  <Link href="/scrims">
-                    <Swords className="size-3.5" />
-                    {isBn ? "আজকের স্ক্রিম লবি দেখুন" : "View Today's Scrims"}
-                  </Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm" className="font-display text-xs font-bold uppercase text-muted-foreground hover:text-foreground">
-                  <Link href="/dashboard">
-                    {isBn ? "আমার ড্যাশবোর্ড" : "Player Dashboard"}
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {visibleSectors.map((sector) => {
-                const sectorResults = recent.filter((r) => r.scrimId === sector.id)
-                if (sectorResults.length === 0) return null
+          <div className="flex flex-col gap-6">
+            {visibleSectors.map((sector) => {
+              // Match results strictly belonging to this scrim sector id
+              const sectorResults = recent.filter(
+                (r) => r.scrimId === sector.id
+              )
 
-                return (
-                  <div
-                    key={sector.id}
-                    className="glass flex flex-col gap-4 rounded-2xl p-5 border border-border/80 relative overflow-hidden"
-                  >
-                    {/* Sector Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                      <div>
-                        <h3 className="font-display text-lg font-bold uppercase text-foreground flex items-center gap-2">
-                          <span>{sector.title}</span>
-                        </h3>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1 font-semibold text-primary">
-                            <Clock className="size-3.5" />
-                            {sector.startTime}
-                          </span>
-                          <span>Map: {sector.map}</span>
-                          <span>Mode: BATTLE ROYALE</span>
-                        </div>
+              return (
+                <div
+                  key={sector.id}
+                  className="glass flex flex-col gap-4 rounded-2xl p-5 border border-border/80 relative overflow-hidden"
+                >
+                  {/* Sector Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+                    <div>
+                      <h3 className="font-display text-lg font-bold uppercase text-foreground flex items-center gap-2">
+                        <span>{sector.title}</span>
+                      </h3>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                        <span className="flex items-center gap-1 font-semibold text-primary">
+                          <Clock className="size-3.5" />
+                          {sector.startTime}
+                        </span>
+                        <span>Map: {sector.map}</span>
+                        <span>Mode: BATTLE ROYALE</span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Sector Results */}
+                  {/* Sector Results */}
+                  {sectorResults.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground italic bg-black/20 rounded-xl border border-dashed border-border/50">
+                      No results published for this scrim slot yet.
+                    </div>
+                  ) : (
                     <div className="flex flex-col gap-4">
                       {sectorResults.map((r) => {
                         const rawImgs = Array.isArray(r.imageUrls) && r.imageUrls.length > 0
@@ -238,54 +208,13 @@ export function ResultsView({
                         )
                       })}
                     </div>
-                  </div>
-                )
-              })}
-
-              {visibleSectors.length === 0 && hasResults && (
-                <div className="flex flex-col gap-4">
-                  {recent.map((r) => {
-                    const rawImgs = Array.isArray(r.imageUrls) && r.imageUrls.length > 0
-                      ? (r.imageUrls as string[])
-                      : r.screenshotUrl ? [r.screenshotUrl] : []
-                    const imgs = resolveImageUrls(rawImgs)
-
-                    return (
-                      <div
-                        key={r.id}
-                        className="glass flex flex-col gap-3 rounded-2xl p-5 border border-border/80"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Trophy className="size-4 shrink-0 text-primary" />
-                          <span className="font-display font-bold text-base text-foreground flex-1">
-                            {r.winningTeam}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{r.scrimTitle || "Scrim Match"}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          <span>Kills: <strong>{r.kills}</strong></span>
-                          <span>Placement: <strong>#{r.placement}</strong></span>
-                          <span className="font-bold text-primary">{formatTaka(r.prizeBdt)}</span>
-                          <span>{formatDate(r.matchDate)}</span>
-                        </div>
-                        {imgs.length > 0 && (
-                          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                            {imgs.map((url, i) => (
-                              <div key={i} className="relative overflow-hidden rounded-xl border border-border/80 h-40">
-                                <Image src={url} alt={`Banner ${i + 1}`} fill unoptimized className="object-cover" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              )
+            })}
+          </div>
 
-          {availableSectors.length > 6 && (
+          {sectors.length > 6 && (
             <div className="flex justify-center pt-2">
               <Button
                 variant="outline"
@@ -300,7 +229,7 @@ export function ResultsView({
                 ) : (
                   <>
                     <ChevronDown className="size-4" />
-                    <span>Show All {availableSectors.length} Sectors</span>
+                    <span>Show All {sectors.length} Sectors</span>
                   </>
                 )}
               </Button>
@@ -315,19 +244,9 @@ export function ResultsView({
           </h2>
           <div className="glass rounded-2xl p-2 border border-border/80">
             {leaderboard.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
-                <Medal className="size-8 text-muted-foreground/40" />
-                <div>
-                  <p className="font-display text-sm font-bold uppercase text-foreground">
-                    {isBn ? "এখনো কোনো ফলাফল প্রকাশিত হয়নি" : "No match results published yet"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    {isBn
-                      ? "ফলাফল প্রকাশিত হওয়ার সাথে সাথে লিডারবোর্ড র‍্যাংকিং আপডেট হবে।"
-                      : "The team leaderboard will update automatically as verified match results are published."}
-                  </p>
-                </div>
-              </div>
+              <p className="p-8 text-center text-sm text-muted-foreground">
+                {isBn ? "ফলাফল প্রকাশিত হওয়ার সাথে সাথে লিডারবোর্ড আপডেট হবে।" : "The leaderboard fills up as results are published."}
+              </p>
             ) : (
               <ol className="flex flex-col">
                 {leaderboard.map((team, i) => (

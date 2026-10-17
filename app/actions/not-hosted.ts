@@ -165,7 +165,7 @@ export async function executeMarkScrimNotHosted(
         try {
           const notifBody =
             refundStatus === "refunded"
-              ? `Your squad "${b.teamName}" registration for ${scrim.title} (${scrim.startTime}) was marked as Not Hosted and ৳${amount} has been automatically refunded via Automated Gateway. Ref: ${refundRef}.`
+              ? `Your squad "${b.teamName}" registration for ${scrim.title} (${scrim.startTime}) was marked as Not Hosted and ৳${amount} has been automatically refunded via UddoktaPay. Ref: ${refundRef}.`
               : `Your squad "${b.teamName}" registration for ${scrim.title} (${scrim.startTime}) has been queued for a full refund because the match was marked as Not Hosted.`
 
           await db.insert(notifications).values({
@@ -489,7 +489,7 @@ export async function refundAllTeamsForScrim(scrimId: string) {
       message:
         errors.length > 0
           ? `${successCount} team(s) refunded. ${errors.length} failed: ${errors.slice(0, 2).join("; ")}`
-          : `Bulk refund completed! ${successCount} team(s) refunded successfully via Automated Gateway.`,
+          : `Bulk refund completed! ${successCount} team(s) refunded successfully via UddoktaPay.`,
     }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to execute bulk refund" }
@@ -688,7 +688,7 @@ export async function processTeamRefund(bookingIdOrTeamId: string) {
           userId,
           "refund",
           `Refund processed for ${record.scrimTitle || "Scrim Match"}`,
-          `Your entry fee of ৳${amount} for squad "${record.teamName}" has been refunded via Automated Gateway. Ref: ${refundRef}`,
+          `Your entry fee of ৳${amount} for squad "${record.teamName}" has been refunded via UddoktaPay. Ref: ${refundRef}`,
           "/dashboard"
         )
       }

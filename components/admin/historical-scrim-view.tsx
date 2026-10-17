@@ -511,7 +511,7 @@ export function HistoricalScrimView({
                         <span className="text-foreground/70 font-semibold block">Payment Info</span>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <Badge variant="outline" className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 border-primary/40 text-primary bg-primary/10">
-                            {team.paymentMethod || "Digital Wallet"}
+                            {team.paymentMethod || "bKash"}
                           </Badge>
                           <span className="font-mono text-foreground text-xs">
                             {team.transactionId ? `Trx: ${team.transactionId}` : team.invoiceId ? `Inv: ${team.invoiceId}` : "Online Payment"}

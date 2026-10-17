@@ -30,7 +30,7 @@ export default function RefundPolicyPage() {
 
       <h2>How Refunds Are Processed</h2>
       <p>
-        Eligible refunds are returned to the original payment method or digital wallet within 3&ndash;7
+        Eligible refunds are returned to the original payment method (bKash, Nagad, or card) within 3&ndash;7
         business days. Contact us with your transaction ID via the contact section on the home page, our Discord
         server, or our Facebook page to request a refund.
       </p>

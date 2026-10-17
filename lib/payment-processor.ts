@@ -127,7 +127,7 @@ export async function processPayment(
         amountBdt: payment.amountBdt,
         balanceBefore: balBefore,
         balanceAfter: balAfter,
-        description: `Wallet Deposit via ${verified.paymentMethod || "Secure Automated Gateway"}`,
+        description: `Wallet Deposit via ${verified.paymentMethod || "UddoktaPay"}`,
         referenceId: invoiceId,
         status: "completed",
       })

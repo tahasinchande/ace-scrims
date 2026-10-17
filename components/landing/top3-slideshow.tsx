@@ -19,7 +19,38 @@ export type Top3BannerItem = {
   imageUrl: string
 }
 
-const DEFAULT_BANNERS: Top3BannerItem[] = []
+const DEFAULT_BANNERS: Top3BannerItem[] = [
+  {
+    id: "sample-cr-1",
+    winningTeam: "Team Vipers (Champion)",
+    scrimTitle: "10:00 PM Champion Rush · 8-Match Lobby",
+    matchDate: new Date().toISOString().split("T")[0],
+    kills: 38,
+    prizeBdt: 1800,
+    category: "Top 3 Face Banner",
+    imageUrl: "/images/scrim-1.jpg",
+  },
+  {
+    id: "sample-cr-2",
+    winningTeam: "Black Mamba Esports (Runner-Up)",
+    scrimTitle: "09:00 PM Daily Scrim · Match #1",
+    matchDate: new Date().toISOString().split("T")[0],
+    kills: 24,
+    prizeBdt: 330,
+    category: "Top 3 Face Banner",
+    imageUrl: "/images/scrim-2.jpg",
+  },
+  {
+    id: "sample-cr-3",
+    winningTeam: "Apex Predators (3rd Place)",
+    scrimTitle: "08:00 PM Daily Scrim · Match #1",
+    matchDate: new Date().toISOString().split("T")[0],
+    kills: 21,
+    prizeBdt: 330,
+    category: "Top 3 Face Banner",
+    imageUrl: "/images/scrim-3.jpg",
+  },
+]
 
 const SLIDE_DURATION = 5000 // 5 seconds per slide
 
@@ -54,9 +85,6 @@ const slideVariants = {
 
 export function Top3BannerSlideshow({ items }: { items?: Top3BannerItem[] }) {
   const banners = items && items.length > 0 ? items : DEFAULT_BANNERS
-  if (!banners || banners.length === 0) {
-    return null
-  }
   const [[page, direction], setPage] = useState<[number, number]>([0, 0])
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [isPaused, setIsPaused] = useState(false)

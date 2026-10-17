@@ -129,7 +129,7 @@ export function AdminNotHosted({
 
     if (
       !window.confirm(
-        `Are you sure you want to refund ALL ${pendingCount} pending team(s) for "${scrimTitle}"?\n\nThis will trigger automated gateway refunds and send refund notifications to users.`
+        `Are you sure you want to refund ALL ${pendingCount} pending team(s) for "${scrimTitle}"?\n\nThis will trigger UddoktaPay/system refunds and send refund notifications to users.`
       )
     ) {
       return
@@ -232,7 +232,7 @@ export function AdminNotHosted({
             Not Hosted Scrims & Bulk Refunds
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage squads from cancelled or not-hosted matches and trigger automated bulk refunds via Automated Gateway.
+            Manage squads from cancelled or not-hosted matches and trigger automated bulk refunds via UddoktaPay.
           </p>
         </div>
 
@@ -415,7 +415,7 @@ export function AdminNotHosted({
                             </div>
                             <div>
                               <span className="text-muted-foreground block text-[11px]">Payment Method</span>
-                              <span className="font-semibold">{t.paymentMethod || "Digital Wallet"}</span>
+                              <span className="font-semibold">{t.paymentMethod || "bKash/Nagad"}</span>
                             </div>
                             <div>
                               <span className="text-muted-foreground block text-[11px]">Invoice ID</span>
@@ -436,7 +436,7 @@ export function AdminNotHosted({
                                     onClick={() => handleAutoRefund(t)}
                                     disabled={isLoading}
                                     className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
-                                    title="Trigger instant refund via Automated Gateway using Invoice ID and Transaction ID"
+                                    title="Trigger instant refund via UddoktaPay using Invoice ID and Transaction ID"
                                   >
                                     <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
                                     1-Click Auto Refund (৳{t.amountBdt || 35})
@@ -461,7 +461,7 @@ export function AdminNotHosted({
                                     onClick={() => handleManualRefund(t.id, t.teamName)}
                                     disabled={isLoading}
                                     className="h-8 text-xs border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:bg-muted/40 gap-1"
-                                    title="Mark as refunded manually without calling payment gateway"
+                                    title="Mark as refunded manually without calling UddoktaPay"
                                   >
                                     <CheckCircle2 className="size-3.5" />
                                     Manual Fallback

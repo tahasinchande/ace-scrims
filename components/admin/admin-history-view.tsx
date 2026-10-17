@@ -605,7 +605,7 @@ export function AdminHistoryView({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[11px] font-medium text-muted-foreground">Method:</span>
                       <Badge variant="outline" className="text-[10px] font-mono font-bold uppercase px-1.5 py-0 border-primary/40 text-primary bg-primary/10">
-                        {b.paymentMethod || "Digital Wallet"}
+                        {b.paymentMethod || "bKash"}
                       </Badge>
                     </div>
                     {b.transactionId && (

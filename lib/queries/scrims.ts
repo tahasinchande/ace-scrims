@@ -191,10 +191,10 @@ export function getAllSampleScrims(): ScrimWithSlots[] {
           ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
           : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.",
       notes: isCR
-        ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours)."
+        ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours)."
         : isBlast
-          ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-          : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
+          ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+          : "Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
       map: def.map,
       mode: "BATTLE ROYALE",
       startTime: def.time,
@@ -241,10 +241,10 @@ function getSampleScrims(isFriday: boolean = false): ScrimWithSlots[] {
           ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
           : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.",
       notes: isCR
-        ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours)."
+        ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours)."
         : isBlast
-          ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-          : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
+          ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+          : "Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
       map: def.map,
       mode: "BATTLE ROYALE",
       startTime: def.time,
@@ -352,8 +352,8 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
   let notes = s.notes
   if (!isCR && (!notes || notes.toLowerCase().includes("champion rush") || notes.toLowerCase().includes("80 pts"))) {
     notes = isBlast
-      ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-      : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+      ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+      : "Prize distributed to captain's bKash/Nagad within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
   }
 
   const finalStatus = baseStatus === "not_hosted" ? "not_hosted" : isClosed && baseStatus === "upcoming" ? "registration_closed" : baseStatus

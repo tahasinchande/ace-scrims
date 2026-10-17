@@ -228,7 +228,7 @@ function ViewTeamsButton({
                   <span>
                     <span className="text-muted-foreground">Payout Method: </span>
                     <Badge variant="outline" className="text-[10px] uppercase font-bold px-1.5 py-0 border-primary/40 text-primary bg-primary/10 mr-1.5">
-                      {b.paymentMethod || "Digital Wallet"}
+                      {b.paymentMethod || "bKash"}
                     </Badge>
                     {b.paymentNumber && (
                       <span className="font-mono text-xs font-semibold text-primary">{b.paymentNumber}</span>

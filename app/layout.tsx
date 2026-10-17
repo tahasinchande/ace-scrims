@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: '%s | Ace Scrims',
   },
   description:
-    'Book competitive Free Fire scrims daily from 7 PM to 12 AM. 12-team lobbies, instant room details, automatic gateway payments, and real prize pools.',
+    'Book competitive Free Fire scrims daily from 7 PM to 12 AM. 12-team lobbies, instant room details, automatic bKash/Nagad payments, and real prize pools.',
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },
