@@ -15,6 +15,7 @@ import {
   setSetting,
   forceTurnOnAllScrimsAction,
   forceTurnOffAllScrimsAction,
+  removeTeamFromScrimAction,
 } from "@/app/actions/admin"
 import { EditScrimButton } from "@/components/admin/scrim-form-dialog"
 import { PublishResultButton } from "@/components/admin/admin-results"
@@ -32,7 +33,7 @@ import {
 import type { Booking, Scrim } from "@/lib/db/schema"
 import { formatTaka, timeAgo, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon, Power, PowerOff } from "lucide-react"
+import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon, Power, PowerOff, UserX } from "lucide-react"
 import { toast } from "sonner"
 
 type AdminScrim = Scrim & { confirmedTeams: number; pendingTeams: number; deletedAt?: Date | string | null }
@@ -179,12 +180,50 @@ function ViewTeamsButton({
   scrim,
   roster,
   confirmedCount,
+  onTeamRemoved,
 }: {
   scrim: AdminScrim
   roster: RosterBooking[]
   confirmedCount?: number
+  onTeamRemoved?: (scrimId: string, bookingId: string) => void
 }) {
-  const count = confirmedCount ?? roster.length ?? scrim.confirmedTeams ?? 0
+  const [teamList, setTeamList] = useState(roster)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+
+  useEffect(() => {
+    setTeamList(roster)
+  }, [roster])
+
+  const count = confirmedCount ?? teamList.length ?? scrim.confirmedTeams ?? 0
+
+  async function handleRemoveTeam(b: RosterBooking) {
+    const confirmed = window.confirm(
+      `⚠️ ARE YOU SURE YOU WANT TO REMOVE THIS TEAM?\n\n• Team Name: "${b.teamName}"\n• Captain: ${b.captainName} (UID: ${b.captainUid})\n• Slot: #${b.slotNumber ?? "N/A"}\n• Scrim: ${scrim.title}\n\nThis will remove the team from this scrim lobby, cancel their slot, and decrement the registered count.`
+    )
+    if (!confirmed) return
+
+    setRemovingId(b.id)
+    try {
+      const res = await removeTeamFromScrimAction(b.id, scrim.id)
+      if (res.ok) {
+        toast.success(`Team "${b.teamName}" removed! Slot #${b.slotNumber ?? ""} is now freed up.`)
+        setTeamList((prev) => prev.filter((item) => item.id !== b.id))
+        onTeamRemoved?.(scrim.id, b.id)
+        startTransition(() => {
+          router.refresh()
+        })
+      } else {
+        toast.error(res.error || "Failed to remove team")
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove team")
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
   return (
     <Dialog>
       <DialogTrigger
@@ -201,13 +240,13 @@ function ViewTeamsButton({
             Registered Teams — {scrim.title} ({count}/{scrim.maxTeams})
           </DialogTitle>
         </DialogHeader>
-        {roster.length === 0 ? (
+        {teamList.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             No teams registered yet.
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {roster.map((b) => (
+            {teamList.map((b) => (
               <li key={b.id} className="rounded-xl border border-border bg-secondary/30 p-4 flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-display text-base font-bold">{b.teamName}</span>
@@ -217,6 +256,24 @@ function ViewTeamsButton({
                   <Badge variant={statusBadgeVariant(b.status)} className="capitalize">
                     {b.status}
                   </Badge>
+
+                  {/* Remove Team Action Button */}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={removingId === b.id}
+                    onClick={() => handleRemoveTeam(b)}
+                    className="h-7 px-2.5 text-xs font-semibold gap-1 bg-destructive/90 hover:bg-destructive text-destructive-foreground shadow-sm ml-1"
+                    title={`Remove "${b.teamName}" from this scrim`}
+                  >
+                    {removingId === b.id ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <UserX className="size-3" />
+                    )}
+                    <span>{removingId === b.id ? "Removing..." : "Remove Team"}</span>
+                  </Button>
+
                   <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                     <CalendarDays className="size-3 text-primary/70" />
                     <span suppressHydrationWarning>{formatRegistrationDate(b.createdAt)}</span>
@@ -514,6 +571,23 @@ export function AdminScrimList({
   const [room2Visible, setRoom2Visible] = useState(initialRoom2Enabled)
   const [isTogglingRoom2, setIsTogglingRoom2] = useState(false)
   const [isBulkForcing, setIsBulkForcing] = useState(false)
+  const [liveBookingsByScrim, setLiveBookingsByScrim] = useState(bookingsByScrim)
+
+  useEffect(() => {
+    setLiveBookingsByScrim(bookingsByScrim)
+  }, [bookingsByScrim])
+
+  function handleTeamRemoved(scrimId: string, bookingId: string) {
+    setLiveBookingsByScrim((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(next)) {
+        if (next[key]) {
+          next[key] = next[key].filter((b) => b.id !== bookingId)
+        }
+      }
+      return next
+    })
+  }
 
   const isRoom2Scrim = (s: AdminScrim) =>
     s.id.includes("r2") || s.slug.includes("room-2") || s.title.toLowerCase().includes("room 2")
@@ -813,8 +887,8 @@ export function AdminScrimList({
             const isDeleted = scrim.status === "deleted" || scrim.deletedAt != null
 
             const roster = [
-              ...(bookingsByScrim[scrim.id] ?? []),
-              ...(scrim.slug && scrim.slug !== scrim.id ? (bookingsByScrim[scrim.slug] ?? []) : []),
+              ...(liveBookingsByScrim[scrim.id] ?? []),
+              ...(scrim.slug && scrim.slug !== scrim.id ? (liveBookingsByScrim[scrim.slug] ?? []) : []),
             ].filter((b, idx, arr) => arr.findIndex((x) => x.id === b.id) === idx)
             const dynamicConfirmedCount = roster.length > 0 ? roster.length : (scrim.confirmedTeams || 0)
             const isSelected = selectedScrimIds.includes(scrim.id)
@@ -919,6 +993,7 @@ export function AdminScrimList({
                     scrim={scrim}
                     roster={roster}
                     confirmedCount={dynamicConfirmedCount}
+                    onTeamRemoved={handleTeamRemoved}
                   />
                   {!isDeleted && (
                     <>
@@ -930,7 +1005,7 @@ export function AdminScrimList({
                           startTime: s.startTime,
                           prizePoolBdt: s.prizePoolBdt,
                         }))}
-                        bookingsByScrim={bookingsByScrim}
+                        bookingsByScrim={liveBookingsByScrim}
                         defaultScrimId={scrim.id}
                       />
                       {scrim.roomPublished && isAdmin && (

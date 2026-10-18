@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { requestTeamImage } from "@/app/actions/image-requests"
-import { trashImageRequests } from "@/app/actions/admin"
+import { trashImageRequests, removeTeamFromScrimAction } from "@/app/actions/admin"
 import { toast } from "sonner"
 import {
   Camera,
@@ -41,6 +41,7 @@ import {
   Calendar,
   History,
   Trophy,
+  UserX,
 } from "lucide-react"
 import type { Booking, Scrim, ImageRequest } from "@/lib/db/schema"
 import { formatDateTime, timeAgo } from "@/lib/format"
@@ -130,6 +131,33 @@ export function AdminImageRequestsView({
         toast.error(res.error || "Failed to move requests to trash")
       }
     })
+  }
+
+  const [removingBookingId, setRemovingBookingId] = useState<string | null>(null)
+
+  const handleRemoveTeam = async (team: any) => {
+    if (!selectedScrim) return
+    const confirmed = window.confirm(
+      `⚠️ ARE YOU SURE YOU WANT TO REMOVE THIS TEAM?\n\n• Team Name: "${team.teamName}"\n• Leader: ${team.captainName} (UID: ${team.captainUid})\n• Slot: #${team.slotNumber ?? "N/A"}\n• Scrim: ${selectedScrim.title}\n\nThis will remove the team from this scrim lobby, cancel their slot, and decrement the registered count.`
+    )
+    if (!confirmed) return
+
+    setRemovingBookingId(team.id)
+    try {
+      const res = await removeTeamFromScrimAction(team.id, selectedScrim.id)
+      if (res.ok) {
+        toast.success(`Team "${team.teamName}" removed! Slot #${team.slotNumber ?? ""} is now freed up.`)
+        startTransition(() => {
+          router.refresh()
+        })
+      } else {
+        toast.error(res.error || "Failed to remove team")
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove team")
+    } finally {
+      setRemovingBookingId(null)
+    }
   }
 
   const openRequestModal = (team: any) => {
@@ -478,6 +506,23 @@ export function AdminImageRequestsView({
                             <Badge variant={team.status === "confirmed" ? "default" : "secondary"}>
                               {team.status}
                             </Badge>
+
+                            {/* Remove Team Button */}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={removingBookingId === team.id}
+                              onClick={() => handleRemoveTeam(team)}
+                              className="h-6 px-2 text-[11px] font-semibold gap-1 bg-destructive/90 hover:bg-destructive text-destructive-foreground shadow-sm ml-1"
+                              title={`Remove "${team.teamName}" from this scrim`}
+                            >
+                              {removingBookingId === team.id ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <UserX className="size-3" />
+                              )}
+                              <span>{removingBookingId === team.id ? "Removing..." : "Remove Team"}</span>
+                            </Button>
                           </div>
                           {isRequested && (
                             <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">

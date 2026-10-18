@@ -1618,4 +1618,126 @@ export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; coun
   }
 }
 
+/**
+ * Admin Action: Remove individual registered team from a scrim
+ * Cancels/deletes the booking record, frees up the slot count,
+ * optionally reopens registration if scrim was full, logs activity, and notifies user.
+ */
+export async function removeTeamFromScrimAction(
+  bookingId: string,
+  scrimId?: string
+): Promise<{ ok: boolean; message?: string; error?: string; remainingCount?: number }> {
+  try {
+    const admin = await requireAdmin()
+    if (!bookingId) {
+      return { ok: false, error: "Booking ID is required." }
+    }
+
+    // 1. Fetch booking record
+    const target = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId))
+      .limit(1)
+
+    if (target.length === 0) {
+      return { ok: false, error: "Team booking record not found." }
+    }
+
+    const bookingRow = target[0]
+    const effectiveScrimId = scrimId || bookingRow.scrimId
+
+    // 2. Mark any associated payments as cancelled
+    await db
+      .update(payments)
+      .set({ status: "cancelled" })
+      .where(eq(payments.bookingId, bookingId))
+
+    // 3. Remove any pending image requests for this team
+    await db
+      .delete(imageRequests)
+      .where(eq(imageRequests.bookingId, bookingId))
+
+    // 4. Delete the booking record cleanly from database
+    await db.delete(bookings).where(eq(bookings.id, bookingId))
+
+    // 5. Query remaining confirmed teams for this scrim
+    const remainingTeams = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(
+        and(
+          or(eq(bookings.scrimId, effectiveScrimId), eq(bookings.scrimId, bookingRow.scrimId)),
+          eq(bookings.status, "confirmed"),
+          eq(bookings.isTrashed, false),
+          eq(bookings.isArchived, false)
+        )
+      )
+
+    const remainingCount = remainingTeams.length
+
+    // 6. If scrim was full and registration was closed, reopen registration if match hasn't started
+    const scrimRow = await db
+      .select()
+      .from(scrims)
+      .where(or(eq(scrims.id, effectiveScrimId), eq(scrims.slug, effectiveScrimId)))
+      .limit(1)
+
+    if (scrimRow.length > 0) {
+      const s = scrimRow[0]
+      if (
+        !s.registrationOpen &&
+        s.status !== "completed" &&
+        s.status !== "not_hosted" &&
+        s.status !== "registration_closed" &&
+        remainingCount < s.maxTeams
+      ) {
+        await db
+          .update(scrims)
+          .set({ registrationOpen: true, updatedAt: new Date() })
+          .where(eq(scrims.id, s.id))
+      }
+    }
+
+    // 7. Audit log & user notification
+    await logActivity(admin.id, "admin", "remove_team_from_scrim", bookingRow.teamName, {
+      bookingId,
+      scrimId: effectiveScrimId,
+      teamName: bookingRow.teamName,
+      captainName: bookingRow.captainName,
+      captainUid: bookingRow.captainUid,
+      slotNumber: bookingRow.slotNumber,
+      userId: bookingRow.userId,
+    })
+
+    try {
+      const { notifyUser } = await import("@/lib/notify")
+      await notifyUser(
+        bookingRow.userId,
+        "booking",
+        "Team Registration Removed",
+        `Your team "${bookingRow.teamName}" was removed from the scrim roster by platform administration.`,
+        "/dashboard/scrims"
+      )
+    } catch {}
+
+    // 8. Revalidate all relevant Next.js routes
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/dashboard/scrims")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return {
+      ok: true,
+      message: `Team "${bookingRow.teamName}" has been successfully removed from this scrim.`,
+      remainingCount,
+    }
+  } catch (err: any) {
+    console.error("[removeTeamFromScrimAction] Error:", err)
+    return { ok: false, error: err?.message || "Failed to remove team from scrim" }
+  }
+}
+
+
 
