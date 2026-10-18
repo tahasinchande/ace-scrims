@@ -8,13 +8,17 @@ import {
 import { AdminCreditManager } from "@/components/admin/admin-credit-manager"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
+
 export const metadata = {
   title: "Credit Management — Ace Scrims Admin",
   description: "Manage registered user credits, deposit funds, or disburse tournament prize payouts.",
 }
 
 export default async function AdminCreditsPage() {
-  const user = await getSessionUser()
+  const user = await getSessionUser().catch(() => null)
   if (user?.role !== "admin") redirect("/admin/scrims")
 
   const [users, stats, recentTransactions] = await Promise.all([

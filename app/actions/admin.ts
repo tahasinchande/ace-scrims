@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/notify"
 import { eq, ne, and, or, sql, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { saveUploadedFile } from "@/lib/upload"
+import { creditAdjustmentSchema, type CreditAdjustmentInput } from "@/lib/validations/credit"
 
 // ─────────────────────────────────────────────────────────────────────────
 // Admin-only actions. Every function begins with requireAdmin().
@@ -1326,14 +1327,7 @@ export async function queryHistoricalScrimsAction(date: string, scrimId?: string
   }
 }
 
-export const creditAdjustmentSchema = z.object({
-  userId: z.string().min(1, "User ID is required"),
-  actionType: z.enum(["add", "deduct", "set"]),
-  amount: z.coerce.number().int().min(0, "Amount must be a non-negative number"),
-  reason: z.string().trim().min(2, "Please provide a valid reason / note (minimum 2 characters)"),
-})
-
-export async function adjustUserCreditsAction(input: z.infer<typeof creditAdjustmentSchema>) {
+export async function adjustUserCreditsAction(input: CreditAdjustmentInput) {
   try {
     const admin = await requireAdmin()
     const parsed = creditAdjustmentSchema.safeParse(input)
@@ -1483,6 +1477,144 @@ export async function cancelExpiredPendingBookingsAction() {
     return { ok: true, cancelledCount: result.length }
   } catch (err: any) {
     return { ok: false, error: err?.message || "Failed to cancel expired pending bookings" }
+  }
+}
+
+/**
+ * Global Admin Control: Force Turn On All Scrims
+ * Sets all active and upcoming scrim lobbies to force_open and registrationOpen=true
+ */
+export async function forceTurnOnAllScrimsAction(): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const activeDate = getBangladeshActiveDate()
+
+    // 1. Ensure all standard sample scrims are inserted into DB if not present
+    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+      try {
+        await db
+          .insert(scrims)
+          .values({
+            id: def.id,
+            title: def.name,
+            slug: def.slug,
+            map: def.map,
+            mode: "BATTLE ROYALE",
+            startTime: def.time,
+            scrimDate: activeDate,
+            priceBdt: def.priceBdt,
+            prizePoolBdt: def.prizePoolBdt,
+            maxTeams: 12,
+            bannerUrl: def.bannerUrl || "/images/scrim-1.jpg",
+            category: def.category || "Daily Scrims",
+            status: "force_open",
+            registrationOpen: true,
+          })
+          .onConflictDoNothing()
+      } catch {}
+    }
+
+    // 2. Update all active/upcoming non-trashed scrims to force_open
+    const updated = await db
+      .update(scrims)
+      .set({
+        status: "force_open",
+        registrationOpen: true,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scrims.isTrashed, false),
+          ne(scrims.status, "deleted"),
+          ne(scrims.status, "permanently_deleted"),
+          ne(scrims.status, "completed")
+        )
+      )
+      .returning({ id: scrims.id })
+
+    await logActivity(admin.id, "admin", "force_turn_on_all_scrims", "All Lobbies", {
+      count: updated.length,
+    })
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, count: updated.length }
+  } catch (err: any) {
+    console.error("[Force Turn On All Scrims Error]:", err)
+    return { ok: false, error: err?.message || "Failed to force turn on all scrims" }
+  }
+}
+
+/**
+ * Global Admin Control: Force Turn Off All Scrims
+ * Sets all active and upcoming scrim lobbies to registration_closed and registrationOpen=false
+ */
+export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const activeDate = getBangladeshActiveDate()
+
+    // 1. Ensure all standard sample scrims are inserted into DB if not present
+    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+      try {
+        await db
+          .insert(scrims)
+          .values({
+            id: def.id,
+            title: def.name,
+            slug: def.slug,
+            map: def.map,
+            mode: "BATTLE ROYALE",
+            startTime: def.time,
+            scrimDate: activeDate,
+            priceBdt: def.priceBdt,
+            prizePoolBdt: def.prizePoolBdt,
+            maxTeams: 12,
+            bannerUrl: def.bannerUrl || "/images/scrim-1.jpg",
+            category: def.category || "Daily Scrims",
+            status: "registration_closed",
+            registrationOpen: false,
+          })
+          .onConflictDoNothing()
+      } catch {}
+    }
+
+    // 2. Update all active non-trashed scrims to registration_closed
+    const updated = await db
+      .update(scrims)
+      .set({
+        status: "registration_closed",
+        registrationOpen: false,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scrims.isTrashed, false),
+          ne(scrims.status, "deleted"),
+          ne(scrims.status, "permanently_deleted"),
+          ne(scrims.status, "completed")
+        )
+      )
+      .returning({ id: scrims.id })
+
+    await logActivity(admin.id, "admin", "force_turn_off_all_scrims", "All Lobbies", {
+      count: updated.length,
+    })
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, count: updated.length }
+  } catch (err: any) {
+    console.error("[Force Turn Off All Scrims Error]:", err)
+    return { ok: false, error: err?.message || "Failed to force turn off all scrims" }
   }
 }
 

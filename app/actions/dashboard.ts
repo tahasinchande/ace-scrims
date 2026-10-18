@@ -121,6 +121,10 @@ export async function updateProfile(
   }
 }
 
-// Alias for backwards compatibility
-export const updateProfileName = updateProfile
+// Helper for updating display name directly
+export async function updateProfileName(name: string): Promise<ProfileState> {
+  const fd = new FormData()
+  fd.append("name", name)
+  return updateProfile({ ok: true }, fd)
+}
 

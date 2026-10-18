@@ -21,8 +21,8 @@ const defaultInfoSchema = z.object({
       message: "Please enter a valid Bangladeshi WhatsApp number (e.g. 01XXXXXXXXX)",
     })
     .default(""),
-  paymentMethod: z.enum(["bKash", "Nagad", "Tap"]).default("bKash"),
-  paymentNumber: z.string().trim().max(30).optional().default(""),
+  paymentMethod: z.enum(["bKash", "Nagad", "Tap", "Balance"]).default("bKash"),
+  paymentNumber: z.string().trim().max(50).optional().default(""),
   teamMembersDriveLink: z.string().trim().optional().default(""),
   teamLeaderImageUrl: z.string().trim().optional().default(""),
 })

@@ -78,8 +78,8 @@ export function BookingWizard({
   const [leaderImageUrl, setLeaderImageUrl] = useState(defaultInfo?.teamLeaderImageUrl || "")
   const [isUploadingLeader, setIsUploadingLeader] = useState(false)
   const [leaderUploadError, setLeaderUploadError] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap">(
-    (defaultInfo?.paymentMethod as "bKash" | "Nagad" | "Tap") || "bKash"
+  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap" | "Balance">(
+    (defaultInfo?.paymentMethod as "bKash" | "Nagad" | "Tap" | "Balance") || "bKash"
   )
 
   // Redirect to the payment gateway or dashboard when the action completes
@@ -362,18 +362,19 @@ export function BookingWizard({
                     Prize Pool Payout Method <span className="text-destructive">*</span>
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Select your preferred prize pool payout provider (bKash, Nagad, or Tap) to receive your tournament winnings.
+                    Select your preferred prize pool payout provider (bKash, Nagad, Tap, or Balance) to receive your tournament winnings.
                   </p>
                 </div>
 
                 <input type="hidden" name="paymentMethod" value={paymentMethod} />
 
-                <div className="grid grid-cols-3 gap-2.5 mt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-1">
                   {(
                     [
                       { id: "bKash", label: "bKash" },
                       { id: "Nagad", label: "Nagad" },
                       { id: "Tap", label: "Tap" },
+                      { id: "Balance", label: "Balance" },
                     ] as const
                   ).map((provider) => {
                     const active = paymentMethod === provider.id
@@ -391,7 +392,7 @@ export function BookingWizard({
                       >
                         <span className="text-base font-extrabold tracking-wide">{provider.label}</span>
                         <span className="text-[10px] font-medium tracking-normal text-muted-foreground">
-                          {active ? "Selected" : "Select"}
+                          {active ? "Selected" : provider.id === "Balance" ? "Account Wallet" : "Select"}
                         </span>
                       </button>
                     )
@@ -403,12 +404,26 @@ export function BookingWizard({
               <div className="sm:col-span-2 flex flex-col gap-2">
                 <Field
                   id="paymentNumber"
-                  label={`Payment Number (${paymentMethod} Personal Account for Prize Pool Payout)`}
-                  type="tel"
-                  placeholder={`01XXXXXXXXX (${paymentMethod} Personal Account)`}
-                  defaultValue={defaultInfo?.paymentNumber || ""}
+                  label={
+                    paymentMethod === "Balance"
+                      ? "Payout Destination (Ace Scrims Account Balance)"
+                      : `Payment Number (${paymentMethod} Personal Account for Prize Pool Payout)`
+                  }
+                  type={paymentMethod === "Balance" ? "text" : "tel"}
+                  placeholder={
+                    paymentMethod === "Balance"
+                      ? "Ace Scrims Account Balance (Auto-credited)"
+                      : `01XXXXXXXXX (${paymentMethod} Personal Account)`
+                  }
+                  defaultValue={
+                    defaultInfo?.paymentMethod === "Balance"
+                      ? (defaultInfo?.paymentNumber || "Ace Scrims Account Balance")
+                      : paymentMethod === "Balance"
+                      ? "Ace Scrims Account Balance"
+                      : (defaultInfo?.paymentNumber || "")
+                  }
                   error={state.fieldErrors?.paymentNumber}
-                  required
+                  required={paymentMethod !== "Balance"}
                 />
 
                 {/* Dynamic Prizepool Declaration Bracket */}
@@ -417,12 +432,25 @@ export function BookingWizard({
                     <CheckCircle2 className="size-4 shrink-0" />
                     <span>Prize Pool Payout Declaration ({paymentMethod}):</span>
                   </div>
-                  <p className="leading-relaxed">
-                    Tournament winning prize pool will be disbursed strictly to the specific <strong>{paymentMethod}</strong> number/account you provide above.
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    (আপনার টুর্নামেন্ট প্রাইজপুল বিজয়ী হলে সরাসরি আপনার দেওয়া এই <strong>{paymentMethod}</strong> একাউন্ট নম্বরে পাঠানো হবে।)
-                  </p>
+                  {paymentMethod === "Balance" ? (
+                    <>
+                      <p className="leading-relaxed">
+                        Tournament winning prize pool will be deposited <strong>directly into your Ace Scrims account balance</strong> upon match result publication.
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        (আপনার টুর্নামেন্ট প্রাইজপুল সরাসরি আপনার Ace Scrims ব্যালেন্সে জমা করা হবে।)
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="leading-relaxed">
+                        Tournament winning prize pool will be disbursed strictly to the specific <strong>{paymentMethod}</strong> number/account you provide above.
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        (আপনার টুর্নামেন্ট প্রাইজপুল বিজয়ী হলে সরাসরি আপনার দেওয়া এই <strong>{paymentMethod}</strong> একাউন্ট নম্বরে পাঠানো হবে।)
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 

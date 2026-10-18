@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
+  ShieldAlert,
+  Info,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -136,6 +138,34 @@ export function WalletView({
         </div>
       )}
 
+      {/* Prominent Balance Policy & Terms Disclaimer */}
+      <div className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 text-amber-200 shadow-md">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/20 p-3 text-amber-400 shrink-0">
+            <ShieldAlert className="size-6" />
+          </div>
+          <div className="flex-1 space-y-1.5 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-display text-sm font-extrabold uppercase tracking-wide text-amber-300">
+                Official Balance Policy &amp; Terms
+              </span>
+              <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                Non-Withdrawable
+              </span>
+              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                Scrims Entry Only
+              </span>
+            </div>
+            <p className="font-sans leading-relaxed text-amber-100/90 text-xs sm:text-[13px]">
+              User balance can <strong>ONLY</strong> be used to register for scrims and participate in Ace Scrims platform tournaments and events. <strong>Balance funds cannot be cashed out or withdrawn to external accounts</strong> (such as bKash, Nagad, Rocket, or bank accounts).
+            </p>
+            <p className="text-[11px] text-amber-300/80 leading-relaxed font-sans">
+              (বিশেষ ঘোষণা: আপনার একাউন্ট ব্যালেন্স শুধুমাত্র স্ক্রিম রেজিস্ট্রেশন এবং টুর্নামেন্ট এন্ট্রির জন্য ব্যবহারযোগ্য। এই ব্যালেন্স কোনো বহিরাগত বিকাশ, নগদ বা ব্যাংক একাউন্টে ক্যাশআউট বা উত্তোলন করা যাবে না।)
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Main Grid: Balance Card + Deposit Form */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Left Column: Live Balance Overview */}
@@ -156,6 +186,9 @@ export function WalletView({
             <div className="mt-4 flex items-baseline gap-2">
               <span className="font-mono text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
                 {bdt(balance)}
+              </span>
+              <span className="text-[11px] font-bold uppercase text-amber-400/90 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                Non-Withdrawable
               </span>
             </div>
 

@@ -2,8 +2,20 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { publishRoom, unpublishRoom } from "@/app/actions/staff"
-import { deleteScrim, restoreScrim, permanentlyDeleteScrim, bulkDeleteScrims, toggleRegistration, toggleScrimStatus, toggleScrimHidden, setSetting } from "@/app/actions/admin"
+import {
+  deleteScrim,
+  restoreScrim,
+  permanentlyDeleteScrim,
+  bulkDeleteScrims,
+  toggleRegistration,
+  toggleScrimStatus,
+  toggleScrimHidden,
+  setSetting,
+  forceTurnOnAllScrimsAction,
+  forceTurnOffAllScrimsAction,
+} from "@/app/actions/admin"
 import { EditScrimButton } from "@/components/admin/scrim-form-dialog"
 import { PublishResultButton } from "@/components/admin/admin-results"
 import { Button } from "@/components/ui/button"
@@ -20,7 +32,7 @@ import {
 import type { Booking, Scrim } from "@/lib/db/schema"
 import { formatTaka, timeAgo, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon } from "lucide-react"
+import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon, Power, PowerOff } from "lucide-react"
 import { toast } from "sonner"
 
 type AdminScrim = Scrim & { confirmedTeams: number; pendingTeams: number; deletedAt?: Date | string | null }
@@ -493,6 +505,7 @@ export function AdminScrimList({
   bookingsByScrim?: Record<string, RosterBooking[]>
   initialRoom2Enabled?: boolean
 }) {
+  const router = useRouter()
   const [, startTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<"all" | "daily" | "room2" | "friday" | "champion" | "not_hosted" | "trash">("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -500,6 +513,7 @@ export function AdminScrimList({
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [room2Visible, setRoom2Visible] = useState(initialRoom2Enabled)
   const [isTogglingRoom2, setIsTogglingRoom2] = useState(false)
+  const [isBulkForcing, setIsBulkForcing] = useState(false)
 
   const isRoom2Scrim = (s: AdminScrim) =>
     s.id.includes("r2") || s.slug.includes("room-2") || s.title.toLowerCase().includes("room 2")
@@ -548,6 +562,46 @@ export function AdminScrimList({
   const room2Count = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
   const fridayCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special"))).length
   const crCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush"))).length
+
+  async function handleForceTurnOnAll() {
+    if (!window.confirm("⚡ FORCE TURN ON ALL SCRIMS?\n\nThis will immediately enable registration and set status to 'Force Open' for ALL active scrim lobbies, overriding match start time closures.")) {
+      return
+    }
+    setIsBulkForcing(true)
+    try {
+      const res = await forceTurnOnAllScrimsAction()
+      if (res.ok) {
+        toast.success(`Success! Force turned ON registration for all scrim lobbies.`)
+        router.refresh()
+      } else {
+        toast.error(res.error || "Failed to force turn on scrims")
+      }
+    } catch {
+      toast.error("Failed to force turn on scrims")
+    } finally {
+      setIsBulkForcing(false)
+    }
+  }
+
+  async function handleForceTurnOffAll() {
+    if (!window.confirm("🛑 FORCE TURN OFF ALL SCRIMS?\n\nThis will immediately CLOSE registration and set status to 'Registration Closed' for ALL active scrim lobbies.")) {
+      return
+    }
+    setIsBulkForcing(true)
+    try {
+      const res = await forceTurnOffAllScrimsAction()
+      if (res.ok) {
+        toast.success(`Success! Force turned OFF registration for all scrim lobbies.`)
+        router.refresh()
+      } else {
+        toast.error(res.error || "Failed to force turn off scrims")
+      }
+    } catch {
+      toast.error("Failed to force turn off scrims")
+    } finally {
+      setIsBulkForcing(false)
+    }
+  }
 
   async function handleToggleRoom2() {
     setIsTogglingRoom2(true)
@@ -661,6 +715,34 @@ export function AdminScrimList({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isBulkForcing}
+                onClick={handleForceTurnOnAll}
+                className="h-8 gap-1.5 text-xs font-bold border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-100 transition-all shadow-sm"
+                title="Force turn on all scrims and open registrations immediately"
+              >
+                {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5 text-emerald-400" />}
+                <span>Force Turn On All Scrims</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isBulkForcing}
+                onClick={handleForceTurnOffAll}
+                className="h-8 gap-1.5 text-xs font-bold border-rose-500/50 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:text-rose-100 transition-all shadow-sm"
+                title="Force turn off all scrims and close registrations immediately"
+              >
+                {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <PowerOff className="size-3.5 text-rose-400" />}
+                <span>Force Turn Off All Scrims</span>
+              </Button>
+            </>
+          )}
+
           {isAdmin && (
             <Button
               size="sm"

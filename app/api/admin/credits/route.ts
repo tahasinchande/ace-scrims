@@ -1,17 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/session"
 import { getAdminCreditUsers, getAdminCreditStats, getAdminCreditTransactions } from "@/lib/queries/admin"
-import { adjustUserCreditsAction, creditAdjustmentSchema } from "@/app/actions/admin"
+import { adjustUserCreditsAction } from "@/app/actions/admin"
+import { creditAdjustmentSchema } from "@/lib/validations/credit"
 
+// Explicit Next.js Route Segment Config to completely prevent build-time static page collection
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
 
 export async function GET(_req: NextRequest) {
   try {
-    await requireAdmin()
+    const admin = await requireAdmin().catch(() => null)
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "Unauthorized: Admin session required." }, { status: 401 })
+    }
+
     const [users, stats, recentTransactions] = await Promise.all([
-      getAdminCreditUsers(),
-      getAdminCreditStats(),
-      getAdminCreditTransactions(50),
+      getAdminCreditUsers().catch(() => []),
+      getAdminCreditStats().catch(() => ({
+        totalCredits: 0,
+        usersWithCredits: 0,
+        totalUsers: 0,
+        highestBalance: 0,
+        totalAdjustments: 0,
+      })),
+      getAdminCreditTransactions(50).catch(() => []),
     ])
 
     return NextResponse.json({
@@ -22,16 +37,20 @@ export async function GET(_req: NextRequest) {
     })
   } catch (err: any) {
     return NextResponse.json(
-      { ok: false, error: err?.message || "Unauthorized or internal error" },
-      { status: err?.message?.toLowerCase().includes("unauthorized") ? 401 : 500 }
+      { ok: false, error: err?.message || "Internal error" },
+      { status: 500 }
     )
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAdmin()
-    const body = await req.json()
+    const admin = await requireAdmin().catch(() => null)
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "Unauthorized: Admin session required." }, { status: 401 })
+    }
+
+    const body = await req.json().catch(() => ({}))
     const parsed = creditAdjustmentSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
@@ -49,7 +68,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || "Failed to process balance update" },
-      { status: err?.message?.toLowerCase().includes("unauthorized") ? 401 : 500 }
+      { status: 500 }
     )
   }
 }

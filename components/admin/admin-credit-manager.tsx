@@ -27,9 +27,7 @@ import {
   Users,
   TrendingUp,
   History,
-  ShieldCheck,
   Ban,
-  CheckCircle2,
   AlertCircle,
   Loader2,
   RefreshCw,
@@ -81,13 +79,19 @@ function getUserInitials(name: string): string {
 }
 
 export function AdminCreditManager({
-  users: initialUsers,
-  stats: initialStats,
-  recentTransactions: initialTransactions,
+  users: initialUsers = [],
+  stats: initialStats = {
+    totalCredits: 0,
+    usersWithCredits: 0,
+    totalUsers: 0,
+    highestBalance: 0,
+    totalAdjustments: 0,
+  },
+  recentTransactions: initialTransactions = [],
 }: {
-  users: CreditUser[]
-  stats: CreditStats
-  recentTransactions: CreditTransaction[]
+  users?: CreditUser[]
+  stats?: CreditStats
+  recentTransactions?: CreditTransaction[]
 }) {
   const router = useRouter()
   const [users, setUsers] = useState<CreditUser[]>(initialUsers)
@@ -186,7 +190,6 @@ export function AdminCreditManager({
 
       if (res.ok && res.data) {
         toast.success(res.data.message || "Balance updated successfully!")
-        // Optimistically update local users list
         setUsers((prev) =>
           prev.map((u) =>
             u.id === selectedUser.id
