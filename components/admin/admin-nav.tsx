@@ -20,6 +20,7 @@ import {
   Trash2,
   Camera,
   History,
+  Coins,
 } from "lucide-react"
 
 type NavLink = {
@@ -38,6 +39,7 @@ const adminLinks: NavLink[] = [
   { href: "/admin/logs", label: "Logs", icon: ScrollText },
   { href: "/admin/live-chat", label: "Live Chat", icon: MessageSquare },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/credits", label: "Credit Management", icon: Coins },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/results", label: "Results", icon: Trophy },
   { href: "/admin/settings", label: "Settings", icon: Settings },

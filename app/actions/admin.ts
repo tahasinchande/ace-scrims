@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs, imageRequests } from "@/lib/db/schema"
+import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs, imageRequests, walletTransactions } from "@/lib/db/schema"
 import { requireAdmin } from "@/lib/session"
 import { logActivity } from "@/lib/notify"
 import { eq, ne, and, or, sql, inArray } from "drizzle-orm"
@@ -1325,4 +1325,165 @@ export async function queryHistoricalScrimsAction(date: string, scrimId?: string
     return { ok: false, error: err?.message || "Failed to query historical scrims" }
   }
 }
+
+export const creditAdjustmentSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  actionType: z.enum(["add", "deduct", "set"]),
+  amount: z.coerce.number().int().min(0, "Amount must be a non-negative number"),
+  reason: z.string().trim().min(2, "Please provide a valid reason / note (minimum 2 characters)"),
+})
+
+export async function adjustUserCreditsAction(input: z.infer<typeof creditAdjustmentSchema>) {
+  try {
+    const admin = await requireAdmin()
+    const parsed = creditAdjustmentSchema.safeParse(input)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
+    }
+
+    const { userId, actionType, amount, reason } = parsed.data
+
+    if ((actionType === "add" || actionType === "deduct") && amount <= 0) {
+      return { ok: false, error: `Amount to ${actionType} must be greater than ৳0.` }
+    }
+
+    // Fetch target user
+    const targetRows = await db
+      .select({ id: user.id, name: user.name, email: user.email, balance: user.balance })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+
+    const targetUser = targetRows[0]
+    if (!targetUser) {
+      return { ok: false, error: "Target user account not found." }
+    }
+
+    const currentBalance = Number(targetUser.balance ?? 0)
+    let newBalance = currentBalance
+    let diff = 0
+
+    if (actionType === "add") {
+      newBalance = currentBalance + amount
+      diff = amount
+    } else if (actionType === "deduct") {
+      if (currentBalance < amount) {
+        return {
+          ok: false,
+          error: `Cannot deduct ৳${amount}. User currently has only ৳${currentBalance} in their balance.`,
+        }
+      }
+      newBalance = currentBalance - amount
+      diff = -amount
+    } else if (actionType === "set") {
+      newBalance = amount
+      diff = newBalance - currentBalance
+    }
+
+    const trxId = randomUUID()
+
+    await db.transaction(async (tx) => {
+      // 1. Update user balance
+      await tx
+        .update(user)
+        .set({
+          balance: newBalance,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, targetUser.id))
+
+      // 2. Insert into wallet transactions
+      await tx.insert(walletTransactions).values({
+        id: trxId,
+        userId: targetUser.id,
+        type: "adjustment",
+        amountBdt: Math.abs(diff),
+        balanceBefore: currentBalance,
+        balanceAfter: newBalance,
+        description: `Admin adjustment (${actionType.toUpperCase()}): ${reason} (by ${admin.name || admin.email})`,
+        referenceId: admin.id,
+        status: "completed",
+        createdAt: new Date(),
+      })
+
+      // 3. Record in activity logs
+      await tx.insert(activityLogs).values({
+        id: randomUUID(),
+        actorId: admin.id,
+        actorRole: admin.role,
+        action: "credit_adjustment",
+        target: `${targetUser.email} (${actionType}: ৳${amount}, new: ৳${newBalance})`,
+        meta: {
+          targetUserId: targetUser.id,
+          targetEmail: targetUser.email,
+          actionType,
+          amount,
+          diff,
+          balanceBefore: currentBalance,
+          balanceAfter: newBalance,
+          reason,
+        },
+        createdAt: new Date(),
+      })
+    })
+
+    // In-app notification to the target user (non-blocking)
+    try {
+      const { notifyUser } = await import("@/lib/notify")
+      const diffText = diff > 0 ? `+৳${diff}` : diff < 0 ? `-৳${Math.abs(diff)}` : "৳0"
+      await notifyUser(
+        targetUser.id,
+        "payment",
+        `Wallet Balance Adjusted (${diffText})`,
+        `An administrator adjusted your account balance. Note: "${reason}". New balance: ৳${newBalance}.`,
+        "/dashboard/wallet"
+      )
+    } catch {}
+
+    // Revalidate paths
+    revalidatePath("/admin/credits")
+    revalidatePath("/admin/users")
+    revalidatePath("/admin")
+    revalidatePath("/dashboard/wallet")
+    revalidatePath("/dashboard")
+
+    return {
+      ok: true,
+      data: {
+        userId: targetUser.id,
+        previousBalance: currentBalance,
+        newBalance,
+        diff,
+        message: `Successfully adjusted balance for ${targetUser.email}. New balance: ৳${newBalance}.`,
+      },
+    }
+  } catch (err: any) {
+    console.error("[Credit Adjustment Action Error]:", err)
+    return { ok: false, error: err?.message || "Failed to adjust user balance." }
+  }
+}
+
+export async function cancelExpiredPendingBookingsAction() {
+  try {
+    await requireAdmin()
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000)
+    const result = await db
+      .update(bookings)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(
+        and(
+          eq(bookings.status, "pending"),
+          sql`${bookings.createdAt} < ${thirtyMinsAgo}`
+        )
+      )
+      .returning({ id: bookings.id })
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    return { ok: true, cancelledCount: result.length }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Failed to cancel expired pending bookings" }
+  }
+}
+
 

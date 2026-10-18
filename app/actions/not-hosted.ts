@@ -406,10 +406,10 @@ export async function refundAllTeamsForScrim(scrimId: string) {
         if (gatewayRes.ok) {
           refundRef = gatewayRes.refundRef || `RFD-BULK-${Date.now().toString().slice(-6)}`
         } else {
-          refundError = gatewayRes.message || "UddoktaPay refund request failed"
+          refundError = gatewayRes.message || "Automated payment gateway refund request failed"
         }
       } catch (gwErr: any) {
-        refundError = gwErr?.message || "Failed to communicate with UddoktaPay refund API"
+        refundError = gwErr?.message || "Failed to communicate with payment gateway refund API"
       }
 
       if (refundRef) {
@@ -465,7 +465,7 @@ export async function refundAllTeamsForScrim(scrimId: string) {
           .update(notHostedTeams)
           .set({
             refundStatus: "failed",
-            refundError: refundError || "UddoktaPay refund failed",
+            refundError: refundError || "Payment gateway refund failed",
             updatedAt: new Date(),
           })
           .where(eq(notHostedTeams.id, team.id))
@@ -631,7 +631,7 @@ export async function processTeamRefund(bookingIdOrTeamId: string) {
     })
 
     if (!gatewayRes.ok) {
-      const errorMsg = gatewayRes.message || "Failed to trigger UddoktaPay automated refund"
+      const errorMsg = gatewayRes.message || "Failed to trigger automated gateway refund"
       await db
         .update(notHostedTeams)
         .set({

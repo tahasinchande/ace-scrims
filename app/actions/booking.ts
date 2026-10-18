@@ -79,9 +79,12 @@ export async function createBooking(
   }
   const data = parsed.data
 
+  const { resolveOrEnsureScrim } = await import("@/lib/queries/scrims")
+  const scrimEntity = await resolveOrEnsureScrim(data.scrimId)
   const scrim = await getScrimById(data.scrimId)
   if (!scrim) return { ok: false, error: "Scrim not found." }
 
+  const canonicalScrimId = scrimEntity?.id || scrim.id
   const isForcedOpen = scrim.status === "force_open" || scrim.status === "force_turn_on"
   if (!isForcedOpen && (!scrim.registrationOpen || scrim.status === "completed" || scrim.status === "not_hosted" || scrim.status === "registration_closed"))
     return { ok: false, error: "Registration for this scrim is closed." }
@@ -103,7 +106,7 @@ export async function createBooking(
 
   const activeDate = getBangladeshActiveDate()
   const targetDate = activeDate
-  const existing = await userHasBooking(user.id, scrim.id, targetDate)
+  const existing = await userHasBooking(user.id, canonicalScrimId, targetDate)
   if (existing?.status === "confirmed")
     return { ok: false, error: "You already have a confirmed booking for this scrim today." }
 
@@ -221,11 +224,17 @@ export async function createBooking(
         })
       }
 
+      // Clean up any stale pending payments for this booking
+      await tx
+        .update(payments)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(and(eq(payments.bookingId, bookingId), eq(payments.status, "pending")))
+
       await tx.insert(payments).values({
         id: paymentId,
         userId: user.id,
         bookingId,
-        scrimId: scrim.id,
+        scrimId: canonicalScrimId,
         amountBdt: scrim.priceBdt,
         method: "wallet_balance",
         transactionId: walletTrxId,
@@ -249,7 +258,7 @@ export async function createBooking(
         .from(bookings)
         .where(
           and(
-            or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+            or(eq(bookings.scrimId, canonicalScrimId), eq(bookings.scrimId, scrim.slug)),
             eq(bookings.scrimDate, targetDate),
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
@@ -261,7 +270,7 @@ export async function createBooking(
         await tx
           .update(scrims)
           .set({ registrationOpen: false, updatedAt: new Date() })
-          .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
+          .where(or(eq(scrims.id, canonicalScrimId), eq(scrims.slug, scrim.slug)))
       }
     })
 
@@ -298,6 +307,8 @@ export async function createBooking(
         revalidatePath("/dashboard/wallet")
         revalidatePath("/dashboard")
         revalidatePath("/admin/scrims")
+        revalidatePath("/admin")
+        revalidatePath("/admin/payments")
       } catch {}
 
       return {
@@ -308,7 +319,13 @@ export async function createBooking(
     }
   }
 
-  // 3. If balance is insufficient: gracefully redirect user to pay for that scrim via UddoktaPay
+  // 3. If balance is insufficient: gracefully redirect user to pay for that scrim via online payment gateway
+  // Clean up any earlier pending payments for this booking before creating a fresh charge
+  await db
+    .update(payments)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(and(eq(payments.bookingId, bookingId), eq(payments.status, "pending")))
+
   if (existing) {
     // Reuse the pending booking, update the team info
     await db

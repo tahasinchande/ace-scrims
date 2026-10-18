@@ -2,7 +2,7 @@ import "server-only"
 
 import { db } from "@/lib/db"
 import { bookings, payments, scrims, results, notifications, settings, reports } from "@/lib/db/schema"
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, or, desc, eq, inArray, sql } from "drizzle-orm"
 import { scrimStartDate } from "@/lib/format"
 
 export async function getMainWhatsappUrl(): Promise<string> {
@@ -51,7 +51,7 @@ export async function getUserBookings(userId: string): Promise<UserBooking[]> {
   const rows = await db
     .select({ booking: bookings, scrim: scrims })
     .from(bookings)
-    .leftJoin(scrims, eq(bookings.scrimId, scrims.id))
+    .leftJoin(scrims, or(eq(bookings.scrimId, scrims.id), eq(bookings.scrimId, scrims.slug)))
     .where(and(eq(bookings.userId, userId), eq(bookings.status, "confirmed"), eq(bookings.isTrashed, false)))
     .orderBy(desc(bookings.createdAt))
 

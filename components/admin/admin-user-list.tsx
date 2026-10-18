@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useTransition } from "react"
 import { setUserRole, setUserBanned, trashUsers } from "@/app/actions/admin"
 import { Badge } from "@/components/ui/badge"
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatDate } from "@/lib/format"
 import { resolveImageUrl } from "@/lib/image-url"
-import { Ban, Search, ShieldCheck, Undo2, User as UserIcon, Trash2, CheckSquare, Square } from "lucide-react"
+import { Ban, Search, ShieldCheck, Undo2, User as UserIcon, Trash2, CheckSquare, Square, Coins } from "lucide-react"
 import { toast } from "sonner"
 
 type UserRow = {
@@ -16,6 +17,7 @@ type UserRow = {
   email: string
   image?: string | null
   role: string
+  balance?: number
   banned: boolean
   emailVerified: boolean
   createdAt: Date
@@ -198,6 +200,9 @@ export function AdminUserList({
                     )}
                     {u.banned && <Badge variant="destructive">Banned</Badge>}
                     {!u.emailVerified && <Badge variant="outline">Unverified</Badge>}
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold text-emerald-400 border border-emerald-500/20">
+                      ৳{(u.balance ?? 0).toLocaleString()}
+                    </span>
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {u.email} · joined {formatDate(u.createdAt)}
@@ -206,6 +211,18 @@ export function AdminUserList({
 
                 {!isSelf && (
                   <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      asChild
+                      className="h-8 gap-1 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                      title="Manage credits"
+                    >
+                      <Link href="/admin/credits">
+                        <Coins className="size-3.5" />
+                        Credits
+                      </Link>
+                    </Button>
                     <select
                       value={u.role}
                       disabled={isPending}

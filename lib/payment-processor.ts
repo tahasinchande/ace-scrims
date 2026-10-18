@@ -297,7 +297,10 @@ export async function processPayment(
     revalidatePath("/scrims")
     revalidatePath("/")
     revalidatePath("/dashboard/scrims")
+    revalidatePath("/dashboard/wallet")
     revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/admin/payments")
   } catch {}
 
   return { status: "confirmed" }

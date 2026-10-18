@@ -1,7 +1,7 @@
 import "server-only"
 
 import { db } from "@/lib/db"
-import { scrims, bookings, payments, results, user, activityLogs, settings, reports, imageRequests } from "@/lib/db/schema"
+import { scrims, bookings, payments, results, user, activityLogs, settings, reports, imageRequests, walletTransactions } from "@/lib/db/schema"
 import { eq, desc, and, or, gte, sql, count, isNull, type SQL } from "drizzle-orm"
 import { appendGlobalScrimRules, getBangladeshActiveDate, archivePreviousDayBookings } from "@/lib/queries/scrims"
 import { sortScrimsAscending } from "@/lib/format"
@@ -64,11 +64,11 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
         scrim: scrims,
         confirmedTeams: sql<number>`(
           select count(*) from bookings b
-          where b."scrimId" = ${scrims.id} and b.status = 'confirmed' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate}
+          where (b."scrimId" = ${scrims.id} or b."scrimId" = ${scrims.slug}) and b.status = 'confirmed' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate}
         )`,
         pendingTeams: sql<number>`(
           select count(*) from bookings b
-          where b."scrimId" = ${scrims.id} and b.status = 'pending' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate}
+          where (b."scrimId" = ${scrims.id} or b."scrimId" = ${scrims.slug}) and b.status = 'pending' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate} and b."createdAt" >= NOW() - INTERVAL '30 minutes'
         )`,
       })
       .from(scrims)
@@ -496,6 +496,7 @@ export async function getAdminUsers() {
       email: user.email,
       image: user.image,
       role: user.role,
+      balance: sql<number>`coalesce(${user.balance}, 0)::int`,
       banned: user.banned,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
@@ -504,6 +505,93 @@ export async function getAdminUsers() {
     .where(eq(user.isTrashed, false))
     .orderBy(desc(user.createdAt))
     .limit(200)
+}
+
+export type AdminCreditUser = {
+  id: string
+  name: string
+  email: string
+  image?: string | null
+  role: string
+  balance: number
+  banned: boolean
+  emailVerified: boolean
+  createdAt: Date
+}
+
+export async function getAdminCreditUsers(): Promise<AdminCreditUser[]> {
+  const rows = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      role: user.role,
+      balance: sql<number>`coalesce(${user.balance}, 0)::int`,
+      banned: user.banned,
+      emailVerified: user.emailVerified,
+      createdAt: user.createdAt,
+    })
+    .from(user)
+    .where(eq(user.isTrashed, false))
+    .orderBy(desc(user.balance), desc(user.createdAt))
+
+  return rows.map((r) => ({
+    ...r,
+    balance: Number(r.balance || 0),
+  }))
+}
+
+export async function getAdminCreditStats() {
+  const [balanceStats, adjustmentStats] = await Promise.all([
+    db
+      .select({
+        totalCredits: sql<number>`coalesce(sum(case when ${user.balance} > 0 then ${user.balance} else 0 end), 0)::int`,
+        usersWithCredits: sql<number>`count(*) filter (where ${user.balance} > 0)::int`,
+        totalUsers: sql<number>`count(*)::int`,
+        highestBalance: sql<number>`coalesce(max(${user.balance}), 0)::int`,
+      })
+      .from(user)
+      .where(eq(user.isTrashed, false)),
+    db
+      .select({
+        totalAdjustments: sql<number>`count(*)::int`,
+      })
+      .from(walletTransactions)
+      .where(eq(walletTransactions.type, "adjustment")),
+  ])
+
+  return {
+    totalCredits: Number(balanceStats[0]?.totalCredits ?? 0),
+    usersWithCredits: Number(balanceStats[0]?.usersWithCredits ?? 0),
+    totalUsers: Number(balanceStats[0]?.totalUsers ?? 0),
+    highestBalance: Number(balanceStats[0]?.highestBalance ?? 0),
+    totalAdjustments: Number(adjustmentStats[0]?.totalAdjustments ?? 0),
+  }
+}
+
+export async function getAdminCreditTransactions(limitCount = 50) {
+  const rows = await db
+    .select({
+      id: walletTransactions.id,
+      userId: walletTransactions.userId,
+      type: walletTransactions.type,
+      amountBdt: walletTransactions.amountBdt,
+      balanceBefore: walletTransactions.balanceBefore,
+      balanceAfter: walletTransactions.balanceAfter,
+      description: walletTransactions.description,
+      referenceId: walletTransactions.referenceId,
+      status: walletTransactions.status,
+      createdAt: walletTransactions.createdAt,
+      userName: user.name,
+      userEmail: user.email,
+    })
+    .from(walletTransactions)
+    .leftJoin(user, eq(walletTransactions.userId, user.id))
+    .orderBy(desc(walletTransactions.createdAt))
+    .limit(limitCount)
+
+  return rows
 }
 
 export async function getAdminPayments() {
@@ -674,12 +762,21 @@ export async function getAdminResults(options?: { date?: string; scrimId?: strin
 }
 
 export async function getAdminBookingsForScrim(scrimId: string) {
+  const scrimRow = await db
+    .select({ id: scrims.id, slug: scrims.slug })
+    .from(scrims)
+    .where(or(eq(scrims.id, scrimId), eq(scrims.slug, scrimId)))
+    .limit(1)
+
+  const targetId = scrimRow[0]?.id || scrimId
+  const targetSlug = scrimRow[0]?.slug || scrimId
+
   return db
     .select()
     .from(bookings)
     .where(
       and(
-        eq(bookings.scrimId, scrimId),
+        or(eq(bookings.scrimId, targetId), eq(bookings.scrimId, targetSlug)),
         eq(bookings.status, "confirmed"),
         eq(bookings.isTrashed, false),
         eq(bookings.isArchived, false)
