@@ -19,10 +19,12 @@ import {
   Camera,
   Wallet,
   UserCog,
+  Megaphone,
 } from "lucide-react"
 
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/notices", label: "Notices", icon: Megaphone },
   { href: "/dashboard/info-setup", label: "Info Setup", icon: UserCog },
   { href: "/dashboard/wallet", label: "Wallet & Balance", icon: Wallet },
   { href: "/dashboard/scrims", label: "My Scrims", icon: Swords },
@@ -82,30 +84,30 @@ export function DashboardNav({
           </div>
         </div>
         <nav aria-label="Dashboard navigation">
-          <ul className="flex flex-row flex-wrap gap-1 lg:flex-col">
+          <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-2 lg:flex lg:flex-col lg:gap-1">
             {links.map((link) => {
               const active = link.exact ? pathname === link.href : pathname.startsWith(link.href)
               return (
-                <li key={link.href} className="flex-1 lg:flex-none">
+                <li key={link.href} className="w-full lg:flex-none">
                   <Link
                     href={link.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium transition-colors w-full",
                       active
-                        ? "bg-primary/15 text-primary"
+                        ? "bg-primary/15 text-primary font-semibold shadow-xs"
                         : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                     )}
                   >
-                    <link.icon className="size-4 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">{link.label}</span>
+                    <link.icon className="size-4 shrink-0 text-primary/80" aria-hidden />
+                    <span className="truncate">{link.label}</span>
                     {link.href === "/dashboard/notifications" && unread > 0 && (
-                      <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                      <span className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
                         {unread}
                       </span>
                     )}
                     {link.href === "/dashboard/image-requests" && pendingImageRequestsCount > 0 && (
-                      <span className="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black animate-pulse">
+                      <span className="ml-auto shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black animate-pulse">
                         {pendingImageRequestsCount}
                       </span>
                     )}
@@ -114,24 +116,24 @@ export function DashboardNav({
               )
             })}
             {isStaff && (
-              <li className="flex-1 lg:flex-none">
+              <li className="w-full lg:flex-none">
                 <Link
                   href={user.role === "admin" ? "/admin" : "/admin/scrims"}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-secondary"
+                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium text-accent transition-colors hover:bg-secondary w-full"
                 >
                   <Shield className="size-4 shrink-0" aria-hidden />
-                  <span className="hidden sm:inline">{user.role === "admin" ? "Admin Panel" : "Mod Panel"}</span>
+                  <span className="truncate">{user.role === "admin" ? "Admin Panel" : "Mod Panel"}</span>
                 </Link>
               </li>
             )}
-            <li className="flex-1 lg:flex-none">
+            <li className="w-full lg:flex-none">
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive text-left"
               >
                 <LogOut className="size-4 shrink-0" aria-hidden />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span className="truncate">Sign Out</span>
               </button>
             </li>
           </ul>

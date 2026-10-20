@@ -21,6 +21,7 @@ import {
   Camera,
   History,
   Coins,
+  BellRing,
 } from "lucide-react"
 
 type NavLink = {
@@ -33,6 +34,7 @@ type NavLink = {
 const adminLinks: NavLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
+  { href: "/admin/notices", label: "Notices", icon: BellRing },
   { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/announce", label: "Announce", icon: Megaphone },
   { href: "/admin/tutorials", label: "Tutorials", icon: Video },

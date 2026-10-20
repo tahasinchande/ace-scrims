@@ -70,11 +70,14 @@ export async function POST(req: NextRequest) {
       fileType: isImage ? "image" : "video",
     })
   } catch (err: any) {
-    console.error("[API Upload] Unhandled error saving file:", err)
+    let errMsg = err?.message || "File upload failed due to internal server error"
+    if (errMsg.toLowerCase().includes("cloudinary")) {
+      errMsg = "File upload failed due to storage service error."
+    }
     return NextResponse.json(
       {
         ok: false,
-        error: err?.message || "File upload failed due to internal server error",
+        error: errMsg,
       },
       { status: 500 }
     )

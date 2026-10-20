@@ -189,6 +189,7 @@ function ViewTeamsButton({
 }) {
   const [teamList, setTeamList] = useState(roster)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [teamToRemove, setTeamToRemove] = useState<RosterBooking | null>(null)
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -198,12 +199,13 @@ function ViewTeamsButton({
 
   const count = confirmedCount ?? teamList.length ?? scrim.confirmedTeams ?? 0
 
-  async function handleRemoveTeam(b: RosterBooking) {
-    const confirmed = window.confirm(
-      `⚠️ ARE YOU SURE YOU WANT TO REMOVE THIS TEAM?\n\n• Team Name: "${b.teamName}"\n• Captain: ${b.captainName} (UID: ${b.captainUid})\n• Slot: #${b.slotNumber ?? "N/A"}\n• Scrim: ${scrim.title}\n\nThis will remove the team from this scrim lobby, cancel their slot, and decrement the registered count.`
-    )
-    if (!confirmed) return
+  function handlePromptRemoveTeam(b: RosterBooking) {
+    setTeamToRemove(b)
+  }
 
+  async function handleConfirmRemoveTeam() {
+    if (!teamToRemove) return
+    const b = teamToRemove
     setRemovingId(b.id)
     try {
       const res = await removeTeamFromScrimAction(b.id, scrim.id)
@@ -211,6 +213,7 @@ function ViewTeamsButton({
         toast.success(`Team "${b.teamName}" removed! Slot #${b.slotNumber ?? ""} is now freed up.`)
         setTeamList((prev) => prev.filter((item) => item.id !== b.id))
         onTeamRemoved?.(scrim.id, b.id)
+        setTeamToRemove(null)
         startTransition(() => {
           router.refresh()
         })
@@ -225,6 +228,7 @@ function ViewTeamsButton({
   }
 
   return (
+    <>
     <Dialog>
       <DialogTrigger
         render={
@@ -262,7 +266,7 @@ function ViewTeamsButton({
                     size="sm"
                     variant="destructive"
                     disabled={removingId === b.id}
-                    onClick={() => handleRemoveTeam(b)}
+                    onClick={() => handlePromptRemoveTeam(b)}
                     className="h-7 px-2.5 text-xs font-semibold gap-1 bg-destructive/90 hover:bg-destructive text-destructive-foreground shadow-sm ml-1"
                     title={`Remove "${b.teamName}" from this scrim`}
                   >
@@ -359,6 +363,80 @@ function ViewTeamsButton({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Safeguard Prompt Confirmation Dialog */}
+    {teamToRemove && (
+      <Dialog open={true} onOpenChange={(open) => !open && setTeamToRemove(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive font-display uppercase text-base">
+              <AlertTriangle className="size-5 shrink-0" />
+              Remove Team from Scrim?
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-sm text-foreground">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to remove this team? This action will immediately remove the team from this scrim lobby, cancel their slot, decrement the confirmed count, and free up the spot in real time.
+            </p>
+
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Team Name:</span>
+                <span className="font-bold text-foreground">{teamToRemove.teamName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Team Leader:</span>
+                <span className="font-medium text-foreground">{teamToRemove.captainName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Captain UID:</span>
+                <span className="font-mono text-foreground">{teamToRemove.captainUid}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Assigned Slot:</span>
+                <span className="font-mono font-bold text-primary">Slot #{teamToRemove.slotNumber ?? "N/A"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Scrim Lobby:</span>
+                <span className="font-medium text-foreground truncate max-w-[200px]">{scrim.title}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={removingId === teamToRemove.id}
+              onClick={() => setTeamToRemove(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={removingId === teamToRemove.id}
+              onClick={handleConfirmRemoveTeam}
+              className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"
+            >
+              {removingId === teamToRemove.id ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <UserX className="size-4" />
+                  Yes, Remove Team
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   )
 }
 
@@ -890,7 +968,10 @@ export function AdminScrimList({
               ...(liveBookingsByScrim[scrim.id] ?? []),
               ...(scrim.slug && scrim.slug !== scrim.id ? (liveBookingsByScrim[scrim.slug] ?? []) : []),
             ].filter((b, idx, arr) => arr.findIndex((x) => x.id === b.id) === idx)
-            const dynamicConfirmedCount = roster.length > 0 ? roster.length : (scrim.confirmedTeams || 0)
+            const hasLiveRoster =
+              scrim.id in liveBookingsByScrim ||
+              Boolean(scrim.slug && scrim.slug in liveBookingsByScrim)
+            const dynamicConfirmedCount = hasLiveRoster ? roster.length : (scrim.confirmedTeams || 0)
             const isSelected = selectedScrimIds.includes(scrim.id)
 
             return (

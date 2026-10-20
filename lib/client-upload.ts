@@ -48,7 +48,7 @@ export async function getCloudinaryConfig(): Promise<{ cloudName: string | null;
       }
     }
   } catch (fetchErr) {
-    console.warn("[Upload Client] Failed to fetch Cloudinary config from server:", fetchErr)
+    console.warn("[Upload Client] Failed to fetch upload config from server:", fetchErr)
   }
 
   return { cloudName: null, uploadPreset: envPreset }
@@ -77,7 +77,7 @@ export async function uploadVideoToCloudinaryDirect(
 
   if (!cloudName) {
     throw new Error(
-      "Cloudinary is not configured. Please ensure NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME or CLOUDINARY_CLOUD_NAME is added in your Vercel Environment Variables, or paste an external video URL (YouTube/Drive/Vimeo) directly."
+      "Cloud storage is not configured. Please ensure cloud storage environment variables are added, or paste an external video URL (YouTube/Drive/Vimeo) directly."
     )
   }
 
@@ -113,37 +113,42 @@ export async function uploadVideoToCloudinaryDirect(
             })
             return
           }
-          console.error("[Cloudinary Video Upload Error]", json)
-          reject(new Error(json.error?.message || "Cloudinary did not return a valid video URL."))
+          let rawMsg = json.error?.message || "Failed to receive a valid video URL from storage."
+          if (rawMsg.toLowerCase().includes("cloudinary")) {
+            rawMsg = "Cloud storage service error. Please try again or contact support."
+          }
+          reject(new Error(rawMsg))
         } catch {
-          reject(new Error("Failed to parse Cloudinary upload response."))
+          reject(new Error("Failed to parse upload response."))
         }
       } else {
-        let errMsg = `Cloudinary upload failed (HTTP ${xhr.status})`
+        let errMsg = `Upload failed (HTTP ${xhr.status})`
         try {
           const json = JSON.parse(xhr.responseText)
           if (json.error?.message) {
             errMsg = json.error.message
             if (errMsg.toLowerCase().includes("upload preset must be whitelisted for unsigned uploads")) {
-              errMsg = `Cloudinary error: The upload preset "${uploadPreset}" must be set to "Unsigned" in your Cloudinary Dashboard Settings > Upload > Upload Presets.`
+              errMsg = "Upload configuration error: The upload preset must be set to 'Unsigned' in your cloud storage settings."
             }
           }
         } catch {
           // ignore parsing error
         }
-        console.error("[Cloudinary Video Upload HTTP Error]", {
+        if (errMsg.toLowerCase().includes("cloudinary")) {
+          errMsg = "Upload failed due to storage provider error. Please try again."
+        }
+        console.error("[Video Upload HTTP Error]", {
           status: xhr.status,
-          responseText: xhr.responseText,
         })
         reject(new Error(errMsg))
       }
     })
 
     xhr.addEventListener("error", () => {
-      console.error("[Cloudinary Video Upload Network Error]")
+      console.error("[Video Upload Network Error]")
       reject(
         new Error(
-          "Network connection failed during direct Cloudinary upload. Please check your internet connection or try a smaller video."
+          "Network connection failed during upload. Please check your internet connection or try a smaller video."
         )
       )
     })

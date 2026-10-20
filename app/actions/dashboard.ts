@@ -77,7 +77,7 @@ export async function updateProfile(
         if (uploadedUrl.startsWith("data:") && uploadedUrl.length > 500 * 1024) {
           return {
             ok: false,
-            error: "Image is too large for local storage. Please configure cloud storage (Cloudinary) or use a smaller image.",
+            error: "Image is too large for local storage. Please configure cloud storage or use a smaller image.",
           }
         }
         updatedImageUrl = uploadedUrl

@@ -330,6 +330,22 @@ export const userDefaultInfo = pgTable("user_default_info", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+export const notices = pgTable("notices", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category").notNull().default("General"), // General | Announcement | Tournament | Rules | Urgent | Maintenance
+  priority: text("priority").notNull().default("normal"), // normal | important | urgent
+  mediaUrl: text("mediaUrl"),
+  mediaType: text("mediaType").default("none"), // image | video | none
+  isPinned: boolean("isPinned").notNull().default(false),
+  isPublished: boolean("isPublished").notNull().default(true),
+  authorId: text("authorId"),
+  authorName: text("authorName").default("Ace Scrims Administration"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 // ── Types ───────────────────────────────────────────────────────────────
 
 export type Scrim = typeof scrims.$inferSelect
@@ -345,4 +361,5 @@ export type NotHostedTeam = typeof notHostedTeams.$inferSelect
 export type ImageRequest = typeof imageRequests.$inferSelect
 export type WalletTransaction = typeof walletTransactions.$inferSelect
 export type UserDefaultInfo = typeof userDefaultInfo.$inferSelect
+export type Notice = typeof notices.$inferSelect
 

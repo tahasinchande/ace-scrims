@@ -261,7 +261,23 @@ async function ensureSchema() {
           WHEN '3-pm-champion-rush' THEN '/images/scrim_cyber_arena_1786956594944.jpg'
           WHEN '10-pm-champion-rush' THEN '/images/sakura-wallpaper.jpg'
           ELSE "bannerUrl"
-        END WHERE "slug" IN ('3-pm-scrim-room-1', '3-pm-scrim-room-2', '4-pm-scrim-room-1', '4-pm-scrim-room-2', '5-pm-scrim-room-1', '5-pm-scrim-room-2', '7-pm-scrim-room-1', '7-pm-scrim-room-2', '8-pm-scrim-room-1', '8-pm-scrim-room-2', '9-pm-scrim-room-1', '9-pm-scrim-room-2', '10-pm-scrim-room-1', '10-pm-scrim-room-2', '11-pm-scrim-room-1', '11-pm-scrim-room-2', '12-am-scrim-room-1', '12-am-scrim-room-2', '3-pm-champion-rush', '10-pm-champion-rush')`
+        END WHERE "slug" IN ('3-pm-scrim-room-1', '3-pm-scrim-room-2', '4-pm-scrim-room-1', '4-pm-scrim-room-2', '5-pm-scrim-room-1', '5-pm-scrim-room-2', '7-pm-scrim-room-1', '7-pm-scrim-room-2', '8-pm-scrim-room-1', '8-pm-scrim-room-2', '9-pm-scrim-room-1', '9-pm-scrim-room-2', '10-pm-scrim-room-1', '10-pm-scrim-room-2', '11-pm-scrim-room-1', '11-pm-scrim-room-2', '12-am-scrim-room-1', '12-am-scrim-room-2', '3-pm-champion-rush', '10-pm-champion-rush')`,
+        `CREATE TABLE IF NOT EXISTS "notices" (
+          "id" text PRIMARY KEY,
+          "title" text NOT NULL,
+          "content" text NOT NULL,
+          "category" text NOT NULL DEFAULT 'General',
+          "priority" text NOT NULL DEFAULT 'normal',
+          "mediaUrl" text,
+          "mediaType" text DEFAULT 'none',
+          "isPinned" boolean NOT NULL DEFAULT false,
+          "isPublished" boolean NOT NULL DEFAULT true,
+          "authorId" text,
+          "authorName" text DEFAULT 'Ace Scrims Administration',
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE INDEX IF NOT EXISTS "idx_notices_published_created" ON "notices" ("isPublished", "isPinned", "createdAt")`
       ]
 
       for (const stmt of statements) {

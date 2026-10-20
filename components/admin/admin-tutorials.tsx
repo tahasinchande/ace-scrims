@@ -47,7 +47,7 @@ function AddTutorialButton() {
       return
     }
 
-    // Direct Client-Side Video Upload to Cloudinary (Bypasses Vercel 4.5MB Serverless Payload Limit)
+    // Direct Client-Side Video Upload to Cloud Storage (Bypasses Vercel 4.5MB Serverless Payload Limit)
     if (file && file.size > 0) {
       if (file.size > 500 * 1024 * 1024) {
         toast.error("Video file must be under 500MB")
@@ -146,11 +146,11 @@ function AddTutorialButton() {
           <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-secondary/30 p-3.5">
             <Label htmlFor="videoFile" className="font-semibold text-xs flex items-center gap-1.5 text-foreground">
               <UploadCloud className="size-4 text-primary" />
-              Direct Video Upload (Uploads directly to Cloudinary up to 500MB)
+              Direct Video Upload (Upload up to 500MB)
             </Label>
             <Input id="videoFile" name="videoFile" type="file" accept="video/*" className="bg-background cursor-pointer" />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Bypasses Vercel 4.5MB payload limit by streaming directly from your browser to Cloudinary.
+              Direct high-speed streaming upload from your browser (up to 500MB).
             </p>
           </div>
 
@@ -170,7 +170,7 @@ function AddTutorialButton() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground text-center">
-                Please wait while your video is uploaded directly to Cloudinary...
+                Please wait while your video is uploaded...
               </p>
             </div>
           )}
@@ -308,11 +308,11 @@ function EditTutorialDialog({ tutorial }: { tutorial: TutorialItem }) {
           <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-secondary/30 p-3.5">
             <Label htmlFor={`edit-file-${tutorial.id}`} className="font-semibold text-xs flex items-center gap-1.5 text-foreground">
               <UploadCloud className="size-4 text-primary" />
-              Upload Replacement Video (Direct Cloudinary Stream)
+              Upload Replacement Video (Direct Stream)
             </Label>
             <Input id={`edit-file-${tutorial.id}`} name="videoFile" type="file" accept="video/*" className="bg-background cursor-pointer" />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Replaces existing video URL with new direct Cloudinary upload (up to 500MB).
+              Replaces existing video URL with new direct upload (up to 500MB).
             </p>
           </div>
 
