@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useRef, useEffect } from "react"
+import { useState, useTransition, useRef, useEffect, useMemo } from "react"
 import Image from "next/image"
 import { publishResult, updateResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
 import { bulkDeleteResults, queryHistoricalScrimsAction } from "@/app/actions/admin"
@@ -23,6 +23,9 @@ import {
   Loader2,
   Plus,
   Trophy,
+  Swords,
+  Clock,
+  Layers,
   CheckCheck,
   Trash2,
   Edit2,
@@ -42,6 +45,15 @@ type ResultRow = {
   result: MatchResult
   scrimTitle: string | null
   startTime: string | null
+}
+
+type LobbyGroupAdmin = {
+  key: string
+  scrimId: string | null
+  scrimTitle: string
+  startTime: string | null
+  matchDate: string | null
+  items: ResultRow[]
 }
 
 type ScrimOption = { id: string; title: string; startTime: string; prizePoolBdt?: number }
@@ -632,6 +644,24 @@ export function PublishResultButton({
                   </option>
                 ))}
               </select>
+
+              {/* Selected Scrim Lobby Confirmation Card */}
+              {selectedScrim && (
+                <div className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">TARGET SCRIM LOBBY</span>
+                    <span className="font-bold text-foreground text-sm">{selectedScrim.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-bold text-[11px]">
+                      Slot: {selectedScrim.startTime}
+                    </Badge>
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                      Lobby ID: {selectedScrim.id.slice(0, 10)}...
+                    </Badge>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -886,6 +916,42 @@ export function AdminResults({
 }) {
   const [isPending, startTransition] = useTransition()
   const [selectedResultIds, setSelectedResultIds] = useState<string[]>([])
+  const [lobbyFilter, setLobbyFilter] = useState<string>("all")
+  const [trashConfirmIds, setTrashConfirmIds] = useState<string[] | null>(null)
+
+  // Group published results under distinct scrim lobby headers
+  const lobbyGroups = useMemo<LobbyGroupAdmin[]>(() => {
+    const map = new Map<string, {
+      key: string
+      scrimId: string | null
+      scrimTitle: string
+      startTime: string | null
+      matchDate: string | null
+      items: ResultRow[]
+    }>()
+
+    for (const item of results) {
+      const key = `${item.result.scrimId || item.scrimTitle || "lobby"}_${item.result.matchDate || "active"}`
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          scrimId: item.result.scrimId || null,
+          scrimTitle: item.scrimTitle || "Daily Scrim Lobby",
+          startTime: item.startTime || null,
+          matchDate: item.result.matchDate || null,
+          items: [],
+        })
+      }
+      map.get(key)!.items.push(item)
+    }
+
+    return Array.from(map.values())
+  }, [results])
+
+  const filteredGroups = useMemo<LobbyGroupAdmin[]>(() => {
+    if (lobbyFilter === "all") return lobbyGroups
+    return lobbyGroups.filter((g: LobbyGroupAdmin) => g.key === lobbyFilter || g.scrimId === lobbyFilter)
+  }, [lobbyGroups, lobbyFilter])
 
   const allSelected = results.length > 0 && selectedResultIds.length === results.length
 
@@ -901,14 +967,15 @@ export function AdminResults({
     setSelectedResultIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
 
-  const handleDeleteToTrash = (ids: string[]) => {
-    if (ids.length === 0) return
-    if (!window.confirm(`Move ${ids.length} match result(s) to Trash?`)) return
+  const handleConfirmTrash = () => {
+    if (!trashConfirmIds || trashConfirmIds.length === 0) return
+    const ids = trashConfirmIds
     startTransition(async () => {
       const res = await bulkDeleteResults(ids)
       if (res.ok) {
         toast.success(`Moved ${res.count} result(s) to Trash`)
         setSelectedResultIds((prev) => prev.filter((id) => !ids.includes(id)))
+        setTrashConfirmIds(null)
       } else {
         toast.error(res.error || "Failed to move results to trash")
       }
@@ -916,7 +983,8 @@ export function AdminResults({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      {/* Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PublishResultButton
           scrims={scrims}
@@ -924,20 +992,50 @@ export function AdminResults({
           availableDates={availableDates}
           initialDate={initialDate}
         />
-
         {isAdmin && selectedResultIds.length > 0 && (
           <Button
             size="sm"
             variant="destructive"
             disabled={isPending}
-            onClick={() => handleDeleteToTrash(selectedResultIds)}
-            className="h-8 gap-1.5 text-xs"
+            onClick={() => setTrashConfirmIds(selectedResultIds)}
+            className="h-8 gap-1.5 text-xs font-semibold"
           >
             <Trash2 className="size-3.5" /> Move Selected to Trash ({selectedResultIds.length})
           </Button>
         )}
       </div>
 
+      {/* Lobby Navigation Filter */}
+      {lobbyGroups.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
+            <Layers className="size-3.5" /> Filter Scrim Lobby:
+          </span>
+          <Button
+            size="sm"
+            variant={lobbyFilter === "all" ? "default" : "outline"}
+            onClick={() => setLobbyFilter("all")}
+            className="h-8 text-xs font-semibold rounded-lg"
+          >
+            All Lobbies ({results.length} results)
+          </Button>
+          {lobbyGroups.map((g: LobbyGroupAdmin) => (
+            <Button
+              key={g.key}
+              size="sm"
+              variant={lobbyFilter === g.key ? "default" : "outline"}
+              onClick={() => setLobbyFilter(g.key)}
+              className="h-8 text-xs font-semibold rounded-lg gap-1.5"
+            >
+              <Clock className="size-3" />
+              <span>{g.startTime || "Slot"}</span>
+              <span className="opacity-70">({g.items.length})</span>
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Multi-Select Bar */}
       {results.length > 0 && isAdmin && (
         <div className="glass flex items-center justify-between rounded-xl border border-border/60 p-3">
           <button
@@ -951,141 +1049,204 @@ export function AdminResults({
         </div>
       )}
 
+      {/* Results Grouped Under Distinct Scrim Lobby Sections */}
       {results.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
-          No match results published yet.
+          No match results published yet. Use &quot;Publish Result&quot; above to post results for a scrim lobby.
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {results.map(({ result, scrimTitle }) => {
-            const isSelected = selectedResultIds.includes(result.id)
-            const isChampion = result.category?.includes("Champion") || result.placement === 1
-            const isRunnerUp = result.category?.includes("Runner-up") || result.placement === 2
-            const isSecondRunnerUp = result.category?.includes("Second Runner-up") || result.placement === 3
+        <div className="flex flex-col gap-8">
+          {filteredGroups.map((group: LobbyGroupAdmin) => (
+            <div
+              key={group.key}
+              className="rounded-2xl border border-border/80 bg-secondary/15 overflow-hidden shadow-sm"
+            >
+              {/* Distinct Scrim Lobby Header */}
+              <div className="border-b border-border/70 bg-secondary/40 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+                    <Swords className="size-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
+                      SCRIM LOBBY SECTION
+                    </span>
+                    <h2 className="font-display text-base sm:text-lg font-bold uppercase text-foreground">
+                      {group.scrimTitle}
+                    </h2>
+                  </div>
+                </div>
 
-            return (
-              <li
-                key={result.id}
-                className={`glass flex flex-col gap-3 rounded-2xl p-4 border transition-all ${
-                  isSelected ? "border-primary bg-primary/5 shadow-md" : "border-border/80"
-                }`}
-              >
                 <div className="flex flex-wrap items-center gap-2">
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => toggleSelect(result.id)}
-                      className="p-1 text-muted-foreground hover:text-foreground mr-1"
-                    >
-                      {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
-                    </button>
-                  )}
-                  {isChampion ? (
-                    <Crown className="size-5 text-amber-400" />
-                  ) : isRunnerUp ? (
-                    <Medal className="size-5 text-slate-300" />
-                  ) : isSecondRunnerUp ? (
-                    <Medal className="size-5 text-amber-700" />
-                  ) : (
-                    <Trophy className="size-5 text-primary" />
-                  )}
-
-                  <h2 className="min-w-0 flex-1 truncate font-display text-lg font-bold">
-                    {result.winningTeam}
-                  </h2>
-
-                  {result.category && (
-                    <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 font-bold">
-                      {result.category}
+                  {group.startTime && (
+                    <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-bold text-xs py-1 gap-1">
+                      <Clock className="size-3" />
+                      {group.startTime}
                     </Badge>
                   )}
-                  {result.mvpPlayerName && (
-                    <Badge variant="outline" className="border-amber-500/50 text-amber-400 bg-amber-500/10 font-bold">
-                      MVP: {result.mvpPlayerName} {result.mvpTeamName ? `(${result.mvpTeamName})` : ""}
+                  {group.matchDate && (
+                    <Badge variant="outline" className="border-border bg-background text-muted-foreground text-xs py-1 gap-1">
+                      <Calendar className="size-3" />
+                      {formatDate(group.matchDate)}
                     </Badge>
                   )}
-                  <Badge variant={result.prizeStatus === "sent" ? "default" : "secondary"}>
-                    {result.prizeStatus === "sent" ? "Prize sent" : "Prize pending"}
+                  <Badge variant="secondary" className="text-xs py-1">
+                    {group.items.length} {group.items.length === 1 ? "Result" : "Results"}
                   </Badge>
                 </div>
+              </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{scrimTitle ?? "Deleted scrim"}</span>
-                  <span>{result.kills} kills</span>
-                  <span className="font-bold text-primary">#{result.placement}</span>
-                  <span className="font-bold text-amber-400">{formatTaka(result.prizeBdt)}</span>
-                  <span>{formatDate(result.matchDate)}</span>
-                </div>
+              {/* Result Cards within this Lobby */}
+              <ul className="p-4 sm:p-5 flex flex-col gap-3">
+                {group.items.map(({ result, scrimTitle }: ResultRow) => {
+                  const isSelected = selectedResultIds.includes(result.id)
+                  const isChampion = result.category?.includes("Champion") || result.placement === 1
+                  const isRunnerUp = result.category?.includes("Runner-up") || result.placement === 2
+                  const isSecondRunnerUp = result.category?.includes("Second Runner-up") || result.placement === 3
 
-                {(() => {
                   const rawImgs = (Array.isArray(result.imageUrls) && result.imageUrls.length > 0)
                     ? (result.imageUrls as string[])
                     : result.screenshotUrl ? [result.screenshotUrl] : []
                   const imgs = resolveImageUrls(rawImgs)
 
-                  if (imgs.length === 0) return null
-
                   return (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {imgs.map((url, i) => (
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                          <Image
-                            src={url || "/placeholder.svg"}
-                            alt={`Result screenshot ${i + 1} for ${result.winningTeam}`}
-                            width={240}
-                            height={135}
-                            unoptimized
-                            className="h-28 w-44 rounded-lg border border-border object-cover hover:opacity-90 transition-opacity"
-                          />
-                        </a>
-                      ))}
-                    </div>
+                    <li
+                      key={result.id}
+                      className={`glass flex flex-col gap-3 rounded-xl p-4 border transition-all ${
+                        isSelected ? "border-primary bg-primary/5 shadow-md" : "border-border/80"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => toggleSelect(result.id)}
+                            className="p-1 text-muted-foreground hover:text-foreground mr-1"
+                          >
+                            {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+                          </button>
+                        )}
+                        {isChampion ? (
+                          <Crown className="size-5 text-amber-400" />
+                        ) : isRunnerUp ? (
+                          <Medal className="size-5 text-slate-300" />
+                        ) : isSecondRunnerUp ? (
+                          <Medal className="size-5 text-amber-700" />
+                        ) : (
+                          <Trophy className="size-5 text-primary" />
+                        )}
+                        <h3 className="min-w-0 flex-1 truncate font-display text-base font-bold text-foreground">
+                          {result.winningTeam}
+                        </h3>
+                        {result.category && (
+                          <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 font-bold text-xs">
+                            {result.category}
+                          </Badge>
+                        )}
+                        {result.mvpPlayerName && (
+                          <Badge variant="outline" className="border-amber-500/50 text-amber-400 bg-amber-500/10 font-bold text-xs">
+                            MVP: {result.mvpPlayerName} {result.mvpTeamName ? `(${result.mvpTeamName})` : ""}
+                          </Badge>
+                        )}
+                        <Badge variant={result.prizeStatus === "sent" ? "default" : "secondary"} className="text-xs">
+                          {result.prizeStatus === "sent" ? "Prize sent" : "Prize pending"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>Placement: <strong className="text-primary font-bold">#{result.placement}</strong></span>
+                        <span>Kills: <strong>{result.kills}</strong></span>
+                        <span className="font-bold text-amber-400">{formatTaka(result.prizeBdt)}</span>
+                        {result.matchDate && <span>Date: {formatDate(result.matchDate)}</span>}
+                      </div>
+
+                      {imgs.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {imgs.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                              <Image
+                                src={url || "/placeholder.svg"}
+                                alt={`Result screenshot ${i + 1} for ${result.winningTeam}`}
+                                width={240}
+                                height={135}
+                                unoptimized
+                                className="h-24 w-36 rounded-lg border border-border object-cover hover:opacity-90 transition-opacity"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-3">
+                        {isAdmin && (
+                          <EditResultDialog result={result} scrimTitle={scrimTitle} />
+                        )}
+                        {result.prizeStatus !== "sent" && isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isPending}
+                            onClick={() =>
+                              startTransition(async () => {
+                                try {
+                                  await markPrizeSent(result.id)
+                                  toast.success("Marked prize as sent")
+                                } catch {
+                                  toast.error("Failed to update prize status")
+                                }
+                              })
+                            }
+                            className="gap-1.5 text-xs"
+                          >
+                            <CheckCheck className="size-3.5" />
+                            Mark prize sent
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={isPending}
+                            onClick={() => setTrashConfirmIds([result.id])}
+                            className="gap-1.5 text-xs"
+                          >
+                            <Trash2 className="size-3.5" />
+                            Move to Trash
+                          </Button>
+                        )}
+                      </div>
+                    </li>
                   )
-                })()}
-
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-3">
-                  {isAdmin && (
-                    <EditResultDialog result={result} scrimTitle={scrimTitle} />
-                  )}
-
-                  {result.prizeStatus !== "sent" && isAdmin && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isPending}
-                      onClick={() =>
-                        startTransition(async () => {
-                          try {
-                            await markPrizeSent(result.id)
-                            toast.success("Marked prize as sent")
-                          } catch {
-                            toast.error("Failed to update prize status")
-                          }
-                        })
-                      }
-                    >
-                      <CheckCheck className="size-3.5" />
-                      Mark prize sent
-                    </Button>
-                  )}
-
-                  {isAdmin && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={isPending}
-                      onClick={() => handleDeleteToTrash([result.id])}
-                    >
-                      <Trash2 className="size-3.5" />
-                      Move to Trash
-                    </Button>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* In-App Confirmation Dialog for Moving Results to Trash (replaces window.confirm) */}
+      <Dialog open={trashConfirmIds !== null} onOpenChange={(open) => !open && setTrashConfirmIds(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Trash2 className="size-5 text-destructive" />
+              Move Result(s) to Trash?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to move {trashConfirmIds?.length} match result(s) to the Trash bin? They can be restored or permanently wiped from the Trash tab.
+          </p>
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setTrashConfirmIds(null)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleConfirmTrash} disabled={isPending} className="gap-1.5">
+              {isPending && <Loader2 className="size-3.5 animate-spin" />}
+              Confirm Move to Trash
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

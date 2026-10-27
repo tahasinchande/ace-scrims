@@ -1,15 +1,28 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { formatTaka, formatDate } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trophy, Crosshair, Medal, ExternalLink, Clock, ChevronDown, ChevronUp, Swords } from "lucide-react"
+import {
+  Trophy,
+  Crosshair,
+  Medal,
+  ExternalLink,
+  Clock,
+  Swords,
+  Crown,
+  Award,
+  Star,
+  MapPin,
+  Calendar,
+  Layers,
+  Sparkles,
+} from "lucide-react"
 import { useLanguage } from "@/lib/language"
-import { resolveImageUrl, resolveImageUrls } from "@/lib/image-url"
-import type { MatchResult } from "@/lib/db/schema"
+import { resolveImageUrls } from "@/lib/image-url"
 import type { ResultWithScrim } from "@/lib/queries/results"
 
 export type LeaderboardEntry = {
@@ -26,11 +39,20 @@ export type ScrimSector = {
   map: string
 }
 
+type LobbyGroup = {
+  key: string
+  scrimId: string | null
+  title: string
+  time: string
+  map: string
+  date: string | null
+  results: ResultWithScrim[]
+}
+
 const medalColor = ["text-primary", "text-muted-foreground", "text-chart-3"]
 
 export function ResultsView({
   recent = [],
-  scrimSectors = [],
   leaderboard = [],
 }: {
   recent: ResultWithScrim[]
@@ -39,45 +61,71 @@ export function ResultsView({
 }) {
   const { lang, t } = useLanguage()
   const isBn = lang === "bn"
-  const [showAllSectors, setShowAllSectors] = useState(false)
+  const [selectedLobbyFilter, setSelectedLobbyFilter] = useState<string>("all")
 
-  // Use real sectors provided from active scrims in the database; or extract from results if available
-  const availableSectors: ScrimSector[] = scrimSectors.length > 0
-    ? scrimSectors
-    : Array.from(
-        new Map(
-          recent
-            .filter((r) => r.scrimId)
-            .map((r) => [
-              r.scrimId,
-              {
-                id: r.scrimId!,
-                title: r.scrimTitle || "Scrim Match",
-                startTime: r.scrimTime || "7:00 PM",
-                map: r.scrimMap || "Bermuda",
-              },
-            ])
-        ).values()
-      )
+  // Group results strictly and cleanly by each individual scrim lobby
+  const lobbyGroups: LobbyGroup[] = useMemo(() => {
+    const map = new Map<string, LobbyGroup>()
 
-  const visibleSectors = showAllSectors ? availableSectors : availableSectors.slice(0, 6)
+    for (const r of recent) {
+      // Create a unique composite key for each distinct scrim lobby & match date
+      const lobbyKey = `${r.scrimId || r.scrimTitle || "match"}_${r.matchDate || "active"}`
+
+      if (!map.has(lobbyKey)) {
+        map.set(lobbyKey, {
+          key: lobbyKey,
+          scrimId: r.scrimId || null,
+          title: r.scrimTitle || "Daily Scrim Lobby",
+          time: r.scrimTime || "Match Slot",
+          map: r.scrimMap || "Bermuda",
+          date: r.matchDate ? formatDate(r.matchDate) : null,
+          results: [],
+        })
+      }
+
+      map.get(lobbyKey)!.results.push(r)
+    }
+
+    // Sort within each lobby by placement ascending (1st place champion first, then 2nd, etc.)
+    for (const group of map.values()) {
+      group.results.sort((a, b) => {
+        const catWeight = (item: ResultWithScrim) => {
+          if (item.category?.includes("Champion") || item.placement === 1) return 1
+          if (item.category?.includes("Runner-up") || item.placement === 2) return 2
+          if (item.category?.includes("Second Runner-up") || item.placement === 3) return 3
+          if (item.category?.includes("Third Runner-up") || item.placement === 4) return 4
+          if (item.category?.includes("MVP")) return 5
+          return 10 + (item.placement || 99)
+        }
+        return catWeight(a) - catWeight(b)
+      })
+    }
+
+    return Array.from(map.values())
+  }, [recent])
+
+  const filteredGroups = useMemo(() => {
+    if (selectedLobbyFilter === "all") return lobbyGroups
+    return lobbyGroups.filter((g) => g.key === selectedLobbyFilter || g.scrimId === selectedLobbyFilter)
+  }, [lobbyGroups, selectedLobbyFilter])
+
   const hasResults = recent.length > 0
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
       <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-display text-sm font-semibold uppercase tracking-widest text-primary">
-            {t("results_eyebrow", "PROVED WINNERS")}
+          <p className="font-display text-sm font-semibold uppercase tracking-widest text-primary flex items-center gap-1.5">
+            <Sparkles className="size-4" />
+            {t("results_eyebrow", "PROVED WINNERS & MATCH RESULTS")}
           </p>
-          <h1 className="font-display text-3xl font-bold uppercase tracking-wide text-balance md:text-4xl">
+          <h1 className="font-display text-3xl font-bold uppercase tracking-wide text-balance md:text-4xl text-foreground">
             {t("results_title", "Match Results & Leaderboard")}
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            {t("results_subtitle", "Daily Scrim sectors organized by match slot with verified screenshot proofs.")}
+            {t("results_subtitle", "Verified match results grouped under distinct scrim lobby headers with high-resolution screenshot proofs.")}
           </p>
         </div>
-
         <Link
           href="/scrims"
           className="glow-primary inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-sm font-bold uppercase text-primary-foreground transition-transform hover:scale-105"
@@ -87,223 +135,232 @@ export function ResultsView({
         </Link>
       </header>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px]">
-        {/* Scrim Results Column */}
-        <section aria-label="Scrim match sectors" className="flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b border-border/80 pb-3">
-            <h2 className="font-display text-xl font-bold uppercase tracking-wide flex items-center gap-2">
-              <Trophy className="size-5 text-primary" />
-              {isBn ? "ফলাফল ও ম্যাচ প্রুফ" : "Match Results & Proofs"}
-            </h2>
-            {hasResults && (
-              <Badge variant="outline" className="border-primary/40 text-primary font-bold">
-                {recent.length} {isBn ? "টি ফলাফল প্রকাশিত" : "Published Results"}
-              </Badge>
-            )}
-          </div>
+      {/* Lobby Filter Navigation Pills */}
+      {lobbyGroups.length > 1 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
+            <Layers className="size-3.5" /> Filter Lobby:
+          </span>
+          <Button
+            size="sm"
+            variant={selectedLobbyFilter === "all" ? "default" : "outline"}
+            onClick={() => setSelectedLobbyFilter("all")}
+            className="h-8 text-xs font-semibold rounded-lg"
+          >
+            All Lobbies ({lobbyGroups.length})
+          </Button>
+          {lobbyGroups.map((group) => {
+            const isSelected = selectedLobbyFilter === group.key
+            return (
+              <Button
+                key={group.key}
+                size="sm"
+                variant={isSelected ? "default" : "outline"}
+                onClick={() => setSelectedLobbyFilter(group.key)}
+                className="h-8 text-xs font-semibold rounded-lg gap-1.5"
+              >
+                <Clock className="size-3" />
+                <span>{group.time}</span>
+                <span className="opacity-70">({group.map})</span>
+              </Button>
+            )
+          })}
+        </div>
+      )}
 
-          {/* Conditional Empty State when no results published yet */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px]">
+        {/* Scrim Results Column — Grouped by Distinct Lobby Headers */}
+        <section aria-label="Scrim match sectors" className="flex flex-col gap-8">
           {!hasResults ? (
-            <div className="glass flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/80 p-12 text-center bg-secondary/20">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-inner">
-                <Trophy className="size-7" />
-              </div>
-              <div className="max-w-md">
-                <h3 className="font-display text-xl font-bold uppercase text-foreground">
-                  {isBn ? "এখনো কোনো ফলাফল প্রকাশিত হয়নি" : "No match results published yet"}
+            <div className="glass flex flex-col items-center justify-center gap-4 rounded-2xl p-12 text-center border border-border/70">
+              <Trophy className="size-12 text-muted-foreground/30" />
+              <div>
+                <h3 className="font-display text-lg font-bold uppercase text-foreground">
+                  {isBn ? "এখনো কোনো ফলাফল প্রকাশিত হয়নি" : "No Match Results Published Yet"}
                 </h3>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground max-w-md">
                   {isBn
-                    ? "আজকের স্ক্রিম লবির ম্যাচ ফলাফল এবং যাচাইকৃত স্ক্রিনশট প্রুফ ম্যাচ সম্পন্ন হওয়ার পর মডারেটর দ্বারা প্রকাশ করা হবে।"
-                    : "Verified match results, kill tallies, and screenshot proofs for tournament lobbies will appear here once verified and published by match moderators."}
+                    ? "আজকের ম্যাচগুলো সম্পন্ন হলে এখানে লবি অনুযায়ী বিজয়ীদের তালিকা ও প্রুফ স্ক্রিনশট প্রকাশিত হবে।"
+                    : "Once today matches conclude, official winner standings and verified proofs will be published here grouped by scrim lobby."}
                 </p>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-                <Button asChild variant="outline" size="sm" className="font-display text-xs font-bold uppercase gap-1.5">
-                  <Link href="/scrims">
-                    <Swords className="size-3.5" />
-                    {isBn ? "আজকের স্ক্রিম লবি দেখুন" : "View Today's Scrims"}
-                  </Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm" className="font-display text-xs font-bold uppercase text-muted-foreground hover:text-foreground">
-                  <Link href="/dashboard">
-                    {isBn ? "আমার ড্যাশবোর্ড" : "Player Dashboard"}
-                  </Link>
-                </Button>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
-              {visibleSectors.map((sector) => {
-                const sectorResults = recent.filter((r) => r.scrimId === sector.id)
-                if (sectorResults.length === 0) return null
-
-                return (
-                  <div
-                    key={sector.id}
-                    className="glass flex flex-col gap-4 rounded-2xl p-5 border border-border/80 relative overflow-hidden"
-                  >
-                    {/* Sector Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                      <div>
-                        <h3 className="font-display text-lg font-bold uppercase text-foreground flex items-center gap-2">
-                          <span>{sector.title}</span>
-                        </h3>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1 font-semibold text-primary">
-                            <Clock className="size-3.5" />
-                            {sector.startTime}
-                          </span>
-                          <span>Map: {sector.map}</span>
-                          <span>Mode: BATTLE ROYALE</span>
+            <div className="flex flex-col gap-8">
+              {filteredGroups.map((group) => (
+                <div
+                  key={group.key}
+                  className="rounded-2xl border border-border/80 bg-secondary/10 overflow-hidden shadow-sm"
+                >
+                  {/* Distinct Scrim Lobby Header */}
+                  <div className="border-b border-border/70 bg-gradient-to-r from-secondary/80 via-secondary/40 to-transparent p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+                          <Swords className="size-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                              SCRIM LOBBY
+                            </span>
+                            {group.date && (
+                              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                <Calendar className="size-3" /> {group.date}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="font-display text-lg sm:text-xl font-bold uppercase tracking-wide text-foreground">
+                            {group.title}
+                          </h2>
                         </div>
                       </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-bold gap-1 text-xs py-1">
+                          <Clock className="size-3.5" />
+                          {group.time}
+                        </Badge>
+                        <Badge variant="outline" className="border-border bg-background text-muted-foreground font-semibold gap-1 text-xs py-1">
+                          <MapPin className="size-3.5 text-muted-foreground" />
+                          {group.map}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs py-1">
+                          {group.results.length} {group.results.length === 1 ? "Result" : "Results"}
+                        </Badge>
+                      </div>
                     </div>
+                  </div>
 
-                    {/* Sector Results */}
-                    <div className="flex flex-col gap-4">
-                      {sectorResults.map((r) => {
-                        const rawImgs = Array.isArray(r.imageUrls) && r.imageUrls.length > 0
-                          ? (r.imageUrls as string[])
-                          : r.screenshotUrl ? [r.screenshotUrl] : []
-                        const imgs = resolveImageUrls(rawImgs)
+                  {/* Results inside this Lobby */}
+                  <div className="p-4 sm:p-5 flex flex-col gap-4">
+                    {group.results.map((r) => {
+                      const isChampion = r.category?.includes("Champion") || r.placement === 1
+                      const isRunnerUp = r.category?.includes("Runner-up") || r.placement === 2
+                      const isSecondRunnerUp = r.category?.includes("Second Runner-up") || r.placement === 3
+                      const isThirdRunnerUp = r.category?.includes("Third Runner-up") || r.placement === 4
+                      const isMvp = r.category?.includes("MVP") || Boolean(r.mvpPlayerName)
 
-                        return (
-                          <div
-                            key={r.id}
-                            className="flex flex-col gap-3 rounded-xl bg-secondary/40 p-4 border border-border/60"
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Trophy className="size-4 shrink-0 text-primary" />
-                              <span className="font-display font-bold text-base text-foreground flex-1">
-                                {r.winningTeam}
-                              </span>
+                      const rawImgs = Array.isArray(r.imageUrls) && r.imageUrls.length > 0
+                        ? (r.imageUrls as string[])
+                        : r.screenshotUrl ? [r.screenshotUrl] : []
+                      const imgs = resolveImageUrls(rawImgs)
+
+                      return (
+                        <div
+                          key={r.id}
+                          className={`glass flex flex-col gap-3 rounded-xl p-4 sm:p-5 border transition-all ${
+                            isChampion
+                              ? "border-amber-500/50 bg-amber-500/5 shadow-md"
+                              : isRunnerUp
+                              ? "border-slate-400/40 bg-slate-400/5"
+                              : isSecondRunnerUp
+                              ? "border-amber-700/40 bg-amber-700/5"
+                              : "border-border/70"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {isChampion ? (
+                                <Crown className="size-5 shrink-0 text-amber-400" />
+                              ) : isRunnerUp ? (
+                                <Medal className="size-5 shrink-0 text-slate-300" />
+                              ) : isSecondRunnerUp ? (
+                                <Medal className="size-5 shrink-0 text-amber-600" />
+                              ) : isThirdRunnerUp ? (
+                                <Award className="size-5 shrink-0 text-primary" />
+                              ) : isMvp ? (
+                                <Star className="size-5 shrink-0 text-amber-400" />
+                              ) : (
+                                <Trophy className="size-5 shrink-0 text-primary" />
+                              )}
+
+                              <div className="min-w-0">
+                                <h3 className="font-display font-bold text-base sm:text-lg text-foreground truncate">
+                                  {r.winningTeam}
+                                </h3>
+                              </div>
+
                               {r.category && (
-                                <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 font-bold">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs font-bold ${
+                                    isChampion
+                                      ? "border-amber-500/50 text-amber-400 bg-amber-500/10"
+                                      : isRunnerUp
+                                      ? "border-slate-400/50 text-slate-300 bg-slate-400/10"
+                                      : isSecondRunnerUp
+                                      ? "border-amber-700/50 text-amber-500 bg-amber-700/10"
+                                      : "border-primary/40 text-primary bg-primary/10"
+                                  }`}
+                                >
                                   {r.category}
                                 </Badge>
                               )}
-                              {r.mvpPlayerName && (
-                                <Badge variant="outline" className="border-amber-500/50 text-amber-400 bg-amber-500/10 font-bold">
-                                  MVP: {r.mvpPlayerName} {r.mvpTeamName ? `(${r.mvpTeamName})` : ""}
-                                </Badge>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {r.prizeBdt > 0 && (
+                                <span className="font-display text-base font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 rounded-lg">
+                                  {formatTaka(r.prizeBdt)}
+                                </span>
                               )}
-                              <Badge variant={r.prizeStatus === "sent" ? "default" : "secondary"}>
-                                {r.prizeStatus === "sent"
-                                  ? isBn ? "প্রাইজ পাঠানো হয়েছে" : "Prize Sent"
-                                  : isBn ? "প্রাইজ প্রসেসিং হচ্ছে" : "Prize Processing"}
-                              </Badge>
                             </div>
+                          </div>
 
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Crosshair className="size-3.5 text-primary" />
-                                <strong>{r.kills}</strong> {isBn ? "কিলস" : "kills"}
-                              </span>
-                              <span>Placement: <strong>#{r.placement}</strong></span>
-                              <span className="font-bold text-primary text-sm">{formatTaka(r.prizeBdt)}</span>
-                              <span>{formatDate(r.matchDate)}</span>
+                          {/* MVP Callout if available */}
+                          {r.mvpPlayerName && (
+                            <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300 font-semibold w-fit">
+                              <Star className="size-3.5 text-amber-400" />
+                              <span>MVP Player: <strong>{r.mvpPlayerName}</strong> {r.mvpTeamName ? `(${r.mvpTeamName})` : ""}</span>
                             </div>
+                          )}
 
-                            {/* Screenshots / Banners */}
-                            {imgs.length > 0 && (
-                              <div className="mt-1 grid gap-3 sm:grid-cols-2">
-                                {imgs.map((url, i) => (
-                                  <div
-                                    key={i}
-                                    className="relative group overflow-hidden rounded-xl border border-border/80 bg-black/50"
+                          {/* Stats Row */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
+                            <span className="flex items-center gap-1 font-medium">
+                              <Crosshair className="size-3.5 text-primary" />
+                              <strong>{r.kills}</strong> {isBn ? "কিলস" : "kills"}
+                            </span>
+                            <span>Placement: <strong>#{r.placement}</strong></span>
+                            {r.matchDate && <span>Date: {formatDate(r.matchDate)}</span>}
+                          </div>
+
+                          {/* Screenshots / Banner Proofs */}
+                          {imgs.length > 0 && (
+                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                              {imgs.map((url, i) => (
+                                <div
+                                  key={i}
+                                  className="relative group overflow-hidden rounded-xl border border-border/80 bg-black/50"
+                                >
+                                  <Image
+                                    src={url || "/placeholder.svg"}
+                                    alt={`Result banner ${i + 1} — ${r.winningTeam}`}
+                                    width={640}
+                                    height={360}
+                                    unoptimized
+                                    className="w-full h-44 object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
+                                  />
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-semibold gap-1.5"
                                   >
-                                    <Image
-                                      src={url || "/placeholder.svg"}
-                                      alt={`Result banner ${i + 1} — ${r.winningTeam}`}
-                                      width={640}
-                                      height={360}
-                                      unoptimized
-                                      className="w-full h-44 object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
-                                    />
-                                    <a
-                                      href={url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-semibold gap-1.5"
-                                    >
-                                      <ExternalLink className="size-4" />
-                                      {t("view_full_image", "View Full Image")}
-                                    </a>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
+                                    <ExternalLink className="size-4" />
+                                    {t("view_full_image", "View Full Image Proof")}
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
-
-              {visibleSectors.length === 0 && hasResults && (
-                <div className="flex flex-col gap-4">
-                  {recent.map((r) => {
-                    const rawImgs = Array.isArray(r.imageUrls) && r.imageUrls.length > 0
-                      ? (r.imageUrls as string[])
-                      : r.screenshotUrl ? [r.screenshotUrl] : []
-                    const imgs = resolveImageUrls(rawImgs)
-
-                    return (
-                      <div
-                        key={r.id}
-                        className="glass flex flex-col gap-3 rounded-2xl p-5 border border-border/80"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Trophy className="size-4 shrink-0 text-primary" />
-                          <span className="font-display font-bold text-base text-foreground flex-1">
-                            {r.winningTeam}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{r.scrimTitle || "Scrim Match"}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          <span>Kills: <strong>{r.kills}</strong></span>
-                          <span>Placement: <strong>#{r.placement}</strong></span>
-                          <span className="font-bold text-primary">{formatTaka(r.prizeBdt)}</span>
-                          <span>{formatDate(r.matchDate)}</span>
-                        </div>
-                        {imgs.length > 0 && (
-                          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                            {imgs.map((url, i) => (
-                              <div key={i} className="relative overflow-hidden rounded-xl border border-border/80 h-40">
-                                <Image src={url} alt={`Banner ${i + 1}`} fill unoptimized className="object-cover" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
                 </div>
-              )}
-            </div>
-          )}
-
-          {availableSectors.length > 6 && (
-            <div className="flex justify-center pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowAllSectors(!showAllSectors)}
-                className="gap-2 font-display font-bold uppercase text-xs"
-              >
-                {showAllSectors ? (
-                  <>
-                    <ChevronUp className="size-4" />
-                    <span>Show Fewer Sectors</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="size-4" />
-                    <span>Show All {availableSectors.length} Sectors</span>
-                  </>
-                )}
-              </Button>
+              ))}
             </div>
           )}
         </section>

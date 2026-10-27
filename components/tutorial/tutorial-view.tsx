@@ -1,5 +1,7 @@
 "use client"
 
+import { parseVideoEmbed } from "@/lib/video-parser"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Users, CreditCard, KeyRound, Trophy, ArrowRight, ShieldCheck } from "lucide-react"
@@ -75,16 +77,28 @@ export function TutorialView({ tutorials = [] }: { tutorials?: Tutorial[] }) {
                 <h3 className="font-display text-base font-bold text-foreground">{v.title}</h3>
                 {v.description && <p className="text-xs text-muted-foreground">{v.description}</p>}
                 <div className="overflow-hidden rounded-xl bg-black/60 border border-border/80">
-                  {v.videoUrl.includes("youtube.com") || v.videoUrl.includes("youtu.be") ? (
-                    <iframe
-                      src={v.videoUrl.replace("watch?v=", "embed/")}
-                      title={v.title}
-                      className="w-full aspect-video"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <video src={v.videoUrl} controls className="w-full aspect-video object-contain" />
-                  )}
+                  {(() => {
+                    const parsed = parseVideoEmbed(v.videoUrl)
+                    if (parsed.isEmbeddableIframe) {
+                      return (
+                        <iframe
+                          src={parsed.embedUrl}
+                          title={v.title}
+                          className="w-full aspect-video border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      )
+                    }
+                    return (
+                      <video
+                        src={v.videoUrl}
+                        controls
+                        playsInline
+                        className="w-full aspect-video object-contain bg-black"
+                      />
+                    )
+                  })()}
                 </div>
               </div>
             ))}

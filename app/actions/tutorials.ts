@@ -7,6 +7,7 @@ import { tutorials } from "@/lib/db/schema"
 import { requireAdmin } from "@/lib/session"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
+import { parseVideoEmbed } from "@/lib/video-parser"
 
 const tutorialSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(150),
@@ -43,11 +44,13 @@ export async function addTutorial(_prev: unknown, formData: FormData): Promise<T
       return { ok: false, error: issue ? `${issue.path.join(".")}: ${issue.message}` : "Invalid tutorial data" }
     }
 
+    const normalizedUrl = parseVideoEmbed(parsed.data.videoUrl).embedUrl || parsed.data.videoUrl
+
     await db.insert(tutorials).values({
       id: randomUUID(),
       title: parsed.data.title,
       description: parsed.data.description,
-      videoUrl: parsed.data.videoUrl,
+      videoUrl: normalizedUrl,
       publishedBy: admin.id,
     })
 
@@ -83,12 +86,14 @@ export async function updateTutorial(tutorialId: string, formData: FormData): Pr
       return { ok: false, error: issue ? `${issue.path.join(".")}: ${issue.message}` : "Invalid tutorial data" }
     }
 
+    const normalizedUrl = parseVideoEmbed(parsed.data.videoUrl).embedUrl || parsed.data.videoUrl
+
     await db
       .update(tutorials)
       .set({
         title: parsed.data.title,
         description: parsed.data.description,
-        videoUrl: parsed.data.videoUrl,
+        videoUrl: normalizedUrl,
       })
       .where(eq(tutorials.id, tutorialId))
 

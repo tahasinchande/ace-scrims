@@ -91,6 +91,24 @@ export async function createBooking(
     data.paymentNumber = "Ace Scrims Account Balance"
   }
 
+  // Auto-persist squad details to user profile ("Info Setup") so future registrations auto-populate
+  try {
+    const { autoSaveUserDefaultInfo } = await import("@/app/actions/user-info");
+    autoSaveUserDefaultInfo(user.id, {
+      teamName: data.teamName,
+      teamTag: data.teamTag,
+      captainName: data.captainName,
+      captainUid: data.captainUid,
+      phone: data.phone,
+      paymentMethod: data.paymentMethod,
+      paymentNumber: data.paymentNumber,
+      teamLeaderImageUrl: data.teamLeaderImageUrl,
+      teamMembersDriveLink: data.teamMembersDriveLink,
+    }).catch((err) => console.error("[AutoSave] Default info background error:", err));
+  } catch (autoErr) {
+    console.error("[AutoSave] Failed to trigger auto-save:", autoErr);
+  }
+
   const { resolveOrEnsureScrim } = await import("@/lib/queries/scrims")
   await resolveOrEnsureScrim(data.scrimId).catch(() => {})
 

@@ -68,8 +68,8 @@ export async function uploadVideoToCloudinaryDirect(
     throw new Error("Please select a valid video file.")
   }
 
-  if (file.size > 500 * 1024 * 1024) {
-    throw new Error("Video file size must be under 500MB. Please compress the file or provide a direct video URL.")
+  if (file.size > 5 * 1024 * 1024 * 1024) {
+    throw new Error("Video file size must be under 5GB. For larger videos, please paste an unlisted YouTube or Google Drive share link.")
   }
 
   const { cloudName, uploadPreset } = await getCloudinaryConfig()
@@ -161,8 +161,8 @@ export async function uploadVideoToCloudinaryDirect(
       reject(new Error("Upload cancelled."))
     })
 
-    // Allow generous 10-minute timeout for large video files
-    xhr.timeout = 10 * 60 * 1000
+    // Allow generous 60-minute timeout for large video files (up to 5GB)
+    xhr.timeout = 60 * 60 * 1000
 
     xhr.open("POST", endpoint)
     xhr.send(formData)
