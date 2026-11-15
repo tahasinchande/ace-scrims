@@ -8,7 +8,7 @@ import { requireAdmin, logActivity } from "@/lib/session"
 import { refundPayment, verifyPayment } from "@/lib/uddoktapay"
 import { notifyUser } from "@/lib/notify"
 import { getAllSampleScrims } from "@/lib/queries/scrims"
-import { sendScrimNotHostedEmail } from "@/lib/email"
+import { sendScrimNotHostedEmail, sendEmailBatch } from "@/lib/email"
 import { eq, and, or, sql, isNull } from "drizzle-orm"
 
 /** Core internal action to mark a scrim as Not Hosted and transfer registered teams */
@@ -80,6 +80,11 @@ export async function executeMarkScrimNotHosted(
       )
 
     let count = 0
+    const emailRecipients = new Map<
+      string,
+      { email: string; recipientName: string; teamName: string; amountBdt: number }
+    >()
+
     for (const row of scrimBookings) {
       const b = row.booking
       const p = row.payment
@@ -180,20 +185,30 @@ export async function executeMarkScrimNotHosted(
         } catch {}
       }
 
-      // Send automated email notification to user
-      if (row.userEmail) {
-        sendScrimNotHostedEmail({
-          to: row.userEmail,
+      // Queue automated email notification to user
+      const normalizedEmail = row.userEmail?.trim().toLowerCase()
+      if (normalizedEmail && normalizedEmail.includes("@") && !emailRecipients.has(normalizedEmail)) {
+        emailRecipients.set(normalizedEmail, {
+          email: normalizedEmail,
           recipientName: row.userName || b.captainName || "Player",
           teamName: b.teamName,
+          amountBdt: amount,
+        })
+      }
+    }
+
+    if (emailRecipients.size > 0) {
+      await sendEmailBatch(Array.from(emailRecipients.values()), (r) =>
+        sendScrimNotHostedEmail({
+          to: r.email,
+          recipientName: r.recipientName,
+          teamName: r.teamName,
           scrimTitle: scrim.title,
           scrimDate: scrim.scrimDate,
           startTime: scrim.startTime,
-          amountBdt: amount,
-        }).catch((emailErr) => {
-          console.warn(`[executeMarkScrimNotHosted] Failed to send email to ${row.userEmail}:`, emailErr)
+          amountBdt: r.amountBdt,
         })
-      }
+      )
     }
 
     // 3. Mark scrim as not_hosted in database

@@ -9,7 +9,8 @@ import { notifyScrimParticipants, logActivity } from "@/lib/notify"
 import { eq, and, or } from "drizzle-orm"
 import { z } from "zod"
 import { put } from "@vercel/blob"
-import { sendRoomCredentialsEmail, sendMatchResultPublishedEmail } from "@/lib/email"
+import { sendRoomCredentialsEmail, sendMatchResultPublishedEmail, sendEmailBatch } from "@/lib/email"
+import { resolveOrEnsureScrim, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
 // ─────────────────────────────────────────────────────────────────────────
 // Staff actions: available to BOTH moderators and admins.
@@ -21,8 +22,6 @@ const roomSchema = z.object({
   roomId: z.string().trim().min(1, "Room ID is required").max(50),
   roomPassword: z.string().trim().min(1, "Password is required").max(50),
 })
-
-import { resolveOrEnsureScrim } from "@/lib/queries/scrims"
 
 export async function publishRoom(_prev: unknown, formData: FormData) {
   try {
@@ -59,7 +58,12 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
     await logActivity(staff.id, staff.role, isUpdated ? "update_room" : "publish_room", scrim.title)
 
     // Send Room ID & Password Release/Update Email to confirmed teams
+    let emailsSent = 0
+    let emailsFailed = 0
+    let totalRecipients = 0
+
     try {
+      const activeDate = getBangladeshActiveDate()
       const confirmedBookings = await db
         .select({
           bookingId: bookings.id,
@@ -77,38 +81,62 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            eq(bookings.scrimDate, scrim.scrimDate)
+            or(eq(bookings.scrimDate, scrim.scrimDate), eq(bookings.scrimDate, activeDate))
           )
         )
 
-      const emailPromises = confirmedBookings
-        .filter((b) => Boolean(b.userEmail))
-        .map((b) =>
-          sendRoomCredentialsEmail({
-            to: b.userEmail!,
+      const recipientMap = new Map<
+        string,
+        {
+          email: string
+          recipientName: string
+          teamName: string
+          slotNumber: number | null
+        }
+      >()
+      for (const b of confirmedBookings) {
+        const rawEmail = b.userEmail?.trim().toLowerCase()
+        if (rawEmail && rawEmail.includes("@") && !recipientMap.has(rawEmail)) {
+          recipientMap.set(rawEmail, {
+            email: rawEmail,
             recipientName: b.userName || b.captainName || "Captain",
             teamName: b.teamName,
+            slotNumber: b.slotNumber ?? null,
+          })
+        }
+      }
+
+      const recipients = Array.from(recipientMap.values())
+      totalRecipients = recipients.length
+
+      if (recipients.length > 0) {
+        const stats = await sendEmailBatch(recipients, (r) =>
+          sendRoomCredentialsEmail({
+            to: r.email,
+            recipientName: r.recipientName,
+            teamName: r.teamName,
             scrimTitle: scrim.title,
             startTime: scrim.startTime,
-            slotNumber: b.slotNumber,
+            slotNumber: r.slotNumber,
             roomId,
             roomPassword,
             isUpdated,
-          }).catch((err) =>
-            console.error(`[Staff Action] Error delivering room credentials email to ${b.userEmail}:`, err)
-          )
+          })
         )
-
-      await Promise.allSettled(emailPromises)
+        emailsSent = stats.sent
+        emailsFailed = stats.failed
+      }
     } catch (emailDispatchErr) {
       console.warn("[Staff Action] Could not query confirmed participants for room release email:", emailDispatchErr)
     }
 
     revalidatePath("/admin/scrims")
     revalidatePath("/dashboard/scrims")
-    return { ok: true, error: null }
+    revalidatePath("/scrims")
+    revalidatePath("/")
+    return { ok: true, error: null, emailsSent, emailsFailed, totalRecipients }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong" }
+    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong", emailsSent: 0, emailsFailed: 0, totalRecipients: 0 }
   }
 }
 
@@ -271,29 +299,20 @@ export async function publishResult(_prev: unknown, formData: FormData) {
 
       if (recipientMap.size > 0) {
         console.log(`[publishResult] Sending match result emails to ${recipientMap.size} confirmed team recipient(s)...`)
-        const emailJobs = Array.from(recipientMap.values()).map(async (recipient) => {
-          try {
-            const sent = await sendMatchResultPublishedEmail({
-              to: recipient.email,
-              recipientName: recipient.name,
-              teamName: recipient.teamName,
-              scrimTitle: scrim.title,
-              winningTeam: parsed.data.winningTeam,
-              kills: parsed.data.kills,
-              prizeBdt: parsed.data.prizeBdt,
-              placement: parsed.data.placement,
-              category: parsed.data.category,
-            })
-            if (!sent) {
-              console.error(`[publishResult Email] Delivery returned false for ${recipient.email}`)
-            }
-          } catch (emailErr) {
-            console.error(`[publishResult Email] Caught exception dispatching result email to ${recipient.email}:`, emailErr)
-          }
-        })
-
-        // Properly await all emails so Vercel serverless execution does not terminate prematurely
-        await Promise.all(emailJobs)
+        const recipients = Array.from(recipientMap.values())
+        await sendEmailBatch(recipients, (recipient) =>
+          sendMatchResultPublishedEmail({
+            to: recipient.email,
+            recipientName: recipient.name,
+            teamName: recipient.teamName,
+            scrimTitle: scrim.title,
+            winningTeam: parsed.data.winningTeam,
+            kills: parsed.data.kills,
+            prizeBdt: parsed.data.prizeBdt,
+            placement: parsed.data.placement,
+            category: parsed.data.category,
+          })
+        )
         console.log(`[publishResult] Completed match result email dispatch for ${scrim.title}.`)
       }
     } catch (teamQueryErr) {

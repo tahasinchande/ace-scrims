@@ -2,16 +2,30 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
 
-export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody
+const PROTECTED_PREFIXES = ["tutorials/", "scrims/", "banners/", "results/"]
 
+export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const body = (await request.json()) as HandleUploadBody
+
     const jsonResponse = await handleUpload({
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
         const user = await getSessionUser().catch(() => null)
-        // Allow public uploads for reports/chat or authenticated uploads for admins/staff
+        if (!user || user.banned) {
+          throw new Error("Authentication required for uploads.")
+        }
+
+        const isStaff = user.role === "admin" || user.role === "moderator"
+        const normalizedPath = pathname.replace(/^\/+/, "")
+        if (
+          PROTECTED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix)) &&
+          !isStaff
+        ) {
+          throw new Error("Staff privileges required for this upload folder.")
+        }
+
         return {
           allowedContentTypes: [
             "image/jpeg",
@@ -23,26 +37,34 @@ export async function POST(request: Request): Promise<NextResponse> {
             "video/webm",
             "video/quicktime",
             "video/x-matroska",
+            "video/x-msvideo",
             "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           ],
-          maximumSizeInBytes: 500 * 1024 * 1024, // Up to 500MB video/files
+          maximumSizeInBytes: isStaff
+            ? 10 * 1024 * 1024 * 1024 // Up to 10GB for staff tutorial videos
+            : 100 * 1024 * 1024, // Up to 100MB for player chat/report uploads
           tokenPayload: JSON.stringify({
-            userId: user?.id ?? "guest",
-            userRole: user?.role ?? "user",
-            pathname,
+            userId: user.id,
+            userRole: user.role ?? "user",
+            pathname: normalizedPath,
           }),
         }
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log("[Vercel Blob Client Upload Completed]", blob.url, tokenPayload)
+      onUploadCompleted: async () => {
+        // Upload completion webhook acknowledged silently
       },
     })
 
     return NextResponse.json(jsonResponse)
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    )
+    const message = error instanceof Error ? error.message : "Upload authorization failed"
+    const status = message.includes("Authentication")
+      ? 401
+      : message.includes("Staff privileges")
+        ? 403
+        : 400
+    return NextResponse.json({ error: message }, { status })
   }
 }

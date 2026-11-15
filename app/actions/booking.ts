@@ -135,10 +135,42 @@ export async function createBooking(
     return { ok: false, error: "This scrim is full. Try another time slot." }
 
   const activeDate = getBangladeshActiveDate()
-  const targetDate = activeDate
+  const targetDate = scrim.scrimDate && scrim.scrimDate >= activeDate ? scrim.scrimDate : activeDate
   const existing = await userHasBooking(user.id, scrim.id, targetDate)
   if (existing?.status === "confirmed")
     return { ok: false, error: "You already have a confirmed booking for this scrim today." }
+
+  const normalizedTeamName = data.teamName.trim().toLowerCase()
+  const normalizedCaptainUid = data.captainUid.trim()
+
+  const duplicateSquad = await db
+    .select({ id: bookings.id, userId: bookings.userId, teamName: bookings.teamName })
+    .from(bookings)
+    .where(
+      and(
+        or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+        eq(bookings.scrimDate, targetDate),
+        eq(bookings.status, "confirmed"),
+        eq(bookings.isTrashed, false),
+        eq(bookings.isArchived, false),
+        or(
+          eq(bookings.userId, user.id),
+          sql`LOWER(TRIM(${bookings.teamName})) = ${normalizedTeamName}`,
+          sql`TRIM(${bookings.captainUid}) = ${normalizedCaptainUid}`
+        )
+      )
+    )
+    .limit(1)
+
+  if (duplicateSquad.length > 0) {
+    return {
+      ok: false,
+      error:
+        duplicateSquad[0].userId === user.id
+          ? "You already have a confirmed booking for this scrim today."
+          : `Squad "${duplicateSquad[0].teamName}" or Captain UID is already registered for this lobby today.`,
+    }
+  }
 
   const bookingId = existing?.id ?? randomUUID()
   const paymentId = randomUUID()
@@ -156,8 +188,56 @@ export async function createBooking(
   if (currentBalance >= scrim.priceBdt) {
     let confirmedSlotNumber = 1
     let balanceDeducted = false
+    let txRejectionError: string | null = null
 
     await db.transaction(async (tx) => {
+      // Re-verify inside transaction: no duplicate user/squad/UID & lobby still has slots
+      const [dupInTx, countInTx] = await Promise.all([
+        tx
+          .select({ id: bookings.id, userId: bookings.userId, teamName: bookings.teamName })
+          .from(bookings)
+          .where(
+            and(
+              or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+              eq(bookings.scrimDate, targetDate),
+              eq(bookings.status, "confirmed"),
+              eq(bookings.isTrashed, false),
+              eq(bookings.isArchived, false),
+              or(
+                eq(bookings.userId, user.id),
+                sql`LOWER(TRIM(${bookings.teamName})) = ${normalizedTeamName}`,
+                sql`TRIM(${bookings.captainUid}) = ${normalizedCaptainUid}`
+              )
+            )
+          )
+          .limit(1),
+        tx
+          .select({ confirmed: sql<number>`COUNT(*)::int` })
+          .from(bookings)
+          .where(
+            and(
+              or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+              eq(bookings.scrimDate, targetDate),
+              eq(bookings.status, "confirmed"),
+              eq(bookings.isTrashed, false),
+              eq(bookings.isArchived, false)
+            )
+          ),
+      ])
+
+      if (dupInTx.length > 0) {
+        txRejectionError =
+          dupInTx[0].userId === user.id
+            ? "You already have a confirmed booking for this scrim today."
+            : `Squad "${dupInTx[0].teamName}" or Captain UID is already registered for this lobby today.`
+        return
+      }
+
+      if ((countInTx[0]?.confirmed ?? 0) >= scrim.maxTeams) {
+        txRejectionError = "This lobby just reached maximum capacity. Please choose another time slot."
+        return
+      }
+
       // Atomic deduction: ensure balance >= priceBdt at the moment of update
       const updateBalResult = await tx
         .update(userTable)
@@ -298,6 +378,10 @@ export async function createBooking(
       }
     })
 
+    if (txRejectionError) {
+      return { ok: false, error: txRejectionError }
+    }
+
     if (balanceDeducted) {
       try {
         const { notifyUser } = await import("@/lib/notify")
@@ -326,6 +410,7 @@ export async function createBooking(
       try {
         const { revalidatePath } = await import("next/cache")
         revalidatePath("/scrims")
+        revalidatePath(`/scrims/${scrim.slug}`)
         revalidatePath("/")
         revalidatePath("/dashboard/scrims")
         revalidatePath("/dashboard/wallet")

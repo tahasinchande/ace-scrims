@@ -1,3 +1,5 @@
+import { upload as vercelBlobUpload } from "@vercel/blob/client"
+
 export type UploadProgressCallback = (percent: number) => void
 
 export type UploadResult = {
@@ -6,60 +8,196 @@ export type UploadResult = {
   fileSize: number
 }
 
-// In-memory cache for Cloudinary client settings
-let cachedConfig: { cloudName: string | null; uploadPreset: string } | null = null
+type StorageConfig = {
+  mediaCloud: string | null
+  mediaPreset: string
+  blobEnabled: boolean
+}
 
-/**
- * Dynamically resolves Cloudinary configuration.
- * Checks NEXT_PUBLIC_ client env first, and if unavailable, requests /api/upload/config
- * which reads CLOUDINARY_CLOUD_NAME, NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, or CLOUDINARY_URL from server env.
- */
-export async function getCloudinaryConfig(): Promise<{ cloudName: string | null; uploadPreset: string }> {
-  if (cachedConfig && cachedConfig.cloudName) {
+let cachedConfig: StorageConfig | null = null
+
+const CHUNK_SIZE_BYTES = 20 * 1024 * 1024 // 20MB chunks for reliable multi-GB streaming
+const CHUNK_THRESHOLD_BYTES = 24 * 1024 * 1024 // Use chunked upload above 24MB
+const MAX_VIDEO_BYTES = 10 * 1024 * 1024 * 1024 // 10GB direct upload support (5GB+ ready)
+
+async function resolveStorageConfig(): Promise<StorageConfig> {
+  if (cachedConfig && (cachedConfig.mediaCloud || cachedConfig.blobEnabled)) {
     return cachedConfig
   }
 
-  // 1. Check inlined client environment variables
-  const envCloudName =
+  const envCloud =
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
-    (typeof window !== "undefined" ? (window as any).__CLOUDINARY_CLOUD_NAME__ : null)
+    (typeof window !== "undefined" ? (window as any).__MEDIA_CLOUD_NAME__ : null)
 
   const envPreset =
     process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
-    (typeof window !== "undefined" ? (window as any).__CLOUDINARY_UPLOAD_PRESET__ : null) ||
+    (typeof window !== "undefined" ? (window as any).__MEDIA_UPLOAD_PRESET__ : null) ||
     "ml_default"
 
-  if (envCloudName && envCloudName.trim().length > 0) {
-    cachedConfig = { cloudName: envCloudName.trim(), uploadPreset: envPreset }
-    return cachedConfig
-  }
-
-  // 2. Fetch from server API endpoint to get server-configured Cloudinary parameters
   try {
     const res = await fetch("/api/upload/config", { cache: "no-store" })
     if (res.ok) {
       const data = await res.json()
-      if (data.ok && data.cloudName) {
+      if (data.ok) {
         cachedConfig = {
-          cloudName: data.cloudName,
-          uploadPreset: data.uploadPreset || "ml_default",
+          mediaCloud: data.cloudName || (envCloud ? envCloud.trim() : null),
+          mediaPreset: data.uploadPreset || envPreset,
+          blobEnabled: Boolean(data.blobEnabled),
         }
         return cachedConfig
       }
     }
-  } catch (fetchErr) {
-    console.warn("[Upload Client] Failed to fetch upload config from server:", fetchErr)
+  } catch {
+    // Fallback to client env if config endpoint fails
   }
 
-  return { cloudName: null, uploadPreset: envPreset }
+  return {
+    mediaCloud: envCloud ? envCloud.trim() : null,
+    mediaPreset: envPreset,
+    blobEnabled: false,
+  }
+}
+
+function sanitizeUploadError(rawMessage: string): string {
+  const lower = rawMessage.toLowerCase()
+  if (lower.includes("cloudinary") || lower.includes("upload preset")) {
+    if (lower.includes("unsigned")) {
+      return "Media upload configuration needs attention. Please contact an administrator."
+    }
+    return "Media storage encountered an issue while processing your file. Please try again."
+  }
+  return rawMessage
+}
+
+function sendChunkWithRetry(
+  endpoint: string,
+  chunk: Blob,
+  fileName: string,
+  uploadPreset: string,
+  folder: string,
+  uniqueUploadId: string,
+  startByte: number,
+  endByte: number,
+  totalBytes: number,
+  onChunkProgress: (loadedInChunk: number) => void,
+  attempt: number = 1
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const formData = new FormData()
+    formData.append("file", chunk, fileName)
+    formData.append("upload_preset", uploadPreset)
+    formData.append("folder", folder)
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        onChunkProgress(event.loaded)
+      }
+    })
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText))
+        } catch {
+          reject(new Error("Invalid response received from media storage."))
+        }
+      } else if ((xhr.status >= 500 || xhr.status === 429) && attempt < 3) {
+        const delayMs = attempt * 1500
+        setTimeout(() => {
+          sendChunkWithRetry(
+            endpoint,
+            chunk,
+            fileName,
+            uploadPreset,
+            folder,
+            uniqueUploadId,
+            startByte,
+            endByte,
+            totalBytes,
+            onChunkProgress,
+            attempt + 1
+          )
+            .then(resolve)
+            .catch(reject)
+        }, delayMs)
+      } else {
+        let errMsg = `Upload failed (HTTP ${xhr.status})`
+        try {
+          const json = JSON.parse(xhr.responseText)
+          if (json.error?.message) {
+            errMsg = sanitizeUploadError(json.error.message)
+          }
+        } catch {
+          // ignore parse error
+        }
+        reject(new Error(errMsg))
+      }
+    })
+
+    xhr.addEventListener("error", () => {
+      if (attempt < 3) {
+        const delayMs = attempt * 1500
+        setTimeout(() => {
+          sendChunkWithRetry(
+            endpoint,
+            chunk,
+            fileName,
+            uploadPreset,
+            folder,
+            uniqueUploadId,
+            startByte,
+            endByte,
+            totalBytes,
+            onChunkProgress,
+            attempt + 1
+          )
+            .then(resolve)
+            .catch(reject)
+        }, delayMs)
+      } else {
+        reject(new Error("Network error while uploading video chunk. Please check your connection and try again."))
+      }
+    })
+
+    xhr.addEventListener("timeout", () => {
+      if (attempt < 3) {
+        sendChunkWithRetry(
+          endpoint,
+          chunk,
+          fileName,
+          uploadPreset,
+          folder,
+          uniqueUploadId,
+          startByte,
+          endByte,
+          totalBytes,
+          onChunkProgress,
+          attempt + 1
+        )
+          .then(resolve)
+          .catch(reject)
+      } else {
+        reject(new Error("Upload chunk timed out. Please verify your internet connection."))
+      }
+    })
+
+    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled.")))
+
+    xhr.timeout = 10 * 60 * 1000 // 10 minutes per 20MB chunk
+    xhr.open("POST", endpoint)
+    xhr.setRequestHeader("X-Unique-Upload-Id", uniqueUploadId)
+    xhr.setRequestHeader("Content-Range", `bytes ${startByte}-${endByte}/${totalBytes}`)
+    xhr.send(formData)
+  })
 }
 
 /**
- * Direct Client-to-Cloudinary Video Upload.
- * 100% bypasses Vercel/Next.js API routes, preventing the 4.5MB Vercel 413 Payload Too Large error.
- * Streams directly from the user's browser to Cloudinary's Video REST endpoint with live progress.
+ * Direct Chunked Multi-GB Video Upload (supports 5GB–10GB files cleanly).
+ * Completely bypasses serverless API payload limits and timeouts by streaming chunks
+ * directly from the browser to remote object storage.
  */
-export async function uploadVideoToCloudinaryDirect(
+export async function uploadVideoDirect(
   file: File,
   folder: string = "tutorials",
   onProgress?: UploadProgressCallback
@@ -68,34 +206,109 @@ export async function uploadVideoToCloudinaryDirect(
     throw new Error("Please select a valid video file.")
   }
 
-  if (file.size > 5 * 1024 * 1024 * 1024) {
-    throw new Error("Video file size must be under 5GB. For larger videos, please paste an unlisted YouTube or Google Drive share link.")
-  }
-
-  const { cloudName, uploadPreset } = await getCloudinaryConfig()
-  const targetFolder = folder ? `acescrims/${folder}` : "acescrims/tutorials"
-
-  if (!cloudName) {
+  if (file.size > MAX_VIDEO_BYTES) {
     throw new Error(
-      "Cloud storage is not configured. Please ensure cloud storage environment variables are added, or paste an external video URL (YouTube/Drive/Vimeo) directly."
+      "Video file size exceeds the 10GB direct upload limit. Please compress the video or paste an unlisted YouTube or Google Drive share link."
     )
   }
 
-  onProgress?.(5)
+  const config = await resolveStorageConfig()
+  const targetFolder = folder ? `acescrims/${folder}` : "acescrims/tutorials"
 
+  // Path A: Vercel Blob multipart direct upload when Blob storage is enabled & primary
+  if (config.blobEnabled && (!config.mediaCloud || file.size > 100 * 1024 * 1024)) {
+    try {
+      onProgress?.(2)
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const blob = await vercelBlobUpload(`${folder}/${Date.now()}-${safeName}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob/upload",
+        multipart: true,
+        onUploadProgress: ({ percentage }) => {
+          onProgress?.(Math.min(99, Math.max(2, Math.round(percentage))))
+        },
+      })
+      onProgress?.(100)
+      return {
+        url: blob.url,
+        fileName: file.name,
+        fileSize: file.size,
+      }
+    } catch (blobErr) {
+      if (!config.mediaCloud) {
+        const msg = blobErr instanceof Error ? blobErr.message : "Video upload failed."
+        throw new Error(sanitizeUploadError(msg))
+      }
+      // Fall through to chunked media cloud upload if configured
+    }
+  }
+
+  if (!config.mediaCloud) {
+    throw new Error(
+      "Media storage is not configured. Please check storage environment variables or paste a YouTube or Google Drive video link."
+    )
+  }
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${config.mediaCloud}/video/upload`
+
+  onProgress?.(2)
+
+  // Path B: Chunked resumable upload for files > 24MB (supports 5GB+ videos reliably)
+  if (file.size > CHUNK_THRESHOLD_BYTES) {
+    const uniqueUploadId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? `vid_${crypto.randomUUID()}`
+        : `vid_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+
+    let finalResponse: any = null
+    for (let start = 0; start < file.size; start += CHUNK_SIZE_BYTES) {
+      const endExclusive = Math.min(start + CHUNK_SIZE_BYTES, file.size)
+      const endInclusive = endExclusive - 1
+      const chunk = file.slice(start, endExclusive)
+
+      finalResponse = await sendChunkWithRetry(
+        endpoint,
+        chunk,
+        file.name,
+        config.mediaPreset,
+        targetFolder,
+        uniqueUploadId,
+        start,
+        endInclusive,
+        file.size,
+        (loadedInChunk) => {
+          const totalLoaded = start + Math.min(loadedInChunk, chunk.size)
+          const pct = Math.round((totalLoaded / file.size) * 97) + 2
+          onProgress?.(Math.min(99, Math.max(2, pct)))
+        }
+      )
+    }
+
+    const finalUrl = finalResponse?.secure_url || finalResponse?.url
+    if (!finalUrl) {
+      throw new Error("Upload completed but did not return a playable media link. Please try again.")
+    }
+
+    onProgress?.(100)
+    return {
+      url: finalUrl,
+      fileName: file.name,
+      fileSize: file.size,
+    }
+  }
+
+  // Path C: Single direct upload for smaller videos (<= 24MB)
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`
-
     const formData = new FormData()
     formData.append("file", file)
-    formData.append("upload_preset", uploadPreset)
+    formData.append("upload_preset", config.mediaPreset)
     formData.append("folder", targetFolder)
 
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
         const percent = Math.round((event.loaded / event.total) * 100)
-        onProgress?.(Math.min(99, Math.max(5, percent)))
+        onProgress?.(Math.min(99, Math.max(2, percent)))
       }
     })
 
@@ -113,11 +326,7 @@ export async function uploadVideoToCloudinaryDirect(
             })
             return
           }
-          let rawMsg = json.error?.message || "Failed to receive a valid video URL from storage."
-          if (rawMsg.toLowerCase().includes("cloudinary")) {
-            rawMsg = "Cloud storage service error. Please try again or contact support."
-          }
-          reject(new Error(rawMsg))
+          reject(new Error(sanitizeUploadError(json.error?.message || "Failed to finalize uploaded video.")))
         } catch {
           reject(new Error("Failed to parse upload response."))
         }
@@ -126,31 +335,17 @@ export async function uploadVideoToCloudinaryDirect(
         try {
           const json = JSON.parse(xhr.responseText)
           if (json.error?.message) {
-            errMsg = json.error.message
-            if (errMsg.toLowerCase().includes("upload preset must be whitelisted for unsigned uploads")) {
-              errMsg = "Upload configuration error: The upload preset must be set to 'Unsigned' in your cloud storage settings."
-            }
+            errMsg = sanitizeUploadError(json.error.message)
           }
         } catch {
-          // ignore parsing error
+          // ignore
         }
-        if (errMsg.toLowerCase().includes("cloudinary")) {
-          errMsg = "Upload failed due to storage provider error. Please try again."
-        }
-        console.error("[Video Upload HTTP Error]", {
-          status: xhr.status,
-        })
         reject(new Error(errMsg))
       }
     })
 
     xhr.addEventListener("error", () => {
-      console.error("[Video Upload Network Error]")
-      reject(
-        new Error(
-          "Network connection failed during upload. Please check your internet connection or try a smaller video."
-        )
-      )
+      reject(new Error("Network connection failed during upload. Please try again."))
     })
 
     xhr.addEventListener("timeout", () => {
@@ -161,18 +356,19 @@ export async function uploadVideoToCloudinaryDirect(
       reject(new Error("Upload cancelled."))
     })
 
-    // Allow generous 60-minute timeout for large video files (up to 5GB)
-    xhr.timeout = 60 * 60 * 1000
-
+    xhr.timeout = 15 * 60 * 1000
     xhr.open("POST", endpoint)
     xhr.send(formData)
   })
 }
 
+// Backwards-compatible alias
+export const uploadVideoToCloudinaryDirect = uploadVideoDirect
+
 /**
  * Universal media upload helper.
- * Automatically routes videos directly to Cloudinary REST endpoint to bypass Vercel 4.5MB payload limits.
- * For images, uploads via client or server stream.
+ * Routes large videos directly via chunked/multipart upload to bypass serverless limits.
+ * Uploads images/documents cleanly via configured media storage or /api/upload.
  */
 export async function uploadMediaFile(
   file: File,
@@ -185,29 +381,26 @@ export async function uploadMediaFile(
 
   const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|mkv|avi)$/i.test(file.name)
 
-  // 1. VIDEOS: Always use Direct Client-to-Cloudinary upload to bypass Vercel 4.5MB limit
   if (isVideo) {
-    return uploadVideoToCloudinaryDirect(file, folder, onProgress)
+    return uploadVideoDirect(file, folder, onProgress)
   }
 
-  // 2. IMAGES: Pre-upload client-side validation
   if (file.size > 30 * 1024 * 1024) {
-    throw new Error("Image file size must be under 30MB.")
+    throw new Error("File size must be under 30MB.")
   }
 
   onProgress?.(15)
 
-  // Direct Cloudinary client-side upload if cloud name is available
-  const { cloudName, uploadPreset } = await getCloudinaryConfig()
+  const config = await resolveStorageConfig()
 
-  if (cloudName && uploadPreset) {
+  if (config.mediaCloud && config.mediaPreset) {
     try {
       const form = new FormData()
       form.append("file", file)
-      form.append("upload_preset", uploadPreset)
+      form.append("upload_preset", config.mediaPreset)
       form.append("folder", `acescrims/${folder}`)
 
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${config.mediaCloud}/auto/upload`, {
         method: "POST",
         body: form,
       })
@@ -224,12 +417,32 @@ export async function uploadMediaFile(
           }
         }
       }
-    } catch (clientErr) {
-      console.warn("[Upload Client] Direct image upload skipped, falling back to /api/upload:", clientErr)
+    } catch {
+      // Silently fall back to /api/upload
     }
   }
 
-  // Server API upload via /api/upload (which streams directly to Cloudinary or base64)
+  if (config.blobEnabled) {
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const blob = await vercelBlobUpload(`${folder}/${Date.now()}-${safeName}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob/upload",
+        onUploadProgress: ({ percentage }) => {
+          onProgress?.(Math.min(99, Math.max(15, Math.round(percentage))))
+        },
+      })
+      onProgress?.(100)
+      return {
+        url: blob.url,
+        fileName: file.name,
+        fileSize: file.size,
+      }
+    } catch {
+      // Silently fall back to /api/upload
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const formData = new FormData()
@@ -258,32 +471,23 @@ export async function uploadMediaFile(
             })
             return
           }
-          const errMsg = json.error || `Server responded with status ${xhr.status}`
-          console.error("[Upload HTTP Error]", { status: xhr.status, response: xhr.responseText })
-          reject(new Error(errMsg))
+          reject(new Error(sanitizeUploadError(json.error || `Server responded with status ${xhr.status}`)))
         } catch {
-          console.error("[Upload Invalid Response]", { status: xhr.status, raw: xhr.responseText })
-          reject(new Error(`Server returned status ${xhr.status} with non-JSON response.`))
+          reject(new Error(`Server returned an unexpected response (HTTP ${xhr.status}).`))
         }
       } else {
-        let errMsg = `Upload failed with HTTP ${xhr.status}`
+        let errMsg = `Upload failed (HTTP ${xhr.status})`
         try {
           const json = JSON.parse(xhr.responseText)
-          if (json.error) errMsg = json.error
+          if (json.error) errMsg = sanitizeUploadError(json.error)
         } catch {
-          if (xhr.responseText) errMsg += `: ${xhr.responseText.slice(0, 100)}`
+          // ignore
         }
-        console.error("[Upload HTTP Error Response]", {
-          status: xhr.status,
-          statusText: xhr.statusText,
-          response: xhr.responseText,
-        })
         reject(new Error(errMsg))
       }
     })
 
     xhr.addEventListener("timeout", () => {
-      console.error("[Upload Timeout]", { timeoutMs: xhr.timeout, file: file.name })
       const reader = new FileReader()
       reader.onload = () => {
         if (typeof reader.result === "string") {
@@ -294,7 +498,7 @@ export async function uploadMediaFile(
             fileSize: file.size,
           })
         } else {
-          reject(new Error("Upload request timed out after 35 seconds."))
+          reject(new Error("Upload request timed out."))
         }
       }
       reader.onerror = () => reject(new Error("Upload request timed out."))
@@ -302,7 +506,6 @@ export async function uploadMediaFile(
     })
 
     xhr.addEventListener("error", () => {
-      console.error("[Upload Network Error]", { status: xhr.status, file: file.name })
       const reader = new FileReader()
       reader.onload = () => {
         if (typeof reader.result === "string") {

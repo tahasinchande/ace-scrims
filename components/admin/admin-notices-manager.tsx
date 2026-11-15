@@ -38,6 +38,7 @@ import {
   PlusCircle,
   FileText,
   X,
+  Mail,
 } from "lucide-react"
 
 const CATEGORIES = [
@@ -72,6 +73,7 @@ export function AdminNoticesManager({ initialNotices }: { initialNotices: Notice
   const [category, setCategory] = useState("General")
   const [priority, setPriority] = useState<"normal" | "important" | "urgent">("normal")
   const [isPinned, setIsPinned] = useState(false)
+  const [sendEmailBroadcast, setSendEmailBroadcast] = useState(true)
   const [mediaUrl, setMediaUrl] = useState("")
   const [mediaType, setMediaType] = useState<"none" | "image" | "video">("none")
 
@@ -154,13 +156,24 @@ export function AdminNoticesManager({ initialNotices }: { initialNotices: Notice
     formData.append("category", category)
     formData.append("priority", priority)
     formData.append("isPinned", isPinned ? "true" : "false")
+    formData.append("sendEmailBroadcast", sendEmailBroadcast ? "true" : "false")
     formData.append("mediaUrl", mediaUrl.trim())
     formData.append("mediaType", mediaType)
 
     startTransition(async () => {
       const res = await createNoticeAction(null, formData)
       if (res.ok) {
-        toast.success("Notice published successfully!")
+        if (sendEmailBroadcast && (res.totalRecipients ?? 0) > 0) {
+          if ((res.emailsFailed ?? 0) > 0) {
+            toast.warning(
+              `Notice published! Emailed ${res.emailsSent ?? 0}/${res.totalRecipients} players (${res.emailsFailed} failed).`
+            )
+          } else {
+            toast.success(res.message || `Notice published & emailed to ${res.emailsSent ?? 0} player(s)!`)
+          }
+        } else {
+          toast.success(res.message || "Notice published successfully!")
+        }
         // Reset form
         setTitle("")
         setContent("")
@@ -465,16 +478,29 @@ export function AdminNoticesManager({ initialNotices }: { initialNotices: Notice
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-foreground">
-              <input
-                type="checkbox"
-                checked={isPinned}
-                onChange={(e) => setIsPinned(e.target.checked)}
-                className="size-4 rounded border-border text-primary focus:ring-primary"
-              />
-              <Pin className="size-3.5 text-primary" />
-              <span>Pin this notice to the top of the feed</span>
-            </label>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={isPinned}
+                  onChange={(e) => setIsPinned(e.target.checked)}
+                  className="size-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <Pin className="size-3.5 text-primary" />
+                <span>Pin this notice to the top of the feed</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={sendEmailBroadcast}
+                  onChange={(e) => setSendEmailBroadcast(e.target.checked)}
+                  className="size-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <Mail className="size-3.5 text-primary" />
+                <span>Send email alert to verified players</span>
+              </label>
+            </div>
 
             <Button
               type="submit"

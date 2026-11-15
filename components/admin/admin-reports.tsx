@@ -5,6 +5,7 @@ import { updateReportStatus } from "@/app/actions/reports"
 import { trashReports } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDate } from "@/lib/format"
 import { resolveImageUrl, extractImageUrls } from "@/lib/image-url"
 import { cn } from "@/lib/utils"
@@ -57,6 +58,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
   const [filter, setFilter] = useState<"all" | "pending" | "reviewed" | "resolved">("all")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
 
   const filteredReports = reports.filter((r) => {
     if (filter === "all") return true
@@ -79,7 +81,13 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
 
   const handleDeleteToTrash = (ids: string[]) => {
     if (ids.length === 0) return
-    if (!window.confirm(`Move ${ids.length} report(s) to Trash?`)) return
+    setPendingDeleteIds(ids)
+  }
+
+  const executeDeleteToTrash = () => {
+    if (!pendingDeleteIds || pendingDeleteIds.length === 0) return
+    const ids = pendingDeleteIds
+    setPendingDeleteIds(null)
     startTransition(async () => {
       const res = await trashReports(ids)
       if (res.ok) {
@@ -479,6 +487,17 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDeleteIds !== null}
+        onOpenChange={(open) => !open && setPendingDeleteIds(null)}
+        title="Move Reports to Trash?"
+        description={`Move ${pendingDeleteIds?.length ?? 0} report(s) to Trash?`}
+        confirmLabel="Move to Trash"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={executeDeleteToTrash}
+      />
     </div>
   )
 }

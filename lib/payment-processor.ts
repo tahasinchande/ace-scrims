@@ -163,8 +163,9 @@ export async function processPayment(
 
   let slotNumber = 1
   let confirmedNow = false
+  let refundedToWalletReason: string | null = null
 
-  // Atomic database transaction to prevent slot assignment race conditions
+  // Atomic database transaction to prevent slot assignment race conditions, overbooking, and duplicate squads
   await db.transaction(async (tx) => {
     // 1. Idempotently update payment status
     const updated = await tx
@@ -185,28 +186,113 @@ export async function processPayment(
       return
     }
 
-    confirmedNow = true
-
-    // 2. Assign the next slot number for THIS TARGET SCRIM DATE atomically
-    const slotRows = await tx
+    // 2. Load pending booking details to validate duplicates & capacity
+    const pendingBookingRows = await tx
       .select({
-        next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
+        id: bookings.id,
+        teamName: bookings.teamName,
+        captainUid: bookings.captainUid,
+        userId: bookings.userId,
       })
       .from(bookings)
-      .where(
-        and(
-          or(
-            eq(bookings.scrimId, payment.scrimId),
-            eq(bookings.scrimId, scrim?.slug || payment.scrimId)
-          ),
-          eq(bookings.scrimDate, targetScrimDate),
-          eq(bookings.status, "confirmed"),
-          eq(bookings.isTrashed, false),
-          eq(bookings.isArchived, false)
-        )
-      )
+      .where(eq(bookings.id, payment.bookingId))
+      .limit(1)
 
-    slotNumber = slotRows[0]?.next ?? 1
+    const pendingBooking = pendingBookingRows[0]
+    const normTeam = pendingBooking?.teamName?.trim().toLowerCase() ?? ""
+    const normUid = pendingBooking?.captainUid?.trim() ?? ""
+    const maxCap = scrim?.maxTeams ?? 12
+
+    const [dupRows, capRows] = await Promise.all([
+      pendingBooking
+        ? tx
+            .select({ id: bookings.id })
+            .from(bookings)
+            .where(
+              and(
+                or(
+                  eq(bookings.scrimId, payment.scrimId),
+                  eq(bookings.scrimId, scrim?.slug || payment.scrimId)
+                ),
+                eq(bookings.scrimDate, targetScrimDate),
+                eq(bookings.status, "confirmed"),
+                eq(bookings.isTrashed, false),
+                eq(bookings.isArchived, false),
+                sql`${bookings.id} != ${payment.bookingId}`,
+                or(
+                  eq(bookings.userId, payment.userId),
+                  sql`LOWER(TRIM(${bookings.teamName})) = ${normTeam}`,
+                  sql`TRIM(${bookings.captainUid}) = ${normUid}`
+                )
+              )
+            )
+            .limit(1)
+        : Promise.resolve([]),
+      tx
+        .select({
+          confirmed: sql<number>`COUNT(*)::int`,
+          next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
+        })
+        .from(bookings)
+        .where(
+          and(
+            or(
+              eq(bookings.scrimId, payment.scrimId),
+              eq(bookings.scrimId, scrim?.slug || payment.scrimId)
+            ),
+            eq(bookings.scrimDate, targetScrimDate),
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false)
+          )
+        ),
+    ])
+
+    const currentConfirmedCount = capRows[0]?.confirmed ?? 0
+    if (dupRows.length > 0 || currentConfirmedCount >= maxCap) {
+      refundedToWalletReason =
+        dupRows.length > 0
+          ? "Duplicate squad registration detected after payment — refunded to your Ace Scrims wallet."
+          : "Lobby filled up before payment completed — amount refunded automatically to your Ace Scrims wallet."
+
+      const userRow = await tx
+        .select({ balance: user.balance })
+        .from(user)
+        .where(eq(user.id, payment.userId))
+        .limit(1)
+      const balBefore = userRow[0]?.balance ?? 0
+      const balAfter = balBefore + payment.amountBdt
+
+      await tx
+        .update(user)
+        .set({
+          balance: sql`${user.balance} + ${payment.amountBdt}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, payment.userId))
+
+      await tx.insert(walletTransactions).values({
+        id: randomUUID(),
+        userId: payment.userId,
+        type: "refund",
+        amountBdt: payment.amountBdt,
+        balanceBefore: balBefore,
+        balanceAfter: balAfter,
+        description: refundedToWalletReason,
+        referenceId: invoiceId,
+        status: "completed",
+      })
+
+      await tx
+        .update(bookings)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(bookings.id, payment.bookingId))
+
+      return
+    }
+
+    confirmedNow = true
+    slotNumber = capRows[0]?.next ?? 1
 
     // 3. Confirm the booking record
     await tx
@@ -222,31 +308,28 @@ export async function processPayment(
       .where(eq(bookings.id, payment.bookingId))
 
     // 4. Auto-close registration if lobby reached maxTeams for today
-    if (scrim) {
-      const countRows = await tx
-        .select({ confirmed: sql<number>`COUNT(*)::int` })
-        .from(bookings)
-        .where(
-          and(
-            or(
-              eq(bookings.scrimId, payment.scrimId),
-              eq(bookings.scrimId, scrim.slug)
-            ),
-            eq(bookings.scrimDate, targetScrimDate),
-            eq(bookings.status, "confirmed"),
-            eq(bookings.isTrashed, false),
-            eq(bookings.isArchived, false)
-          )
-        )
-
-      if ((countRows[0]?.confirmed ?? 0) >= scrim.maxTeams) {
-        await tx
-          .update(scrims)
-          .set({ registrationOpen: false, updatedAt: new Date() })
-          .where(or(eq(scrims.id, payment.scrimId), eq(scrims.slug, payment.scrimId)))
-      }
+    if (scrim && currentConfirmedCount + 1 >= scrim.maxTeams) {
+      await tx
+        .update(scrims)
+        .set({ registrationOpen: false, updatedAt: new Date() })
+        .where(or(eq(scrims.id, payment.scrimId), eq(scrims.slug, payment.scrimId)))
     }
   })
+
+  if (refundedToWalletReason) {
+    try {
+      await notifyUser(
+        payment.userId,
+        "payment",
+        "Booking Refunded to Wallet",
+        refundedToWalletReason,
+        "/dashboard/wallet"
+      )
+      revalidatePath("/dashboard/wallet")
+      revalidatePath("/dashboard/scrims")
+    } catch {}
+    return { status: "failed", reason: refundedToWalletReason }
+  }
 
   if (!confirmedNow) {
     return { status: "already-confirmed" }
@@ -295,6 +378,7 @@ export async function processPayment(
   // Flush cached views so /scrims and homepage immediately show fresh slot state
   try {
     revalidatePath("/scrims")
+    if (scrim?.slug) revalidatePath(`/scrims/${scrim.slug}`)
     revalidatePath("/")
     revalidatePath("/dashboard/scrims")
     revalidatePath("/dashboard/wallet")

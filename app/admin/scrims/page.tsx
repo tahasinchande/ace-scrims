@@ -7,7 +7,12 @@ import { getSessionUser } from "@/lib/session"
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Manage Scrims — Ace Scrims Admin" }
 
-export default async function AdminScrimsPage() {
+export default async function AdminScrimsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string }>
+}) {
+  const sp = searchParams ? await searchParams : {}
   const [user, scrims, bookingsByScrim, room2Enabled] = await Promise.all([
     getSessionUser(),
     getAdminScrims({ includeDeleted: true }),
@@ -34,6 +39,7 @@ export default async function AdminScrimsPage() {
         isAdmin={isAdmin}
         bookingsByScrim={bookingsByScrim}
         initialRoom2Enabled={room2Enabled}
+        initialTab={sp?.tab}
       />
     </div>
   )

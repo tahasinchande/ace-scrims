@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm"
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser()
-    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
+    if (!user || user.banned || (user.role !== "admin" && user.role !== "moderator")) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
     }
 

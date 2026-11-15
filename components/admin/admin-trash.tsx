@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   RotateCcw,
   Trash2,
@@ -156,6 +157,11 @@ export function AdminTrash({
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<string[]>([])
 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [confirmState, setConfirmState] = useState<{
+    title: string
+    description: string
+    onConfirm: () => void
+  } | null>(null)
 
   // Filtered lists
   const filteredScrims = scrims.filter(
@@ -420,15 +426,19 @@ export function AdminTrash({
                       size="sm"
                       variant="destructive"
                       disabled={Boolean(actionLoading)}
-                      onClick={() => {
-                        if (!confirm(`Permanently delete ${selectedScrimIds.length} scrim(s)? This cannot be undone.`)) return
-                        runAction(
-                          "bulk-delete-scrims",
-                          () => bulkPermanentlyDeleteScrims(selectedScrimIds),
-                          "Permanently deleted selected scrims",
-                          () => setSelectedScrimIds([])
-                        )
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          title: "Permanently Delete Selected Scrims?",
+                          description: `Permanently delete ${selectedScrimIds.length} scrim(s)? This cannot be undone.`,
+                          onConfirm: () =>
+                            runAction(
+                              "bulk-delete-scrims",
+                              () => bulkPermanentlyDeleteScrims(selectedScrimIds),
+                              "Permanently deleted selected scrims",
+                              () => setSelectedScrimIds([])
+                            ),
+                        })
+                      }
                       className="h-8 gap-1.5 text-xs"
                     >
                       <Trash2 className="size-3.5" /> Purge Selected
@@ -486,15 +496,19 @@ export function AdminTrash({
                           size="sm"
                           variant="destructive"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => {
-                            if (!confirm(`Permanently delete "${scrim.title}"?`)) return
-                            runAction(
-                              `purge-${scrim.id}`,
-                              () => permanentlyDeleteScrim(scrim.id),
-                              `Permanently deleted "${scrim.title}"`,
-                              () => setSelectedScrimIds((prev) => prev.filter((i) => i !== scrim.id))
-                            )
-                          }}
+                          onClick={() =>
+                            setConfirmState({
+                              title: "Permanently Delete Scrim?",
+                              description: `Permanently delete "${scrim.title}"? This cannot be recovered.`,
+                              onConfirm: () =>
+                                runAction(
+                                  `purge-${scrim.id}`,
+                                  () => permanentlyDeleteScrim(scrim.id),
+                                  `Permanently deleted "${scrim.title}"`,
+                                  () => setSelectedScrimIds((prev) => prev.filter((i) => i !== scrim.id))
+                                ),
+                            })
+                          }
                           className="h-7 text-xs"
                         >
                           <Trash2 className="size-3" /> Purge
@@ -549,15 +563,19 @@ export function AdminTrash({
                       size="sm"
                       variant="destructive"
                       disabled={Boolean(actionLoading)}
-                      onClick={() => {
-                        if (!confirm(`Permanently delete ${selectedResultIds.length} results? This cannot be undone.`)) return
-                        runAction(
-                          "bulk-delete-results",
-                          () => bulkPermanentlyDeleteResults(selectedResultIds),
-                          "Permanently deleted selected results",
-                          () => setSelectedResultIds([])
-                        )
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          title: "Permanently Delete Selected Results?",
+                          description: `Permanently delete ${selectedResultIds.length} result(s)? This cannot be undone.`,
+                          onConfirm: () =>
+                            runAction(
+                              "bulk-delete-results",
+                              () => bulkPermanentlyDeleteResults(selectedResultIds),
+                              "Permanently deleted selected results",
+                              () => setSelectedResultIds([])
+                            ),
+                        })
+                      }
                       className="h-8 gap-1.5 text-xs"
                     >
                       <Trash2 className="size-3.5" /> Purge Selected
@@ -614,15 +632,19 @@ export function AdminTrash({
                           size="sm"
                           variant="destructive"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => {
-                            if (!confirm(`Permanently delete result for "${result.winningTeam}"?`)) return
-                            runAction(
-                              `purge-${result.id}`,
-                              () => permanentlyDeleteResult(result.id),
-                              `Permanently deleted result`,
-                              () => setSelectedResultIds((prev) => prev.filter((i) => i !== result.id))
-                            )
-                          }}
+                          onClick={() =>
+                            setConfirmState({
+                              title: "Permanently Delete Result?",
+                              description: `Permanently delete result for "${result.winningTeam}"? This cannot be undone.`,
+                              onConfirm: () =>
+                                runAction(
+                                  `purge-${result.id}`,
+                                  () => permanentlyDeleteResult(result.id),
+                                  `Permanently deleted result`,
+                                  () => setSelectedResultIds((prev) => prev.filter((i) => i !== result.id))
+                                ),
+                            })
+                          }
                           className="h-7 text-xs"
                         >
                           <Trash2 className="size-3" /> Purge
@@ -677,15 +699,19 @@ export function AdminTrash({
                       size="sm"
                       variant="destructive"
                       disabled={Boolean(actionLoading)}
-                      onClick={() => {
-                        if (!confirm(`Permanently delete ${selectedReportIds.length} reports? This cannot be undone.`)) return
-                        runAction(
-                          "bulk-delete-reports",
-                          () => bulkPermanentlyDeleteReports(selectedReportIds),
-                          "Permanently deleted selected reports",
-                          () => setSelectedReportIds([])
-                        )
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          title: "Permanently Delete Selected Reports?",
+                          description: `Permanently delete ${selectedReportIds.length} report(s)? This cannot be undone.`,
+                          onConfirm: () =>
+                            runAction(
+                              "bulk-delete-reports",
+                              () => bulkPermanentlyDeleteReports(selectedReportIds),
+                              "Permanently deleted selected reports",
+                              () => setSelectedReportIds([])
+                            ),
+                        })
+                      }
                       className="h-8 gap-1.5 text-xs"
                     >
                       <Trash2 className="size-3.5" /> Purge Selected
@@ -747,15 +773,19 @@ export function AdminTrash({
                           size="sm"
                           variant="destructive"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => {
-                            if (!confirm("Permanently delete this report?")) return
-                            runAction(
-                              `purge-${report.id}`,
-                              () => permanentlyDeleteReport(report.id),
-                              "Report permanently deleted",
-                              () => setSelectedReportIds((prev) => prev.filter((i) => i !== report.id))
-                            )
-                          }}
+                          onClick={() =>
+                            setConfirmState({
+                              title: "Permanently Delete Report?",
+                              description: "Permanently delete this player report? This cannot be undone.",
+                              onConfirm: () =>
+                                runAction(
+                                  `purge-${report.id}`,
+                                  () => permanentlyDeleteReport(report.id),
+                                  "Report permanently deleted",
+                                  () => setSelectedReportIds((prev) => prev.filter((i) => i !== report.id))
+                                ),
+                            })
+                          }
                           className="h-7 text-xs"
                         >
                           <Trash2 className="size-3" /> Purge
@@ -810,15 +840,19 @@ export function AdminTrash({
                       size="sm"
                       variant="destructive"
                       disabled={Boolean(actionLoading)}
-                      onClick={() => {
-                        if (!confirm(`Permanently delete ${selectedImageReqIds.length} requests? This cannot be undone.`)) return
-                        runAction(
-                          "bulk-delete-img",
-                          () => bulkPermanentlyDeleteImageRequests(selectedImageReqIds),
-                          "Permanently deleted selected requests",
-                          () => setSelectedImageReqIds([])
-                        )
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          title: "Permanently Delete Selected Requests?",
+                          description: `Permanently delete ${selectedImageReqIds.length} photo request(s)? This cannot be undone.`,
+                          onConfirm: () =>
+                            runAction(
+                              "bulk-delete-img",
+                              () => bulkPermanentlyDeleteImageRequests(selectedImageReqIds),
+                              "Permanently deleted selected requests",
+                              () => setSelectedImageReqIds([])
+                            ),
+                        })
+                      }
                       className="h-8 gap-1.5 text-xs"
                     >
                       <Trash2 className="size-3.5" /> Purge Selected
@@ -882,15 +916,19 @@ export function AdminTrash({
                           size="sm"
                           variant="destructive"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => {
-                            if (!confirm("Permanently delete this photo request?")) return
-                            runAction(
-                              `purge-${req.id}`,
-                              () => permanentlyDeleteImageRequest(req.id),
-                              "Image request permanently deleted",
-                              () => setSelectedImageReqIds((prev) => prev.filter((i) => i !== req.id))
-                            )
-                          }}
+                          onClick={() =>
+                            setConfirmState({
+                              title: "Permanently Delete Photo Request?",
+                              description: "Permanently delete this photo request? This cannot be undone.",
+                              onConfirm: () =>
+                                runAction(
+                                  `purge-${req.id}`,
+                                  () => permanentlyDeleteImageRequest(req.id),
+                                  "Image request permanently deleted",
+                                  () => setSelectedImageReqIds((prev) => prev.filter((i) => i !== req.id))
+                                ),
+                            })
+                          }
                           className="h-7 text-xs"
                         >
                           <Trash2 className="size-3" /> Purge
@@ -945,15 +983,19 @@ export function AdminTrash({
                       size="sm"
                       variant="destructive"
                       disabled={Boolean(actionLoading)}
-                      onClick={() => {
-                        if (!confirm(`Permanently delete ${selectedUserIds.length} users? This cannot be undone.`)) return
-                        runAction(
-                          "bulk-delete-users",
-                          () => bulkPermanentlyDeleteUsers(selectedUserIds),
-                          "Permanently deleted selected user accounts",
-                          () => setSelectedUserIds([])
-                        )
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          title: "Permanently Delete Selected Users?",
+                          description: `Permanently delete ${selectedUserIds.length} user(s)? This cannot be undone.`,
+                          onConfirm: () =>
+                            runAction(
+                              "bulk-delete-users",
+                              () => bulkPermanentlyDeleteUsers(selectedUserIds),
+                              "Permanently deleted selected user accounts",
+                              () => setSelectedUserIds([])
+                            ),
+                        })
+                      }
                       className="h-8 gap-1.5 text-xs"
                     >
                       <Trash2 className="size-3.5" /> Purge Selected
@@ -1008,15 +1050,19 @@ export function AdminTrash({
                           size="sm"
                           variant="destructive"
                           disabled={Boolean(actionLoading)}
-                          onClick={() => {
-                            if (!confirm(`Permanently delete account "${user.name}"?`)) return
-                            runAction(
-                              `purge-${user.id}`,
-                              () => permanentlyDeleteUser(user.id),
-                              `Permanently deleted user account`,
-                              () => setSelectedUserIds((prev) => prev.filter((i) => i !== user.id))
-                            )
-                          }}
+                          onClick={() =>
+                            setConfirmState({
+                              title: "Permanently Delete User Account?",
+                              description: `Permanently delete account "${user.name}"? This cannot be undone.`,
+                              onConfirm: () =>
+                                runAction(
+                                  `purge-${user.id}`,
+                                  () => permanentlyDeleteUser(user.id),
+                                  `Permanently deleted user account`,
+                                  () => setSelectedUserIds((prev) => prev.filter((i) => i !== user.id))
+                                ),
+                            })
+                          }
                           className="h-7 text-xs"
                         >
                           <Trash2 className="size-3" /> Purge
@@ -1071,15 +1117,19 @@ export function AdminTrash({
                       size="sm"
                       variant="destructive"
                       disabled={Boolean(actionLoading)}
-                      onClick={() => {
-                        if (!confirm(`Permanently delete ${selectedPaymentIds.length} payments? This cannot be undone.`)) return
-                        runAction(
-                          "bulk-delete-pay",
-                          () => bulkPermanentlyDeletePayments(selectedPaymentIds),
-                          "Permanently deleted selected payments",
-                          () => setSelectedPaymentIds([])
-                        )
-                      }}
+                      onClick={() =>
+                        setConfirmState({
+                          title: "Permanently Delete Selected Payments?",
+                          description: `Permanently delete ${selectedPaymentIds.length} payment record(s)? This cannot be undone.`,
+                          onConfirm: () =>
+                            runAction(
+                              "bulk-delete-pay",
+                              () => bulkPermanentlyDeletePayments(selectedPaymentIds),
+                              "Permanently deleted selected payments",
+                              () => setSelectedPaymentIds([])
+                            ),
+                        })
+                      }
                       className="h-8 gap-1.5 text-xs"
                     >
                       <Trash2 className="size-3.5" /> Purge Selected
@@ -1142,15 +1192,19 @@ export function AdminTrash({
                             size="sm"
                             variant="destructive"
                             disabled={Boolean(actionLoading)}
-                            onClick={() => {
-                              if (!confirm("Permanently delete this payment record?")) return
-                              runAction(
-                                `purge-${payment.id}`,
-                                () => permanentlyDeletePayment(payment.id),
-                                "Payment permanently deleted",
-                                () => setSelectedPaymentIds((prev) => prev.filter((i) => i !== payment.id))
-                              )
-                            }}
+                            onClick={() =>
+                              setConfirmState({
+                                title: "Permanently Delete Payment Record?",
+                                description: "Permanently delete this payment record? This cannot be undone.",
+                                onConfirm: () =>
+                                  runAction(
+                                    `purge-${payment.id}`,
+                                    () => permanentlyDeletePayment(payment.id),
+                                    "Payment permanently deleted",
+                                    () => setSelectedPaymentIds((prev) => prev.filter((i) => i !== payment.id))
+                                  ),
+                              })
+                            }
                             className="h-7 text-xs"
                           >
                             <Trash2 className="size-3" /> Purge
@@ -1165,6 +1219,21 @@ export function AdminTrash({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmState !== null}
+        onOpenChange={(open) => !open && setConfirmState(null)}
+        title={confirmState?.title ?? "Confirm Permanent Deletion"}
+        description={confirmState?.description ?? ""}
+        confirmLabel="Delete Permanently"
+        variant="destructive"
+        loading={Boolean(actionLoading)}
+        onConfirm={() => {
+          const fn = confirmState?.onConfirm
+          setConfirmState(null)
+          fn?.()
+        }}
+      />
     </div>
   )
 }

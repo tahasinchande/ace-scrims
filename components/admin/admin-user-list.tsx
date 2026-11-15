@@ -6,6 +6,7 @@ import { setUserRole, setUserBanned, trashUsers } from "@/app/actions/admin"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDate } from "@/lib/format"
 import { resolveImageUrl } from "@/lib/image-url"
 import { Ban, Search, ShieldCheck, Undo2, User as UserIcon, Trash2, CheckSquare, Square, Coins } from "lucide-react"
@@ -43,6 +44,7 @@ export function AdminUserList({
   const [isPending, startTransition] = useTransition()
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({})
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+  const [pendingTrashIds, setPendingTrashIds] = useState<string[] | null>(null)
 
   const filtered = users.filter(
     (u) =>
@@ -67,7 +69,13 @@ export function AdminUserList({
 
   function handleDeleteToTrash(ids: string[]) {
     if (ids.length === 0) return
-    if (!window.confirm(`Move ${ids.length} user(s) to Trash?`)) return
+    setPendingTrashIds(ids)
+  }
+
+  function executeDeleteToTrash() {
+    if (!pendingTrashIds || pendingTrashIds.length === 0) return
+    const ids = pendingTrashIds
+    setPendingTrashIds(null)
     startTransition(async () => {
       const res = await trashUsers(ids)
       if (res.ok) {
@@ -265,6 +273,17 @@ export function AdminUserList({
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pendingTrashIds !== null}
+        onOpenChange={(open) => !open && setPendingTrashIds(null)}
+        title="Move Users to Trash?"
+        description={`Move ${pendingTrashIds?.length ?? 0} user(s) to Trash?`}
+        confirmLabel="Move to Trash"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={executeDeleteToTrash}
+      />
     </div>
   )
 }

@@ -76,7 +76,7 @@ export function TutorialView({ tutorials = [] }: { tutorials?: Tutorial[] }) {
               <div key={v.id} className="glass-strong flex flex-col gap-3 rounded-2xl p-4 border border-border">
                 <h3 className="font-display text-base font-bold text-foreground">{v.title}</h3>
                 {v.description && <p className="text-xs text-muted-foreground">{v.description}</p>}
-                <div className="overflow-hidden rounded-xl bg-black/60 border border-border/80">
+                <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-black border border-border/80">
                   {(() => {
                     const parsed = parseVideoEmbed(v.videoUrl)
                     if (parsed.isEmbeddableIframe) {
@@ -84,18 +84,20 @@ export function TutorialView({ tutorials = [] }: { tutorials?: Tutorial[] }) {
                         <iframe
                           src={parsed.embedUrl}
                           title={v.title}
-                          className="w-full aspect-video border-0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          loading="lazy"
+                          className="absolute inset-0 h-full w-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                           allowFullScreen
                         />
                       )
                     }
                     return (
                       <video
-                        src={v.videoUrl}
+                        src={parsed.embedUrl || v.videoUrl}
                         controls
                         playsInline
-                        className="w-full aspect-video object-contain bg-black"
+                        preload="metadata"
+                        className="absolute inset-0 h-full w-full object-contain bg-black"
                       />
                     )
                   })()}

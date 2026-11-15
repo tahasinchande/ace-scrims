@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatTaka, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
@@ -51,6 +52,7 @@ export function HistoricalScrimView({
   const [isPending, startTransition] = useTransition()
   const [selectedBookingIds, setSelectedBookingIds] = useState<string[]>([])
   const [isBulkDeleting, startBulkDelete] = useTransition()
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
 
   // Load data when date or scrimId changes
   function fetchData(date: string, scrimId?: string) {
@@ -120,8 +122,12 @@ export function HistoricalScrimView({
   // Bulk Delete Selected Bookings
   const handleBulkDeleteBookings = () => {
     if (selectedBookingIds.length === 0) return
-    if (!confirm(`Are you sure you want to delete ${selectedBookingIds.length} booking(s)? They will be moved to the Trash.`)) return
+    setConfirmBulkDelete(true)
+  }
 
+  const executeBulkDeleteBookings = () => {
+    if (selectedBookingIds.length === 0) return
+    setConfirmBulkDelete(false)
     startBulkDelete(async () => {
       const res = await bulkDeleteBookings(selectedBookingIds)
       if (res.ok) {
@@ -556,6 +562,17 @@ export function HistoricalScrimView({
           )}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        onOpenChange={setConfirmBulkDelete}
+        title="Move Selected Bookings to Trash?"
+        description={`Move ${selectedBookingIds.length} selected booking(s) to the Trash?`}
+        confirmLabel="Move to Trash"
+        variant="destructive"
+        loading={isBulkDeleting}
+        onConfirm={executeBulkDeleteBookings}
+      />
     </div>
   )
 }

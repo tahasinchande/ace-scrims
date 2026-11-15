@@ -2,16 +2,30 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
 
-export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody
+const PROTECTED_PREFIXES = ["tutorials/", "scrims/", "banners/", "results/"]
 
+export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const body = (await request.json()) as HandleUploadBody
+
     const jsonResponse = await handleUpload({
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        // Authenticate or validate upload
         const user = await getSessionUser().catch(() => null)
+        if (!user || user.banned) {
+          throw new Error("Authentication required for uploads.")
+        }
+
+        const isStaff = user.role === "admin" || user.role === "moderator"
+        const normalizedPath = pathname.replace(/^\/+/, "")
+        if (
+          PROTECTED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix)) &&
+          !isStaff
+        ) {
+          throw new Error("Staff privileges required for this upload folder.")
+        }
+
         return {
           allowedContentTypes: [
             "image/jpeg",
@@ -23,21 +37,25 @@ export async function POST(request: Request): Promise<NextResponse> {
             "video/quicktime",
             "video/x-matroska",
           ],
+          maximumSizeInBytes: isStaff ? 10 * 1024 * 1024 * 1024 : 100 * 1024 * 1024,
           tokenPayload: JSON.stringify({
-            userId: user?.id || "guest",
+            userId: user.id,
           }),
         }
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log("[Blob Client Upload Completed]", blob.url)
+      onUploadCompleted: async () => {
+        // Upload completion acknowledged silently
       },
     })
 
     return NextResponse.json(jsonResponse)
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 } // The webhook will retry 5 times waiting for a 200
-    )
+    const message = error instanceof Error ? error.message : "Upload authorization failed"
+    const status = message.includes("Authentication")
+      ? 401
+      : message.includes("Staff privileges")
+        ? 403
+        : 400
+    return NextResponse.json({ error: message }, { status })
   }
 }

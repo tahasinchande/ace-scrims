@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { requestTeamImage } from "@/app/actions/image-requests"
 import { trashImageRequests, removeTeamFromScrimAction } from "@/app/actions/admin"
 import { toast } from "sonner"
@@ -119,9 +120,19 @@ export function AdminImageRequestsView({
     setSelectedRequestIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
 
+  const [pendingTrashIds, setPendingTrashIds] = useState<string[] | null>(null)
+  const [teamToRemove, setTeamToRemove] = useState<any | null>(null)
+  const [removingBookingId, setRemovingBookingId] = useState<string | null>(null)
+
   const handleDeleteRequestsToTrash = (ids: string[]) => {
     if (ids.length === 0) return
-    if (!window.confirm(`Move ${ids.length} photo request(s) to Trash?`)) return
+    setPendingTrashIds(ids)
+  }
+
+  const executeDeleteRequestsToTrash = () => {
+    if (!pendingTrashIds || pendingTrashIds.length === 0) return
+    const ids = pendingTrashIds
+    setPendingTrashIds(null)
     startTransition(async () => {
       const res = await trashImageRequests(ids)
       if (res.ok) {
@@ -133,14 +144,15 @@ export function AdminImageRequestsView({
     })
   }
 
-  const [removingBookingId, setRemovingBookingId] = useState<string | null>(null)
-
-  const handleRemoveTeam = async (team: any) => {
+  const handleRemoveTeam = (team: any) => {
     if (!selectedScrim) return
-    const confirmed = window.confirm(
-      `⚠️ ARE YOU SURE YOU WANT TO REMOVE THIS TEAM?\n\n• Team Name: "${team.teamName}"\n• Leader: ${team.captainName} (UID: ${team.captainUid})\n• Slot: #${team.slotNumber ?? "N/A"}\n• Scrim: ${selectedScrim.title}\n\nThis will remove the team from this scrim lobby, cancel their slot, and decrement the registered count.`
-    )
-    if (!confirmed) return
+    setTeamToRemove(team)
+  }
+
+  const executeRemoveTeam = async () => {
+    if (!selectedScrim || !teamToRemove) return
+    const team = teamToRemove
+    setTeamToRemove(null)
 
     setRemovingBookingId(team.id)
     try {
@@ -704,6 +716,32 @@ export function AdminImageRequestsView({
           </DialogContent>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={pendingTrashIds !== null}
+        onOpenChange={(open) => !open && setPendingTrashIds(null)}
+        title="Move Photo Requests to Trash?"
+        description={`Move ${pendingTrashIds?.length ?? 0} photo request(s) to Trash?`}
+        confirmLabel="Move to Trash"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={executeDeleteRequestsToTrash}
+      />
+
+      <ConfirmDialog
+        open={teamToRemove !== null}
+        onOpenChange={(open) => !open && setTeamToRemove(null)}
+        title="Remove Team from Scrim?"
+        description={
+          teamToRemove && selectedScrim
+            ? `Remove "${teamToRemove.teamName}" (Leader: ${teamToRemove.captainName}, Slot #${teamToRemove.slotNumber ?? "N/A"}) from ${selectedScrim.title}? This cancels their slot and frees up the spot.`
+            : ""
+        }
+        confirmLabel="Yes, Remove Team"
+        variant="destructive"
+        loading={removingBookingId !== null}
+        onConfirm={executeRemoveTeam}
+      />
     </div>
   )
 }

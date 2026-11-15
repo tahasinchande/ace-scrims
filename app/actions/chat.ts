@@ -35,7 +35,13 @@ export async function sendChatMessage(
       senderId: sessionUser.id,
       senderName: sessionUser.name || "User",
       senderRole: sessionUser.role || "user",
-      message: cleanMsg || (attachmentType === "image" ? "📷 Image attachment" : "📄 File attachment"),
+      message:
+        cleanMsg ||
+        (attachmentType === "image"
+          ? "📷 Photo"
+          : attachmentType === "video"
+            ? "🎬 Video"
+            : "📄 File attachment"),
       attachmentUrl: attachmentUrl || null,
       attachmentType: attachmentType || null,
       attachmentName: attachmentName || null,
@@ -144,7 +150,9 @@ export async function getStaffChatConversations() {
       let previewText = r.message?.trim() || ""
       if (!previewText) {
         if (r.attachmentType === "image" || (r.attachmentUrl && /\.(png|jpe?g|webp|gif)$/i.test(r.attachmentUrl))) {
-          previewText = "📷 Image attachment"
+          previewText = "📷 Photo"
+        } else if (r.attachmentType === "video" || (r.attachmentUrl && /\.(mp4|webm|mov|mkv|avi)$/i.test(r.attachmentUrl))) {
+          previewText = "🎬 Video"
         } else if (r.attachmentUrl) {
           previewText = "📄 File attachment"
         } else {

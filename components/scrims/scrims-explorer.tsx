@@ -20,23 +20,41 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
     setScrims(initialScrims)
   }, [initialScrims])
 
-  // Live real-time slot polling to synchronize /scrims with outside view after reset
+  // Live real-time slot polling via /api/scrims/slots
   useEffect(() => {
     let active = true
     async function syncSlots() {
       try {
-        const { getLiveActiveScrimsAction } = await import("@/app/actions/booking")
-        const live = await getLiveActiveScrimsAction()
-        if (!active || !live?.scrims || live.scrims.length === 0) return
-        setScrims(live.scrims as unknown as ScrimCardData[])
-      } catch {}
+        const res = await fetch("/api/scrims/slots", { cache: "no-store" })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!active || !data?.ok || !Array.isArray(data.scrims)) return
+        setScrims(data.scrims as ScrimCardData[])
+      } catch {
+        // Silent retry on next interval
+      }
     }
 
-    syncSlots()
-    const timer = setInterval(syncSlots, 10000)
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        void syncSlots()
+      }
+    }
+
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void syncSlots()
+      }
+    }, 8000)
+
+    window.addEventListener("focus", onVisibilityOrFocus)
+    document.addEventListener("visibilitychange", onVisibilityOrFocus)
+
     return () => {
       active = false
       clearInterval(timer)
+      window.removeEventListener("focus", onVisibilityOrFocus)
+      document.removeEventListener("visibilitychange", onVisibilityOrFocus)
     }
   }, [])
 

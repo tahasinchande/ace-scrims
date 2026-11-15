@@ -11,7 +11,7 @@ import { Hero } from "@/components/landing/hero"
 import { Features, HowItWorks, WhyChooseUs, Faq, Contact, SectionHeading } from "@/components/landing/sections"
 import { Top3FaceBannersSection, type Top3BannerItem } from "@/components/landing/top3-face-banners"
 import { MvpFaceBannersSection, type MvpBannerItem } from "@/components/landing/mvp-face-banners"
-import { ScrimCard } from "@/components/site/scrim-card"
+import { HomeScrimsGrid } from "@/components/site/home-scrims-grid"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -116,11 +116,7 @@ export default async function HomePage() {
                 : "New competitive lobbies will be listed soon. Book before they fill."
             }
           />
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {scrims.map((s) => (
-              <ScrimCard key={s.id} scrim={s} />
-            ))}
-          </div>
+          <HomeScrimsGrid initialScrims={scrims} />
         </section>
 
         <HowItWorks />

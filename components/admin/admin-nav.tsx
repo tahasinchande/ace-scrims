@@ -22,6 +22,7 @@ import {
   History,
   Coins,
   BellRing,
+  KeyRound,
 } from "lucide-react"
 
 type NavLink = {
@@ -34,6 +35,7 @@ type NavLink = {
 const adminLinks: NavLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
+  { href: "/admin/scrims?tab=room1", label: "Room 1", icon: KeyRound, exact: true },
   { href: "/admin/notices", label: "Notices", icon: BellRing },
   { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/announce", label: "Announce", icon: Megaphone },
@@ -54,6 +56,7 @@ const adminLinks: NavLink[] = [
 // Moderators see room/result publishing and live support chat.
 const moderatorLinks: NavLink[] = [
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
+  { href: "/admin/scrims?tab=room1", label: "Room 1", icon: KeyRound, exact: true },
   { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/image-requests", label: "Image Requests", icon: Camera },
   { href: "/admin/results", label: "Results", icon: Trophy },

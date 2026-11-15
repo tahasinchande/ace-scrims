@@ -716,7 +716,13 @@ export async function userHasBooking(userId: string, scrimIdOrSlug: string, targ
     const targetSlug = scrim?.slug || scrimIdOrSlug
 
     const rows = await db
-      .select({ id: bookings.id, status: bookings.status, scrimDate: bookings.scrimDate })
+      .select({
+        id: bookings.id,
+        status: bookings.status,
+        scrimDate: bookings.scrimDate,
+        teamName: bookings.teamName,
+        slotNumber: bookings.slotNumber,
+      })
       .from(bookings)
       .where(
         and(

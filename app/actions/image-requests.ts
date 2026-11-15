@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { imageRequests, bookings, scrims, user } from "@/lib/db/schema"
 import { eq, and, desc } from "drizzle-orm"
-import { getSessionUser, requireUser } from "@/lib/session"
+import { getSessionUser, requireUser, requireStaff } from "@/lib/session"
 import { notifyUser } from "@/lib/notify"
 import { sendMvpImageRequestEmail } from "@/lib/email"
 
@@ -225,6 +225,11 @@ export async function submitPendingImageRequest(payload: {
  */
 export async function getUserPendingImageRequests(userId: string) {
   try {
+    const currentUser = await getSessionUser()
+    if (!currentUser || currentUser.banned) return []
+    const isStaff = currentUser.role === "admin" || currentUser.role === "moderator"
+    if (currentUser.id !== userId && !isStaff) return []
+
     const rows = await db
       .select()
       .from(imageRequests)
@@ -242,6 +247,11 @@ export async function getUserPendingImageRequests(userId: string) {
  */
 export async function getUserAllImageRequests(userId: string) {
   try {
+    const currentUser = await getSessionUser()
+    if (!currentUser || currentUser.banned) return []
+    const isStaff = currentUser.role === "admin" || currentUser.role === "moderator"
+    if (currentUser.id !== userId && !isStaff) return []
+
     const rows = await db
       .select()
       .from(imageRequests)
@@ -259,6 +269,7 @@ export async function getUserAllImageRequests(userId: string) {
  */
 export async function getAllImageRequests() {
   try {
+    await requireStaff()
     const rows = await db
       .select()
       .from(imageRequests)

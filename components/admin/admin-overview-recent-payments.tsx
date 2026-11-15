@@ -7,6 +7,7 @@ import { trashPayments } from "@/app/actions/admin"
 import { formatTaka, timeAgo } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Trash2, CheckSquare, Square, ArrowRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Payment } from "@/lib/db/schema"
@@ -22,6 +23,7 @@ export function AdminOverviewRecentPayments({ payments }: { payments: RecentPaym
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
 
   const allSelected = payments.length > 0 && selectedIds.length === payments.length
 
@@ -39,7 +41,13 @@ export function AdminOverviewRecentPayments({ payments }: { payments: RecentPaym
 
   const handleDeleteToTrash = (ids: string[]) => {
     if (ids.length === 0) return
-    if (!window.confirm(`Move ${ids.length} payment transaction(s) to Trash?`)) return
+    setPendingDeleteIds(ids)
+  }
+
+  const executeDeleteToTrash = () => {
+    if (!pendingDeleteIds || pendingDeleteIds.length === 0) return
+    const ids = pendingDeleteIds
+    setPendingDeleteIds(null)
     startTransition(async () => {
       const res = await trashPayments(ids)
       if (res.ok) {
@@ -142,6 +150,17 @@ export function AdminOverviewRecentPayments({ payments }: { payments: RecentPaym
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pendingDeleteIds !== null}
+        onOpenChange={(open) => !open && setPendingDeleteIds(null)}
+        title="Move Payment Records to Trash?"
+        description={`Move ${pendingDeleteIds?.length ?? 0} payment transaction(s) to Trash?`}
+        confirmLabel="Move to Trash"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={executeDeleteToTrash}
+      />
     </section>
   )
 }

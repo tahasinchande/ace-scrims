@@ -1,12 +1,13 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { notices } from "@/lib/db/schema"
+import { notices, user } from "@/lib/db/schema"
 import { requireAdmin } from "@/lib/session"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { z } from "zod"
+import { sendEmailBatch, sendNoticeBroadcastEmail } from "@/lib/email"
 
 const noticeSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters.").max(120, "Title cannot exceed 120 characters."),
@@ -21,7 +22,14 @@ const noticeSchema = z.object({
 export async function createNoticeAction(
   prevState: any,
   formData: FormData
-): Promise<{ ok: boolean; message?: string; error?: string }> {
+): Promise<{
+  ok: boolean
+  message?: string
+  error?: string
+  emailsSent?: number
+  emailsFailed?: number
+  totalRecipients?: number
+}> {
   try {
     const admin = await requireAdmin()
 
@@ -32,6 +40,8 @@ export async function createNoticeAction(
     const rawMediaUrl = (formData.get("mediaUrl") as string) || ""
     let rawMediaType = (formData.get("mediaType") as string) || "none"
     const isPinned = formData.get("isPinned") === "true" || formData.get("isPinned") === "on"
+    const sendEmailBroadcast =
+      formData.get("sendEmailBroadcast") === "true" || formData.get("sendEmailBroadcast") === "on"
 
     // Auto-detect media type if url is provided and mediaType wasn't explicitly set
     if (rawMediaUrl && rawMediaType === "none") {
@@ -80,12 +90,77 @@ export async function createNoticeAction(
       updatedAt: new Date(),
     })
 
+    let emailsSent = 0
+    let emailsFailed = 0
+    let totalRecipients = 0
+
+    if (sendEmailBroadcast) {
+      try {
+        const activeUsers = await db
+          .select({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          })
+          .from(user)
+          .where(
+            and(
+              eq(user.banned, false),
+              eq(user.isTrashed, false),
+              eq(user.emailVerified, true)
+            )
+          )
+
+        const recipientMap = new Map<string, { email: string; name: string }>()
+        for (const u of activeUsers) {
+          const email = u.email?.trim().toLowerCase()
+          if (email && email.includes("@") && !recipientMap.has(email)) {
+            recipientMap.set(email, {
+              email,
+              name: u.name || "Player",
+            })
+          }
+        }
+
+        const recipients = Array.from(recipientMap.values())
+        totalRecipients = recipients.length
+
+        if (recipients.length > 0) {
+          const stats = await sendEmailBatch(recipients, (r) =>
+            sendNoticeBroadcastEmail({
+              to: r.email,
+              recipientName: r.name,
+              title: data.title,
+              content: data.content,
+              category: data.category,
+              priority: data.priority,
+              mediaUrl: data.mediaUrl,
+              mediaType: data.mediaType,
+              isPinned: data.isPinned,
+            })
+          )
+          emailsSent = stats.sent
+          emailsFailed = stats.failed
+        }
+      } catch (emailErr) {
+        console.warn("[createNoticeAction] Failed to broadcast notice emails:", emailErr)
+      }
+    }
+
     revalidatePath("/admin/notices")
     revalidatePath("/dashboard/notices")
     revalidatePath("/dashboard")
     revalidatePath("/")
 
-    return { ok: true, message: "Notice published successfully!" }
+    return {
+      ok: true,
+      message: sendEmailBroadcast
+        ? `Notice published and emailed to ${emailsSent} of ${totalRecipients} player(s).`
+        : "Notice published successfully!",
+      emailsSent,
+      emailsFailed,
+      totalRecipients,
+    }
   } catch (err: any) {
     console.error("[createNoticeAction Error]:", err)
     return { ok: false, error: err?.message || "Failed to publish notice" }

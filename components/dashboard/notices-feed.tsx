@@ -4,16 +4,13 @@ import { useState, useMemo } from "react"
 import type { Notice } from "@/lib/db/schema"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MediaLightbox, type MediaLightboxItem } from "@/components/chat/media-lightbox"
 import {
-  Megaphone,
   Pin,
   Clock,
   Search,
   Sparkles,
-  Play,
   Maximize2,
-  Calendar,
   AlertCircle,
   FileText,
   Shield,
@@ -54,7 +51,7 @@ function timeAgo(date: Date | string | null): string {
 export function NoticesFeed({ initialNotices }: { initialNotices: Notice[] }) {
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [activeMediaPreview, setActiveMediaPreview] = useState<{ url: string; type: string; title: string } | null>(null)
+  const [lightboxItem, setLightboxItem] = useState<MediaLightboxItem | null>(null)
 
   const categories = useMemo(() => {
     const set = new Set<string>()
@@ -228,10 +225,10 @@ export function NoticesFeed({ initialNotices }: { initialNotices: Notice[] }) {
                         <div
                           className="group relative cursor-pointer overflow-hidden max-h-[460px] flex items-center justify-center bg-secondary/20"
                           onClick={() =>
-                            setActiveMediaPreview({
+                            setLightboxItem({
                               url: notice.mediaUrl!,
                               type: "image",
-                              title: notice.title,
+                              caption: notice.title,
                             })
                           }
                         >
@@ -268,25 +265,11 @@ export function NoticesFeed({ initialNotices }: { initialNotices: Notice[] }) {
         </div>
       )}
 
-      {/* ── Lightbox / Fullscreen Image Preview Dialog ── */}
-      {activeMediaPreview && (
-        <Dialog open={true} onOpenChange={(open) => !open && setActiveMediaPreview(null)}>
-          <DialogContent className="max-w-4xl p-2 sm:p-4 bg-background/95 backdrop-blur-xl border-border">
-            <DialogHeader className="px-2 pb-2">
-              <DialogTitle className="font-display text-sm font-bold truncate">
-                {activeMediaPreview.title}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex items-center justify-center max-h-[80vh] overflow-hidden rounded-xl bg-black/50 p-1">
-              <img
-                src={activeMediaPreview.url}
-                alt={activeMediaPreview.title}
-                className="max-h-[75vh] w-auto max-w-full object-contain"
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <MediaLightbox
+        items={lightboxItem ? [lightboxItem] : []}
+        open={Boolean(lightboxItem)}
+        onOpenChange={(open) => !open && setLightboxItem(null)}
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { processTeamRefund, markRefundManual, markScrimNotHosted, refundAllTeamsForScrim } from "@/app/actions/not-hosted"
 import { bdt } from "@/lib/format"
 import {
@@ -40,13 +41,23 @@ export function AdminNotHosted({
   const [manualRefInput, setManualRefInput] = useState<Record<string, string>>({})
   const [selectedScrimId, setSelectedScrimId] = useState<string>("")
   const [isPending, startTransition] = useTransition()
+  const [confirmMarkScrim, setConfirmMarkScrim] = useState(false)
+  const [pendingBulkRefund, setPendingBulkRefund] = useState<{
+    scrimId: string
+    scrimTitle: string
+    pendingCount: number
+  } | null>(null)
 
   const activeScrimsToMark = scrims.filter((s) => s.status !== "not_hosted" && s.status !== "deleted")
 
   const handleMarkScrim = () => {
     if (!selectedScrimId) return
-    const chosen = scrims.find((s) => s.id === selectedScrimId)
-    if (!window.confirm(`Mark "${chosen?.title || selectedScrimId}" as NOT HOSTED? All registered squads will be moved here for refunds.`)) return
+    setConfirmMarkScrim(true)
+  }
+
+  const executeMarkScrim = () => {
+    if (!selectedScrimId) return
+    setConfirmMarkScrim(false)
 
     startTransition(async () => {
       try {
@@ -121,19 +132,18 @@ export function AdminNotHosted({
     return Array.from(map.values())
   }, [filteredTeams])
 
-  const handleBulkRefund = async (scrimId: string, scrimTitle: string, pendingCount: number) => {
+  const handleBulkRefund = (scrimId: string, scrimTitle: string, pendingCount: number) => {
     if (pendingCount === 0) {
       toast.info("All teams for this scrim have already been refunded.")
       return
     }
+    setPendingBulkRefund({ scrimId, scrimTitle, pendingCount })
+  }
 
-    if (
-      !window.confirm(
-        `Are you sure you want to refund ALL ${pendingCount} pending team(s) for "${scrimTitle}"?\n\nThis will trigger automated gateway/system refunds and send refund notifications to users.`
-      )
-    ) {
-      return
-    }
+  const executeBulkRefund = async () => {
+    if (!pendingBulkRefund) return
+    const { scrimId, scrimTitle } = pendingBulkRefund
+    setPendingBulkRefund(null)
 
     setBulkLoadingScrimId(scrimId)
     try {
@@ -492,6 +502,32 @@ export function AdminNotHosted({
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmMarkScrim}
+        onOpenChange={setConfirmMarkScrim}
+        title="Mark Scrim as Not Hosted?"
+        description={`Mark "${scrims.find((s) => s.id === selectedScrimId)?.title || selectedScrimId}" as NOT HOSTED? All registered squads will be moved here for refund processing.`}
+        confirmLabel="Mark Not Hosted"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={executeMarkScrim}
+      />
+
+      <ConfirmDialog
+        open={pendingBulkRefund !== null}
+        onOpenChange={(open) => !open && setPendingBulkRefund(null)}
+        title="Refund All Pending Teams?"
+        description={
+          pendingBulkRefund
+            ? `Refund all ${pendingBulkRefund.pendingCount} pending team(s) for "${pendingBulkRefund.scrimTitle}"? This will trigger automated gateway refunds and send notifications to users.`
+            : ""
+        }
+        confirmLabel="Process Bulk Refund"
+        variant="destructive"
+        loading={bulkLoadingScrimId !== null}
+        onConfirm={executeBulkRefund}
+      />
     </div>
   )
 }

@@ -422,7 +422,7 @@ export function InfoSetupForm({
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-foreground truncate">Default Leader Photo Ready</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{teamLeaderImageUrl}</p>
+                    <p className="text-[11px] text-emerald-400">Waist-up squad leader photo stored securely</p>
                   </div>
                   <Button
                     type="button"

@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import type { Booking, Scrim } from "@/lib/db/schema"
 import { formatTaka, timeAgo, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -49,7 +50,7 @@ function formatRegistrationDate(date: Date | string | null | undefined): string 
   }
 }
 
-const initialState = { ok: false, error: null as string | null }
+const initialState = { ok: false, error: null as string | null, emailsSent: 0, emailsFailed: 0, totalRecipients: 0 }
 
 function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
   const [open, setOpen] = useState(false)
@@ -57,7 +58,16 @@ function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
 
   useEffect(() => {
     if (state.ok) {
-      toast.success("Room details published — participants notified")
+      const total = state.totalRecipients ?? 0
+      const sent = state.emailsSent ?? 0
+      const failed = state.emailsFailed ?? 0
+      if (total === 0) {
+        toast.success("Room details published in dashboard")
+      } else if (failed > 0) {
+        toast.warning(`Room published — emailed ${sent}/${total} confirmed teams (${failed} failed)`)
+      } else {
+        toast.success(`Room published & emailed to all ${sent} confirmed team(s)`)
+      }
       setOpen(false)
     } else if (state.error) {
       toast.error(state.error)
@@ -442,6 +452,37 @@ function ViewTeamsButton({
 
 function AdminControls({ scrim }: { scrim: AdminScrim }) {
   const [isPending, startTransition] = useTransition()
+  const [confirmAction, setConfirmAction] = useState<"not_hosted" | "delete" | null>(null)
+
+  function handleConfirmedAction() {
+    const action = confirmAction
+    setConfirmAction(null)
+    if (action === "not_hosted") {
+      startTransition(async () => {
+        try {
+          const { markScrimNotHosted } = await import("@/app/actions/not-hosted")
+          const res = await markScrimNotHosted(scrim.id)
+          if (res.ok) toast.success(res.message || "Marked as Not Hosted")
+          else toast.error(res.error || "Failed to mark as not hosted")
+        } catch (err: any) {
+          toast.error(err?.message || "Failed to mark as not hosted")
+        }
+      })
+    } else if (action === "delete") {
+      startTransition(async () => {
+        try {
+          const res = await deleteScrim(scrim.id)
+          if (res?.ok) {
+            toast.success("Scrim deleted successfully")
+          } else {
+            toast.error(res?.error || "Failed to delete scrim")
+          }
+        } catch (e: any) {
+          toast.error(e?.message || "Failed to delete scrim")
+        }
+      })
+    }
+  }
 
   return (
     <>
@@ -452,17 +493,7 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
         onChange={(e) => {
           const nextStatus = e.target.value as "upcoming" | "force_open" | "live" | "registration_closed" | "completed" | "not_hosted"
           if (nextStatus === "not_hosted") {
-            if (!window.confirm(`Mark "${scrim.title}" as NOT HOSTED? Registered teams will be moved to the Not Hosted section for refund processing.`)) return
-            startTransition(async () => {
-              try {
-                const { markScrimNotHosted } = await import("@/app/actions/not-hosted")
-                const res = await markScrimNotHosted(scrim.id)
-                if (res.ok) toast.success(res.message || "Marked as Not Hosted")
-                else toast.error(res.error || "Failed to mark as not hosted")
-              } catch (err: any) {
-                toast.error(err?.message || "Failed to mark as not hosted")
-              }
-            })
+            setConfirmAction("not_hosted")
             return
           }
 
@@ -515,19 +546,7 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
         variant="outline"
         className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
         disabled={isPending}
-        onClick={() => {
-          if (!window.confirm(`Mark "${scrim.title}" as NOT HOSTED? Registered teams will be moved to Not Hosted section for refund processing.`)) return
-          startTransition(async () => {
-            try {
-              const { markScrimNotHosted } = await import("@/app/actions/not-hosted")
-              const res = await markScrimNotHosted(scrim.id)
-              if (res.ok) toast.success(res.message || "Marked as Not Hosted")
-              else toast.error(res.error || "Failed to mark as not hosted")
-            } catch (err: any) {
-              toast.error(err?.message || "Failed to mark as not hosted")
-            }
-          })
-        }}
+        onClick={() => setConfirmAction("not_hosted")}
       >
         <AlertTriangle className="size-3.5" />
         Not Hosted
@@ -559,30 +578,33 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
         size="sm"
         variant="destructive"
         disabled={isPending}
-        onClick={() => {
-          if (!window.confirm(`Delete "${scrim.title}"? This cannot be undone.`)) return
-          startTransition(async () => {
-            try {
-              const res = await deleteScrim(scrim.id)
-              if (res?.ok) {
-                toast.success("Scrim deleted successfully")
-              } else {
-                toast.error(res?.error || "Failed to delete scrim")
-              }
-            } catch (e: any) {
-              toast.error(e?.message || "Failed to delete scrim")
-            }
-          })
-        }}
+        onClick={() => setConfirmAction("delete")}
       >
         <Trash2 className="size-3.5" />
       </Button>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={confirmAction === "not_hosted" ? "Mark Scrim as Not Hosted?" : "Delete Scrim?"}
+        description={
+          confirmAction === "not_hosted"
+            ? `Mark "${scrim.title}" as NOT HOSTED? Registered teams will be moved to the Not Hosted section for refund processing.`
+            : `Move "${scrim.title}" to Trash?`
+        }
+        confirmLabel={confirmAction === "not_hosted" ? "Mark Not Hosted" : "Delete Scrim"}
+        variant="destructive"
+        loading={isPending}
+        onConfirm={handleConfirmedAction}
+      />
     </>
   )
 }
 
 function TrashControls({ scrim }: { scrim: AdminScrim }) {
   const [isPending, startTransition] = useTransition()
+  const [confirmPurge, setConfirmPurge] = useState(false)
+
   return (
     <div className="flex items-center gap-2">
       <Button
@@ -609,8 +631,22 @@ function TrashControls({ scrim }: { scrim: AdminScrim }) {
         size="sm"
         variant="destructive"
         disabled={isPending}
-        onClick={() => {
-          if (!window.confirm(`Permanently delete "${scrim.title}"? This cannot be recovered.`)) return
+        onClick={() => setConfirmPurge(true)}
+      >
+        <Trash2 className="size-3.5" />
+        Delete Permanently
+      </Button>
+
+      <ConfirmDialog
+        open={confirmPurge}
+        onOpenChange={setConfirmPurge}
+        title="Permanently Delete Scrim?"
+        description={`Permanently delete "${scrim.title}"? This cannot be recovered.`}
+        confirmLabel="Delete Permanently"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={() => {
+          setConfirmPurge(false)
           startTransition(async () => {
             try {
               const res = await permanentlyDeleteScrim(scrim.id)
@@ -621,28 +657,31 @@ function TrashControls({ scrim }: { scrim: AdminScrim }) {
             }
           })
         }}
-      >
-        <Trash2 className="size-3.5" />
-        Delete Permanently
-      </Button>
+      />
     </div>
   )
 }
+
+type ScrimTab = "all" | "daily" | "room1" | "room2" | "friday" | "champion" | "not_hosted" | "trash"
+const VALID_TABS: ScrimTab[] = ["all", "daily", "room1", "room2", "friday", "champion", "not_hosted", "trash"]
 
 export function AdminScrimList({
   scrims,
   isAdmin,
   bookingsByScrim = {},
   initialRoom2Enabled = false,
+  initialTab,
 }: {
   scrims: AdminScrim[]
   isAdmin: boolean
   bookingsByScrim?: Record<string, RosterBooking[]>
   initialRoom2Enabled?: boolean
+  initialTab?: string
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<"all" | "daily" | "room2" | "friday" | "champion" | "not_hosted" | "trash">("all")
+  const resolvedInitialTab: ScrimTab = VALID_TABS.includes(initialTab as ScrimTab) ? (initialTab as ScrimTab) : "all"
+  const [activeTab, setActiveTab] = useState<ScrimTab>(resolvedInitialTab)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedScrimIds, setSelectedScrimIds] = useState<string[]>([])
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
@@ -650,6 +689,13 @@ export function AdminScrimList({
   const [isTogglingRoom2, setIsTogglingRoom2] = useState(false)
   const [isBulkForcing, setIsBulkForcing] = useState(false)
   const [liveBookingsByScrim, setLiveBookingsByScrim] = useState(bookingsByScrim)
+  const [bulkConfirm, setBulkConfirm] = useState<"force_on" | "force_off" | "bulk_delete" | null>(null)
+
+  useEffect(() => {
+    if (initialTab && VALID_TABS.includes(initialTab as ScrimTab)) {
+      setActiveTab(initialTab as ScrimTab)
+    }
+  }, [initialTab])
 
   useEffect(() => {
     setLiveBookingsByScrim(bookingsByScrim)
@@ -670,6 +716,12 @@ export function AdminScrimList({
   const isRoom2Scrim = (s: AdminScrim) =>
     s.id.includes("r2") || s.slug.includes("room-2") || s.title.toLowerCase().includes("room 2")
 
+  const isRoom1Scrim = (s: AdminScrim) => {
+    const isCR = s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush")
+    const isFridayBlast = s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special")
+    return !isRoom2Scrim(s) && !isCR && !isFridayBlast
+  }
+
   const notHostedCount = scrims.filter((s) => s.status === "not_hosted").length
   const trashCount = scrims.filter((s) => s.status === "deleted" || s.deletedAt != null).length
 
@@ -689,8 +741,10 @@ export function AdminScrimList({
       const isFridayBlast = scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
       const isDaily = !isCR && !isFridayBlast
       const isR2 = isRoom2Scrim(scrim)
+      const isR1 = isRoom1Scrim(scrim)
 
       if (activeTab === "daily" && !isDaily) return false
+      if (activeTab === "room1" && !isR1) return false
       if (activeTab === "room2" && !isR2) return false
       if (activeTab === "friday" && !isFridayBlast) return false
       if (activeTab === "champion" && !isCR) return false
@@ -711,48 +765,69 @@ export function AdminScrimList({
 
   const activeScrimsCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
   const dailyCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !s.title.toLowerCase().includes("champion rush") && !s.title.toLowerCase().includes("friday special") && !s.slug.includes("champion-rush") && !s.slug.includes("friday-special")).length
+  const room1Count = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom1Scrim(s)).length
   const room2Count = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
   const fridayCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special"))).length
   const crCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush"))).length
 
-  async function handleForceTurnOnAll() {
-    if (!window.confirm("⚡ FORCE TURN ON ALL SCRIMS?\n\nThis will immediately enable registration and set status to 'Force Open' for ALL active scrim lobbies, overriding match start time closures.")) {
-      return
-    }
-    setIsBulkForcing(true)
-    try {
-      const res = await forceTurnOnAllScrimsAction()
-      if (res.ok) {
-        toast.success(`Success! Force turned ON registration for all scrim lobbies.`)
-        router.refresh()
-      } else {
-        toast.error(res.error || "Failed to force turn on scrims")
+  async function executeBulkConfirm() {
+    const mode = bulkConfirm
+    setBulkConfirm(null)
+    if (mode === "force_on") {
+      setIsBulkForcing(true)
+      try {
+        const res = await forceTurnOnAllScrimsAction()
+        if (res.ok) {
+          toast.success("Success! Force turned ON registration for all scrim lobbies.")
+          router.refresh()
+        } else {
+          toast.error(res.error || "Failed to force turn on scrims")
+        }
+      } catch {
+        toast.error("Failed to force turn on scrims")
+      } finally {
+        setIsBulkForcing(false)
       }
-    } catch {
-      toast.error("Failed to force turn on scrims")
-    } finally {
-      setIsBulkForcing(false)
+    } else if (mode === "force_off") {
+      setIsBulkForcing(true)
+      try {
+        const res = await forceTurnOffAllScrimsAction()
+        if (res.ok) {
+          toast.success("Success! Force turned OFF registration for all scrim lobbies.")
+          router.refresh()
+        } else {
+          toast.error(res.error || "Failed to force turn off scrims")
+        }
+      } catch {
+        toast.error("Failed to force turn off scrims")
+      } finally {
+        setIsBulkForcing(false)
+      }
+    } else if (mode === "bulk_delete") {
+      if (selectedScrimIds.length === 0) return
+      setIsBulkDeleting(true)
+      try {
+        const res = await bulkDeleteScrims(selectedScrimIds)
+        if (res.ok) {
+          toast.success(`Moved ${res.count} scrim(s) to Trash`)
+          setSelectedScrimIds([])
+        } else {
+          toast.error(res.error || "Failed to bulk delete")
+        }
+      } catch {
+        toast.error("Error deleting scrims")
+      } finally {
+        setIsBulkDeleting(false)
+      }
     }
   }
 
-  async function handleForceTurnOffAll() {
-    if (!window.confirm("🛑 FORCE TURN OFF ALL SCRIMS?\n\nThis will immediately CLOSE registration and set status to 'Registration Closed' for ALL active scrim lobbies.")) {
-      return
-    }
-    setIsBulkForcing(true)
-    try {
-      const res = await forceTurnOffAllScrimsAction()
-      if (res.ok) {
-        toast.success(`Success! Force turned OFF registration for all scrim lobbies.`)
-        router.refresh()
-      } else {
-        toast.error(res.error || "Failed to force turn off scrims")
-      }
-    } catch {
-      toast.error("Failed to force turn off scrims")
-    } finally {
-      setIsBulkForcing(false)
-    }
+  function handleForceTurnOnAll() {
+    setBulkConfirm("force_on")
+  }
+
+  function handleForceTurnOffAll() {
+    setBulkConfirm("force_off")
   }
 
   async function handleToggleRoom2() {
@@ -773,23 +848,9 @@ export function AdminScrimList({
     }
   }
 
-  async function handleBulkDelete() {
+  function handleBulkDelete() {
     if (selectedScrimIds.length === 0) return
-    if (!window.confirm(`Move ${selectedScrimIds.length} scrim(s) to Trash?`)) return
-    setIsBulkDeleting(true)
-    try {
-      const res = await bulkDeleteScrims(selectedScrimIds)
-      if (res.ok) {
-        toast.success(`Moved ${res.count} scrim(s) to Trash`)
-        setSelectedScrimIds([])
-      } else {
-        toast.error(res.error || "Failed to bulk delete")
-      }
-    } catch {
-      toast.error("Error deleting scrims")
-    } finally {
-      setIsBulkDeleting(false)
-    }
+    setBulkConfirm("bulk_delete")
   }
 
   return (
@@ -815,6 +876,16 @@ export function AdminScrimList({
             }`}
           >
             Daily Scrims ({dailyCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("room1")}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              activeTab === "room1" ? "bg-blue-600 text-white shadow" : "text-muted-foreground hover:text-blue-300"
+            }`}
+          >
+            <KeyRound className="size-3.5" />
+            Room 1 ({room1Count})
           </button>
           <button
             type="button"
@@ -1113,6 +1184,35 @@ export function AdminScrimList({
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={bulkConfirm !== null}
+        onOpenChange={(open) => !open && setBulkConfirm(null)}
+        title={
+          bulkConfirm === "force_on"
+            ? "Force Turn On All Scrims?"
+            : bulkConfirm === "force_off"
+            ? "Force Turn Off All Scrims?"
+            : "Move Selected Scrims to Trash?"
+        }
+        description={
+          bulkConfirm === "force_on"
+            ? "This will immediately enable registration and set status to 'Force Open' for ALL active scrim lobbies, overriding match start time closures."
+            : bulkConfirm === "force_off"
+            ? "This will immediately CLOSE registration and set status to 'Registration Closed' for ALL active scrim lobbies."
+            : `Move ${selectedScrimIds.length} selected scrim(s) to Trash?`
+        }
+        confirmLabel={
+          bulkConfirm === "force_on"
+            ? "Force Turn On All"
+            : bulkConfirm === "force_off"
+            ? "Force Turn Off All"
+            : "Move to Trash"
+        }
+        variant={bulkConfirm === "force_on" ? "default" : "destructive"}
+        loading={isBulkForcing || isBulkDeleting}
+        onConfirm={executeBulkConfirm}
+      />
     </div>
   )
 }

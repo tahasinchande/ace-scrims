@@ -16,10 +16,11 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Invalid url", { status: 400 })
   }
 
-  // Restrict to our own blob store host.
+  // Restrict to HTTPS and our own blob store host.
   if (
-    !parsed.hostname.endsWith(".blob.vercel-storage.com") &&
-    !parsed.hostname.endsWith(".vercel-storage.com")
+    parsed.protocol !== "https:" ||
+    (!parsed.hostname.endsWith(".blob.vercel-storage.com") &&
+      !parsed.hostname.endsWith(".vercel-storage.com"))
   ) {
     return new NextResponse("Forbidden", { status: 403 })
   }
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest) {
 
   const upstream = await fetch(parsed.toString(), {
     headers,
-  })
-  if (!upstream.ok || !upstream.body) {
+    redirect: "error",
+  }).catch(() => null)
+  if (!upstream || !upstream.ok || !upstream.body) {
     return new NextResponse("Not found", { status: 404 })
   }
 

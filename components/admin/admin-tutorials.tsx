@@ -30,7 +30,7 @@ import {
   FileVideo,
 } from "lucide-react"
 import { toast } from "sonner"
-import { uploadVideoToCloudinaryDirect } from "@/lib/client-upload"
+import { uploadVideoDirect } from "@/lib/client-upload"
 import { parseVideoEmbed } from "@/lib/video-parser"
 
 type TutorialItem = {
@@ -41,7 +41,7 @@ type TutorialItem = {
   createdAt: Date
 }
 
-const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024 // 5GB limit for direct client-side upload
+const MAX_VIDEO_SIZE = 10 * 1024 * 1024 * 1024 // 10GB chunked/multipart upload support
 
 function VideoEmbedPreview({ url }: { url: string }) {
   const parsed = useMemo(() => parseVideoEmbed(url), [url])
@@ -66,6 +66,13 @@ function VideoEmbedPreview({ url }: { url: string }) {
         )}
       </div>
 
+      {parsed.warning && (
+        <p className="text-[11px] text-amber-400 flex items-start gap-1.5 leading-relaxed font-medium">
+          <Info className="size-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <span>{parsed.warning}</span>
+        </p>
+      )}
+
       {parsed.instructions && (
         <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 leading-relaxed">
           <Info className="size-3.5 text-primary shrink-0 mt-0.5" />
@@ -73,21 +80,23 @@ function VideoEmbedPreview({ url }: { url: string }) {
         </p>
       )}
 
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/80 bg-black/80">
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/80 bg-black">
         {parsed.isEmbeddableIframe ? (
           <iframe
             src={parsed.embedUrl}
             title="Video Preview"
-            className="w-full h-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            loading="lazy"
+            className="absolute inset-0 h-full w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowFullScreen
           />
         ) : (
           <video
             src={parsed.embedUrl}
             controls
+            playsInline
             preload="metadata"
-            className="w-full h-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain bg-black"
           />
         )}
       </div>
@@ -117,24 +126,23 @@ function AddTutorialButton() {
       return
     }
 
-    // Direct Client-Side Video Upload to Cloud Storage (Up to 5GB, Bypasses Vercel Serverless Payload Limit)
+    // Chunked Direct Client Video Upload (supports 5GB–10GB files, bypasses server payload limits)
     if (file && file.size > 0) {
       if (file.size > MAX_VIDEO_SIZE) {
-        toast.error("Video file exceeds the 5GB maximum upload limit")
+        toast.error("Video file exceeds the 10GB maximum upload limit")
         return
       }
 
       setUploading(true)
-      setUploadProgress(5)
+      setUploadProgress(2)
 
       try {
-        const res = await uploadVideoToCloudinaryDirect(file, "tutorials", (pct) => {
+        const res = await uploadVideoDirect(file, "tutorials", (pct) => {
           setUploadProgress(pct)
         })
         finalVideoUrl = res.url
         setUploadProgress(100)
       } catch (err: any) {
-        console.error("[Direct Video Upload Error]", err)
         toast.error(err instanceof Error ? err.message : "Video upload failed.")
         return
       } finally {
@@ -221,18 +229,18 @@ function AddTutorialButton() {
 
           <div className="relative flex items-center py-1">
             <div className="grow border-t border-border" />
-            <span className="shrink mx-3 text-xs font-semibold uppercase text-muted-foreground">OR DIRECT UPLOAD (UP TO 5GB)</span>
+            <span className="shrink mx-3 text-xs font-semibold uppercase text-muted-foreground">OR DIRECT CHUNKED UPLOAD (5GB–10GB)</span>
             <div className="grow border-t border-border" />
           </div>
 
           <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-secondary/30 p-3.5">
             <Label htmlFor="videoFile" className="font-semibold text-xs flex items-center gap-1.5 text-foreground">
               <UploadCloud className="size-4 text-primary" />
-              Direct Video Upload (Upload up to 5GB)
+              Direct Video Upload (Supports Large Files 5GB+)
             </Label>
             <Input id="videoFile" name="videoFile" type="file" accept="video/*" className="bg-background cursor-pointer" />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Direct high-speed streaming upload from your browser (up to 5GB). Direct cloud transfer bypasses server size limits.
+              Uses resilient 20MB chunked direct streaming from your browser (supports up to 10GB with automatic retry).
             </p>
           </div>
 
@@ -291,21 +299,20 @@ function EditTutorialDialog({ tutorial }: { tutorial: TutorialItem }) {
 
     if (file && file.size > 0) {
       if (file.size > MAX_VIDEO_SIZE) {
-        toast.error("Video file exceeds the 5GB maximum upload limit")
+        toast.error("Video file exceeds the 10GB maximum upload limit")
         return
       }
 
       setUploading(true)
-      setUploadProgress(5)
+      setUploadProgress(2)
 
       try {
-        const res = await uploadVideoToCloudinaryDirect(file, "tutorials", (pct) => {
+        const res = await uploadVideoDirect(file, "tutorials", (pct) => {
           setUploadProgress(pct)
         })
         finalVideoUrl = res.url
         setUploadProgress(100)
       } catch (err: any) {
-        console.error("[Direct Video Upload Error]", err)
         toast.error(err instanceof Error ? err.message : "Video upload failed.")
         return
       } finally {
@@ -391,18 +398,18 @@ function EditTutorialDialog({ tutorial }: { tutorial: TutorialItem }) {
 
           <div className="relative flex items-center py-1">
             <div className="grow border-t border-border" />
-            <span className="shrink mx-3 text-xs font-semibold uppercase text-muted-foreground">OR REPLACE WITH FILE (UP TO 5GB)</span>
+            <span className="shrink mx-3 text-xs font-semibold uppercase text-muted-foreground">OR REPLACE WITH FILE (5GB–10GB)</span>
             <div className="grow border-t border-border" />
           </div>
 
           <div className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-secondary/30 p-3.5">
             <Label htmlFor={`edit-file-${tutorial.id}`} className="font-semibold text-xs flex items-center gap-1.5 text-foreground">
               <UploadCloud className="size-4 text-primary" />
-              Upload Replacement Video (Direct Stream up to 5GB)
+              Upload Replacement Video (Chunked Direct Stream 5GB+)
             </Label>
             <Input id={`edit-file-${tutorial.id}`} name="videoFile" type="file" accept="video/*" className="bg-background cursor-pointer" />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Replaces existing video URL with new direct upload (supports up to 5GB).
+              Replaces existing video URL with new chunked direct upload (supports up to 10GB).
             </p>
           </div>
 
@@ -522,17 +529,24 @@ export function AdminTutorials({ tutorials }: { tutorials: TutorialItem[] }) {
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-xl bg-black/80 border border-border/80 aspect-video relative">
+                <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-black border border-border/80">
                   {parsed.isEmbeddableIframe ? (
                     <iframe
                       src={parsed.embedUrl}
                       title={tut.title}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                       allowFullScreen
                     />
                   ) : (
-                    <video src={parsed.embedUrl} controls preload="metadata" className="w-full h-full object-contain" />
+                    <video
+                      src={parsed.embedUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="absolute inset-0 h-full w-full object-contain bg-black"
+                    />
                   )}
                 </div>
 

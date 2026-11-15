@@ -399,11 +399,33 @@ function emailShell({
 </html>`
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isRateLimitError(err: unknown): boolean {
+  if (!err) return false
+  const msg =
+    typeof err === "string"
+      ? err.toLowerCase()
+      : `${(err as any)?.message ?? ""} ${(err as any)?.name ?? ""} ${(err as any)?.statusCode ?? ""}`.toLowerCase()
+  return msg.includes("429") || msg.includes("rate_limit") || msg.includes("rate limit") || msg.includes("too many requests")
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 /**
- * Universal email sender with automatic fallback chain:
- * 1. Resend SDK / API
+ * Universal email sender with automatic fallback chain + rate-limit backoff:
+ * 1. Resend SDK / API (with automatic retry on HTTP 429 rate limits)
  * 2. Nodemailer SMTP (Gmail, Brevo, SendGrid, Amazon SES, Custom SMTP)
- * 3. Log link to Vercel runtime logs if no provider configured
+ * 3. Error reporting if no provider configured
  */
 export async function sendEmail({
   to,
@@ -422,43 +444,60 @@ export async function sendEmail({
   const resend = getResendClient()
   const smtp = getSmtpTransporter()
 
-  // 1. Try Resend if configured
+  // 1. Try Resend if configured (retry up to 2 times on 429 rate-limit)
   if (resend) {
-    try {
-      console.log(`[Email Service] Attempting delivery to ${to} via Resend (${sender})...`)
-      const response = await resend.emails.send({
-        from: sender,
-        to,
-        subject,
-        html,
-        text,
-      })
-
-      if (!response.error) {
-        console.log(`[Email Service] Successfully sent email to ${to} via Resend. Message ID: ${response.data?.id}`)
-        return { success: true, provider: "resend", messageId: response.data?.id }
-      }
-
-      console.warn(`[Email Service] Resend error with sender "${sender}":`, response.error)
-
-      // Fallback: If custom sender failed on Resend (e.g. unverified domain), try onboarding@resend.dev
-      if (sender !== "ACE SCRIMS <onboarding@resend.dev>" && sender !== "onboarding@resend.dev") {
-        console.log(`[Email Service] Retrying Resend with fallback onboarding@resend.dev...`)
-        const fallbackRes = await resend.emails.send({
-          from: "ACE SCRIMS <onboarding@resend.dev>",
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        console.log(`[Email Service] Attempting delivery to ${to} via Resend (${sender})...`)
+        const response = await resend.emails.send({
+          from: sender,
           to,
           subject,
           html,
           text,
         })
-        if (!fallbackRes.error) {
-          console.log(`[Email Service] Successfully sent email via Resend fallback onboarding@resend.dev.`)
-          return { success: true, provider: "resend", messageId: fallbackRes.data?.id }
+
+        if (!response.error) {
+          console.log(`[Email Service] Successfully sent email to ${to} via Resend. Message ID: ${response.data?.id}`)
+          return { success: true, provider: "resend", messageId: response.data?.id }
         }
-        console.error(`[Email Service] Resend fallback also failed:`, fallbackRes.error)
+
+        if (isRateLimitError(response.error) && attempt < 2) {
+          const waitMs = 900 * (attempt + 1)
+          console.warn(`[Email Service] Resend rate-limit (429) for ${to}. Waiting ${waitMs}ms before retry #${attempt + 1}...`)
+          await sleep(waitMs)
+          continue
+        }
+
+        console.warn(`[Email Service] Resend error with sender "${sender}":`, response.error)
+
+        // Fallback: If custom sender failed on Resend (e.g. unverified domain), try onboarding@resend.dev
+        if (sender !== "ACE SCRIMS <onboarding@resend.dev>" && sender !== "onboarding@resend.dev") {
+          console.log(`[Email Service] Retrying Resend with fallback onboarding@resend.dev...`)
+          const fallbackRes = await resend.emails.send({
+            from: "ACE SCRIMS <onboarding@resend.dev>",
+            to,
+            subject,
+            html,
+            text,
+          })
+          if (!fallbackRes.error) {
+            console.log(`[Email Service] Successfully sent email via Resend fallback onboarding@resend.dev.`)
+            return { success: true, provider: "resend", messageId: fallbackRes.data?.id }
+          }
+          console.error(`[Email Service] Resend fallback also failed:`, fallbackRes.error)
+        }
+        break
+      } catch (resendErr: any) {
+        if (isRateLimitError(resendErr) && attempt < 2) {
+          const waitMs = 900 * (attempt + 1)
+          console.warn(`[Email Service] Resend 429 exception for ${to}. Waiting ${waitMs}ms before retry...`)
+          await sleep(waitMs)
+          continue
+        }
+        console.error(`[Email Service] Resend exception:`, resendErr?.message || resendErr)
+        break
       }
-    } catch (resendErr: any) {
-      console.error(`[Email Service] Resend exception:`, resendErr?.message || resendErr)
     }
   }
 
@@ -1103,5 +1142,161 @@ export async function sendMvpImageRequestEmail({
     return false
   }
 }
+
+/**
+ * Throttled batch email dispatcher that stays comfortably under Resend's
+ * 2 requests/second rate limit, preventing HTTP 429 drops when emailing lobbies or broadcasts.
+ */
+export async function sendEmailBatch<T>(
+  items: T[],
+  sendFn: (item: T) => Promise<boolean>,
+  batchSize = 2,
+  delayMs = 750
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0
+  let failed = 0
+
+  for (let i = 0; i < items.length; i += batchSize) {
+    const chunk = items.slice(i, i + batchSize)
+    const results = await Promise.all(
+      chunk.map(async (item) => {
+        try {
+          return await sendFn(item)
+        } catch {
+          return false
+        }
+      })
+    )
+
+    for (const ok of results) {
+      if (ok) sent++
+      else failed++
+    }
+
+    if (i + batchSize < items.length) {
+      await sleep(delayMs)
+    }
+  }
+
+  return { sent, failed }
+}
+
+/**
+ * Sends an Official Notice broadcast email to active verified users.
+ */
+export async function sendNoticeBroadcastEmail({
+  to,
+  recipientName,
+  title,
+  content,
+  category = "General",
+  priority = "normal",
+  mediaUrl,
+  mediaType = "none",
+  isPinned = false,
+}: {
+  to: string
+  recipientName?: string
+  title: string
+  content: string
+  category?: string
+  priority?: "normal" | "important" | "urgent" | string
+  mediaUrl?: string | null
+  mediaType?: "none" | "image" | "video" | string
+  isPinned?: boolean
+}): Promise<boolean> {
+  const appUrl = getProductionAppUrl()
+  const noticesUrl = `${appUrl}/dashboard/notices`
+
+  const safeName = escapeHtml(recipientName || "Player")
+  const safeTitle = escapeHtml(title)
+  const safeCategory = escapeHtml(category || "General")
+  const formattedContent = escapeHtml(content).replace(/\r?\n/g, "<br />")
+
+  const priorityLabel =
+    priority === "urgent"
+      ? "URGENT NOTICE"
+      : priority === "important"
+      ? "IMPORTANT NOTICE"
+      : isPinned
+      ? "PINNED NOTICE"
+      : "OFFICIAL NOTICE"
+
+  const priorityColor =
+    priority === "urgent"
+      ? "#ef4444"
+      : priority === "important"
+      ? "#f59e0b"
+      : "#f97316"
+
+  const validMediaUrl =
+    mediaUrl && /^https?:\/\//i.test(mediaUrl.trim()) ? mediaUrl.trim() : null
+
+  const mediaBlock = validMediaUrl
+    ? mediaType === "image"
+      ? `
+    <div style="margin:20px 0;border-radius:10px;overflow:hidden;border:1px solid #1e2235;background:#080a12;">
+      <img src="${escapeHtml(validMediaUrl)}" alt="${safeTitle}" style="display:block;width:100%;max-height:320px;object-fit:cover;" />
+    </div>`
+      : mediaType === "video"
+      ? `
+    <div style="margin:20px 0;padding:14px 16px;border-radius:10px;border:1px solid #1e2235;background:#121524;">
+      <p style="margin:0 0 6px 0;color:#cbd5e1;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">
+        Video Attachment Included
+      </p>
+      <a href="${escapeHtml(validMediaUrl)}" target="_blank" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
+        Watch Attached Video
+      </a>
+    </div>`
+      : ""
+    : ""
+
+  const contentHtml = `
+    <p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">
+      Hello <strong>${safeName}</strong>,
+    </p>
+
+    <div style="margin-bottom:18px;">
+      <span style="display:inline-block;background:rgba(234,88,12,0.14);color:${priorityColor};font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid ${priorityColor};margin-right:8px;">
+        ${priorityLabel}
+      </span>
+      <span style="display:inline-block;background:#121524;color:#cbd5e1;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #1e2235;">
+        ${safeCategory}
+      </span>
+    </div>
+
+    <div style="background:#121524;border:1px solid #1e2235;border-radius:10px;padding:20px;margin-bottom:20px;">
+      <h2 style="margin:0 0 12px 0;color:#ffffff;font-size:18px;font-weight:800;line-height:1.35;">
+        ${safeTitle}
+      </h2>
+      <div style="color:#cbd5e1;font-size:14px;line-height:1.7;">
+        ${formattedContent}
+      </div>
+      ${mediaBlock}
+    </div>
+  `
+
+  const html = emailShell({
+    title: `${priorityLabel}: ${safeTitle}`,
+    preheader: `${safeCategory} — ${safeTitle}`,
+    contentHtml,
+    ctaText: "View Official Notice",
+    ctaUrl: noticesUrl,
+  })
+
+  try {
+    const result = await sendEmail({
+      to,
+      subject: `[${priorityLabel}] ${title} — ACE SCRIMS`,
+      html,
+      text: `${priorityLabel} (${category}): ${title}\n\n${content}\n\nView notice in your dashboard: ${noticesUrl}`,
+    })
+    return result.success
+  } catch (err) {
+    console.error(`[Notice Broadcast Email] Exception sending to ${to}:`, err)
+    return false
+  }
+}
+
 
 

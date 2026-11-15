@@ -68,10 +68,12 @@ export function BookingWizard({
   scrim,
   userBalance = 0,
   defaultInfo = null,
+  alreadyBooked = null,
 }: {
   scrim: WizardScrim
   userBalance?: number
   defaultInfo?: UserDefaultInfo | null
+  alreadyBooked?: { teamName: string; slotNumber: number | null } | null
 }) {
   const [step, setStep] = useState(1)
   const [state, formAction, pending] = useActionState(createBooking, initialState)
@@ -113,6 +115,32 @@ export function BookingWizard({
   }
 
   const remaining = Math.max(0, scrim.maxTeams - scrim.confirmedTeams)
+
+  if (alreadyBooked) {
+    return (
+      <section className="glass-strong flex flex-col items-center gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+          <CheckCircle2 className="size-8" />
+        </div>
+        <h1 className="font-display text-2xl font-bold uppercase tracking-tight">
+          Squad Already Registered
+        </h1>
+        <p className="max-w-md text-sm text-muted-foreground leading-relaxed">
+          Your squad <strong className="text-foreground">{alreadyBooked.teamName}</strong> already has a confirmed slot
+          {alreadyBooked.slotNumber ? ` (Slot #${alreadyBooked.slotNumber})` : ""} for{" "}
+          <strong className="text-foreground">{scrim.title}</strong> ({scrim.startTime}). Duplicate registrations for the same lobby are disabled.
+        </p>
+        <div className="mt-2 flex flex-wrap justify-center gap-3">
+          <Button asChild className="font-display font-bold uppercase">
+            <Link href="/dashboard/scrims">View My Bookings</Link>
+          </Button>
+          <Button asChild variant="outline" className="font-display font-bold uppercase">
+            <Link href="/scrims">Browse Other Lobbies</Link>
+          </Button>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -507,7 +535,7 @@ export function BookingWizard({
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">Team Leader Photo Attached</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{leaderImageUrl}</p>
+                      <p className="text-[11px] text-emerald-400">Waist-up photo verified &amp; ready for banner</p>
                     </div>
                     <Button
                       type="button"

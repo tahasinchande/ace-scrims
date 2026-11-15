@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils"
 import { publishResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
 import { requestTeamImage } from "@/app/actions/image-requests"
 import { uploadMediaFile } from "@/lib/client-upload"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import type { MatchResult } from "@/lib/db/schema"
 
 export type HistoricalBookingItem = {
@@ -135,6 +136,7 @@ export function AdminHistoryView({
   const [searchQuery, setSearchQuery] = useState("")
   const [copiedRoster, setCopiedRoster] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [resultToTrashId, setResultToTrashId] = useState<string | null>(null)
 
   function applyFilters(newDate: string, newScrim: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -430,18 +432,7 @@ export function AdminHistoryView({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={async () => {
-                        if (!confirm("Are you sure you want to move this result to trash?")) return
-                        startTransition(async () => {
-                          try {
-                            await deleteResult(res.id)
-                            toast.success("Result moved to trash")
-                            router.refresh()
-                          } catch (err: any) {
-                            toast.error(err?.message || "Failed to delete result")
-                          }
-                        })
-                      }}
+                      onClick={() => setResultToTrashId(res.id)}
                       disabled={isPending}
                       className="h-7 text-xs gap-1 text-destructive hover:bg-destructive/10"
                     >
@@ -638,6 +629,30 @@ export function AdminHistoryView({
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={resultToTrashId !== null}
+        onOpenChange={(open) => !open && setResultToTrashId(null)}
+        title="Move Result to Trash?"
+        description="Are you sure you want to move this match result to Trash?"
+        confirmLabel="Move to Trash"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={() => {
+          const targetId = resultToTrashId
+          setResultToTrashId(null)
+          if (!targetId) return
+          startTransition(async () => {
+            try {
+              await deleteResult(targetId)
+              toast.success("Result moved to trash")
+              router.refresh()
+            } catch (err: any) {
+              toast.error(err?.message || "Failed to delete result")
+            }
+          })
+        }}
+      />
     </div>
   )
 }
