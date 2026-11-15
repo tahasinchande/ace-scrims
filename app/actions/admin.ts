@@ -98,6 +98,7 @@ export async function createScrim(_prev: unknown, formData: FormData) {
     }
     const bannerUrl = await maybeUploadBanner(formData)
     const d = parsed.data
+    const { getBangladeshActiveDate } = await import("@/lib/queries/scrims")
 
     await db.insert(scrims).values({
       id: randomUUID(),
@@ -109,7 +110,7 @@ export async function createScrim(_prev: unknown, formData: FormData) {
       map: d.map,
       mode: d.mode,
       startTime: d.startTime,
-      scrimDate: new Date().toISOString().slice(0, 10),
+      scrimDate: getBangladeshActiveDate(),
       priceBdt: d.priceBdt,
       prizePoolBdt: d.prizePoolBdt,
       maxTeams: d.maxTeams,
@@ -1516,12 +1517,13 @@ export async function forceTurnOnAllScrimsAction(): Promise<{ ok: boolean; count
       } catch {}
     }
 
-    // 2. Update all active/upcoming non-trashed scrims to force_open
+    // 2. Update all active/upcoming non-trashed scrims to force_open (syncing scrimDate to at least activeDate)
     const updated = await db
       .update(scrims)
       .set({
         status: "force_open",
         registrationOpen: true,
+        scrimDate: sql`GREATEST(COALESCE(${scrims.scrimDate}, ${activeDate}), ${activeDate})`,
         updatedAt: new Date(),
       })
       .where(
@@ -1585,12 +1587,13 @@ export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; coun
       } catch {}
     }
 
-    // 2. Update all active non-trashed scrims to registration_closed
+    // 2. Update all active non-trashed scrims to registration_closed (syncing scrimDate to at least activeDate)
     const updated = await db
       .update(scrims)
       .set({
         status: "registration_closed",
         registrationOpen: false,
+        scrimDate: sql`GREATEST(COALESCE(${scrims.scrimDate}, ${activeDate}), ${activeDate})`,
         updatedAt: new Date(),
       })
       .where(
@@ -1616,6 +1619,75 @@ export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; coun
   } catch (err: any) {
     console.error("[Force Turn Off All Scrims Error]:", err)
     return { ok: false, error: err?.message || "Failed to force turn off all scrims" }
+  }
+}
+
+/**
+ * Global Admin Control: Normal Mode
+ * Reverts all active scrim lobbies from Force Turn On / Force Turn Off back to schedule-based behavior ("upcoming", registrationOpen=true).
+ */
+export async function normalModeAllScrimsAction(): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const activeDate = getBangladeshActiveDate()
+
+    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+      try {
+        await db
+          .insert(scrims)
+          .values({
+            id: def.id,
+            title: def.name,
+            slug: def.slug,
+            map: def.map,
+            mode: "BATTLE ROYALE",
+            startTime: def.time,
+            scrimDate: activeDate,
+            priceBdt: def.priceBdt,
+            prizePoolBdt: def.prizePoolBdt,
+            maxTeams: 12,
+            bannerUrl: def.bannerUrl || "/images/scrim-1.jpg",
+            category: def.category || "Daily Scrims",
+            status: "upcoming",
+            registrationOpen: true,
+          })
+          .onConflictDoNothing()
+      } catch {}
+    }
+
+    const updated = await db
+      .update(scrims)
+      .set({
+        status: "upcoming",
+        registrationOpen: true,
+        scrimDate: sql`GREATEST(COALESCE(${scrims.scrimDate}, ${activeDate}), ${activeDate})`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(scrims.isTrashed, false),
+          ne(scrims.status, "deleted"),
+          ne(scrims.status, "permanently_deleted"),
+          ne(scrims.status, "completed"),
+          ne(scrims.status, "not_hosted")
+        )
+      )
+      .returning({ id: scrims.id })
+
+    await logActivity(admin.id, "admin", "normal_mode_all_scrims", "All Lobbies", {
+      count: updated.length,
+    })
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, count: updated.length }
+  } catch (err: any) {
+    console.error("[Normal Mode All Scrims Error]:", err)
+    return { ok: false, error: err?.message || "Failed to switch scrims to Normal Mode" }
   }
 }
 

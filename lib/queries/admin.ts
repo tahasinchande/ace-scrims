@@ -64,11 +64,11 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
         scrim: scrims,
         confirmedTeams: sql<number>`(
           select count(*) from bookings b
-          where (b."scrimId" = ${scrims.id} or b."scrimId" = ${scrims.slug}) and b.status = 'confirmed' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate}
+          where (b."scrimId" = ${scrims.id} or b."scrimId" = ${scrims.slug}) and b.status = 'confirmed' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" >= ${activeDate}
         )`,
         pendingTeams: sql<number>`(
           select count(*) from bookings b
-          where (b."scrimId" = ${scrims.id} or b."scrimId" = ${scrims.slug}) and b.status = 'pending' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" = ${activeDate} and b."createdAt" >= NOW() - INTERVAL '30 minutes'
+          where (b."scrimId" = ${scrims.id} or b."scrimId" = ${scrims.slug}) and b.status = 'pending' and b."isArchived" = false and b."isTrashed" = false and b."scrimDate" >= ${activeDate} and b."createdAt" >= NOW() - INTERVAL '30 minutes'
         )`,
       })
       .from(scrims)
@@ -178,7 +178,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
               eq(bookings.scrimId, def.id),
               eq(bookings.isTrashed, false),
               eq(bookings.isArchived, false),
-              eq(bookings.scrimDate, activeDate)
+              gte(bookings.scrimDate, activeDate)
             )
           )
 
@@ -228,8 +228,6 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
 
     // Query exact confirmed and pending booking counts for all scrims from bookings table for today's active schedule
     try {
-      archivePreviousDayBookings().catch(() => {})
-      const activeDate = getBangladeshActiveDate()
       const allCounts = await db
         .select({
           scrimId: bookings.scrimId,
@@ -241,7 +239,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           and(
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            eq(bookings.scrimDate, activeDate)
+            gte(bookings.scrimDate, activeDate)
           )
         )
         .groupBy(bookings.scrimId)
@@ -347,6 +345,9 @@ export async function getTrashResults() {
 
 /** Only confirmed (successful) bookings grouped by scrim id, for the admin team roster. */
 export async function getAllBookingsByScrim(dateFilter?: string, includeAllDates: boolean = false) {
+  if (!includeAllDates && !dateFilter) {
+    await archivePreviousDayBookings().catch(() => {})
+  }
   const activeDate = dateFilter || getBangladeshActiveDate()
 
   const whereClause = includeAllDates
@@ -355,7 +356,7 @@ export async function getAllBookingsByScrim(dateFilter?: string, includeAllDates
         eq(bookings.status, "confirmed"),
         eq(bookings.isTrashed, false),
         eq(bookings.isArchived, false),
-        eq(bookings.scrimDate, activeDate)
+        dateFilter ? eq(bookings.scrimDate, activeDate) : gte(bookings.scrimDate, activeDate)
       )
 
   const [bookingRows, scrimRows] = await Promise.all([

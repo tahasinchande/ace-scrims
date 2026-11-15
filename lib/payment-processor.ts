@@ -241,7 +241,7 @@ export async function processPayment(
             sql`${bookings.id} != ${payment.bookingId}`,
             or(
               eq(bookings.scrimDate, targetScrimDate),
-              sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text = ${targetScrimDate}`
+              sql`(((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text = ${targetScrimDate}`
             )
           )
         )

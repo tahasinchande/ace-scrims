@@ -244,7 +244,7 @@ export async function createBooking(
                 eq(bookings.isArchived, false),
                 or(
                   eq(bookings.scrimDate, targetDate),
-                  sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text = ${targetDate}`
+                  sql`(((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text = ${targetDate}`
                 )
               )
             )
@@ -580,6 +580,7 @@ export async function cancelPendingBooking(bookingId: string): Promise<void> {
 export async function getScrimSlots(scrimId: string) {
   try {
     const { archivePreviousDayBookings } = await import("@/lib/queries/scrims")
+    const { scrimStartDate } = await import("@/lib/format")
     await archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
 
@@ -608,24 +609,43 @@ export async function getScrimSlots(scrimId: string) {
       .where(
         and(
           or(eq(bookings.scrimId, targetId), eq(bookings.scrimId, targetSlug)),
-          eq(bookings.scrimDate, activeDate)
+          gte(bookings.scrimDate, activeDate)
         )
       )
 
     const confirmed = rows[0]?.confirmed ?? 0
     const maxTeams = scrimRow[0]?.maxTeams ?? 12
     const isNewDay = !scrimRow[0]?.scrimDate || scrimRow[0]?.scrimDate < activeDate
+    const effectiveDate =
+      scrimRow[0]?.scrimDate && scrimRow[0].scrimDate > activeDate
+        ? scrimRow[0].scrimDate
+        : activeDate
     const rawStatus = isNewDay && (scrimRow[0]?.status === "completed" || scrimRow[0]?.status === "registration_closed")
       ? "upcoming"
       : (scrimRow[0]?.status || "upcoming")
     const rawRegOpen = isNewDay ? true : (scrimRow[0]?.registrationOpen ?? true)
+    const isForcedOpen = rawStatus === "force_open" || rawStatus === "force_turn_on"
     const isFull = confirmed >= maxTeams
+    const startTime = scrimRow[0]?.startTime
+    const isTimePassed = startTime
+      ? new Date().getTime() >= scrimStartDate(effectiveDate, startTime).getTime()
+      : false
+    const isClosed = isForcedOpen
+      ? isFull
+      : (!rawRegOpen || isFull || isTimePassed || rawStatus === "registration_closed" || rawStatus === "completed" || rawStatus === "not_hosted")
 
     return {
       confirmed,
       maxTeams,
-      registrationOpen: rawRegOpen && !isFull && rawStatus !== "not_hosted",
-      status: isFull && rawStatus === "upcoming" ? "registration_closed" : rawStatus,
+      registrationOpen: rawStatus === "not_hosted" ? false : isForcedOpen ? !isFull : !isClosed,
+      status:
+        rawStatus === "not_hosted"
+          ? "not_hosted"
+          : isForcedOpen
+          ? "force_open"
+          : isClosed && rawStatus === "upcoming"
+          ? "registration_closed"
+          : rawStatus,
     }
   } catch {
     return { confirmed: 0, maxTeams: 12, registrationOpen: true, status: "upcoming" }
@@ -638,6 +658,7 @@ export async function getLiveScrimSlotsMap(): Promise<
 > {
   try {
     const { archivePreviousDayBookings } = await import("@/lib/queries/scrims")
+    const { scrimStartDate } = await import("@/lib/format")
     await archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
 
@@ -648,7 +669,7 @@ export async function getLiveScrimSlotsMap(): Promise<
           count: sql<number>`COUNT(*) FILTER (WHERE ${bookings.status} = 'confirmed' AND ${bookings.isTrashed} = false AND ${bookings.isArchived} = false)::int`,
         })
         .from(bookings)
-        .where(eq(bookings.scrimDate, activeDate))
+        .where(gte(bookings.scrimDate, activeDate))
         .groupBy(bookings.scrimId),
       db
         .select({
@@ -677,17 +698,32 @@ export async function getLiveScrimSlotsMap(): Promise<
       const maxTeams = s.maxTeams || 12
 
       const isNewDay = !s.scrimDate || s.scrimDate < activeDate
+      const effectiveDate = s.scrimDate && s.scrimDate > activeDate ? s.scrimDate : activeDate
       const rawStatus = isNewDay && (s.status === "completed" || s.status === "registration_closed")
         ? "upcoming"
         : (s.status || "upcoming")
       const rawRegOpen = isNewDay ? true : (s.registrationOpen ?? true)
+      const isForcedOpen = rawStatus === "force_open" || rawStatus === "force_turn_on"
       const isFull = totalConfirmed >= maxTeams
+      const isTimePassed = s.startTime
+        ? new Date().getTime() >= scrimStartDate(effectiveDate, s.startTime).getTime()
+        : false
+      const isClosed = isForcedOpen
+        ? isFull
+        : (!rawRegOpen || isFull || isTimePassed || rawStatus === "registration_closed" || rawStatus === "completed" || rawStatus === "not_hosted")
 
       const item = {
         confirmed: totalConfirmed,
         maxTeams,
-        registrationOpen: rawRegOpen && !isFull && rawStatus !== "not_hosted",
-        status: isFull && rawStatus === "upcoming" ? "registration_closed" : rawStatus,
+        registrationOpen: rawStatus === "not_hosted" ? false : isForcedOpen ? !isFull : !isClosed,
+        status:
+          rawStatus === "not_hosted"
+            ? "not_hosted"
+            : isForcedOpen
+            ? "force_open"
+            : isClosed && rawStatus === "upcoming"
+            ? "registration_closed"
+            : rawStatus,
       }
 
       resultMap[s.id] = item
@@ -697,11 +733,12 @@ export async function getLiveScrimSlotsMap(): Promise<
     const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
     for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
       if (!resultMap[def.id]) {
+        const isTimePassed = new Date().getTime() >= scrimStartDate(activeDate, def.time).getTime()
         const item = {
           confirmed: 0,
           maxTeams: 12,
-          registrationOpen: true,
-          status: "upcoming",
+          registrationOpen: !isTimePassed,
+          status: isTimePassed ? "registration_closed" : "upcoming",
         }
         resultMap[def.id] = item
         if (def.slug) resultMap[def.slug] = item

@@ -15,6 +15,7 @@ import {
   setSetting,
   forceTurnOnAllScrimsAction,
   forceTurnOffAllScrimsAction,
+  normalModeAllScrimsAction,
   removeTeamFromScrimAction,
 } from "@/app/actions/admin"
 import { EditScrimButton } from "@/components/admin/scrim-form-dialog"
@@ -519,7 +520,8 @@ function ViewTeamsButton({
   )
 }
 
-function AdminControls({ scrim }: { scrim: AdminScrim }) {
+function AdminControls({ scrim, onUpdated }: { scrim: AdminScrim; onUpdated?: () => void }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [confirmAction, setConfirmAction] = useState<"not_hosted" | "delete" | null>(null)
 
@@ -531,8 +533,12 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
         try {
           const { markScrimNotHosted } = await import("@/app/actions/not-hosted")
           const res = await markScrimNotHosted(scrim.id)
-          if (res.ok) toast.success(res.message || "Marked as Not Hosted")
-          else toast.error(res.error || "Failed to mark as not hosted")
+          if (res.ok) {
+            toast.success(res.message || "Marked as Not Hosted")
+            broadcastSlotsSync(scrim.id)
+            onUpdated?.()
+            router.refresh()
+          } else toast.error(res.error || "Failed to mark as not hosted")
         } catch (err: any) {
           toast.error(err?.message || "Failed to mark as not hosted")
         }
@@ -543,6 +549,9 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
           const res = await deleteScrim(scrim.id)
           if (res?.ok) {
             toast.success("Scrim deleted successfully")
+            broadcastSlotsSync(scrim.id)
+            onUpdated?.()
+            router.refresh()
           } else {
             toast.error(res?.error || "Failed to delete scrim")
           }
@@ -571,6 +580,9 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
               const res = await toggleScrimStatus(scrim.id, nextStatus)
               if (res?.ok) {
                 toast.success(nextStatus === "force_open" ? "Registration FORCE TURNED ON (overriding match time)!" : `Scrim status set to ${nextStatus}`)
+                broadcastSlotsSync(scrim.id)
+                onUpdated?.()
+                router.refresh()
               } else {
                 toast.error(res?.error || "Failed to update status")
               }
@@ -598,6 +610,9 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
               const res = await toggleRegistration(scrim.id, !scrim.registrationOpen)
               if (res?.ok) {
                 toast.success(scrim.registrationOpen ? "Registration closed" : "Registration opened")
+                broadcastSlotsSync(scrim.id)
+                onUpdated?.()
+                router.refresh()
               } else {
                 toast.error(res?.error || "Failed to toggle registration")
               }
@@ -631,6 +646,9 @@ function AdminControls({ scrim }: { scrim: AdminScrim }) {
               const res = await toggleScrimHidden(scrim.id, nextHidden)
               if (res?.ok) {
                 toast.success(nextHidden ? "Scrim hidden from public view" : "Scrim visible to public")
+                broadcastSlotsSync(scrim.id)
+                onUpdated?.()
+                router.refresh()
               } else {
                 toast.error(res?.error || "Failed to update visibility")
               }
@@ -759,7 +777,7 @@ export function AdminScrimList({
   const [isBulkForcing, setIsBulkForcing] = useState(false)
   const [liveScrims, setLiveScrims] = useState<AdminScrim[]>(scrims)
   const [liveBookingsByScrim, setLiveBookingsByScrim] = useState<Record<string, RosterBooking[]>>(bookingsByScrim)
-  const [bulkConfirm, setBulkConfirm] = useState<"force_on" | "force_off" | "bulk_delete" | null>(null)
+  const [bulkConfirm, setBulkConfirm] = useState<"force_on" | "force_off" | "normal_mode" | "bulk_delete" | null>(null)
   const isSyncingRef = useRef(false)
 
   useEffect(() => {
@@ -966,6 +984,23 @@ export function AdminScrimList({
       } finally {
         setIsBulkForcing(false)
       }
+    } else if (mode === "normal_mode") {
+      setIsBulkForcing(true)
+      try {
+        const res = await normalModeAllScrimsAction()
+        if (res.ok) {
+          toast.success("Success! Restored all scrim lobbies to Normal Mode (schedule-based).")
+          broadcastSlotsSync()
+          void syncAdminScrims()
+          router.refresh()
+        } else {
+          toast.error(res.error || "Failed to switch scrims to Normal Mode")
+        }
+      } catch {
+        toast.error("Failed to switch scrims to Normal Mode")
+      } finally {
+        setIsBulkForcing(false)
+      }
     } else if (mode === "bulk_delete") {
       if (selectedScrimIds.length === 0) return
       setIsBulkDeleting(true)
@@ -993,6 +1028,10 @@ export function AdminScrimList({
 
   function handleForceTurnOffAll() {
     setBulkConfirm("force_off")
+  }
+
+  function handleNormalModeAll() {
+    setBulkConfirm("normal_mode")
   }
 
   async function handleToggleRoom2() {
@@ -1129,6 +1168,18 @@ export function AdminScrimList({
               >
                 {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <PowerOff className="size-3.5 text-rose-400" />}
                 <span>Force Turn Off All Scrims</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isBulkForcing}
+                onClick={handleNormalModeAll}
+                className="h-8 gap-1.5 text-xs font-bold border-sky-500/50 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 hover:text-sky-100 transition-all shadow-sm"
+                title="Restore all scrims to normal schedule-based mode"
+              >
+                {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5 text-sky-400" />}
+                <span>Normal Mode</span>
               </Button>
             </>
           )}
@@ -1343,7 +1394,7 @@ export function AdminScrimList({
                           Hide Room
                         </Button>
                       )}
-                      {isAdmin && <AdminControls scrim={scrim} />}
+                      {isAdmin && <AdminControls scrim={scrim} onUpdated={syncAdminScrims} />}
                     </>
                   )}
                   {isDeleted && isAdmin && <TrashControls scrim={scrim} />}
@@ -1362,6 +1413,8 @@ export function AdminScrimList({
             ? "Force Turn On All Scrims?"
             : bulkConfirm === "force_off"
             ? "Force Turn Off All Scrims?"
+            : bulkConfirm === "normal_mode"
+            ? "Restore Scrims to Normal Mode?"
             : "Move Selected Scrims to Trash?"
         }
         description={
@@ -1369,6 +1422,8 @@ export function AdminScrimList({
             ? "This will immediately enable registration and set status to 'Force Open' for ALL active scrim lobbies, overriding match start time closures."
             : bulkConfirm === "force_off"
             ? "This will immediately CLOSE registration and set status to 'Registration Closed' for ALL active scrim lobbies."
+            : bulkConfirm === "normal_mode"
+            ? "This will exit Force Turn On / Force Turn Off and restore all active scrim lobbies back to normal schedule-based open/closed timing."
             : `Move ${selectedScrimIds.length} selected scrim(s) to Trash?`
         }
         confirmLabel={
@@ -1376,9 +1431,11 @@ export function AdminScrimList({
             ? "Force Turn On All"
             : bulkConfirm === "force_off"
             ? "Force Turn Off All"
+            : bulkConfirm === "normal_mode"
+            ? "Switch to Normal Mode"
             : "Move to Trash"
         }
-        variant={bulkConfirm === "force_on" ? "default" : "destructive"}
+        variant={bulkConfirm === "force_on" || bulkConfirm === "normal_mode" ? "default" : "destructive"}
         loading={isBulkForcing || isBulkDeleting}
         onConfirm={executeBulkConfirm}
       />

@@ -47,7 +47,7 @@ async function ensureSchema() {
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "scrimDate" text`,
-        `UPDATE "bookings" SET "scrimDate" = COALESCE("scrimDate", (("createdAt" AT TIME ZONE 'Asia/Dhaka')::date)::text) WHERE "scrimDate" IS NULL`,
+        `UPDATE "bookings" SET "scrimDate" = COALESCE("scrimDate", ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text) WHERE "scrimDate" IS NULL`,
         `CREATE INDEX IF NOT EXISTS "idx_bookings_scrim_date_status" ON "bookings" ("scrimId", "scrimDate", "status")`,
         `CREATE INDEX IF NOT EXISTS "idx_bookings_user_date_status" ON "bookings" ("userId", "scrimDate", "status")`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "uq_bookings_daily_confirmed_user" ON "bookings" ("scrimDate", "userId") WHERE "status" = 'confirmed' AND "isTrashed" = false AND "isArchived" = false AND "scrimDate" IS NOT NULL`,

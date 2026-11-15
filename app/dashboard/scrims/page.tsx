@@ -5,12 +5,18 @@ import { BookingCard } from "@/components/dashboard/booking-card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Swords } from "lucide-react"
+import { SlotSyncBroadcaster } from "@/components/site/slot-sync-broadcaster"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "My Scrims — Ace Scrims" }
 
-export default async function MyScrimsPage() {
+export default async function MyScrimsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ booked?: string }>
+}) {
   const user = await requireUser()
+  const sp = searchParams ? await searchParams : {}
   const [bookings, championRushWhatsappUrl, championRush3pmWhatsappUrl, mainWhatsappUrl] = await Promise.all([
     getUserBookings(user.id),
     getChampionRushWhatsappUrl(),
@@ -21,6 +27,7 @@ export default async function MyScrimsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <SlotSyncBroadcaster active={sp?.booked === "true"} />
       <div>
         <h1 className="font-display text-3xl font-bold uppercase tracking-tight">My Scrims</h1>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -2,7 +2,7 @@ import "server-only"
 
 import { db } from "@/lib/db"
 import { scrims, bookings, settings } from "@/lib/db/schema"
-import { and, or, eq, ne, lt, sql, asc, desc } from "drizzle-orm"
+import { and, or, eq, ne, lt, gte, sql, asc, desc } from "drizzle-orm"
 import { scrimStartDate, sortScrimsAscending } from "@/lib/format"
 import { getRandomScrimImage, SCRIM_BACKGROUND_IMAGES } from "@/lib/scrim-images"
 export { getRandomScrimImage, SCRIM_BACKGROUND_IMAGES }
@@ -52,26 +52,45 @@ export function isFridayBD(): boolean {
 export async function archivePreviousDayBookings(): Promise<number> {
   try {
     const activeDate = getBangladeshActiveDate()
-    // 1. Backfill and archive bookings from previous days so they are preserved in historical archive
+
+    // 1. Recover any confirmed, non-trashed active/future-date bookings that may have been prematurely archived
+    await db
+      .update(bookings)
+      .set({
+        isArchived: false,
+        archivedAt: null,
+      })
+      .where(
+        and(
+          eq(bookings.isArchived, true),
+          eq(bookings.isTrashed, false),
+          eq(bookings.status, "confirmed"),
+          gte(bookings.scrimDate, activeDate)
+        )
+      )
+
+    // 2. Backfill and archive bookings strictly from previous days so they are preserved in historical archive
     await db
       .update(bookings)
       .set({
         isArchived: true,
         archivedAt: new Date(),
-        scrimDate: sql`COALESCE(${bookings.scrimDate}, (${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text)`,
+        scrimDate: sql`COALESCE(${bookings.scrimDate}, (((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text)`,
       })
       .where(
         and(
           eq(bookings.isArchived, false),
           or(
             lt(bookings.scrimDate, activeDate),
-            sql`${bookings.scrimDate} IS NULL`,
-            sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text < ${activeDate}`
+            and(
+              sql`${bookings.scrimDate} IS NULL`,
+              sql`(((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text < ${activeDate}`
+            )
           )
         )
       )
 
-    // 2. Synchronize recurring daily scrims in DB whose date is from yesterday
+    // 3. Synchronize recurring daily scrims in DB whose date is from yesterday
     await db
       .update(scrims)
       .set({
@@ -300,16 +319,20 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
 
   // On a new active date, automatically reset yesterday's completed or closed statuses to fresh upcoming
   const isNewDay = !s.scrimDate || s.scrimDate < activeDate
+  const effectiveDate = s.scrimDate && s.scrimDate > activeDate ? s.scrimDate : activeDate
   const baseStatus = isNewDay && (s.status === "completed" || s.status === "registration_closed")
     ? "upcoming"
     : s.status
   const baseRegOpen = isNewDay ? true : s.registrationOpen
-  
-  // Check if start time is passed for today
-  const startDate = scrimStartDate(activeDate, match ? match.time : s.startTime)
+  const isForcedOpen = baseStatus === "force_open" || baseStatus === "force_turn_on"
+
+  // Check if start time is passed for effective scrim date (ignored when admin enables Force Turn On)
+  const startDate = scrimStartDate(effectiveDate, match ? match.time : s.startTime)
   const isTimePassed = new Date().getTime() >= startDate.getTime()
-  
-  const isClosed = !baseRegOpen || isFull || isTimePassed || baseStatus === "registration_closed" || baseStatus === "completed" || baseStatus === "not_hosted"
+
+  const isClosed = isForcedOpen
+    ? isFull
+    : (!baseRegOpen || isFull || isTimePassed || baseStatus === "registration_closed" || baseStatus === "completed" || baseStatus === "not_hosted")
 
   const isCustomUploaded = Boolean(
     s.bannerUrl &&
@@ -356,8 +379,15 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
       : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
   }
 
-  const finalStatus = baseStatus === "not_hosted" ? "not_hosted" : isClosed && baseStatus === "upcoming" ? "registration_closed" : baseStatus
-  const finalRegOpen = baseStatus === "not_hosted" ? false : !isClosed
+  const finalStatus =
+    baseStatus === "not_hosted"
+      ? "not_hosted"
+      : isForcedOpen
+      ? "force_open"
+      : isClosed && baseStatus === "upcoming"
+      ? "registration_closed"
+      : baseStatus
+  const finalRegOpen = baseStatus === "not_hosted" ? false : isForcedOpen ? !isFull : !isClosed
 
   if (match) {
     return {
@@ -368,7 +398,7 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
       notes,
       mode: "BATTLE ROYALE",
       startTime: match.time,
-      scrimDate: activeDate,
+      scrimDate: effectiveDate,
       priceBdt: match.priceBdt ?? s.priceBdt ?? 35,
       prizePoolBdt: match.prizePoolBdt ?? s.prizePoolBdt ?? 330,
       bannerUrl: chosenBanner,
@@ -383,7 +413,7 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     rules,
     notes,
     mode: "BATTLE ROYALE",
-    scrimDate: activeDate,
+    scrimDate: effectiveDate,
     priceBdt: s.priceBdt || (isCR ? 50 : 35),
     prizePoolBdt: s.prizePoolBdt || (isCR ? 480 : 330),
     bannerUrl: chosenBanner,
@@ -526,7 +556,7 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
           eq(bookings.status, "confirmed"),
           eq(bookings.isTrashed, false),
           eq(bookings.isArchived, false),
-          eq(bookings.scrimDate, activeDate)
+          gte(bookings.scrimDate, activeDate)
         )
       )
       .groupBy(bookings.scrimId)
@@ -540,8 +570,7 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
       const c1 = countMap.get(s.id) ?? 0
       const c2 = s.slug && s.slug !== s.id ? (countMap.get(s.slug) ?? 0) : 0
       s.confirmedTeams = c1 + c2
-      const isForced = s.status === "force_open" || s.status === "force_turn_on"
-      if (!isForced && s.confirmedTeams >= (s.maxTeams || 12)) {
+      if (s.confirmedTeams >= (s.maxTeams || 12)) {
         s.registrationOpen = false
         if (s.status === "upcoming") {
           s.status = "registration_closed"
@@ -603,10 +632,16 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            eq(bookings.scrimDate, activeDate)
+            gte(bookings.scrimDate, activeDate)
           )
         )
       result.confirmedTeams = Number(countRows[0]?.count ?? 0)
+      if (result.confirmedTeams >= (result.maxTeams || 12)) {
+        result.registrationOpen = false
+        if (result.status === "upcoming") {
+          result.status = "registration_closed"
+        }
+      }
     } catch {}
   }
 
@@ -649,10 +684,16 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            eq(bookings.scrimDate, activeDate)
+            gte(bookings.scrimDate, activeDate)
           )
         )
       result.confirmedTeams = Number(countRows[0]?.count ?? 0)
+      if (result.confirmedTeams >= (result.maxTeams || 12)) {
+        result.registrationOpen = false
+        if (result.status === "upcoming") {
+          result.status = "registration_closed"
+        }
+      }
     } catch {}
   }
 
@@ -660,6 +701,7 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
 }
 
 export async function getAllScrims(): Promise<ScrimWithSlots[]> {
+  await archivePreviousDayBookings().catch(() => {})
   const isFriday = await isFridayScrimsActive()
   const samples = getAllSampleScrims()
   try {
@@ -680,7 +722,7 @@ export async function getAllScrims(): Promise<ScrimWithSlots[]> {
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            eq(bookings.scrimDate, activeDate)
+            gte(bookings.scrimDate, activeDate)
           )
         )
         .groupBy(bookings.scrimId),
@@ -772,7 +814,7 @@ export async function userHasDailyBooking(userId: string, targetDate?: string) {
           eq(bookings.isArchived, false),
           or(
             eq(bookings.scrimDate, target),
-            sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text = ${target}`
+            sql`(((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text = ${target}`
           )
         )
       )
