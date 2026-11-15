@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { Button } from "@/components/ui/button"
+import { SlotSyncBroadcaster } from "@/components/site/slot-sync-broadcaster"
 import { CheckCircle2, XCircle, Clock3, CircleAlert } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -56,6 +57,7 @@ export default async function PaymentResultPage({
 
   return (
     <>
+      <SlotSyncBroadcaster active={key === "success"} />
       <SiteHeader settings={settings} />
       <main className="flex min-h-screen items-center justify-center px-4 pb-20 pt-28">
         <div className="glass-strong flex w-full max-w-md flex-col items-center gap-5 rounded-2xl p-8 text-center sm:p-10">

@@ -7,12 +7,14 @@ import { bookings, payments, scrims, user as userTable, walletTransactions } fro
 import { and, eq, or, sql, gte } from "drizzle-orm"
 import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
-import { getScrimById, userHasBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
+import { getScrimById, userHasBooking, userHasDailyBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
-function isUniqueViolationError(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false
-  const e = err as { code?: string; cause?: { code?: string } }
-  return e.code === "23505" || e.cause?.code === "23505"
+function isUniqueViolationError(err: unknown): { matched: boolean; constraint: string } {
+  if (!err || typeof err !== "object") return { matched: false, constraint: "" }
+  const e = err as { code?: string; constraint?: string; cause?: { code?: string; constraint?: string } }
+  const code = e.code || e.cause?.code
+  const constraint = e.constraint || e.cause?.constraint || ""
+  return { matched: code === "23505", constraint }
 }
 
 function pickLowestFreeSlot(slotNumbers: Array<number | null>): number {
@@ -153,9 +155,25 @@ export async function createBooking(
 
   const activeDate = getBangladeshActiveDate()
   const targetDate = scrim.scrimDate && scrim.scrimDate >= activeDate ? scrim.scrimDate : activeDate
-  const existing = await userHasBooking(user.id, scrim.id, targetDate)
-  if (existing?.status === "confirmed")
-    return { ok: false, error: "You already have a confirmed booking for this scrim today." }
+
+  const [existingDaily, existing] = await Promise.all([
+    userHasDailyBooking(user.id, targetDate),
+    userHasBooking(user.id, scrim.id, targetDate),
+  ])
+
+  if (existingDaily) {
+    return {
+      ok: false,
+      error: "You have already registered for a scrim today. Only one registration per user is permitted per calendar day.",
+    }
+  }
+
+  if (existing?.status === "confirmed") {
+    return {
+      ok: false,
+      error: "You have already registered for a scrim today. Only one registration per user is permitted per calendar day.",
+    }
+  }
 
   const normalizedTeamName = data.teamName.trim().toLowerCase()
   const normalizedCaptainUid = data.captainUid.trim()
@@ -184,7 +202,7 @@ export async function createBooking(
       ok: false,
       error:
         duplicateSquad[0].userId === user.id
-          ? "You already have a confirmed booking for this scrim today."
+          ? "You have already registered for a scrim today. Only one registration per user is permitted per calendar day."
           : `Squad "${duplicateSquad[0].teamName}" or Captain UID is already registered for this lobby today.`,
     }
   }
@@ -209,11 +227,28 @@ export async function createBooking(
 
     try {
       await db.transaction(async (tx) => {
-        // Lock the scrim row to serialize concurrent registrations for the same lobby
+        // Lock user row first, then scrim row (consistent lock order prevents deadlocks & serializes concurrent daily bookings)
+        await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${user.id} FOR UPDATE`)
         await tx.execute(sql`SELECT "id" FROM "scrims" WHERE "id" = ${scrim.id} FOR UPDATE`)
 
-        // Re-verify inside transaction: no duplicate user/squad/UID & lobby still has slots
-        const [dupInTx, slotRows] = await Promise.all([
+        // Re-verify inside transaction: 1-per-day user rule across ANY scrim, same-lobby duplicates & lobby capacity
+        const [dupDailyInTx, dupInTx, slotRows] = await Promise.all([
+          tx
+            .select({ id: bookings.id })
+            .from(bookings)
+            .where(
+              and(
+                eq(bookings.userId, user.id),
+                eq(bookings.status, "confirmed"),
+                eq(bookings.isTrashed, false),
+                eq(bookings.isArchived, false),
+                or(
+                  eq(bookings.scrimDate, targetDate),
+                  sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text = ${targetDate}`
+                )
+              )
+            )
+            .limit(1),
           tx
             .select({ id: bookings.id, userId: bookings.userId, teamName: bookings.teamName })
             .from(bookings)
@@ -246,10 +281,16 @@ export async function createBooking(
             ),
         ])
 
+        if (dupDailyInTx.length > 0) {
+          txRejectionError =
+            "You have already registered for a scrim today. Only one registration per user is permitted per calendar day."
+          return
+        }
+
         if (dupInTx.length > 0) {
           txRejectionError =
             dupInTx[0].userId === user.id
-              ? "You already have a confirmed booking for this scrim today."
+              ? "You have already registered for a scrim today. Only one registration per user is permitted per calendar day."
               : `Squad "${dupInTx[0].teamName}" or Captain UID is already registered for this lobby today.`
           return
         }
@@ -369,10 +410,13 @@ export async function createBooking(
         }
       })
     } catch (txErr) {
-      if (isUniqueViolationError(txErr)) {
+      const uniq = isUniqueViolationError(txErr)
+      if (uniq.matched) {
         return {
           ok: false,
-          error: "This account, squad name, or Captain UID already has a confirmed slot in this lobby.",
+          error: uniq.constraint.includes("daily_confirmed_user")
+            ? "You have already registered for a scrim today. Only one registration per user is permitted per calendar day."
+            : "This account, squad name, or Captain UID already has a confirmed slot in this lobby.",
         }
       }
       throw txErr

@@ -203,7 +203,8 @@ export async function processPayment(
       return
     }
 
-    // Lock the parent scrim row so concurrent gateway callbacks serialize cleanly
+    // Lock user row first, then scrim row so concurrent gateway callbacks serialize cleanly without deadlocks
+    await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${payment.userId} FOR UPDATE`)
     if (scrim?.id) {
       await tx.execute(sql`SELECT "id" FROM "scrims" WHERE "id" = ${scrim.id} FOR UPDATE`)
     }
@@ -227,7 +228,24 @@ export async function processPayment(
     const canonicalScrimId = scrim?.id || payment.scrimId
     const canonicalScrimSlug = scrim?.slug || payment.scrimId
 
-    const [dupRows, confirmedSlotRows] = await Promise.all([
+    const [dupDailyRows, dupRows, confirmedSlotRows] = await Promise.all([
+      tx
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.userId, payment.userId),
+            eq(bookings.status, "confirmed"),
+            eq(bookings.isTrashed, false),
+            eq(bookings.isArchived, false),
+            sql`${bookings.id} != ${payment.bookingId}`,
+            or(
+              eq(bookings.scrimDate, targetScrimDate),
+              sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text = ${targetScrimDate}`
+            )
+          )
+        )
+        .limit(1),
       pendingBooking
         ? tx
             .select({ id: bookings.id })
@@ -300,9 +318,11 @@ export async function processPayment(
     }
 
     const currentConfirmedCount = confirmedSlotRows.length
-    if (dupRows.length > 0 || currentConfirmedCount >= maxCap) {
+    if (dupDailyRows.length > 0 || dupRows.length > 0 || currentConfirmedCount >= maxCap) {
       await refundToWalletInTx(
-        dupRows.length > 0
+        dupDailyRows.length > 0
+          ? "You have already registered for a scrim today. Only one registration per user is permitted per calendar day — refunded to your Ace Scrims wallet."
+          : dupRows.length > 0
           ? "Duplicate squad registration detected after payment — refunded to your Ace Scrims wallet."
           : "Lobby filled up before payment completed — amount refunded automatically to your Ace Scrims wallet."
       )

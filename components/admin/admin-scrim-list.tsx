@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useState, useTransition } from "react"
+import { useActionState, useCallback, useEffect, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { publishRoom, unpublishRoom, type PublishRoomState } from "@/app/actions/staff"
@@ -40,6 +40,56 @@ import { toast } from "sonner"
 type AdminScrim = Scrim & { confirmedTeams: number; pendingTeams: number; deletedAt?: Date | string | null }
 type RosterBooking = Booking & { userEmail: string | null }
 
+function toDateOrNow(val: Date | string | null | undefined): Date {
+  if (val instanceof Date) return val
+  if (typeof val === "string") {
+    const parsed = new Date(val)
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+  return new Date()
+}
+
+function toNullableDate(val: Date | string | null | undefined): Date | null {
+  if (!val) return null
+  if (val instanceof Date) return val
+  const parsed = new Date(val)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function normalizeAdminScrim(raw: AdminScrim): AdminScrim {
+  return {
+    ...raw,
+    createdAt: toDateOrNow(raw.createdAt as Date | string | undefined),
+    updatedAt: toDateOrNow(raw.updatedAt as Date | string | undefined),
+    deletedAt: toNullableDate(raw.deletedAt),
+    confirmedTeams: Number(raw.confirmedTeams ?? 0),
+    pendingTeams: Number(raw.pendingTeams ?? 0),
+  }
+}
+
+function normalizeRosterBooking(raw: RosterBooking): RosterBooking {
+  return {
+    ...raw,
+    createdAt: toDateOrNow(raw.createdAt as Date | string | undefined),
+    updatedAt: toDateOrNow(raw.updatedAt as Date | string | undefined),
+    deletedAt: toNullableDate(raw.deletedAt),
+  }
+}
+
+function broadcastSlotsSync(scrimId?: string) {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId } }))
+  if (typeof BroadcastChannel !== "undefined") {
+    try {
+      const ch = new BroadcastChannel("acescrims-slots")
+      ch.postMessage({ type: "slots-updated", scrimId, timestamp: Date.now() })
+      ch.close()
+    } catch {
+      // ignore BroadcastChannel errors
+    }
+  }
+}
+
 function formatRegistrationDate(date: Date | string | null | undefined): string {
   if (!date) return "N/A"
   try {
@@ -59,7 +109,7 @@ const initialState: PublishRoomState = {
   emailWarning: null,
 }
 
-function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
+function PublishRoomButton({ scrim, onUpdated }: { scrim: AdminScrim; onUpdated?: () => void }) {
   const [open, setOpen] = useState(false)
   const [state, formAction, pending] = useActionState(publishRoom, initialState)
 
@@ -78,10 +128,12 @@ function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
         toast.success(`Room published & emailed to all ${sent} confirmed team(s)`)
       }
       setOpen(false)
+      onUpdated?.()
+      broadcastSlotsSync(scrim.id)
     } else if (state.error) {
       toast.error(state.error)
     }
-  }, [state])
+  }, [state, scrim.id, onUpdated])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -705,18 +757,100 @@ export function AdminScrimList({
   const [room2Visible, setRoom2Visible] = useState(initialRoom2Enabled)
   const [isTogglingRoom2, setIsTogglingRoom2] = useState(false)
   const [isBulkForcing, setIsBulkForcing] = useState(false)
-  const [liveBookingsByScrim, setLiveBookingsByScrim] = useState(bookingsByScrim)
+  const [liveScrims, setLiveScrims] = useState<AdminScrim[]>(scrims)
+  const [liveBookingsByScrim, setLiveBookingsByScrim] = useState<Record<string, RosterBooking[]>>(bookingsByScrim)
   const [bulkConfirm, setBulkConfirm] = useState<"force_on" | "force_off" | "bulk_delete" | null>(null)
+  const isSyncingRef = useRef(false)
 
   useEffect(() => {
     if (initialTab && VALID_TABS.includes(initialTab as ScrimTab)) {
       setActiveTab(initialTab as ScrimTab)
+    } else {
+      setActiveTab("all")
     }
   }, [initialTab])
 
   useEffect(() => {
+    setLiveScrims(scrims)
+  }, [scrims])
+
+  useEffect(() => {
     setLiveBookingsByScrim(bookingsByScrim)
   }, [bookingsByScrim])
+
+  const syncAdminScrims = useCallback(async () => {
+    if (isSyncingRef.current) return
+    isSyncingRef.current = true
+    try {
+      const res = await fetch("/api/admin/scrims", { cache: "no-store" })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data?.ok) return
+
+      if (Array.isArray(data.scrims)) {
+        setLiveScrims(data.scrims.map((s: AdminScrim) => normalizeAdminScrim(s)))
+      }
+      if (data.bookingsByScrim && typeof data.bookingsByScrim === "object") {
+        const normalizedBookings: Record<string, RosterBooking[]> = {}
+        for (const [k, list] of Object.entries(data.bookingsByScrim as Record<string, RosterBooking[]>)) {
+          if (Array.isArray(list)) {
+            normalizedBookings[k] = list.map((b) => normalizeRosterBooking(b))
+          }
+        }
+        setLiveBookingsByScrim(normalizedBookings)
+      }
+      if (typeof data.room2Enabled === "boolean") {
+        setRoom2Visible(data.room2Enabled)
+      }
+    } catch {
+      // ignore transient network polling failures
+    } finally {
+      isSyncingRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    void syncAdminScrims()
+
+    const handleSlotEvent = () => {
+      void syncAdminScrims()
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void syncAdminScrims()
+      }
+    }
+
+    window.addEventListener("acescrims:slots-updated", handleSlotEvent)
+    window.addEventListener("focus", handleSlotEvent)
+    document.addEventListener("visibilitychange", handleVisibility)
+
+    let bc: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("acescrims-slots")
+        bc.onmessage = () => {
+          void syncAdminScrims()
+        }
+      } catch {
+        bc = null
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void syncAdminScrims()
+      }
+    }, 8000)
+
+    return () => {
+      window.removeEventListener("acescrims:slots-updated", handleSlotEvent)
+      window.removeEventListener("focus", handleSlotEvent)
+      document.removeEventListener("visibilitychange", handleVisibility)
+      bc?.close()
+      window.clearInterval(timer)
+    }
+  }, [syncAdminScrims])
 
   function handleTeamRemoved(scrimId: string, bookingId: string) {
     setLiveBookingsByScrim((prev) => {
@@ -728,6 +862,14 @@ export function AdminScrimList({
       }
       return next
     })
+    setLiveScrims((prev) =>
+      prev.map((s) =>
+        s.id === scrimId || s.slug === scrimId
+          ? { ...s, confirmedTeams: Math.max(0, (s.confirmedTeams || 0) - 1) }
+          : s
+      )
+    )
+    void syncAdminScrims()
   }
 
   const isRoom2Scrim = (s: AdminScrim) =>
@@ -739,11 +881,11 @@ export function AdminScrimList({
     return !isRoom2Scrim(s) && !isCR && !isFridayBlast
   }
 
-  const notHostedCount = scrims.filter((s) => s.status === "not_hosted").length
-  const trashCount = scrims.filter((s) => s.status === "deleted" || s.deletedAt != null).length
+  const notHostedCount = liveScrims.filter((s) => s.status === "not_hosted").length
+  const trashCount = liveScrims.filter((s) => s.status === "deleted" || s.deletedAt != null).length
 
   const filteredScrims = sortScrimsAscending(
-    scrims.filter((scrim) => {
+    liveScrims.filter((scrim) => {
       const isDeleted = scrim.status === "deleted" || scrim.deletedAt != null
       if (activeTab === "trash") {
         return isDeleted
@@ -780,12 +922,12 @@ export function AdminScrimList({
     })
   )
 
-  const activeScrimsCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
-  const dailyCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !s.title.toLowerCase().includes("champion rush") && !s.title.toLowerCase().includes("friday special") && !s.slug.includes("champion-rush") && !s.slug.includes("friday-special")).length
-  const room1Count = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom1Scrim(s)).length
-  const room2Count = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
-  const fridayCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special"))).length
-  const crCount = scrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush"))).length
+  const activeScrimsCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
+  const dailyCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !s.title.toLowerCase().includes("champion rush") && !s.title.toLowerCase().includes("friday special") && !s.slug.includes("champion-rush") && !s.slug.includes("friday-special")).length
+  const room1Count = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom1Scrim(s)).length
+  const room2Count = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
+  const fridayCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special"))).length
+  const crCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush"))).length
 
   async function executeBulkConfirm() {
     const mode = bulkConfirm
@@ -796,6 +938,8 @@ export function AdminScrimList({
         const res = await forceTurnOnAllScrimsAction()
         if (res.ok) {
           toast.success("Success! Force turned ON registration for all scrim lobbies.")
+          broadcastSlotsSync()
+          void syncAdminScrims()
           router.refresh()
         } else {
           toast.error(res.error || "Failed to force turn on scrims")
@@ -811,6 +955,8 @@ export function AdminScrimList({
         const res = await forceTurnOffAllScrimsAction()
         if (res.ok) {
           toast.success("Success! Force turned OFF registration for all scrim lobbies.")
+          broadcastSlotsSync()
+          void syncAdminScrims()
           router.refresh()
         } else {
           toast.error(res.error || "Failed to force turn off scrims")
@@ -828,6 +974,8 @@ export function AdminScrimList({
         if (res.ok) {
           toast.success(`Moved ${res.count} scrim(s) to Trash`)
           setSelectedScrimIds([])
+          broadcastSlotsSync()
+          void syncAdminScrims()
         } else {
           toast.error(res.error || "Failed to bulk delete")
         }
@@ -855,6 +1003,8 @@ export function AdminScrimList({
       if (res.ok) {
         setRoom2Visible(nextVal)
         toast.success(nextVal ? "Room 2 Lobbies are now VISIBLE publicly" : "Room 2 Lobbies are now HIDDEN from public")
+        broadcastSlotsSync()
+        void syncAdminScrims()
       } else {
         toast.error(res.error || "Failed to update Room 2 visibility")
       }
@@ -1166,9 +1316,9 @@ export function AdminScrimList({
                   />
                   {!isDeleted && (
                     <>
-                      <PublishRoomButton scrim={scrim} />
+                      <PublishRoomButton scrim={scrim} onUpdated={syncAdminScrims} />
                       <PublishResultButton
-                        scrims={scrims.map((s) => ({
+                        scrims={liveScrims.map((s) => ({
                           id: s.id,
                           title: s.title,
                           startTime: s.startTime,
@@ -1185,6 +1335,8 @@ export function AdminScrimList({
                             startTransition(async () => {
                               await unpublishRoom(scrim.id)
                               toast.success("Room hidden")
+                              broadcastSlotsSync(scrim.id)
+                              void syncAdminScrims()
                             })
                           }
                         >

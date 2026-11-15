@@ -187,9 +187,8 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
           <div className="h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={scrim.confirmedTeams} aria-valuemin={0} aria-valuemax={scrim.maxTeams} aria-label="Slots filled">
             <motion.div
               initial={{ width: 0 }}
-              whileInView={{ width: `${Math.min(100, (scrim.confirmedTeams / scrim.maxTeams) * 100)}%` }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              animate={{ width: `${Math.min(100, (scrim.confirmedTeams / scrim.maxTeams) * 100)}%` }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               className={cn(
                 "h-full rounded-full",
                 status.tone === "full" ? "bg-destructive" : status.tone === "filling" ? "bg-warning" : "bg-primary",

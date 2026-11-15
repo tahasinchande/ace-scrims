@@ -53,6 +53,8 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
       }
     }
 
+    void syncSlots()
+
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") {
         void syncSlots()

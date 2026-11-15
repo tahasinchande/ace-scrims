@@ -43,6 +43,8 @@ export function HomeScrimsGrid({ initialScrims }: { initialScrims: ScrimCardData
       }
     }
 
+    void refreshSlots()
+
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") {
         void refreshSlots()

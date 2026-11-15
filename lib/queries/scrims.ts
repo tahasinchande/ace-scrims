@@ -540,6 +540,13 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
       const c1 = countMap.get(s.id) ?? 0
       const c2 = s.slug && s.slug !== s.id ? (countMap.get(s.slug) ?? 0) : 0
       s.confirmedTeams = c1 + c2
+      const isForced = s.status === "force_open" || s.status === "force_turn_on"
+      if (!isForced && s.confirmedTeams >= (s.maxTeams || 12)) {
+        s.registrationOpen = false
+        if (s.status === "upcoming") {
+          s.status = "registration_closed"
+        }
+      }
     }
   } catch (countErr) {
     console.warn("[Queries] Could not compute live slot counts:", countErr)
@@ -737,6 +744,43 @@ export async function userHasBooking(userId: string, scrimIdOrSlug: string, targ
     return rows[0] ?? null
   } catch (err) {
     console.warn("[Queries] Database error in userHasBooking:", err)
+    return null
+  }
+}
+
+/** Whether a user already has a confirmed registration for ANY scrim on the same calendar day. */
+export async function userHasDailyBooking(userId: string, targetDate?: string) {
+  try {
+    const activeDate = getBangladeshActiveDate()
+    const target = targetDate && targetDate >= activeDate ? targetDate : activeDate
+
+    const rows = await db
+      .select({
+        id: bookings.id,
+        scrimId: bookings.scrimId,
+        status: bookings.status,
+        scrimDate: bookings.scrimDate,
+        teamName: bookings.teamName,
+        slotNumber: bookings.slotNumber,
+      })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.userId, userId),
+          eq(bookings.status, "confirmed"),
+          eq(bookings.isTrashed, false),
+          eq(bookings.isArchived, false),
+          or(
+            eq(bookings.scrimDate, target),
+            sql`(${bookings.createdAt} AT TIME ZONE 'Asia/Dhaka')::date::text = ${target}`
+          )
+        )
+      )
+      .limit(1)
+
+    return rows[0] ?? null
+  } catch (err) {
+    console.warn("[Queries] Database error in userHasDailyBooking:", err)
     return null
   }
 }

@@ -3,7 +3,7 @@ import nodemailer from "nodemailer"
 
 export type EmailSendResult = {
   success: boolean
-  provider?: "resend" | "smtp" | "console"
+  provider?: "resend" | "sendgrid" | "smtp" | "console"
   messageId?: string
   error?: string
 }
@@ -92,8 +92,36 @@ function getSmtpTransporter(): nodemailer.Transporter | null {
   return null
 }
 
+function parseEmailAddress(raw: string): { email: string; name?: string } {
+  const match = raw.match(/^\s*(?:"?([^"]*?)"?\s*)?<([^<>]+)>\s*$/)
+  if (match) {
+    return {
+      name: match[1]?.trim() || undefined,
+      email: match[2].trim(),
+    }
+  }
+  return { email: raw.trim() }
+}
+
+function getSendGridApiKey(): string | null {
+  const key = process.env.SENDGRID_API_KEY?.trim()
+  return key && key.length > 0 ? key : null
+}
+
+function getSmtpFromAddress(fallbackSender: string): string {
+  const explicitSmtpFrom = process.env.SMTP_FROM?.trim()
+  if (explicitSmtpFrom) return explicitSmtpFrom
+  const gmailUser = process.env.GMAIL_USER?.trim()
+  if (gmailUser) return `ACE SCRIMS <${gmailUser}>`
+  const smtpUser = (process.env.SMTP_USER || process.env.SMTP_USERNAME)?.trim()
+  if (smtpUser && smtpUser.includes("@") && !process.env.EMAIL_FROM?.trim()) {
+    return `ACE SCRIMS <${smtpUser}>`
+  }
+  return fallbackSender
+}
+
 export function isEmailProviderConfigured(): boolean {
-  return Boolean(getResendClient() || getSmtpTransporter())
+  return Boolean(getResendClient() || getSendGridApiKey() || getSmtpTransporter())
 }
 
 /**
@@ -452,6 +480,7 @@ export async function sendEmail({
 }): Promise<EmailSendResult> {
   const sender = from || getFromAddress()
   const resend = getResendClient()
+  const sendGridKey = getSendGridApiKey()
   const smtp = getSmtpTransporter()
 
   // 1. Try Resend if configured (retry up to 2 times on 429 rate-limit)
@@ -511,12 +540,51 @@ export async function sendEmail({
     }
   }
 
-  // 2. Try SMTP / Nodemailer if configured
+  // 2. Try SendGrid HTTP v3 API if configured
+  if (sendGridKey) {
+    try {
+      const parsedFrom = parseEmailAddress(sender)
+      console.log(`[Email Service] Attempting delivery to ${to} via SendGrid (${parsedFrom.email})...`)
+      const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sendGridKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: {
+            email: parsedFrom.email,
+            ...(parsedFrom.name ? { name: parsedFrom.name } : {}),
+          },
+          subject,
+          content: [
+            ...(text ? [{ type: "text/plain", value: text }] : []),
+            { type: "text/html", value: html },
+          ],
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+
+      if (sgRes.ok) {
+        const messageId = sgRes.headers.get("x-message-id") || undefined
+        console.log(`[Email Service] Successfully sent email to ${to} via SendGrid.`)
+        return { success: true, provider: "sendgrid", messageId }
+      }
+      const errBody = await sgRes.text().catch(() => "")
+      console.error(`[Email Service] SendGrid error (${sgRes.status}):`, errBody)
+    } catch (sgErr: any) {
+      console.error(`[Email Service] SendGrid exception:`, sgErr?.message || sgErr)
+    }
+  }
+
+  // 3. Try SMTP / Nodemailer if configured
   if (smtp) {
     try {
-      console.log(`[Email Service] Attempting delivery to ${to} via SMTP Transporter...`)
+      const smtpSender = from || getSmtpFromAddress(sender)
+      console.log(`[Email Service] Attempting delivery to ${to} via SMTP Transporter (${smtpSender})...`)
       const info = await smtp.sendMail({
-        from: sender,
+        from: smtpSender,
         to,
         subject,
         html,
@@ -529,9 +597,9 @@ export async function sendEmail({
     }
   }
 
-  // 3. Fallback when no working provider is configured
-  const errorMsg = !resend && !smtp
-    ? "No email provider configured. Please set RESEND_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS in Vercel Environment Variables."
+  // 4. Fallback when no working provider is configured
+  const errorMsg = !resend && !sendGridKey && !smtp
+    ? "No email provider configured. Please set RESEND_API_KEY, SENDGRID_API_KEY, or SMTP credentials in environment variables."
     : "Email delivery failed across all configured providers."
 
   console.error(`[Email Service Warning] ${errorMsg}`)
@@ -543,7 +611,8 @@ export async function sendEmail({
  */
 export async function sendVerificationEmail(to: string, url: string, userName?: string): Promise<boolean> {
   const cleanUrl = resolveCleanUrl(url)
-  const name = escapeHtml(userName?.trim() || "Player")
+  const rawName = userName?.trim() || "Player"
+  const name = escapeHtml(rawName)
 
   console.log("====================================================================")
   console.log(`[EMAIL VERIFICATION LINK FOR ${to}]`)
@@ -602,7 +671,7 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
     to,
     subject: "Verify your email — ACE SCRIMS",
     html,
-    text: `Hey ${name}, welcome aboard! Please verify your email by opening this link: ${cleanUrl}`,
+    text: `Hey ${rawName}, welcome aboard! Please verify your email by opening this link: ${cleanUrl}`,
   })
 
   if (!result.success) {
@@ -669,13 +738,17 @@ export async function sendBookingConfirmationEmail({
 }): Promise<boolean> {
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard/scrims`
+  const safeRecipient = escapeHtml(recipientName || "Captain")
+  const safeTeamName = escapeHtml(teamName)
+  const safeScrimTitle = escapeHtml(scrimTitle)
+  const safeStartTime = escapeHtml(startTime)
 
   const contentHtml = `
     <p style="margin:0 0 18px 0;color:#ffffff;font-size:16px;">
-      Hello ${recipientName || "Captain"},
+      Hello ${safeRecipient},
     </p>
     <p style="margin:0 0 20px 0;">
-      Your squad booking has been confirmed for <strong>${scrimTitle}</strong>. Your payment of <strong>BDT ${amountBdt}</strong> was verified automatically.
+      Your squad booking has been confirmed for <strong>${safeScrimTitle}</strong>. Your payment of <strong>BDT ${amountBdt}</strong> was verified automatically.
     </p>
 
     <!-- Booking Summary Card -->
@@ -685,7 +758,7 @@ export async function sendBookingConfirmationEmail({
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="padding:4px 0;color:#64748b;font-size:13px;width:120px;">Squad Name:</td>
-              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:700;">${teamName}</td>
+              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
             </tr>
             <tr>
               <td style="padding:4px 0;color:#64748b;font-size:13px;">Assigned Slot:</td>
@@ -693,11 +766,11 @@ export async function sendBookingConfirmationEmail({
             </tr>
             <tr>
               <td style="padding:4px 0;color:#64748b;font-size:13px;">Tournament:</td>
-              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:600;">${scrimTitle}</td>
+              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:600;">${safeScrimTitle}</td>
             </tr>
             <tr>
               <td style="padding:4px 0;color:#64748b;font-size:13px;">Match Start:</td>
-              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:700;">${startTime}</td>
+              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeStartTime}</td>
             </tr>
           </table>
         </td>
@@ -712,7 +785,7 @@ export async function sendBookingConfirmationEmail({
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0e111d;border:1px solid #1e2337;border-radius:8px;padding:12px;margin-bottom:14px;">
         <tr>
           <td style="padding:6px 10px;color:#f97316;font-size:13px;font-weight:700;width:140px;">Scrim Time:</td>
-          <td style="padding:6px 10px;color:#ffffff;font-size:13px;">Scheduled match begins at <strong>${startTime}</strong>.</td>
+          <td style="padding:6px 10px;color:#ffffff;font-size:13px;">Scheduled match begins at <strong>${safeStartTime}</strong>.</td>
         </tr>
         <tr>
           <td style="padding:6px 10px;color:#f97316;font-size:13px;font-weight:700;">ID &amp; Password Arrival:</td>
@@ -737,7 +810,7 @@ export async function sendBookingConfirmationEmail({
 
   const html = emailShell({
     title: `Booking Confirmed — Slot #${slotNumber}`,
-    preheader: `Your slot #${slotNumber} for ${scrimTitle} (${startTime}) is confirmed.`,
+    preheader: `Your slot #${slotNumber} for ${safeScrimTitle} (${safeStartTime}) is confirmed.`,
     contentHtml,
     ctaText: "Open Player Dashboard",
     ctaUrl: dashboardUrl,
@@ -862,10 +935,10 @@ export async function sendRoomCredentialsEmail({
     </div>
   `
 
-  const title = isUpdated ? `Room Credentials Updated: ${scrimTitle}` : `Room Credentials Released: ${scrimTitle}`
+  const title = isUpdated ? `Room Credentials Updated: ${safeScrimTitle}` : `Room Credentials Released: ${safeScrimTitle}`
   const preheader = isUpdated
-    ? `UPDATED Room ID: ${roomId} | Password: ${roomPassword} for ${scrimTitle}`
-    : `Room ID: ${roomId} | Password: ${roomPassword} for ${scrimTitle}`
+    ? `UPDATED Room ID: ${safeRoomId} | Password: ${safeRoomPass} for ${safeScrimTitle}`
+    : `Room ID: ${safeRoomId} | Password: ${safeRoomPass} for ${safeScrimTitle}`
 
   const html = emailShell({
     title,
@@ -911,13 +984,18 @@ export async function sendScrimNotHostedEmail({
 }): Promise<boolean> {
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard`
+  const safeRecipient = escapeHtml(recipientName || "Captain")
+  const safeTeamName = escapeHtml(teamName)
+  const safeScrimTitle = escapeHtml(scrimTitle)
+  const safeScrimDate = escapeHtml(scrimDate)
+  const safeStartTime = escapeHtml(startTime)
 
   const contentHtml = `
     <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
-      Hello <strong>${recipientName}</strong>,
+      Hello <strong>${safeRecipient}</strong>,
     </p>
     <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      We regret to inform you that <strong>${scrimTitle}</strong> (${scrimDate} at ${startTime}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.
+      We regret to inform you that <strong>${safeScrimTitle}</strong> (${safeScrimDate} at ${safeStartTime}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
@@ -926,7 +1004,7 @@ export async function sendScrimNotHostedEmail({
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SQUAD NAME:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${teamName}</td>
+              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">STATUS:</td>
@@ -952,8 +1030,8 @@ export async function sendScrimNotHostedEmail({
   `
 
   const html = emailShell({
-    title: `Scrim Not Hosted: ${scrimTitle}`,
-    preheader: `${scrimTitle} has been marked as Not Hosted. Your entry fee will be refunded.`,
+    title: `Scrim Not Hosted: ${safeScrimTitle}`,
+    preheader: `${safeScrimTitle} has been marked as Not Hosted. Your entry fee will be refunded.`,
     contentHtml,
     ctaText: "Go to Dashboard",
     ctaUrl: dashboardUrl,
@@ -997,13 +1075,18 @@ export async function sendMatchResultPublishedEmail({
   const resultsUrl = `${appUrl}/results`
 
   const isWinner = teamName.toLowerCase().trim() === winningTeam.toLowerCase().trim()
+  const safeRecipient = escapeHtml(recipientName || "Captain")
+  const safeTeamName = escapeHtml(teamName)
+  const safeScrimTitle = escapeHtml(scrimTitle)
+  const safeWinningTeam = escapeHtml(winningTeam)
+  const safeCategory = escapeHtml(category)
 
   const contentHtml = `
     <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
-      Hello <strong>${recipientName}</strong>,
+      Hello <strong>${safeRecipient}</strong>,
     </p>
     <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      The official match results for <strong>${scrimTitle}</strong> have just been verified and published by the tournament administration.
+      The official match results for <strong>${safeScrimTitle}</strong> have just been verified and published by the tournament administration.
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
@@ -1012,15 +1095,15 @@ export async function sendMatchResultPublishedEmail({
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">YOUR SQUAD:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${teamName}</td>
+              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">CHAMPION / WINNER:</td>
-              <td style="padding:6px 0;color:#f97316;font-size:15px;font-weight:800;">${winningTeam} ${isWinner ? "(Your Team 🎉)" : ""}</td>
+              <td style="padding:6px 0;color:#f97316;font-size:15px;font-weight:800;">${safeWinningTeam} ${isWinner ? "(Your Team)" : ""}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">CATEGORY:</td>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:13px;font-weight:700;">${category}</td>
+              <td style="padding:6px 0;color:#cbd5e1;font-size:13px;font-weight:700;">${safeCategory}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">WINNER KILLS:</td>
@@ -1043,8 +1126,8 @@ export async function sendMatchResultPublishedEmail({
   `
 
   const html = emailShell({
-    title: `Match Results Published: ${scrimTitle}`,
-    preheader: `Official results published for ${scrimTitle}. Winner: ${winningTeam} with ${kills} kills.`,
+    title: `Match Results Published: ${safeScrimTitle}`,
+    preheader: `Official results published for ${safeScrimTitle}. Winner: ${safeWinningTeam} with ${kills} kills.`,
     contentHtml,
     ctaText: "View Full Match Results",
     ctaUrl: resultsUrl,
@@ -1090,14 +1173,23 @@ export async function sendMvpImageRequestEmail({
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard/image-requests`
 
-  const targetPlayerStr = mvpPlayerName ? `player <strong>${mvpPlayerName}</strong> from squad <strong>${teamName}</strong>` : `your squad <strong>${teamName}</strong>`
+  const safeRecipient = escapeHtml(recipientName || "Captain")
+  const safeTeamName = escapeHtml(teamName)
+  const safeScrimTitle = escapeHtml(scrimTitle)
+  const safeMvpPlayerName = mvpPlayerName ? escapeHtml(mvpPlayerName) : null
+  const safeRequestType = escapeHtml(requestType || "MVP Face Banner Image")
+  const safeScrimDate = scrimDate ? escapeHtml(scrimDate) : null
+
+  const targetPlayerStr = safeMvpPlayerName
+    ? `player <strong>${safeMvpPlayerName}</strong> from squad <strong>${safeTeamName}</strong>`
+    : `your squad <strong>${safeTeamName}</strong>`
 
   const contentHtml = `
     <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
-      Hello <strong>${recipientName}</strong>,
+      Hello <strong>${safeRecipient}</strong>,
     </p>
     <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      Congratulations! Ace Scrims management has officially requested an image asset for ${targetPlayerStr} from <em>${scrimTitle}</em>${scrimDate ? ` (${scrimDate})` : ""} to be featured in the official Ace Scrims Face Banners showcase.
+      Congratulations! Ace Scrims management has officially requested an image asset for ${targetPlayerStr} from <em>${safeScrimTitle}</em>${safeScrimDate ? ` (${safeScrimDate})` : ""} to be featured in the official Ace Scrims Face Banners showcase.
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
@@ -1106,21 +1198,21 @@ export async function sendMvpImageRequestEmail({
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SQUAD:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${teamName}</td>
+              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
             </tr>
-            ${mvpPlayerName ? `
+            ${safeMvpPlayerName ? `
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">MVP PLAYER:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:700;">${mvpPlayerName}</td>
+              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:700;">${safeMvpPlayerName}</td>
             </tr>
             ` : ""}
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">EVENT:</td>
-              <td style="padding:6px 0;color:#f97316;font-size:14px;font-weight:700;">${scrimTitle}${scrimDate ? ` · ${scrimDate}` : ""}</td>
+              <td style="padding:6px 0;color:#f97316;font-size:14px;font-weight:700;">${safeScrimTitle}${safeScrimDate ? ` · ${safeScrimDate}` : ""}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">REQUEST TYPE:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:800;">${requestType || "MVP Face Banner Image"}</td>
+              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:800;">${safeRequestType}</td>
             </tr>
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">PHOTO GUIDELINES:</td>
@@ -1139,8 +1231,8 @@ export async function sendMvpImageRequestEmail({
   `
 
   const html = emailShell({
-    title: `MVP Image Requested: ${teamName}`,
-    preheader: `Ace Scrims management has requested an MVP photo for ${teamName} (${scrimTitle}).`,
+    title: `MVP Image Requested: ${safeTeamName}`,
+    preheader: `Ace Scrims management has requested an MVP photo for ${safeTeamName} (${safeScrimTitle}).`,
     contentHtml,
     ctaText: "Upload MVP Image Now",
     ctaUrl: dashboardUrl,

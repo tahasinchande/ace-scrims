@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
@@ -65,6 +65,8 @@ const moderatorLinks: NavLink[] = [
 
 export function AdminNav({ role, name, logoUrl }: { role: string; name: string; logoUrl?: string }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
   const links = role === "admin" ? adminLinks : moderatorLinks
 
   return (
@@ -88,7 +90,15 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
 
         <nav aria-label="Admin navigation" className="flex flex-row flex-wrap gap-1 md:flex-col">
           {links.map((link) => {
-            const active = link.exact ? pathname === link.href : pathname.startsWith(link.href)
+            const isRoom1Link = link.href === "/admin/scrims?tab=room1"
+            const isAllScrimsLink = link.href === "/admin/scrims"
+            const active = isRoom1Link
+              ? pathname === "/admin/scrims" && tabParam === "room1"
+              : isAllScrimsLink
+                ? pathname.startsWith("/admin/scrims") && tabParam !== "room1"
+                : link.exact
+                  ? pathname === link.href
+                  : pathname.startsWith(link.href)
             const Icon = link.icon
             return (
               <Link
@@ -98,7 +108,9 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "bg-primary/15 text-primary"
+                    ? isRoom1Link
+                      ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                      : "bg-primary/15 text-primary"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                 )}
               >

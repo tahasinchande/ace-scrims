@@ -1,8 +1,9 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
 import { getAdminStats, getAdminPayments } from "@/lib/queries/admin"
 import { formatTaka } from "@/lib/format"
-import { BanknoteIcon, CalendarCheck, Users, Ticket, Wallet, Swords } from "lucide-react"
+import { BanknoteIcon, CalendarCheck, Users, Ticket, Wallet, Swords, KeyRound } from "lucide-react"
 import { AdminOverviewRecentPayments } from "@/components/admin/admin-overview-recent-payments"
 
 export const dynamic = "force-dynamic"
@@ -25,9 +26,27 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Overview</h1>
-        <p className="text-sm text-muted-foreground">Platform analytics and trash management at a glance.</p>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Overview</h1>
+          <p className="text-sm text-muted-foreground">Platform analytics and trash management at a glance.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/scrims?tab=room1"
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-blue-300 transition-colors hover:bg-blue-500/20 hover:text-blue-200"
+          >
+            <KeyRound className="size-4 text-blue-400" />
+            Room 1 Lobbies
+          </Link>
+          <Link
+            href="/admin/scrims"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/70 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-secondary"
+          >
+            <Swords className="size-4 text-primary" />
+            Manage Scrims
+          </Link>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">

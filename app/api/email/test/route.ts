@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const targetEmail = searchParams.get("to") || user.email
 
     const hasResend = Boolean(process.env.RESEND_API_KEY?.trim())
+    const hasSendGrid = Boolean(process.env.SENDGRID_API_KEY?.trim())
     const hasSmtp = Boolean(
       process.env.SMTP_HOST?.trim() ||
       (process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim())
@@ -33,6 +34,10 @@ export async function GET(req: NextRequest) {
         resend: {
           configured: hasResend,
           from: process.env.EMAIL_FROM || process.env.RESEND_FROM || "ACE SCRIMS <noreply@mail.acescrims.online>",
+        },
+        sendgrid: {
+          configured: hasSendGrid,
+          from: process.env.EMAIL_FROM || process.env.SENDGRID_FROM || "ACE SCRIMS <noreply@mail.acescrims.online>",
         },
         smtp: {
           configured: hasSmtp,
@@ -60,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      status: hasResend || hasSmtp ? "Email provider is configured" : "No email provider configured in environment variables",
+      status: hasResend || hasSendGrid || hasSmtp ? "Email provider is configured" : "No email provider configured in environment variables",
       diagnostics,
       instructions: "To trigger a real test email, request GET /api/email/test?send=true&to=your@email.com",
     })

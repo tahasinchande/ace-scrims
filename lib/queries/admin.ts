@@ -368,8 +368,13 @@ export async function getAllBookingsByScrim(dateFilter?: string, includeAllDates
     db.select({ id: scrims.id, slug: scrims.slug }).from(scrims),
   ])
 
+  const { ALL_STANDARD_SCRIM_DEFINITIONS } = await import("@/lib/queries/scrims")
   const slugToId = new Map<string, string>()
   const idToSlug = new Map<string, string>()
+  for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+    slugToId.set(def.slug, def.id)
+    idToSlug.set(def.id, def.slug)
+  }
   for (const s of scrimRows) {
     if (s.slug && s.id) {
       slugToId.set(s.slug, s.id)

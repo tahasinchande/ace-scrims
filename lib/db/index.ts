@@ -50,6 +50,7 @@ async function ensureSchema() {
         `UPDATE "bookings" SET "scrimDate" = COALESCE("scrimDate", (("createdAt" AT TIME ZONE 'Asia/Dhaka')::date)::text) WHERE "scrimDate" IS NULL`,
         `CREATE INDEX IF NOT EXISTS "idx_bookings_scrim_date_status" ON "bookings" ("scrimId", "scrimDate", "status")`,
         `CREATE INDEX IF NOT EXISTS "idx_bookings_user_date_status" ON "bookings" ("userId", "scrimDate", "status")`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_bookings_daily_confirmed_user" ON "bookings" ("scrimDate", "userId") WHERE "status" = 'confirmed' AND "isTrashed" = false AND "isArchived" = false AND "scrimDate" IS NOT NULL`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "uq_bookings_confirmed_user" ON "bookings" ("scrimId", "scrimDate", "userId") WHERE "status" = 'confirmed' AND "isTrashed" = false AND "isArchived" = false`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "uq_bookings_confirmed_team" ON "bookings" ("scrimId", "scrimDate", LOWER(TRIM("teamName"))) WHERE "status" = 'confirmed' AND "isTrashed" = false AND "isArchived" = false`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "uq_bookings_confirmed_uid" ON "bookings" ("scrimId", "scrimDate", TRIM("captainUid")) WHERE "status" = 'confirmed' AND "isTrashed" = false AND "isArchived" = false`,
