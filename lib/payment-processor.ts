@@ -9,6 +9,23 @@ import { notifyUser } from "@/lib/notify"
 import { sendBookingConfirmationEmail } from "@/lib/email"
 import { resolveOrEnsureScrim } from "@/lib/queries/scrims"
 
+function isUniqueViolationError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false
+  const e = err as { code?: string; cause?: { code?: string } }
+  return e.code === "23505" || e.cause?.code === "23505"
+}
+
+function pickLowestFreeSlot(slotNumbers: Array<number | null>): number {
+  const used = new Set<number>(
+    slotNumbers.filter((n): n is number => typeof n === "number" && Number.isInteger(n) && n >= 1)
+  )
+  let candidate = 1
+  while (used.has(candidate)) {
+    candidate++
+  }
+  return candidate
+}
+
 export type ProcessOutcome =
   | { status: "confirmed" }
   | { status: "already-confirmed" }
@@ -186,6 +203,11 @@ export async function processPayment(
       return
     }
 
+    // Lock the parent scrim row so concurrent gateway callbacks serialize cleanly
+    if (scrim?.id) {
+      await tx.execute(sql`SELECT "id" FROM "scrims" WHERE "id" = ${scrim.id} FOR UPDATE`)
+    }
+
     // 2. Load pending booking details to validate duplicates & capacity
     const pendingBookingRows = await tx
       .select({
@@ -202,18 +224,17 @@ export async function processPayment(
     const normTeam = pendingBooking?.teamName?.trim().toLowerCase() ?? ""
     const normUid = pendingBooking?.captainUid?.trim() ?? ""
     const maxCap = scrim?.maxTeams ?? 12
+    const canonicalScrimId = scrim?.id || payment.scrimId
+    const canonicalScrimSlug = scrim?.slug || payment.scrimId
 
-    const [dupRows, capRows] = await Promise.all([
+    const [dupRows, confirmedSlotRows] = await Promise.all([
       pendingBooking
         ? tx
             .select({ id: bookings.id })
             .from(bookings)
             .where(
               and(
-                or(
-                  eq(bookings.scrimId, payment.scrimId),
-                  eq(bookings.scrimId, scrim?.slug || payment.scrimId)
-                ),
+                or(eq(bookings.scrimId, canonicalScrimId), eq(bookings.scrimId, canonicalScrimSlug)),
                 eq(bookings.scrimDate, targetScrimDate),
                 eq(bookings.status, "confirmed"),
                 eq(bookings.isTrashed, false),
@@ -229,17 +250,11 @@ export async function processPayment(
             .limit(1)
         : Promise.resolve([]),
       tx
-        .select({
-          confirmed: sql<number>`COUNT(*)::int`,
-          next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
-        })
+        .select({ slotNumber: bookings.slotNumber })
         .from(bookings)
         .where(
           and(
-            or(
-              eq(bookings.scrimId, payment.scrimId),
-              eq(bookings.scrimId, scrim?.slug || payment.scrimId)
-            ),
+            or(eq(bookings.scrimId, canonicalScrimId), eq(bookings.scrimId, canonicalScrimSlug)),
             eq(bookings.scrimDate, targetScrimDate),
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
@@ -248,13 +263,8 @@ export async function processPayment(
         ),
     ])
 
-    const currentConfirmedCount = capRows[0]?.confirmed ?? 0
-    if (dupRows.length > 0 || currentConfirmedCount >= maxCap) {
-      refundedToWalletReason =
-        dupRows.length > 0
-          ? "Duplicate squad registration detected after payment — refunded to your Ace Scrims wallet."
-          : "Lobby filled up before payment completed — amount refunded automatically to your Ace Scrims wallet."
-
+    async function refundToWalletInTx(reason: string) {
+      refundedToWalletReason = reason
       const userRow = await tx
         .select({ balance: user.balance })
         .from(user)
@@ -278,7 +288,7 @@ export async function processPayment(
         amountBdt: payment.amountBdt,
         balanceBefore: balBefore,
         balanceAfter: balAfter,
-        description: refundedToWalletReason,
+        description: reason,
         referenceId: invoiceId,
         status: "completed",
       })
@@ -287,32 +297,55 @@ export async function processPayment(
         .update(bookings)
         .set({ status: "cancelled", updatedAt: new Date() })
         .where(eq(bookings.id, payment.bookingId))
+    }
 
+    const currentConfirmedCount = confirmedSlotRows.length
+    if (dupRows.length > 0 || currentConfirmedCount >= maxCap) {
+      await refundToWalletInTx(
+        dupRows.length > 0
+          ? "Duplicate squad registration detected after payment — refunded to your Ace Scrims wallet."
+          : "Lobby filled up before payment completed — amount refunded automatically to your Ace Scrims wallet."
+      )
       return
     }
 
-    confirmedNow = true
-    slotNumber = capRows[0]?.next ?? 1
+    slotNumber = pickLowestFreeSlot(confirmedSlotRows.map((r) => r.slotNumber))
 
-    // 3. Confirm the booking record
-    await tx
-      .update(bookings)
-      .set({
-        status: "confirmed",
-        slotNumber,
-        scrimDate: targetScrimDate,
-        transactionId: trxId,
-        invoiceId,
-        updatedAt: new Date(),
-      })
-      .where(eq(bookings.id, payment.bookingId))
+    // 3. Confirm the booking record under a SAVEPOINT so SQL 23505 triggers automatic wallet refund cleanly
+    await tx.execute(sql`SAVEPOINT confirm_booking_sp`)
+    try {
+      await tx
+        .update(bookings)
+        .set({
+          scrimId: canonicalScrimId,
+          status: "confirmed",
+          slotNumber,
+          scrimDate: targetScrimDate,
+          transactionId: trxId,
+          invoiceId,
+          updatedAt: new Date(),
+        })
+        .where(eq(bookings.id, payment.bookingId))
+      await tx.execute(sql`RELEASE SAVEPOINT confirm_booking_sp`)
+    } catch (confirmErr) {
+      if (isUniqueViolationError(confirmErr)) {
+        await tx.execute(sql`ROLLBACK TO SAVEPOINT confirm_booking_sp`)
+        await refundToWalletInTx(
+          "Duplicate squad registration or slot conflict detected after payment — refunded to your Ace Scrims wallet."
+        )
+        return
+      }
+      throw confirmErr
+    }
+
+    confirmedNow = true
 
     // 4. Auto-close registration if lobby reached maxTeams for today
     if (scrim && currentConfirmedCount + 1 >= scrim.maxTeams) {
       await tx
         .update(scrims)
         .set({ registrationOpen: false, updatedAt: new Date() })
-        .where(or(eq(scrims.id, payment.scrimId), eq(scrims.slug, payment.scrimId)))
+        .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
     }
   })
 
@@ -350,7 +383,7 @@ export async function processPayment(
     console.warn("[Payment Processor] notifyUser error:", notifyErr)
   }
 
-  // Send Booking Confirmation Transactional Email (resilient try/catch)
+  // Send Booking Confirmation Transactional Email (awaited inside try/catch for serverless reliability)
   try {
     const [bookingDetails, userDetails] = await Promise.all([
       db.select({ teamName: bookings.teamName, captainName: bookings.captainName }).from(bookings).where(eq(bookings.id, payment.bookingId)).limit(1),
@@ -359,7 +392,7 @@ export async function processPayment(
 
     const targetEmail = userDetails[0]?.email
     if (targetEmail && scrim) {
-      sendBookingConfirmationEmail({
+      const emailSent = await sendBookingConfirmationEmail({
         to: targetEmail,
         recipientName: userDetails[0]?.name || bookingDetails[0]?.captainName || "Player",
         teamName: bookingDetails[0]?.teamName || "Your Squad",
@@ -367,12 +400,13 @@ export async function processPayment(
         startTime: scrim.startTime,
         slotNumber,
         amountBdt: payment.amountBdt,
-      }).catch((emailErr) => {
-        console.error("[Payment Processor] Failed to send booking confirmation email:", emailErr)
       })
+      if (!emailSent) {
+        console.warn(`[Payment Processor] Booking confirmation email returned false for ${targetEmail}`)
+      }
     }
   } catch (emailQueryErr) {
-    console.warn("[Payment Processor] Could not fetch details for confirmation email:", emailQueryErr)
+    console.warn("[Payment Processor] Failed sending booking confirmation email:", emailQueryErr)
   }
 
   // Flush cached views so /scrims and homepage immediately show fresh slot state

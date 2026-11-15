@@ -1,14 +1,41 @@
 import { NextResponse } from "next/server"
-import { getActiveScrims, getBangladeshActiveDate } from "@/lib/queries/scrims"
+import { getActiveScrims, getScrimById, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+}
+
+export async function GET(req: Request) {
   try {
-    const scrims = await getActiveScrims()
+    const { searchParams } = new URL(req.url)
+    const scrimId = searchParams.get("scrimId")?.trim()
     const activeDate = getBangladeshActiveDate()
 
+    if (scrimId) {
+      const scrim = await getScrimById(scrimId)
+      if (!scrim) {
+        return NextResponse.json(
+          { ok: false, error: "Scrim not found" },
+          { status: 404, headers: NO_STORE_HEADERS }
+        )
+      }
+      return NextResponse.json(
+        {
+          ok: true,
+          activeDate,
+          scrim,
+          timestamp: Date.now(),
+        },
+        { headers: NO_STORE_HEADERS }
+      )
+    }
+
+    const scrims = await getActiveScrims()
     return NextResponse.json(
       {
         ok: true,
@@ -16,17 +43,13 @@ export async function GET() {
         scrims,
         timestamp: Date.now(),
       },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        },
-      }
+      { headers: NO_STORE_HEADERS }
     )
   } catch (err: any) {
     console.error("[API /scrims/slots] Failed to fetch live slots:", err)
     return NextResponse.json(
       { ok: false, error: "Unable to load live scrim slots" },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     )
   }
 }

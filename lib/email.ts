@@ -64,6 +64,9 @@ function getSmtpTransporter(): nodemailer.Transporter | null {
         user: gmailUser,
         pass: gmailPass,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     })
   }
 
@@ -77,6 +80,9 @@ function getSmtpTransporter(): nodemailer.Transporter | null {
         user,
         pass,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       tls: {
         rejectUnauthorized: process.env.NODE_ENV === "production",
       },
@@ -84,6 +90,10 @@ function getSmtpTransporter(): nodemailer.Transporter | null {
   }
 
   return null
+}
+
+export function isEmailProviderConfigured(): boolean {
+  return Boolean(getResendClient() || getSmtpTransporter())
 }
 
 /**
@@ -533,7 +543,7 @@ export async function sendEmail({
  */
 export async function sendVerificationEmail(to: string, url: string, userName?: string): Promise<boolean> {
   const cleanUrl = resolveCleanUrl(url)
-  const name = userName || "Player"
+  const name = escapeHtml(userName?.trim() || "Player")
 
   console.log("====================================================================")
   console.log(`[EMAIL VERIFICATION LINK FOR ${to}]`)
@@ -770,13 +780,20 @@ export async function sendRoomCredentialsEmail({
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard/scrims`
 
+  const safeRoomId = escapeHtml(roomId)
+  const safeRoomPass = escapeHtml(roomPassword)
+  const safeScrimTitle = escapeHtml(scrimTitle)
+  const safeTeamName = escapeHtml(teamName)
+  const safeRecipient = escapeHtml(recipientName || "Captain")
+  const safeStartTime = escapeHtml(startTime)
+
   const statusHeadline = isUpdated
-    ? `ATTENTION: The Room ID or Password has been updated for <strong>${scrimTitle}</strong>. Please join using the new credentials below:`
-    : `Room details for <strong>${scrimTitle}</strong> are now live. Enter the credentials below in Free Fire immediately.`
+    ? `ATTENTION: The Room ID or Password has been updated for <strong>${safeScrimTitle}</strong>. Please join using the new credentials below:`
+    : `Room details for <strong>${safeScrimTitle}</strong> are now live. Enter the credentials below in Free Fire immediately.`
 
   const contentHtml = `
     <p style="margin:0 0 18px 0;color:#ffffff;font-size:16px;">
-      Hello ${recipientName || "Captain"},
+      Hello ${safeRecipient},
     </p>
     ${
       isUpdated
@@ -799,7 +816,7 @@ export async function sendRoomCredentialsEmail({
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;width:130px;font-weight:600;">ROOM ID:</td>
               <td style="padding:6px 0;">
                 <span style="font-family:Consolas, Monaco, monospace;font-size:22px;font-weight:900;color:#f97316;letter-spacing:1.5px;">
-                  ${roomId}
+                  ${safeRoomId}
                 </span>
               </td>
             </tr>
@@ -807,7 +824,7 @@ export async function sendRoomCredentialsEmail({
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">PASSWORD:</td>
               <td style="padding:6px 0;">
                 <span style="font-family:Consolas, Monaco, monospace;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:1.5px;">
-                  ${roomPassword}
+                  ${safeRoomPass}
                 </span>
               </td>
             </tr>
@@ -817,7 +834,7 @@ export async function sendRoomCredentialsEmail({
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">YOUR SLOT:</td>
               <td style="padding:6px 0;color:#38bdf8;font-size:15px;font-weight:800;">
-                Slot #${slotNumber} (${teamName})
+                Slot #${slotNumber} (${safeTeamName})
               </td>
             </tr>`
                 : ""
@@ -825,7 +842,7 @@ export async function sendRoomCredentialsEmail({
             <tr>
               <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SCHEDULE:</td>
               <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:700;">
-                ${startTime}
+                ${safeStartTime}
               </td>
             </tr>
           </table>
@@ -1294,6 +1311,91 @@ export async function sendNoticeBroadcastEmail({
     return result.success
   } catch (err) {
     console.error(`[Notice Broadcast Email] Exception sending to ${to}:`, err)
+    return false
+  }
+}
+
+/**
+ * Sends a Welcome Email to newly verified users (both OAuth signups & email-verified signups).
+ */
+export async function sendWelcomeEmail({
+  to,
+  userName,
+  authMethod = "email",
+}: {
+  to: string
+  userName?: string | null
+  authMethod?: "google" | "email"
+}): Promise<boolean> {
+  if (!to || !to.includes("@")) return false
+  const appUrl = getProductionAppUrl()
+  const scrimsUrl = `${appUrl}/scrims`
+  const safeName = escapeHtml(userName?.trim() || "Player")
+  const methodLabel =
+    authMethod === "google"
+      ? "Your account is active and verified via Google."
+      : "Your email has been verified and your account is now active."
+
+  const contentHtml = `
+    <h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">
+      Hey ${safeName},
+    </h2>
+    <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
+      Welcome aboard! ${methodLabel} You're fully geared up to register your squad and compete on ACE SCRIMS.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#121524;border:1px solid #1f2438;border-radius:10px;margin:0 0 24px 0;">
+      <tr>
+        <td style="padding:18px 20px;">
+          <p style="margin:0 0 12px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">
+            WHAT'S WAITING FOR YOU:
+          </p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
+                <span style="color:#f97316;font-weight:bold;margin-right:8px;">&bull;</span>
+                <strong style="color:#ffffff;">Daily Evening Scrims:</strong> High-tier regular squad showdowns with instant slot locking.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
+                <span style="color:#f97316;font-weight:bold;margin-right:8px;">&bull;</span>
+                <strong style="color:#ffffff;">Friday Special Blast &amp; Champion Rush:</strong> Weekend peak events with boosted prize pools.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
+                <span style="color:#f97316;font-weight:bold;margin-right:8px;">&bull;</span>
+                <strong style="color:#ffffff;">Live Room Delivery &amp; Rewards:</strong> Room ID/Password delivered in-app and via email before kickoff.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  const html = emailShell({
+    title: "Welcome to ACE SCRIMS",
+    preheader: `Welcome aboard ${safeName}! Your ACE SCRIMS account is active.`,
+    contentHtml,
+    ctaText: "Explore Scrims & Lobbies",
+    ctaUrl: scrimsUrl,
+  })
+
+  try {
+    const result = await sendEmail({
+      to,
+      subject: `Welcome aboard, ${userName?.trim() || "Player"} — ACE SCRIMS`,
+      html,
+      text: `Hey ${userName?.trim() || "Player"}, welcome to ACE SCRIMS! ${methodLabel} Explore upcoming lobbies at ${scrimsUrl}`,
+    })
+    if (!result.success) {
+      console.error(`[Welcome Email] Delivery failed for ${to}: ${result.error}`)
+    }
+    return result.success
+  } catch (err) {
+    console.error(`[Welcome Email] Exception sending to ${to}:`, err)
     return false
   }
 }

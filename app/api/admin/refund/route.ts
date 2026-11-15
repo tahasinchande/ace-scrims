@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (user.role !== "admin") {
+    if (user.banned || user.role !== "admin") {
       return NextResponse.json(
         { ok: false, error: "Forbidden: Admin privileges required." },
         { status: 403 }

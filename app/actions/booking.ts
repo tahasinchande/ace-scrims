@@ -9,6 +9,23 @@ import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
 import { getScrimById, userHasBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
+function isUniqueViolationError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false
+  const e = err as { code?: string; cause?: { code?: string } }
+  return e.code === "23505" || e.cause?.code === "23505"
+}
+
+function pickLowestFreeSlot(slotNumbers: Array<number | null>): number {
+  const used = new Set<number>(
+    slotNumbers.filter((n): n is number => typeof n === "number" && Number.isInteger(n) && n >= 1)
+  )
+  let candidate = 1
+  while (used.has(candidate)) {
+    candidate++
+  }
+  return candidate
+}
+
 const bookingSchema = z.object({
   scrimId: z.string().min(1),
   teamName: z.string().trim().min(2, "Team Name must be at least 2 characters").max(40),
@@ -93,8 +110,8 @@ export async function createBooking(
 
   // Auto-persist squad details to user profile ("Info Setup") so future registrations auto-populate
   try {
-    const { autoSaveUserDefaultInfo } = await import("@/app/actions/user-info");
-    autoSaveUserDefaultInfo(user.id, {
+    const { autoSaveUserDefaultInfo } = await import("@/lib/queries/user-info")
+    await autoSaveUserDefaultInfo(user.id, {
       teamName: data.teamName,
       teamTag: data.teamTag,
       captainName: data.captainName,
@@ -104,9 +121,9 @@ export async function createBooking(
       paymentNumber: data.paymentNumber,
       teamLeaderImageUrl: data.teamLeaderImageUrl,
       teamMembersDriveLink: data.teamMembersDriveLink,
-    }).catch((err) => console.error("[AutoSave] Default info background error:", err));
+    })
   } catch (autoErr) {
-    console.error("[AutoSave] Failed to trigger auto-save:", autoErr);
+    console.error("[AutoSave] Failed to trigger auto-save:", autoErr)
   }
 
   const { resolveOrEnsureScrim } = await import("@/lib/queries/scrims")
@@ -190,97 +207,114 @@ export async function createBooking(
     let balanceDeducted = false
     let txRejectionError: string | null = null
 
-    await db.transaction(async (tx) => {
-      // Re-verify inside transaction: no duplicate user/squad/UID & lobby still has slots
-      const [dupInTx, countInTx] = await Promise.all([
-        tx
-          .select({ id: bookings.id, userId: bookings.userId, teamName: bookings.teamName })
-          .from(bookings)
-          .where(
-            and(
-              or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
-              eq(bookings.scrimDate, targetDate),
-              eq(bookings.status, "confirmed"),
-              eq(bookings.isTrashed, false),
-              eq(bookings.isArchived, false),
-              or(
-                eq(bookings.userId, user.id),
-                sql`LOWER(TRIM(${bookings.teamName})) = ${normalizedTeamName}`,
-                sql`TRIM(${bookings.captainUid}) = ${normalizedCaptainUid}`
+    try {
+      await db.transaction(async (tx) => {
+        // Lock the scrim row to serialize concurrent registrations for the same lobby
+        await tx.execute(sql`SELECT "id" FROM "scrims" WHERE "id" = ${scrim.id} FOR UPDATE`)
+
+        // Re-verify inside transaction: no duplicate user/squad/UID & lobby still has slots
+        const [dupInTx, slotRows] = await Promise.all([
+          tx
+            .select({ id: bookings.id, userId: bookings.userId, teamName: bookings.teamName })
+            .from(bookings)
+            .where(
+              and(
+                or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+                eq(bookings.scrimDate, targetDate),
+                eq(bookings.status, "confirmed"),
+                eq(bookings.isTrashed, false),
+                eq(bookings.isArchived, false),
+                or(
+                  eq(bookings.userId, user.id),
+                  sql`LOWER(TRIM(${bookings.teamName})) = ${normalizedTeamName}`,
+                  sql`TRIM(${bookings.captainUid}) = ${normalizedCaptainUid}`
+                )
               )
             )
-          )
-          .limit(1),
-        tx
-          .select({ confirmed: sql<number>`COUNT(*)::int` })
-          .from(bookings)
-          .where(
-            and(
-              or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
-              eq(bookings.scrimDate, targetDate),
-              eq(bookings.status, "confirmed"),
-              eq(bookings.isTrashed, false),
-              eq(bookings.isArchived, false)
-            )
-          ),
-      ])
-
-      if (dupInTx.length > 0) {
-        txRejectionError =
-          dupInTx[0].userId === user.id
-            ? "You already have a confirmed booking for this scrim today."
-            : `Squad "${dupInTx[0].teamName}" or Captain UID is already registered for this lobby today.`
-        return
-      }
-
-      if ((countInTx[0]?.confirmed ?? 0) >= scrim.maxTeams) {
-        txRejectionError = "This lobby just reached maximum capacity. Please choose another time slot."
-        return
-      }
-
-      // Atomic deduction: ensure balance >= priceBdt at the moment of update
-      const updateBalResult = await tx
-        .update(userTable)
-        .set({
-          balance: sql`${userTable.balance} - ${scrim.priceBdt}`,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(userTable.id, user.id), gte(userTable.balance, scrim.priceBdt)))
-        .returning({ newBalance: userTable.balance })
-
-      if (updateBalResult.length === 0) {
-        return // insufficient balance or concurrent deduction
-      }
-
-      balanceDeducted = true
-      const newBal = updateBalResult[0].newBalance
-
-      // Assign slot number for targetDate
-      const slotRows = await tx
-        .select({
-          next: sql<number>`COALESCE(MAX(${bookings.slotNumber}), 0)::int + 1`,
-        })
-        .from(bookings)
-        .where(
-          and(
-            or(
-              eq(bookings.scrimId, scrim.id),
-              eq(bookings.scrimId, scrim.slug)
+            .limit(1),
+          tx
+            .select({ slotNumber: bookings.slotNumber })
+            .from(bookings)
+            .where(
+              and(
+                or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
+                eq(bookings.scrimDate, targetDate),
+                eq(bookings.status, "confirmed"),
+                eq(bookings.isTrashed, false),
+                eq(bookings.isArchived, false)
+              )
             ),
-            eq(bookings.scrimDate, targetDate),
-            eq(bookings.status, "confirmed"),
-            eq(bookings.isTrashed, false),
-            eq(bookings.isArchived, false)
-          )
-        )
+        ])
 
-      confirmedSlotNumber = slotRows[0]?.next ?? 1
-      const walletTrxId = `WALLET_${randomUUID().slice(0, 8).toUpperCase()}`
+        if (dupInTx.length > 0) {
+          txRejectionError =
+            dupInTx[0].userId === user.id
+              ? "You already have a confirmed booking for this scrim today."
+              : `Squad "${dupInTx[0].teamName}" or Captain UID is already registered for this lobby today.`
+          return
+        }
 
-      if (existing) {
-        await tx
-          .update(bookings)
+        const confirmedCount = slotRows.length
+        if (confirmedCount >= scrim.maxTeams) {
+          txRejectionError = "This lobby just reached maximum capacity. Please choose another time slot."
+          return
+        }
+
+        // Atomic deduction: ensure balance >= priceBdt at the moment of update
+        const updateBalResult = await tx
+          .update(userTable)
           .set({
+            balance: sql`${userTable.balance} - ${scrim.priceBdt}`,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(userTable.id, user.id), gte(userTable.balance, scrim.priceBdt)))
+          .returning({ newBalance: userTable.balance })
+
+        if (updateBalResult.length === 0) {
+          return // insufficient balance or concurrent deduction
+        }
+
+        balanceDeducted = true
+        const newBal = updateBalResult[0].newBalance
+
+        confirmedSlotNumber = pickLowestFreeSlot(slotRows.map((r) => r.slotNumber))
+        const walletTrxId = `WALLET_${randomUUID().slice(0, 8).toUpperCase()}`
+
+        if (existing) {
+          await tx
+            .update(bookings)
+            .set({
+              scrimId: scrim.id,
+              status: "confirmed",
+              slotNumber: confirmedSlotNumber,
+              teamName: data.teamName,
+              captainName: data.captainName,
+              captainUid: data.captainUid,
+              player2Name: "N/A",
+              player2Uid: "N/A",
+              player3Name: "N/A",
+              player3Uid: "N/A",
+              player4Name: "N/A",
+              player4Uid: "N/A",
+              player5Name: null,
+              player5Uid: null,
+              phone: data.phone,
+              discordTelegram: teamTag,
+              scrimDate: targetDate,
+              teamLeaderImageUrl: data.teamLeaderImageUrl,
+              paymentMethod: data.paymentMethod,
+              paymentNumber: data.paymentNumber,
+              teamMembersDriveLink: data.teamMembersDriveLink || null,
+              transactionId: walletTrxId,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(bookings.id, bookingId), eq(bookings.userId, user.id)))
+        } else {
+          await tx.insert(bookings).values({
+            id: bookingId,
+            userId: user.id,
+            scrimId: scrim.id,
+            scrimDate: targetDate,
             status: "confirmed",
             slotNumber: confirmedSlotNumber,
             teamName: data.teamName,
@@ -296,87 +330,53 @@ export async function createBooking(
             player5Uid: null,
             phone: data.phone,
             discordTelegram: teamTag,
-            scrimDate: targetDate,
             teamLeaderImageUrl: data.teamLeaderImageUrl,
             paymentMethod: data.paymentMethod,
             paymentNumber: data.paymentNumber,
             teamMembersDriveLink: data.teamMembersDriveLink || null,
             transactionId: walletTrxId,
-            updatedAt: new Date(),
           })
-          .where(and(eq(bookings.id, bookingId), eq(bookings.userId, user.id)))
-      } else {
-        await tx.insert(bookings).values({
-          id: bookingId,
+        }
+
+        await tx.insert(payments).values({
+          id: paymentId,
           userId: user.id,
+          bookingId,
           scrimId: scrim.id,
-          scrimDate: targetDate,
-          status: "confirmed",
-          slotNumber: confirmedSlotNumber,
-          teamName: data.teamName,
-          captainName: data.captainName,
-          captainUid: data.captainUid,
-          player2Name: "N/A",
-          player2Uid: "N/A",
-          player3Name: "N/A",
-          player3Uid: "N/A",
-          player4Name: "N/A",
-          player4Uid: "N/A",
-          player5Name: null,
-          player5Uid: null,
-          phone: data.phone,
-          discordTelegram: teamTag,
-          teamLeaderImageUrl: data.teamLeaderImageUrl,
-          paymentMethod: data.paymentMethod,
-          paymentNumber: data.paymentNumber,
-          teamMembersDriveLink: data.teamMembersDriveLink || null,
+          amountBdt: scrim.priceBdt,
+          method: "wallet_balance",
           transactionId: walletTrxId,
+          status: "completed",
         })
-      }
 
-      await tx.insert(payments).values({
-        id: paymentId,
-        userId: user.id,
-        bookingId,
-        scrimId: scrim.id,
-        amountBdt: scrim.priceBdt,
-        method: "wallet_balance",
-        transactionId: walletTrxId,
-        status: "completed",
+        await tx.insert(walletTransactions).values({
+          id: randomUUID(),
+          userId: user.id,
+          type: "scrim_registration",
+          amountBdt: scrim.priceBdt,
+          balanceBefore: currentBalance,
+          balanceAfter: newBal,
+          description: `Scrim Registration: "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber}`,
+          referenceId: bookingId,
+          status: "completed",
+        })
+
+        if (confirmedCount + 1 >= scrim.maxTeams) {
+          await tx
+            .update(scrims)
+            .set({ registrationOpen: false, updatedAt: new Date() })
+            .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
+        }
       })
-
-      await tx.insert(walletTransactions).values({
-        id: randomUUID(),
-        userId: user.id,
-        type: "scrim_registration",
-        amountBdt: scrim.priceBdt,
-        balanceBefore: currentBalance,
-        balanceAfter: newBal,
-        description: `Scrim Registration: "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber}`,
-        referenceId: bookingId,
-        status: "completed",
-      })
-
-      const countRows = await tx
-        .select({ confirmed: sql<number>`COUNT(*)::int` })
-        .from(bookings)
-        .where(
-          and(
-            or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
-            eq(bookings.scrimDate, targetDate),
-            eq(bookings.status, "confirmed"),
-            eq(bookings.isTrashed, false),
-            eq(bookings.isArchived, false)
-          )
-        )
-
-      if ((countRows[0]?.confirmed ?? 0) >= scrim.maxTeams) {
-        await tx
-          .update(scrims)
-          .set({ registrationOpen: false, updatedAt: new Date() })
-          .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
+    } catch (txErr) {
+      if (isUniqueViolationError(txErr)) {
+        return {
+          ok: false,
+          error: "This account, squad name, or Captain UID already has a confirmed slot in this lobby.",
+        }
       }
-    })
+      throw txErr
+    }
 
     if (txRejectionError) {
       return { ok: false, error: txRejectionError }
@@ -396,7 +396,7 @@ export async function createBooking(
 
       try {
         const { sendBookingConfirmationEmail } = await import("@/lib/email")
-        sendBookingConfirmationEmail({
+        const emailSent = await sendBookingConfirmationEmail({
           to: user.email,
           recipientName: data.captainName || user.name,
           teamName: data.teamName,
@@ -404,8 +404,13 @@ export async function createBooking(
           startTime: scrim.startTime,
           slotNumber: confirmedSlotNumber,
           amountBdt: scrim.priceBdt,
-        }).catch(() => {})
-      } catch {}
+        })
+        if (!emailSent) {
+          console.warn(`[Booking] Confirmation email delivery returned false for ${user.email}`)
+        }
+      } catch (emailErr) {
+        console.error("[Booking] Confirmation email failed:", emailErr)
+      }
 
       try {
         const { revalidatePath } = await import("next/cache")
@@ -414,8 +419,10 @@ export async function createBooking(
         revalidatePath("/")
         revalidatePath("/dashboard/scrims")
         revalidatePath("/dashboard/wallet")
+        revalidatePath("/dashboard/info-setup")
         revalidatePath("/dashboard")
         revalidatePath("/admin/scrims")
+        revalidatePath("/admin")
       } catch {}
 
       return {
@@ -432,6 +439,7 @@ export async function createBooking(
     await db
       .update(bookings)
       .set({
+        scrimId: scrim.id,
         teamName: data.teamName,
         captainName: data.captainName,
         captainUid: data.captainUid,

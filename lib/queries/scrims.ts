@@ -514,7 +514,6 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
 
   // Ensure exact confirmedTeams count for all scrims from the database
   try {
-    archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
     const bookingCounts = await db
       .select({

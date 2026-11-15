@@ -17,6 +17,7 @@ export async function sendChatMessage(
   try {
     const sessionUser = await getSessionUser()
     if (!sessionUser) return { ok: false, error: "Authentication required" }
+    if (sessionUser.banned) return { ok: false, error: "Account suspended" }
 
     const cleanMsg = messageText.trim()
     if (!cleanMsg && !attachmentUrl) return { ok: false, error: "Message or file attachment is required" }
@@ -60,7 +61,7 @@ export async function sendChatMessage(
 export async function getUserChatMessages() {
   try {
     const sessionUser = await getSessionUser()
-    if (!sessionUser) return []
+    if (!sessionUser || sessionUser.banned) return []
 
     // Mark staff messages as read by user
     await db

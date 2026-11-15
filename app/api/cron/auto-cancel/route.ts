@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { autoCancelUnderfilledScrims } from "@/app/actions/not-hosted"
+import { autoCancelUnderfilledScrims } from "@/lib/not-hosted-service"
 import { getSessionUser } from "@/lib/session"
 
 export const dynamic = "force-dynamic"

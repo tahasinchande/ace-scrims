@@ -31,20 +31,35 @@ export function HomeScrimsGrid({ initialScrims }: { initialScrims: ScrimCardData
       }
     }
 
+    const onSlotsUpdated = () => {
+      void refreshSlots()
+    }
+
+    let channel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel("acescrims-slots")
+      channel.onmessage = () => {
+        void refreshSlots()
+      }
+    }
+
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") {
         void refreshSlots()
       }
-    }, 8000)
+    }, 5000)
 
     window.addEventListener("focus", onVisibilityOrFocus)
+    window.addEventListener("acescrims:slots-updated", onSlotsUpdated)
     document.addEventListener("visibilitychange", onVisibilityOrFocus)
 
     return () => {
       active = false
       clearInterval(interval)
       window.removeEventListener("focus", onVisibilityOrFocus)
+      window.removeEventListener("acescrims:slots-updated", onSlotsUpdated)
       document.removeEventListener("visibilitychange", onVisibilityOrFocus)
+      channel?.close()
     }
   }, [])
 

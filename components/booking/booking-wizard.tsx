@@ -87,14 +87,24 @@ export function BookingWizard({
   // Redirect to the payment gateway or dashboard when the action completes
   useEffect(() => {
     if (state.ok) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId: scrim.id } }))
+        if (typeof BroadcastChannel !== "undefined") {
+          const ch = new BroadcastChannel("acescrims-slots")
+          ch.postMessage({ type: "slots-updated", scrimId: scrim.id })
+          ch.close()
+        }
+      }
       if (state.paidWithBalance && state.redirectUrl) {
         toast.success("Slot booked successfully using your account balance!")
         window.location.href = state.redirectUrl
       } else if (state.paymentUrl) {
         window.location.href = state.paymentUrl
       }
+    } else if (state.error) {
+      toast.error(state.error)
     }
-  }, [state.ok, state.paidWithBalance, state.redirectUrl, state.paymentUrl])
+  }, [state.ok, state.error, state.paidWithBalance, state.redirectUrl, state.paymentUrl, scrim.id])
 
   async function handleLeaderImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

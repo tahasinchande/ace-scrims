@@ -6,10 +6,10 @@ import { db } from "@/lib/db"
 import { scrims, results, bookings, user } from "@/lib/db/schema"
 import { requireStaff, requireAdmin } from "@/lib/session"
 import { notifyScrimParticipants, logActivity } from "@/lib/notify"
-import { eq, and, or } from "drizzle-orm"
+import { eq, and, or, ne } from "drizzle-orm"
 import { z } from "zod"
 import { put } from "@vercel/blob"
-import { sendRoomCredentialsEmail, sendMatchResultPublishedEmail, sendEmailBatch } from "@/lib/email"
+import { sendRoomCredentialsEmail, sendMatchResultPublishedEmail, sendEmailBatch, isEmailProviderConfigured } from "@/lib/email"
 import { resolveOrEnsureScrim, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -23,7 +23,16 @@ const roomSchema = z.object({
   roomPassword: z.string().trim().min(1, "Password is required").max(50),
 })
 
-export async function publishRoom(_prev: unknown, formData: FormData) {
+export type PublishRoomState = {
+  ok: boolean
+  error: string | null
+  emailsSent: number
+  emailsFailed: number
+  totalRecipients: number
+  emailWarning: string | null
+}
+
+export async function publishRoom(_prev: PublishRoomState, formData: FormData): Promise<PublishRoomState> {
   try {
     const staff = await requireStaff()
     const parsed = roomSchema.safeParse({
@@ -32,12 +41,28 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
       roomPassword: formData.get("roomPassword"),
     })
     if (!parsed.success) {
-      return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+        emailsSent: 0,
+        emailsFailed: 0,
+        totalRecipients: 0,
+        emailWarning: null,
+      }
     }
     const { scrimId, roomId, roomPassword } = parsed.data
 
     const scrim = await resolveOrEnsureScrim(scrimId)
-    if (!scrim) return { ok: false, error: "Scrim not found" }
+    if (!scrim) {
+      return {
+        ok: false,
+        error: "Scrim not found",
+        emailsSent: 0,
+        emailsFailed: 0,
+        totalRecipients: 0,
+        emailWarning: null,
+      }
+    }
 
     const isUpdated = Boolean(scrim.roomPublished && scrim.roomId)
 
@@ -61,6 +86,7 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
     let emailsSent = 0
     let emailsFailed = 0
     let totalRecipients = 0
+    let emailWarning: string | null = null
 
     try {
       const activeDate = getBangladeshActiveDate()
@@ -72,6 +98,7 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
           slotNumber: bookings.slotNumber,
           userEmail: user.email,
           userName: user.name,
+          userBanned: user.banned,
         })
         .from(bookings)
         .leftJoin(user, eq(bookings.userId, user.id))
@@ -95,6 +122,7 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
         }
       >()
       for (const b of confirmedBookings) {
+        if (b.userBanned) continue
         const rawEmail = b.userEmail?.trim().toLowerCase()
         if (rawEmail && rawEmail.includes("@") && !recipientMap.has(rawEmail)) {
           recipientMap.set(rawEmail, {
@@ -110,33 +138,53 @@ export async function publishRoom(_prev: unknown, formData: FormData) {
       totalRecipients = recipients.length
 
       if (recipients.length > 0) {
-        const stats = await sendEmailBatch(recipients, (r) =>
-          sendRoomCredentialsEmail({
-            to: r.email,
-            recipientName: r.recipientName,
-            teamName: r.teamName,
-            scrimTitle: scrim.title,
-            startTime: scrim.startTime,
-            slotNumber: r.slotNumber,
-            roomId,
-            roomPassword,
-            isUpdated,
-          })
-        )
-        emailsSent = stats.sent
-        emailsFailed = stats.failed
+        if (!isEmailProviderConfigured()) {
+          emailsFailed = recipients.length
+          emailWarning =
+            "Room published in dashboard, but no email provider is configured (set RESEND_API_KEY or SMTP credentials)."
+          console.warn(`[publishRoom] ${emailWarning}`)
+        } else {
+          const stats = await sendEmailBatch(recipients, (r) =>
+            sendRoomCredentialsEmail({
+              to: r.email,
+              recipientName: r.recipientName,
+              teamName: r.teamName,
+              scrimTitle: scrim.title,
+              startTime: scrim.startTime,
+              slotNumber: r.slotNumber,
+              roomId,
+              roomPassword,
+              isUpdated,
+            })
+          )
+          emailsSent = stats.sent
+          emailsFailed = stats.failed
+          if (emailsSent === 0 && emailsFailed > 0) {
+            emailWarning = `Room published in dashboard, but all ${emailsFailed} notification email(s) failed to deliver.`
+          } else if (emailsFailed > 0) {
+            emailWarning = `Room published — emailed ${emailsSent}/${totalRecipients} teams (${emailsFailed} failed).`
+          }
+        }
       }
     } catch (emailDispatchErr) {
       console.warn("[Staff Action] Could not query confirmed participants for room release email:", emailDispatchErr)
+      emailWarning = "Room published in dashboard, but email dispatch encountered an error."
     }
 
     revalidatePath("/admin/scrims")
     revalidatePath("/dashboard/scrims")
     revalidatePath("/scrims")
     revalidatePath("/")
-    return { ok: true, error: null, emailsSent, emailsFailed, totalRecipients }
+    return { ok: true, error: null, emailsSent, emailsFailed, totalRecipients, emailWarning }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong", emailsSent: 0, emailsFailed: 0, totalRecipients: 0 }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Something went wrong",
+      emailsSent: 0,
+      emailsFailed: 0,
+      totalRecipients: 0,
+      emailWarning: null,
+    }
   }
 }
 
@@ -167,7 +215,16 @@ const resultSchema = z.object({
   category: z.string().default("Top 3 Prize Pool"),
 })
 
-export async function publishResult(_prev: unknown, formData: FormData) {
+export type PublishResultState = {
+  ok: boolean
+  error: string | null
+  emailsSent: number
+  emailsFailed: number
+  totalRecipients: number
+  emailWarning: string | null
+}
+
+export async function publishResult(_prev: unknown, formData: FormData): Promise<PublishResultState> {
   try {
     const staff = await requireStaff()
     const parsed = resultSchema.safeParse({
@@ -179,11 +236,27 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       category: formData.get("category") || "Top 3 Prize Pool",
     })
     if (!parsed.success) {
-      return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+        emailsSent: 0,
+        emailsFailed: 0,
+        totalRecipients: 0,
+        emailWarning: null,
+      }
     }
 
     const scrim = await resolveOrEnsureScrim(parsed.data.scrimId)
-    if (!scrim) return { ok: false, error: "Scrim not found" }
+    if (!scrim) {
+      return {
+        ok: false,
+        error: "Scrim not found",
+        emailsSent: 0,
+        emailsFailed: 0,
+        totalRecipients: 0,
+        emailWarning: null,
+      }
+    }
 
     // Multi-image upload handling
     const uploadedUrls: string[] = []
@@ -212,8 +285,26 @@ export async function publishResult(_prev: unknown, formData: FormData) {
       }
 
       for (const f of filesToUpload) {
-        if (f.size > 10 * 1024 * 1024) return { ok: false, error: "Image file must be under 10MB" }
-        if (!f.type.startsWith("image/")) return { ok: false, error: "All files must be images" }
+        if (f.size > 10 * 1024 * 1024) {
+          return {
+            ok: false,
+            error: "Image file must be under 10MB",
+            emailsSent: 0,
+            emailsFailed: 0,
+            totalRecipients: 0,
+            emailWarning: null,
+          }
+        }
+        if (!f.type.startsWith("image/")) {
+          return {
+            ok: false,
+            error: "All files must be images",
+            emailsSent: 0,
+            emailsFailed: 0,
+            totalRecipients: 0,
+            emailWarning: null,
+          }
+        }
         const url = await saveUploadedFile(f, "results")
         uploadedUrls.push(url)
       }
@@ -261,6 +352,11 @@ export async function publishResult(_prev: unknown, formData: FormData) {
     )
 
     // Query confirmed registered teams and their user accounts for email notifications
+    let emailsSent = 0
+    let emailsFailed = 0
+    let totalRecipients = 0
+    let emailWarning: string | null = null
+
     try {
       const confirmedBookings = await db
         .select({
@@ -278,7 +374,8 @@ export async function publishResult(_prev: unknown, formData: FormData) {
             or(eq(bookings.scrimId, scrim.id), eq(bookings.scrimId, scrim.slug)),
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
-            eq(bookings.scrimDate, customMatchDate)
+            eq(bookings.scrimDate, customMatchDate),
+            ne(user.banned, true)
           )
         )
 
@@ -297,23 +394,37 @@ export async function publishResult(_prev: unknown, formData: FormData) {
         }
       }
 
-      if (recipientMap.size > 0) {
-        console.log(`[publishResult] Sending match result emails to ${recipientMap.size} confirmed team recipient(s)...`)
-        const recipients = Array.from(recipientMap.values())
-        await sendEmailBatch(recipients, (recipient) =>
-          sendMatchResultPublishedEmail({
-            to: recipient.email,
-            recipientName: recipient.name,
-            teamName: recipient.teamName,
-            scrimTitle: scrim.title,
-            winningTeam: parsed.data.winningTeam,
-            kills: parsed.data.kills,
-            prizeBdt: parsed.data.prizeBdt,
-            placement: parsed.data.placement,
-            category: parsed.data.category,
-          })
-        )
-        console.log(`[publishResult] Completed match result email dispatch for ${scrim.title}.`)
+      totalRecipients = recipientMap.size
+      if (totalRecipients > 0) {
+        if (!isEmailProviderConfigured()) {
+          emailsFailed = totalRecipients
+          emailWarning = "Result published, but no email provider is configured to notify teams."
+          console.warn(`[publishResult] ${emailWarning}`)
+        } else {
+          console.log(`[publishResult] Sending match result emails to ${totalRecipients} confirmed team recipient(s)...`)
+          const recipients = Array.from(recipientMap.values())
+          const stats = await sendEmailBatch(recipients, (recipient) =>
+            sendMatchResultPublishedEmail({
+              to: recipient.email,
+              recipientName: recipient.name,
+              teamName: recipient.teamName,
+              scrimTitle: scrim.title,
+              winningTeam: parsed.data.winningTeam,
+              kills: parsed.data.kills,
+              prizeBdt: parsed.data.prizeBdt,
+              placement: parsed.data.placement,
+              category: parsed.data.category,
+            })
+          )
+          emailsSent = stats.sent
+          emailsFailed = stats.failed
+          if (emailsSent === 0 && emailsFailed > 0) {
+            emailWarning = `Result published, but all ${emailsFailed} notification email(s) failed.`
+          } else if (emailsFailed > 0) {
+            emailWarning = `Result published — emailed ${emailsSent}/${totalRecipients} teams (${emailsFailed} failed).`
+          }
+          console.log(`[publishResult] Completed match result email dispatch for ${scrim.title}: ${emailsSent}/${totalRecipients} sent.`)
+        }
       }
     } catch (teamQueryErr) {
       console.error("[publishResult] Failed to query registered teams for result email notification:", teamQueryErr)
@@ -327,9 +438,16 @@ export async function publishResult(_prev: unknown, formData: FormData) {
     revalidatePath("/admin/results")
     revalidatePath("/results")
     revalidatePath("/dashboard/results")
-    return { ok: true, error: null }
+    return { ok: true, error: null, emailsSent, emailsFailed, totalRecipients, emailWarning }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong" }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Something went wrong",
+      emailsSent: 0,
+      emailsFailed: 0,
+      totalRecipients: 0,
+      emailWarning: null,
+    }
   }
 }
 

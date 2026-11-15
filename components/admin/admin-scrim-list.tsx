@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { publishRoom, unpublishRoom } from "@/app/actions/staff"
+import { publishRoom, unpublishRoom, type PublishRoomState } from "@/app/actions/staff"
 import {
   deleteScrim,
   restoreScrim,
@@ -50,7 +50,14 @@ function formatRegistrationDate(date: Date | string | null | undefined): string 
   }
 }
 
-const initialState = { ok: false, error: null as string | null, emailsSent: 0, emailsFailed: 0, totalRecipients: 0 }
+const initialState: PublishRoomState = {
+  ok: false,
+  error: null,
+  emailsSent: 0,
+  emailsFailed: 0,
+  totalRecipients: 0,
+  emailWarning: null,
+}
 
 function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
   const [open, setOpen] = useState(false)
@@ -61,7 +68,9 @@ function PublishRoomButton({ scrim }: { scrim: AdminScrim }) {
       const total = state.totalRecipients ?? 0
       const sent = state.emailsSent ?? 0
       const failed = state.emailsFailed ?? 0
-      if (total === 0) {
+      if (state.emailWarning) {
+        toast.warning(state.emailWarning)
+      } else if (total === 0) {
         toast.success("Room details published in dashboard")
       } else if (failed > 0) {
         toast.warning(`Room published — emailed ${sent}/${total} confirmed teams (${failed} failed)`)
@@ -223,6 +232,14 @@ function ViewTeamsButton({
         toast.success(`Team "${b.teamName}" removed! Slot #${b.slotNumber ?? ""} is now freed up.`)
         setTeamList((prev) => prev.filter((item) => item.id !== b.id))
         onTeamRemoved?.(scrim.id, b.id)
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId: scrim.id } }))
+          if (typeof BroadcastChannel !== "undefined") {
+            const ch = new BroadcastChannel("acescrims-slots")
+            ch.postMessage({ type: "slots-updated", scrimId: scrim.id })
+            ch.close()
+          }
+        }
         setTeamToRemove(null)
         startTransition(() => {
           router.refresh()

@@ -4,7 +4,7 @@ import { randomUUID } from "crypto"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs, imageRequests, walletTransactions } from "@/lib/db/schema"
-import { requireAdmin } from "@/lib/session"
+import { requireAdmin, requireStaff } from "@/lib/session"
 import { logActivity } from "@/lib/notify"
 import { eq, ne, and, or, sql, inArray } from "drizzle-orm"
 import { z } from "zod"
@@ -1058,7 +1058,7 @@ export async function toggleScrimStatus(
 
 export async function markScrimNotHosted(scrimId: string) {
   const admin = await requireAdmin()
-  const { executeMarkScrimNotHosted } = await import("@/app/actions/not-hosted")
+  const { executeMarkScrimNotHosted } = await import("@/lib/not-hosted-service")
   return executeMarkScrimNotHosted(scrimId, admin.id, admin.role)
 }
 
@@ -1247,6 +1247,7 @@ export async function bulkDeleteBookings(bookingIds: string[]): Promise<{ ok: bo
 
 export async function queryHistoricalScrimsAction(date: string, scrimId?: string) {
   try {
+    await requireStaff()
     const { getAdminScrims, getHistoricalBookings } = await import("@/lib/queries/admin")
     const { results } = await import("@/lib/db/schema")
     
@@ -1726,6 +1727,9 @@ export async function removeTeamFromScrimAction(
     revalidatePath("/admin")
     revalidatePath("/dashboard/scrims")
     revalidatePath("/scrims")
+    if (scrimRow[0]?.slug) {
+      revalidatePath(`/scrims/${scrimRow[0].slug}`)
+    }
     revalidatePath("/")
 
     return {

@@ -44,24 +44,61 @@ export function ScrimDetailView({
 
   useEffect(() => {
     let active = true
+    const targetId = scrim.id || scrim.slug
+
     async function poll() {
       try {
-        const { getScrimSlots } = await import("@/app/actions/booking")
-        const res = await getScrimSlots(scrim.id || scrim.slug)
-        if (active && res) {
-          setConfirmedCount(res.confirmed)
-          if (res.maxTeams) setMaxCount(res.maxTeams)
-          if (res.registrationOpen !== undefined) setRegOpen(res.registrationOpen)
-          if (res.status) setScrimState(res.status)
-        }
-      } catch {}
+        const res = await fetch(`/api/scrims/slots?scrimId=${encodeURIComponent(targetId)}`, {
+          cache: "no-store",
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!active || !data?.ok || !data.scrim) return
+        setConfirmedCount(data.scrim.confirmedTeams ?? 0)
+        if (typeof data.scrim.maxTeams === "number") setMaxCount(data.scrim.maxTeams)
+        if (typeof data.scrim.registrationOpen === "boolean") setRegOpen(data.scrim.registrationOpen)
+        if (data.scrim.status) setScrimState(data.scrim.status)
+      } catch {
+        // Silent retry on next interval
+      }
     }
 
-    poll()
-    const timer = setInterval(poll, 10000)
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        void poll()
+      }
+    }
+
+    const onSlotsUpdated = () => {
+      void poll()
+    }
+
+    let channel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel("acescrims-slots")
+      channel.onmessage = () => {
+        void poll()
+      }
+    }
+
+    void poll()
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void poll()
+      }
+    }, 5000)
+
+    window.addEventListener("focus", onVisibilityOrFocus)
+    window.addEventListener("acescrims:slots-updated", onSlotsUpdated)
+    document.addEventListener("visibilitychange", onVisibilityOrFocus)
+
     return () => {
       active = false
       clearInterval(timer)
+      window.removeEventListener("focus", onVisibilityOrFocus)
+      window.removeEventListener("acescrims:slots-updated", onSlotsUpdated)
+      document.removeEventListener("visibilitychange", onVisibilityOrFocus)
+      channel?.close()
     }
   }, [scrim.id, scrim.slug])
 

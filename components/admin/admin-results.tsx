@@ -543,7 +543,11 @@ export function PublishResultButton({
     startTransition(async () => {
       const res = await publishResult(null, actionData)
       if (res.ok) {
-        toast.success("Result published & participants notified!")
+        if ("emailWarning" in res && res.emailWarning) {
+          toast.warning(res.emailWarning)
+        } else {
+          toast.success("Result published & participants notified!")
+        }
         setOpen(false)
         setWinningTeam("")
         setMvpPlayerName("")
