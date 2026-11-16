@@ -2,7 +2,8 @@
 
 import { useState, useTransition, useRef, useEffect, useMemo } from "react"
 import Image from "next/image"
-import { publishResult, updateResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
+import { useRouter } from "next/navigation"
+import { publishResult, updateResult, markPrizeSent, markAllPrizesSent, deleteResult } from "@/app/actions/staff"
 import { bulkDeleteResults, queryHistoricalScrimsAction } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -918,10 +919,12 @@ export function AdminResults({
   initialDate?: string
   isAdmin?: boolean
 }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [selectedResultIds, setSelectedResultIds] = useState<string[]>([])
   const [lobbyFilter, setLobbyFilter] = useState<string>("all")
   const [trashConfirmIds, setTrashConfirmIds] = useState<string[] | null>(null)
+  const [markAllConfirmOpen, setMarkAllConfirmOpen] = useState(false)
 
   // Group published results under distinct scrim lobby headers
   const lobbyGroups = useMemo<LobbyGroupAdmin[]>(() => {
@@ -986,16 +989,53 @@ export function AdminResults({
     })
   }
 
+  const pendingResults = useMemo(
+    () => results.filter((r) => r.result.prizeStatus !== "sent"),
+    [results]
+  )
+
+  const handleConfirmMarkAllSent = () => {
+    if (pendingResults.length === 0) {
+      setMarkAllConfirmOpen(false)
+      return
+    }
+    const pendingIds = pendingResults.map((r) => r.result.id)
+    startTransition(async () => {
+      const res = await markAllPrizesSent(pendingIds)
+      if (res.ok) {
+        toast.success(`Marked ${res.count} prize(s) as sent`)
+        setMarkAllConfirmOpen(false)
+        router.refresh()
+      } else {
+        toast.error(res.error || "Failed to mark all prizes as sent")
+      }
+    })
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <PublishResultButton
-          scrims={scrims}
-          bookingsByScrim={bookingsByScrim}
-          availableDates={availableDates}
-          initialDate={initialDate}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <PublishResultButton
+            scrims={scrims}
+            bookingsByScrim={bookingsByScrim}
+            availableDates={availableDates}
+            initialDate={initialDate}
+          />
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isPending || pendingResults.length === 0}
+              onClick={() => setMarkAllConfirmOpen(true)}
+              className="h-9 gap-1.5 text-xs font-bold uppercase tracking-wider border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+              Mark All Prize Sent ({pendingResults.length})
+            </Button>
+          )}
+        </div>
         {isAdmin && selectedResultIds.length > 0 && (
           <Button
             size="sm"
@@ -1247,6 +1287,35 @@ export function AdminResults({
             <Button variant="destructive" size="sm" onClick={handleConfirmTrash} disabled={isPending} className="gap-1.5">
               {isPending && <Loader2 className="size-3.5 animate-spin" />}
               Confirm Move to Trash
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* In-App Confirmation Dialog for Mark All Prize Sent */}
+      <Dialog open={markAllConfirmOpen} onOpenChange={setMarkAllConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2 font-display uppercase">
+              <CheckCheck className="size-5 text-emerald-400" />
+              Mark All Prizes as Sent?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will mark <strong className="text-foreground">{pendingResults.length}</strong> pending result(s) as{" "}
+            <strong className="text-emerald-400">Prize sent</strong> across the results table and player dashboards.
+          </p>
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setMarkAllConfirmOpen(false)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmMarkAllSent}
+              disabled={isPending || pendingResults.length === 0}
+              className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              {isPending && <Loader2 className="size-3.5 animate-spin" />}
+              Confirm Mark All Sent
             </Button>
           </div>
         </DialogContent>

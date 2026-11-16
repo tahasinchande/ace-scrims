@@ -35,7 +35,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import type { Booking, Scrim } from "@/lib/db/schema"
 import { formatTaka, timeAgo, formatDateTime, sortScrimsAscending } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon, Power, PowerOff, UserX } from "lucide-react"
+import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon, Power, PowerOff, UserX, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 
 type AdminScrim = Scrim & { confirmedTeams: number; pendingTeams: number; deletedAt?: Date | string | null }
@@ -778,7 +778,48 @@ export function AdminScrimList({
   const [liveScrims, setLiveScrims] = useState<AdminScrim[]>(scrims)
   const [liveBookingsByScrim, setLiveBookingsByScrim] = useState<Record<string, RosterBooking[]>>(bookingsByScrim)
   const [bulkConfirm, setBulkConfirm] = useState<"force_on" | "force_off" | "normal_mode" | "bulk_delete" | null>(null)
+  const [copiedScrimId, setCopiedScrimId] = useState<string | null>(null)
   const isSyncingRef = useRef(false)
+
+  async function handleCopyTeams(scrimId: string, roster: RosterBooking[]) {
+    const activeTeams = [...roster].sort(
+      (a, b) =>
+        (a.slotNumber ?? 999) - (b.slotNumber ?? 999) ||
+        toDateOrNow(a.createdAt).getTime() - toDateOrNow(b.createdAt).getTime()
+    )
+
+    if (activeTeams.length === 0) {
+      toast.info("No registered teams in this scrim yet.")
+      return
+    }
+
+    const formatted = activeTeams
+      .map((b, idx) => `${idx + 1}. ${(b.teamName || "Unknown Team").trim()}`)
+      .join("\n")
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(formatted)
+      } else if (typeof document !== "undefined") {
+        const ta = document.createElement("textarea")
+        ta.value = formatted
+        ta.style.position = "fixed"
+        ta.style.opacity = "0"
+        document.body.appendChild(ta)
+        ta.focus()
+        ta.select()
+        document.execCommand("copy")
+        document.body.removeChild(ta)
+      }
+      setCopiedScrimId(scrimId)
+      toast.success(`Copied ${activeTeams.length} team name(s) to clipboard`)
+      window.setTimeout(() => {
+        setCopiedScrimId((prev) => (prev === scrimId ? null : prev))
+      }, 2000)
+    } catch {
+      toast.error("Failed to copy teams to clipboard")
+    }
+  }
 
   useEffect(() => {
     if (initialTab && VALID_TABS.includes(initialTab as ScrimTab)) {
@@ -1365,6 +1406,25 @@ export function AdminScrimList({
                     confirmedCount={dynamicConfirmedCount}
                     onTeamRemoved={handleTeamRemoved}
                   />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleCopyTeams(scrim.id, roster)}
+                    className={cn(
+                      "gap-1.5",
+                      copiedScrimId === scrim.id &&
+                        "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                    )}
+                    title="Copy numbered list of registered teams"
+                  >
+                    {copiedScrimId === scrim.id ? (
+                      <Check className="size-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                    {copiedScrimId === scrim.id ? "Copied" : "Copy Teams"}
+                  </Button>
                   {!isDeleted && (
                     <>
                       <PublishRoomButton scrim={scrim} onUpdated={syncAdminScrims} />

@@ -34,16 +34,21 @@ export async function GET(req: NextRequest) {
   const upstream = await fetch(parsed.toString(), {
     headers,
     redirect: "error",
+    signal: AbortSignal.timeout(15000),
   }).catch(() => null)
   if (!upstream || !upstream.ok || !upstream.body) {
     return new NextResponse("Not found", { status: 404 })
   }
 
-  const contentType = upstream.headers.get("content-type") || "image/jpeg"
+  const contentType = (upstream.headers.get("content-type") || "image/jpeg").toLowerCase()
+  if (!contentType.startsWith("image/") || contentType.includes("svg")) {
+    return new NextResponse("Unsupported media type", { status: 415 })
+  }
 
   return new NextResponse(upstream.body, {
     headers: {
       "Content-Type": contentType,
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": "public, max-age=31536000, immutable",
     },
   })

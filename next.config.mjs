@@ -5,6 +5,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
+    webpackMemoryOptimizations: true,
     serverActions: {
       bodySizeLimit: "10mb",
     },

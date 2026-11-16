@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto"
 import { betterAuth } from "better-auth"
 import { pool } from "@/lib/db"
 import {
@@ -6,6 +7,23 @@ import {
   sendWelcomeEmail,
   resolveCleanUrl,
 } from "@/lib/email"
+
+let cachedDevSecret: string | null = null
+
+function getAuthSecret(): string {
+  const envSecret = process.env.BETTER_AUTH_SECRET?.trim()
+  if (envSecret) return envSecret
+
+  if (process.env.NODE_ENV !== "production" || process.env.NEXT_PHASE === "phase-production-build") {
+    if (!cachedDevSecret) {
+      cachedDevSecret = randomBytes(32).toString("base64")
+    }
+    return cachedDevSecret
+  }
+
+  console.error("[Better Auth] BETTER_AUTH_SECRET environment variable is missing in production.")
+  return ""
+}
 
 function getAuthBaseUrl(): string {
   if (process.env.BETTER_AUTH_URL) {
@@ -23,10 +41,11 @@ function getAuthBaseUrl(): string {
   return "https://www.acescrims.online"
 }
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
+
 export const auth = betterAuth({
-  secret:
-    process.env.BETTER_AUTH_SECRET ??
-    "OQtS09OwRFnGG0rSjncYsakwMwx3WUzDbCuXdztoPIQ=",
+  secret: getAuthSecret(),
   database: pool,
   baseURL: getAuthBaseUrl(),
   emailAndPassword: {
@@ -38,16 +57,16 @@ export const auth = betterAuth({
       await sendPasswordResetEmail(user.email, cleanUrl)
     },
   },
-  socialProviders: {
-    google: {
-      clientId:
-        process.env.GOOGLE_CLIENT_ID ||
-        "1059205795454-1co5jbtc6964okogp41t00m39soui3b.apps.googleusercontent.com",
-      clientSecret:
-        process.env.GOOGLE_CLIENT_SECRET ||
-        "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",
-    },
-  },
+  ...(googleClientId && googleClientSecret
+    ? {
+        socialProviders: {
+          google: {
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+          },
+        },
+      }
+    : {}),
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,

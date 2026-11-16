@@ -170,6 +170,13 @@ export async function POST(req: NextRequest) {
       35
     )
 
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Refund amount must be a valid positive number." },
+        { status: 400 }
+      )
+    }
+
     const teamName = record?.teamName || teamNameFromBody || "Squad"
     const productName = record?.scrimTitle || "Scrim Match Entry Fee"
 
@@ -280,6 +287,7 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify(refundPayload),
         cache: "no-store",
+        signal: AbortSignal.timeout(15000),
         // @ts-ignore - undici dispatcher for self-hosted instances
         dispatcher: gatewayDispatcher,
       } as any)

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
-import { getScrimBySlug, getScrimById, userHasBooking, userHasDailyBooking } from "@/lib/queries/scrims"
+import { getScrimBySlug, userHasBooking } from "@/lib/queries/scrims"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
 import { scrimStatus } from "@/lib/format"
@@ -45,13 +45,12 @@ export default async function BookPage({
   let userBalance = 0
   let defaultInfo = null
   let alreadyBooked: { teamName: string; slotNumber: number | null } | null = null
-  let dailyBooked: { teamName: string; slotNumber: number | null; scrimTitle: string } | null = null
   if (user) {
     const { getUserDefaultInfo } = await import("@/lib/queries/user-info")
     const { db } = await import("@/lib/db")
     const { user: userTable } = await import("@/lib/db/schema")
     const { eq } = await import("drizzle-orm")
-    const [userRow, savedInfo, existingBooking, existingDaily] = await Promise.all([
+    const [userRow, savedInfo, existingBooking] = await Promise.all([
       db
         .select({ balance: userTable.balance })
         .from(userTable)
@@ -59,7 +58,6 @@ export default async function BookPage({
         .limit(1),
       getUserDefaultInfo(user.id),
       userHasBooking(user.id, scrim.id, scrim.scrimDate),
-      userHasDailyBooking(user.id, scrim.scrimDate),
     ])
     userBalance = userRow[0]?.balance ?? 0
     defaultInfo = savedInfo
@@ -67,13 +65,6 @@ export default async function BookPage({
       alreadyBooked = {
         teamName: existingBooking.teamName,
         slotNumber: existingBooking.slotNumber ?? null,
-      }
-    } else if (existingDaily) {
-      const bookedScrim = await getScrimById(existingDaily.scrimId).catch(() => null)
-      dailyBooked = {
-        teamName: existingDaily.teamName,
-        slotNumber: existingDaily.slotNumber ?? null,
-        scrimTitle: bookedScrim?.title || "Today's Scrim",
       }
     }
   }
@@ -91,7 +82,6 @@ export default async function BookPage({
             userBalance={userBalance}
             defaultInfo={defaultInfo}
             alreadyBooked={alreadyBooked}
-            dailyBooked={dailyBooked}
             scrim={{
               id: scrim.id,
               slug: scrim.slug,

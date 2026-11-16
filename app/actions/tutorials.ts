@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/session"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
 import { parseVideoEmbed } from "@/lib/video-parser"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 const tutorialSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(150),
@@ -45,6 +46,9 @@ export async function addTutorial(_prev: unknown, formData: FormData): Promise<T
     }
 
     const normalizedUrl = parseVideoEmbed(parsed.data.videoUrl).embedUrl || parsed.data.videoUrl
+    if (!isSafeHttpOrRelativeUrl(normalizedUrl) || !isSafeHttpOrRelativeUrl(parsed.data.videoUrl)) {
+      return { ok: false, error: "Invalid video URL scheme. Only HTTP/HTTPS or relative paths are allowed." }
+    }
 
     await db.insert(tutorials).values({
       id: randomUUID(),
@@ -87,6 +91,9 @@ export async function updateTutorial(tutorialId: string, formData: FormData): Pr
     }
 
     const normalizedUrl = parseVideoEmbed(parsed.data.videoUrl).embedUrl || parsed.data.videoUrl
+    if (!isSafeHttpOrRelativeUrl(normalizedUrl) || !isSafeHttpOrRelativeUrl(parsed.data.videoUrl)) {
+      return { ok: false, error: "Invalid video URL scheme. Only HTTP/HTTPS or relative paths are allowed." }
+    }
 
     await db
       .update(tutorials)

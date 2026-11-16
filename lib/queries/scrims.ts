@@ -790,43 +790,6 @@ export async function userHasBooking(userId: string, scrimIdOrSlug: string, targ
   }
 }
 
-/** Whether a user already has a confirmed registration for ANY scrim on the same calendar day. */
-export async function userHasDailyBooking(userId: string, targetDate?: string) {
-  try {
-    const activeDate = getBangladeshActiveDate()
-    const target = targetDate && targetDate >= activeDate ? targetDate : activeDate
-
-    const rows = await db
-      .select({
-        id: bookings.id,
-        scrimId: bookings.scrimId,
-        status: bookings.status,
-        scrimDate: bookings.scrimDate,
-        teamName: bookings.teamName,
-        slotNumber: bookings.slotNumber,
-      })
-      .from(bookings)
-      .where(
-        and(
-          eq(bookings.userId, userId),
-          eq(bookings.status, "confirmed"),
-          eq(bookings.isTrashed, false),
-          eq(bookings.isArchived, false),
-          or(
-            eq(bookings.scrimDate, target),
-            sql`(((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text = ${target}`
-          )
-        )
-      )
-      .limit(1)
-
-    return rows[0] ?? null
-  } catch (err) {
-    console.warn("[Queries] Database error in userHasDailyBooking:", err)
-    return null
-  }
-}
-
 /**
  * Resolves a scrim by ID or slug. If it does not exist in the database table yet
  * (e.g. standard daily/Friday scrim or recovered scrim), it ensures the database record is inserted

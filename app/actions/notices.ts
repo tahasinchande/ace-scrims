@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { z } from "zod"
 import { sendEmailBatch, sendNoticeBroadcastEmail } from "@/lib/email"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 const noticeSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters.").max(120, "Title cannot exceed 120 characters."),
@@ -72,6 +73,9 @@ export async function createNoticeAction(
     }
 
     const data = parsed.data
+    if (data.mediaUrl && !isSafeHttpOrRelativeUrl(data.mediaUrl, { allowImageDataUri: true })) {
+      return { ok: false, error: "Invalid media URL. Only HTTP/HTTPS, relative paths, or safe image data URIs are allowed." }
+    }
     const newId = `notice_${Date.now()}_${randomUUID().slice(0, 6)}`
 
     await db.insert(notices).values({
@@ -212,6 +216,9 @@ export async function updateNoticeAction(
     }
 
     const data = parsed.data
+    if (data.mediaUrl && !isSafeHttpOrRelativeUrl(data.mediaUrl, { allowImageDataUri: true })) {
+      return { ok: false, error: "Invalid media URL. Only HTTP/HTTPS, relative paths, or safe image data URIs are allowed." }
+    }
 
     await db
       .update(notices)

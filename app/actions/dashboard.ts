@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/session"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { saveUploadedFile } from "@/lib/upload"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 export async function markNotificationRead(id: string): Promise<void> {
   const user = await requireUser()
@@ -54,6 +55,12 @@ export async function updateProfile(
       updatedImageUrl = null
     } else if (typeof avatarUrlInput === "string" && avatarUrlInput.trim().length > 0) {
       const trimmedUrl = avatarUrlInput.trim()
+      if (!isSafeHttpOrRelativeUrl(trimmedUrl, { allowImageDataUri: true })) {
+        return {
+          ok: false,
+          error: "Invalid avatar URL scheme. Only safe image URLs are allowed.",
+        }
+      }
       // Guard against oversized raw Base64 data strings being saved to the database
       if (trimmedUrl.startsWith("data:") && trimmedUrl.length > 500 * 1024) {
         return {

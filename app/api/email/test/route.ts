@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendEmail, getProductionAppUrl } from "@/lib/email"
 import { getSessionUser } from "@/lib/session"
+import { escapeHtml } from "@/lib/url-safety"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -8,9 +9,7 @@ export const dynamic = "force-dynamic"
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser().catch(() => null)
-    
-    // Allow admins or test secret param
-    const authHeader = req.headers.get("authorization")
+
     const searchParams = req.nextUrl.searchParams
     if (!user || user.role !== "admin") {
       return NextResponse.json(
@@ -19,7 +18,13 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const targetEmail = searchParams.get("to") || user.email
+    const targetEmail = (searchParams.get("to") || user.email || "").trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid recipient email address." },
+        { status: 400 }
+      )
+    }
 
     const hasResend = Boolean(process.env.RESEND_API_KEY?.trim())
     const hasSendGrid = Boolean(process.env.SENDGRID_API_KEY?.trim())
@@ -48,10 +53,12 @@ export async function GET(req: NextRequest) {
 
     // If query ?send=true and authorized, attempt sending a test email
     if (searchParams.get("send") === "true") {
+      const safeEmail = escapeHtml(targetEmail)
+      const safeUrl = escapeHtml(getProductionAppUrl())
       const testResult = await sendEmail({
         to: targetEmail,
         subject: "Test Email from ACE SCRIMS",
-        html: `<h1>Email Configuration Test</h1><p>Your email service on ACE SCRIMS is working successfully!</p><p>Sent to: <strong>${targetEmail}</strong></p><p>Base URL: ${getProductionAppUrl()}</p>`,
+        html: `<h1>Email Configuration Test</h1><p>Your email service on ACE SCRIMS is working successfully!</p><p>Sent to: <strong>${safeEmail}</strong></p><p>Base URL: ${safeUrl}</p>`,
         text: `Your email service on ACE SCRIMS is working successfully! Base URL: ${getProductionAppUrl()}`,
       })
 

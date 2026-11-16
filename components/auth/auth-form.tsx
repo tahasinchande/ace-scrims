@@ -22,16 +22,18 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [iframeTabUrl, setIframeTabUrl] = useState<string | null>(null)
 
   async function handleGoogle() {
     setError(null)
+    setIframeTabUrl(null)
     setGoogleLoading(true)
 
     const isInIframe = typeof window !== "undefined" && window.self !== window.top
     if (isInIframe) {
-      window.open(window.location.href, "_blank")
+      setIframeTabUrl(window.location.href)
       setError(
-        "Google Sign-In cannot load inside an embedded preview iframe (Google blocks iframe logins). We have opened the app in a new tab for you to sign in!"
+        "Google Sign-In cannot load inside an embedded preview iframe (Google blocks iframe logins). Open this page in a new tab to sign in."
       )
       setGoogleLoading(false)
       return
@@ -161,14 +163,24 @@ export function AuthForm({ mode }: { mode: Mode }) {
       </div>
 
       {error && (
-        <motion.p
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1.5"
         >
-          {error}
-        </motion.p>
+          <p>{error}</p>
+          {iframeTabUrl && (
+            <a
+              href={iframeTabUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-xs font-semibold underline hover:opacity-80"
+            >
+              Open in a new browser tab
+            </a>
+          )}
+        </motion.div>
       )}
       {info && (
         <motion.p

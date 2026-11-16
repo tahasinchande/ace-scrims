@@ -6,6 +6,7 @@ import { db } from "@/lib/db"
 import { chatMessages, user } from "@/lib/db/schema"
 import { getSessionUser, requireStaff } from "@/lib/session"
 import { eq, desc, asc, and, sql } from "drizzle-orm"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 export async function sendChatMessage(
   messageText: string,
@@ -20,8 +21,12 @@ export async function sendChatMessage(
     if (sessionUser.banned) return { ok: false, error: "Account suspended" }
 
     const cleanMsg = messageText.trim()
-    if (!cleanMsg && !attachmentUrl) return { ok: false, error: "Message or file attachment is required" }
+    const cleanAttachmentUrl = typeof attachmentUrl === "string" ? attachmentUrl.trim() : ""
+    if (!cleanMsg && !cleanAttachmentUrl) return { ok: false, error: "Message or file attachment is required" }
     if (cleanMsg.length > 2000) return { ok: false, error: "Message exceeds limit" }
+    if (cleanAttachmentUrl && !isSafeHttpOrRelativeUrl(cleanAttachmentUrl)) {
+      return { ok: false, error: "Invalid attachment URL scheme" }
+    }
 
     const isStaff = sessionUser.role === "admin" || sessionUser.role === "moderator"
 
@@ -43,7 +48,7 @@ export async function sendChatMessage(
           : attachmentType === "video"
             ? "🎬 Video"
             : "📄 File attachment"),
-      attachmentUrl: attachmentUrl || null,
+      attachmentUrl: cleanAttachmentUrl || null,
       attachmentType: attachmentType || null,
       attachmentName: attachmentName || null,
       readByStaff: isStaff,

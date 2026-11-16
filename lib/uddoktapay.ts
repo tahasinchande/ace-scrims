@@ -74,6 +74,9 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
         "Payment gateway is not configured. Please set UDDOKTAPAY_API_KEY and UDDOKTAPAY_BASE_URL.",
     }
   }
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return { ok: false, error: "Payment amount must be a positive number." }
+  }
   try {
     const res = await fetch(`${config.baseUrl}/api/checkout-v2`, {
       method: "POST",
@@ -96,6 +99,7 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
         return_type: "GET",
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(15000),
       // @ts-ignore - undici dispatcher for self-hosted instances
       dispatcher: gatewayDispatcher,
     } as any)
@@ -145,6 +149,7 @@ export async function verifyPayment(invoiceId: string): Promise<VerifiedPayment 
       },
       body: JSON.stringify({ invoice_id: invoiceId }),
       cache: "no-store",
+      signal: AbortSignal.timeout(15000),
       // @ts-ignore - undici dispatcher for self-hosted instances
       dispatcher: gatewayDispatcher,
     } as any)
@@ -206,7 +211,10 @@ export async function refundPayment(
   let trxId = params.transactionId?.trim() || null
   const invId = params.invoiceId?.trim() || null
   const pymId = params.paymentId?.trim() || null
-  const amt = params.amount ?? amountArg ?? 35
+  const amt = Number(params.amount ?? amountArg ?? 35)
+  if (!Number.isFinite(amt) || amt <= 0) {
+    return { ok: false, message: "Refund amount must be a valid positive number." }
+  }
   let method = params.paymentMethod?.trim() || null
   const productName = params.productName?.trim() || "Scrim Match Entry Fee"
   const reason = params.reason?.trim() || "Match Not Hosted / Cancelled"
@@ -314,6 +322,7 @@ export async function refundPayment(
       },
       body: JSON.stringify(payload),
       cache: "no-store",
+      signal: AbortSignal.timeout(15000),
       // @ts-ignore - undici dispatcher for self-hosted instances
       dispatcher: gatewayDispatcher,
     } as any)

@@ -18,16 +18,18 @@ export default function StaffLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [iframeTabUrl, setIframeTabUrl] = useState<string | null>(null)
 
   async function handleGoogleStaff() {
     setError(null)
+    setIframeTabUrl(null)
     setGoogleLoading(true)
 
     const isInIframe = typeof window !== "undefined" && window.self !== window.top
     if (isInIframe) {
-      window.open(window.location.href, "_blank")
+      setIframeTabUrl(window.location.href)
       setError(
-        "Google Sign-In cannot load inside an embedded preview iframe (Google blocks iframe logins). We have opened the app in a new tab for you to authenticate staff access!"
+        "Google Sign-In cannot load inside an embedded preview iframe (Google blocks iframe logins). Open the app in a new tab to authenticate staff access."
       )
       setGoogleLoading(false)
       return
@@ -147,8 +149,18 @@ export default function StaffLoginPage() {
           </div>
 
           {error && (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs font-semibold text-destructive leading-relaxed">
-              {error}
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs font-semibold text-destructive leading-relaxed space-y-2">
+              <p>{error}</p>
+              {iframeTabUrl && (
+                <a
+                  href={iframeTabUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block underline font-bold hover:opacity-80"
+                >
+                  Open Staff Portal in a new tab
+                </a>
+              )}
             </div>
           )}
 

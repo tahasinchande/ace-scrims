@@ -6,7 +6,7 @@ import { db } from "@/lib/db"
 import { scrims, results, bookings, user } from "@/lib/db/schema"
 import { requireStaff, requireAdmin } from "@/lib/session"
 import { notifyScrimParticipants, logActivity } from "@/lib/notify"
-import { eq, and, or, ne } from "drizzle-orm"
+import { eq, and, or, ne, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { put } from "@vercel/blob"
 import { sendRoomCredentialsEmail, sendMatchResultPublishedEmail, sendEmailBatch, isEmailProviderConfigured } from "@/lib/email"
@@ -457,6 +457,38 @@ export async function markPrizeSent(resultId: string) {
   await logActivity(admin.id, admin.role, "prize_sent", resultId)
   revalidatePath("/admin/results")
   revalidatePath("/dashboard/results")
+}
+
+export async function markAllPrizesSent(resultIds?: string[]) {
+  try {
+    const admin = await requireAdmin()
+    const validIds = Array.isArray(resultIds)
+      ? resultIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      : []
+
+    const conditions = [
+      eq(results.isTrashed, false),
+      ne(results.prizeStatus, "sent"),
+    ]
+    if (validIds.length > 0) {
+      conditions.push(inArray(results.id, validIds))
+    }
+
+    const updated = await db
+      .update(results)
+      .set({ prizeStatus: "sent" })
+      .where(and(...conditions))
+      .returning({ id: results.id })
+
+    await logActivity(admin.id, admin.role, "mark_all_prizes_sent", `${updated.length} result(s)`)
+    revalidatePath("/admin/results")
+    revalidatePath("/results")
+    revalidatePath("/dashboard/results")
+
+    return { ok: true, count: updated.length, error: null }
+  } catch (e) {
+    return { ok: false, count: 0, error: e instanceof Error ? e.message : "Failed to mark all prizes as sent" }
+  }
 }
 
 const updateResultSchema = z.object({

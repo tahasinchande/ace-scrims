@@ -228,24 +228,7 @@ export async function processPayment(
     const canonicalScrimId = scrim?.id || payment.scrimId
     const canonicalScrimSlug = scrim?.slug || payment.scrimId
 
-    const [dupDailyRows, dupRows, confirmedSlotRows] = await Promise.all([
-      tx
-        .select({ id: bookings.id })
-        .from(bookings)
-        .where(
-          and(
-            eq(bookings.userId, payment.userId),
-            eq(bookings.status, "confirmed"),
-            eq(bookings.isTrashed, false),
-            eq(bookings.isArchived, false),
-            sql`${bookings.id} != ${payment.bookingId}`,
-            or(
-              eq(bookings.scrimDate, targetScrimDate),
-              sql`(((${bookings.createdAt} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Dhaka')::date)::text = ${targetScrimDate}`
-            )
-          )
-        )
-        .limit(1),
+    const [dupRows, confirmedSlotRows] = await Promise.all([
       pendingBooking
         ? tx
             .select({ id: bookings.id })
@@ -318,11 +301,9 @@ export async function processPayment(
     }
 
     const currentConfirmedCount = confirmedSlotRows.length
-    if (dupDailyRows.length > 0 || dupRows.length > 0 || currentConfirmedCount >= maxCap) {
+    if (dupRows.length > 0 || currentConfirmedCount >= maxCap) {
       await refundToWalletInTx(
-        dupDailyRows.length > 0
-          ? "You have already registered for a scrim today. Only one registration per user is permitted per calendar day — refunded to your Ace Scrims wallet."
-          : dupRows.length > 0
+        dupRows.length > 0
           ? "Duplicate squad registration detected after payment — refunded to your Ace Scrims wallet."
           : "Lobby filled up before payment completed — amount refunded automatically to your Ace Scrims wallet."
       )

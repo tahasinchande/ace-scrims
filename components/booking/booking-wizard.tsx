@@ -69,13 +69,11 @@ export function BookingWizard({
   userBalance = 0,
   defaultInfo = null,
   alreadyBooked = null,
-  dailyBooked = null,
 }: {
   scrim: WizardScrim
   userBalance?: number
   defaultInfo?: UserDefaultInfo | null
   alreadyBooked?: { teamName: string; slotNumber: number | null } | null
-  dailyBooked?: { teamName: string; slotNumber: number | null; scrimTitle: string } | null
 }) {
   const [step, setStep] = useState(1)
   const [state, formAction, pending] = useActionState(createBooking, initialState)
@@ -128,22 +126,19 @@ export function BookingWizard({
 
   const remaining = Math.max(0, scrim.maxTeams - scrim.confirmedTeams)
 
-  if (alreadyBooked || dailyBooked) {
-    const bookedInfo = alreadyBooked ?? dailyBooked!
-    const isSameLobby = Boolean(alreadyBooked)
+  if (alreadyBooked) {
     return (
       <section className="glass-strong flex flex-col items-center gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
           <CheckCircle2 className="size-8" />
         </div>
         <h1 className="font-display text-2xl font-bold uppercase tracking-tight">
-          {isSameLobby ? "Squad Already Registered" : "Daily Registration Limit Reached"}
+          Squad Already Registered
         </h1>
         <p className="max-w-md text-sm text-muted-foreground leading-relaxed">
-          Your squad <strong className="text-foreground">{bookedInfo.teamName}</strong> already has a confirmed registration
-          {bookedInfo.slotNumber ? ` (Slot #${bookedInfo.slotNumber})` : ""} today for{" "}
-          <strong className="text-foreground">{isSameLobby ? scrim.title : dailyBooked!.scrimTitle}</strong>.{" "}
-          Only one scrim registration per user is permitted per calendar day.
+          Your squad <strong className="text-foreground">{alreadyBooked.teamName}</strong> already has a confirmed registration
+          {alreadyBooked.slotNumber ? ` (Slot #${alreadyBooked.slotNumber})` : ""} in{" "}
+          <strong className="text-foreground">{scrim.title}</strong>.
         </p>
         <div className="mt-2 flex flex-wrap justify-center gap-3">
           <Button asChild className="font-display font-bold uppercase">
