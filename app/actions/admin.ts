@@ -10,6 +10,7 @@ import { eq, ne, and, or, sql, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { saveUploadedFile } from "@/lib/upload"
 import { creditAdjustmentSchema, type CreditAdjustmentInput } from "@/lib/validations/credit"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 // ─────────────────────────────────────────────────────────────────────────
 // Admin-only actions. Every function begins with requireAdmin().
@@ -1145,6 +1146,20 @@ export async function setUserEmailVerified(
 
 // ── Settings & announcements ────────────────────────────────────────────
 
+const URL_SETTING_KEYS = new Set([
+  "discord_url",
+  "facebook_url",
+  "youtube_url",
+  "tiktok_url",
+  "whatsapp_channel_url",
+  "telegram_url",
+  "instagram_url",
+  "champion_rush_whatsapp_url",
+  "champion_rush_3pm_whatsapp_url",
+  "support_kori_url",
+  "site_logo_url",
+])
+
 export async function setSetting(key: string, value: string): Promise<{ ok: boolean; error: string | null }> {
   try {
     const admin = await requireAdmin()
@@ -1170,6 +1185,16 @@ export async function setSetting(key: string, value: string): Promise<{ ok: bool
       "site_logo_url",
     ]
     if (!allowed.includes(key)) return { ok: false, error: "Unknown setting: " + key }
+    if (
+      URL_SETTING_KEYS.has(key) &&
+      value.trim().length > 0 &&
+      !isSafeHttpOrRelativeUrl(value, { allowImageDataUri: true })
+    ) {
+      return {
+        ok: false,
+        error: `Invalid URL scheme for "${key}". Use https://, http://, or a relative path.`,
+      }
+    }
     await db
       .insert(settings)
       .values({ key, value, updatedAt: new Date() })
@@ -1211,14 +1236,30 @@ export async function saveAllSiteSettings(
       "site_logo_url",
     ])
 
+    const entriesToSave: Array<[string, string]> = []
     for (const [key, val] of Object.entries(settingsMap)) {
       if (!allowedKeys.has(key)) continue
+      const strVal = String(val ?? "")
+      if (
+        URL_SETTING_KEYS.has(key) &&
+        strVal.trim().length > 0 &&
+        !isSafeHttpOrRelativeUrl(strVal, { allowImageDataUri: true })
+      ) {
+        return {
+          ok: false,
+          error: `Invalid URL scheme for "${key}". Use https://, http://, or a relative path.`,
+        }
+      }
+      entriesToSave.push([key, strVal])
+    }
+
+    for (const [key, strVal] of entriesToSave) {
       await db
         .insert(settings)
-        .values({ key, value: String(val ?? ""), updatedAt: new Date() })
+        .values({ key, value: strVal, updatedAt: new Date() })
         .onConflictDoUpdate({
           target: settings.key,
-          set: { value: String(val ?? ""), updatedAt: new Date() },
+          set: { value: strVal, updatedAt: new Date() },
         })
     }
 

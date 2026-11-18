@@ -78,27 +78,26 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
           >
             {/* Top Status & 2D / 3D Selection Toggle */}
             <motion.div variants={itemFadeUp} className="flex flex-wrap items-center gap-2.5 mb-6">
-              <Badge variant="outline" className="glass gap-2 border-orange-500/40 bg-orange-950/40 px-3.5 py-1.5 text-orange-400 shadow-lg shadow-orange-500/10">
-                <span className="size-2 animate-pulse-glow rounded-full bg-orange-500" aria-hidden />
+              <Badge variant="outline" className="glass gap-2 rounded-md border-orange-500/40 bg-orange-950/45 px-3 py-1.5 text-orange-300 shadow-lg shadow-orange-500/10 tabular-nums">
+                <Flame className="size-3.5 text-amber-400" aria-hidden />
                 {stats.scrimsTonight ?? 0} {t("scrims_tonight", "Scrims Live Tonight")}
-                <Flame className="size-3.5 text-amber-400 ml-1" />
               </Badge>
 
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/30 px-3 py-1 text-[11px] font-semibold text-emerald-400">
-                <ShieldCheck className="size-3 text-emerald-400" />
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-emerald-500/35 bg-emerald-950/35 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
+                <ShieldCheck className="size-3.5 text-emerald-400" />
                 Anti-Cheat Active
               </span>
 
               {/* 2D / 3D Mode Selector Switch */}
               <div
-                className="inline-flex items-center rounded-full border border-orange-500/30 bg-black/60 p-0.5 backdrop-blur-md shadow-md"
+                className="inline-flex items-center rounded-lg border border-orange-500/35 bg-black/65 p-0.5 backdrop-blur-md shadow-md"
                 role="group"
                 aria-label="View Mode Selector"
               >
                 <button
                   type="button"
                   onClick={() => setMode("2d")}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-all ${
+                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                     mode === "2d"
                       ? "bg-gradient-to-r from-orange-500 to-amber-500 text-black shadow-sm"
                       : "text-zinc-400 hover:text-zinc-200"
@@ -111,7 +110,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                 <button
                   type="button"
                   onClick={() => setMode("3d")}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-all ${
+                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                     mode === "3d"
                       ? "bg-gradient-to-r from-orange-500 to-amber-500 text-black shadow-sm"
                       : "text-zinc-400 hover:text-zinc-200"
@@ -179,24 +178,24 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
 
             {/* Cyber Stats Cards */}
             <motion.dl variants={itemFadeUp} className="mt-10 grid max-w-lg grid-cols-3 gap-3 sm:gap-4">
-              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/20 bg-black/50 backdrop-blur-md transition-all shadow-md shadow-orange-950/20">
-                <dt className="flex items-center gap-1.5 text-xs text-orange-300/80">
+              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/25 bg-black/55 backdrop-blur-md transition-all hover:border-orange-500/45 shadow-lg shadow-black/40">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Zap className="size-3.5 text-orange-400" aria-hidden />
                   {t("scrims_tonight", "Nightly")}
                 </dt>
-                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground">{stats.scrimsTonight || 12}</dd>
+                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.scrimsTonight || 12}</dd>
               </div>
 
-              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/20 bg-black/50 backdrop-blur-md transition-all shadow-md shadow-orange-950/20">
-                <dt className="flex items-center gap-1.5 text-xs text-orange-300/80">
+              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/25 bg-black/55 backdrop-blur-md transition-all hover:border-orange-500/45 shadow-lg shadow-black/40">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Users className="size-3.5 text-amber-400" aria-hidden />
                   {t("team_slots", "Teams")}
                 </dt>
-                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground">{stats.totalTeams || 144}</dd>
+                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.totalTeams || 144}</dd>
               </div>
 
-              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/20 bg-black/50 backdrop-blur-md transition-all shadow-md shadow-orange-950/20">
-                <dt className="flex items-center gap-1.5 text-xs text-orange-300/80">
+              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/25 bg-black/55 backdrop-blur-md transition-all hover:border-orange-500/45 shadow-lg shadow-black/40">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Trophy className="size-3.5 text-amber-400" aria-hidden />
                   {t("scrim_format", "Format")}
                 </dt>

@@ -170,6 +170,13 @@ export async function submitReport(_prev: unknown, formData: FormData): Promise<
       if (!data.whatsapp) {
         return { ok: false, error: "WhatsApp number is required so our team can follow up" }
       }
+    } else if (reportType === "Bug Report") {
+      if (!data.description && !data.additionalInfo) {
+        return { ok: false, error: "Please provide a description of the bug" }
+      }
+      if (!data.whatsapp) {
+        return { ok: false, error: "Reporter WhatsApp number is required" }
+      }
     } else if (reportType === "Other Report") {
       if (!data.description && !data.additionalInfo) {
         return { ok: false, error: "Please provide a description of the issue" }
@@ -177,11 +184,12 @@ export async function submitReport(_prev: unknown, formData: FormData): Promise<
       if (!data.whatsapp) return { ok: false, error: "WhatsApp number is required" }
     }
 
+    const isGeneralNonScrim = reportType === "Feature Request" || reportType === "Bug Report"
     const metaNotes: string[] = []
-    if (data.incidentDate && reportType !== "Feature Request") {
+    if (data.incidentDate && !isGeneralNonScrim) {
       metaNotes.push(`Incident Date: ${data.incidentDate}`)
     }
-    if (data.customScrimName && reportType !== "Feature Request") {
+    if (data.customScrimName && !isGeneralNonScrim) {
       metaNotes.push(`Scrim: ${data.customScrimName}`)
     }
     if (data.additionalInfo) metaNotes.push(data.additionalInfo)

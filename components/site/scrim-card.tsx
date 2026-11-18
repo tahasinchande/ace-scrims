@@ -80,7 +80,7 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.4, type: "spring", stiffness: 200 }}
       whileHover={{ y: -4 }}
-      className="group glass relative overflow-hidden rounded-2xl border border-border/60 shadow-lg transition-shadow hover:shadow-primary/10 hover:border-primary/40"
+      className="group glass relative overflow-hidden rounded-2xl border border-border/75 shadow-xl shadow-black/35 transition-all duration-300 hover:shadow-primary/15 hover:border-primary/50"
     >
       <Link href={`/scrims/${scrim.slug}`} className="absolute inset-0 z-10" aria-label={`View ${scrim.title}`} />
 
@@ -93,14 +93,14 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
           className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
           sizes="(max-width: 768px) 100vw, 33vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/25 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-black/25" />
         <div className="absolute left-4 top-4 flex gap-2">
           <Badge variant="outline" className={cn("border font-semibold shadow-sm backdrop-blur-md", toneStyles[status.tone])}>
             {translatedStatusLabel}
           </Badge>
         </div>
         <div className="absolute right-4 top-4">
-          <Badge variant="outline" className="glass border-border/80 font-mono text-xs shadow-sm">
+          <Badge variant="outline" className="glass border-border/80 font-mono text-xs tabular-nums shadow-sm">
             <Countdown targetIso={start.toISOString()} />
           </Badge>
         </div>
@@ -109,10 +109,10 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
       <div className="flex flex-col gap-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="font-display text-lg font-bold leading-tight text-balance group-hover:text-primary transition-colors">{scrim.title}</h3>
+            <h3 className="font-display text-lg font-bold leading-tight tracking-wide text-balance group-hover:text-primary transition-colors">{scrim.title}</h3>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Clock className="size-3.5" aria-hidden />
-              <span>
+              <Clock className="size-3.5 shrink-0 text-primary/80" aria-hidden />
+              <span className="tabular-nums">
                 <span className="font-bold text-foreground">{timeDigits}</span>
                 {timePeriod}
               </span>
@@ -120,26 +120,26 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
               {matchesLabel}
             </p>
           </div>
-          <div className="text-right">
-            <p className="font-display text-xl font-bold text-primary">{bdt(scrim.priceBdt)}</p>
-            <p className="text-xs text-muted-foreground">{t("price_label", "per team")}</p>
+          <div className="text-right shrink-0">
+            <p className="font-display text-xl font-bold text-primary tabular-nums">{bdt(scrim.priceBdt)}</p>
+            <p className="text-[11px] font-medium text-muted-foreground">{t("price_label", "per team")}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg bg-secondary/60 px-2 py-2">
+          <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
             <Trophy className="mx-auto mb-1 size-4 text-primary" aria-hidden />
-            <p className="text-xs font-semibold">{bdt(scrim.prizePoolBdt)}</p>
+            <p className="text-xs font-bold tabular-nums text-foreground">{bdt(scrim.prizePoolBdt)}</p>
             <p className="text-[10px] text-muted-foreground">{t("prize_label", "Prize Pool")}</p>
           </div>
-          <div className="rounded-lg bg-secondary/60 px-2 py-2">
+          <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
             <MapPin className="mx-auto mb-1 size-4 text-accent" aria-hidden />
             <p className="text-xs font-bold uppercase tracking-wider text-accent">BATTLE ROYALE</p>
             <p className="text-[10px] text-muted-foreground">{scrim.mode}</p>
           </div>
-          <div className="rounded-lg bg-secondary/60 px-2 py-2">
+          <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
             <Users className="mx-auto mb-1 size-4 text-info" aria-hidden />
-            <p className="text-xs font-semibold">
+            <p className="text-xs font-bold tabular-nums text-foreground">
               {scrim.confirmedTeams}/{scrim.maxTeams}
             </p>
             <p className="text-[10px] text-muted-foreground">{t("team_slots", "Teams")}</p>
@@ -147,13 +147,13 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
         </div>
 
         {/* Prize Distribution Breakdown */}
-        <div className="rounded-xl border border-border/50 bg-secondary/30 p-2.5">
+        <div className="rounded-xl border border-border/60 bg-secondary/35 p-2.5">
           <div className="flex items-center justify-between text-[11px] mb-1.5 font-semibold">
             <span className="flex items-center gap-1 text-amber-400">
               <Award className="size-3.5" />
               Prize Breakdown
             </span>
-            <span className="text-muted-foreground font-mono text-[10px]">
+            <span className="text-muted-foreground font-mono text-[10px] tabular-nums">
               Pool: {bdt(prizeBreakdown.totalPrizeBdt)}
             </span>
           </div>
@@ -162,14 +162,14 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
               <span
                 key={p.rank}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
                   p.rank === 1
                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
                     : p.rank === 2
-                    ? "bg-zinc-400/15 text-zinc-300 border border-zinc-400/20"
+                    ? "bg-zinc-400/15 text-zinc-300 border border-zinc-400/25"
                     : p.rank === 3
                     ? "bg-amber-700/20 text-amber-400 border border-amber-700/30"
-                    : "bg-secondary text-muted-foreground border border-border/40"
+                    : "bg-secondary text-muted-foreground border border-border/50"
                 )}
               >
                 <span className="opacity-75">{p.place}:</span>
@@ -180,17 +180,17 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
         </div>
 
         <div>
-          <div className="mb-1.5 flex items-center justify-between text-xs">
+          <div className="mb-1.5 flex items-center justify-between text-xs tabular-nums">
             <span className="font-bold text-accent">{remaining} {t("slots_left", "spots left")}</span>
-            <span className="text-muted-foreground">{Math.round((scrim.confirmedTeams / scrim.maxTeams) * 100)}%</span>
+            <span className="text-muted-foreground font-mono text-[11px]">{Math.round((scrim.confirmedTeams / scrim.maxTeams) * 100)}%</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={scrim.confirmedTeams} aria-valuemin={0} aria-valuemax={scrim.maxTeams} aria-label="Slots filled">
+          <div className="h-1.5 overflow-hidden rounded-md bg-secondary/90 border border-border/40" role="progressbar" aria-valuenow={scrim.confirmedTeams} aria-valuemin={0} aria-valuemax={scrim.maxTeams} aria-label="Slots filled">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, (scrim.confirmedTeams / scrim.maxTeams) * 100)}%` }}
               transition={{ duration: 0.6, ease: "easeOut" }}
               className={cn(
-                "h-full rounded-full",
+                "h-full rounded-md",
                 status.tone === "full" ? "bg-destructive" : status.tone === "filling" ? "bg-warning" : "bg-primary",
               )}
             />

@@ -326,11 +326,14 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
           <div className="glass rounded-2xl border border-border/70 p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
               <div>
-                <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-                  Email Purposes ({templates.length})
-                </h2>
-                <p className="text-[11px] text-muted-foreground">
-                  Select a trigger to edit or toggle ON/OFF
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                    Email Purposes ({templates.length})
+                  </h2>
+                </div>
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  {templates.filter((t) => t.isEnabled).length} active ·{" "}
+                  {templates.filter((t) => !t.isEnabled).length} paused
                 </p>
               </div>
               <Button
@@ -372,6 +375,11 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                         <span className="font-display text-sm font-bold uppercase tracking-wide truncate text-foreground">
                           {tpl.label}
                         </span>
+                        {(tpl.purposeKey === "welcome" || tpl.purposeKey === "register") && (
+                          <span className="shrink-0 rounded-md border border-border/80 bg-background/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Default: OFF
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
                         {tpl.purposeKey} · {tpl.isCore ? "Core Trigger" : "Custom"} ·{" "}
@@ -444,8 +452,9 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                   <Button
                     type="button"
                     size="sm"
+                    disabled={isPending}
                     variant={isEnabled ? "outline" : "default"}
-                    onClick={() => setIsEnabled((v) => !v)}
+                    onClick={() => handleMasterToggle(activeTemplate, !isEnabled)}
                     className={cn(
                       "gap-1.5 text-xs whitespace-nowrap",
                       isEnabled

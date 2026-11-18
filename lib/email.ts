@@ -2,6 +2,7 @@ import { Resend } from "resend"
 import nodemailer from "nodemailer"
 import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import {
+  getCoreEmailDefaultEnabled,
   getEmailTemplateByPurpose,
   type NormalizedEmailTemplate,
 } from "@/lib/queries/email-templates"
@@ -527,10 +528,10 @@ function renderMediaItemsText(mediaItems: EmailTemplateMediaItem[]): string {
 export async function isEmailTemplateEnabled(purposeKey: string): Promise<boolean> {
   try {
     const tpl = await getEmailTemplateByPurpose(purposeKey)
-    if (!tpl) return true
+    if (!tpl) return getCoreEmailDefaultEnabled(purposeKey)
     return tpl.isEnabled
   } catch {
-    return true
+    return getCoreEmailDefaultEnabled(purposeKey)
   }
 }
 
@@ -749,7 +750,8 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
   const name = escapeHtml(rawName)
 
   const tpl = await getEmailTemplateByPurpose("verify")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("verify")
+  if (!enabled) {
     console.log(`[Email Template] "verify" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -859,7 +861,8 @@ export async function sendBookingConfirmationEmail({
   amountBdt: number
 }): Promise<boolean> {
   const tpl = await getEmailTemplateByPurpose("register")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("register")
+  if (!enabled) {
     console.log(`[Email Template] "register" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -943,7 +946,8 @@ export async function sendRoomCredentialsEmail({
   isUpdated?: boolean
 }): Promise<boolean> {
   const tpl = await getEmailTemplateByPurpose("id_pass")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("id_pass")
+  if (!enabled) {
     console.log(`[Email Template] "id_pass" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -1118,7 +1122,8 @@ export async function sendMatchResultPublishedEmail({
   category: string
 }): Promise<boolean> {
   const tpl = await getEmailTemplateByPurpose("result")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("result")
+  if (!enabled) {
     console.log(`[Email Template] "result" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -1203,7 +1208,8 @@ export async function sendMvpImageRequestEmail({
   scrimDate?: string | null
 }): Promise<boolean> {
   const tpl = await getEmailTemplateByPurpose("mvp_image")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("mvp_image")
+  if (!enabled) {
     console.log(`[Email Template] "mvp_image" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -1325,7 +1331,8 @@ export async function sendNoticeBroadcastEmail({
   isPinned?: boolean
 }): Promise<boolean> {
   const tpl = await getEmailTemplateByPurpose("notice")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("notice")
+  if (!enabled) {
     console.log(`[Email Template] "notice" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -1425,7 +1432,8 @@ export async function sendWelcomeEmail({
   if (!to || !to.includes("@")) return false
 
   const tpl = await getEmailTemplateByPurpose("welcome")
-  if (tpl && !tpl.isEnabled) {
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("welcome")
+  if (!enabled) {
     console.log(`[Email Template] "welcome" template is disabled by admin. Skipping email to ${to}.`)
     return true
   }
@@ -1492,6 +1500,38 @@ export async function sendWelcomeEmail({
     return result.success
   } catch (err) {
     console.error(`[Welcome Email] Exception sending to ${to}:`, err)
+    return false
+  }
+}
+
+/**
+ * Dispatches any custom admin-defined email purpose dynamically while honoring ON/OFF state.
+ */
+export async function sendCustomPurposeEmail({
+  purposeKey,
+  to,
+  vars = {},
+}: {
+  purposeKey: string
+  to: string
+  vars?: Record<string, string | number | boolean | null | undefined>
+}): Promise<boolean> {
+  if (!to || !to.includes("@")) return false
+  const tpl = await getEmailTemplateByPurpose(purposeKey)
+  if (!tpl) {
+    console.warn(`[Email Template] Custom purpose "${purposeKey}" not found. Skipping email to ${to}.`)
+    return false
+  }
+  if (!tpl.isEnabled) {
+    console.log(`[Email Template] Custom purpose "${purposeKey}" is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+  const rendered = renderEmailFromTemplate(tpl, vars)
+  try {
+    const res = await sendEmail({ to, ...rendered })
+    return res.success
+  } catch (err) {
+    console.error(`[Custom Email "${purposeKey}"] Exception sending to ${to}:`, err)
     return false
   }
 }

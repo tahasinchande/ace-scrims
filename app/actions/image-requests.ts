@@ -8,6 +8,7 @@ import { eq, and, desc } from "drizzle-orm"
 import { getSessionUser, requireUser, requireStaff } from "@/lib/session"
 import { notifyUser } from "@/lib/notify"
 import { sendMvpImageRequestEmail } from "@/lib/email"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 export type ImageRequestState = {
   ok: boolean
@@ -28,8 +29,10 @@ export async function requestTeamImage(
   bookingId: string,
   optionsOrMvpName?: RequestTeamImageOptions | string
 ): Promise<ImageRequestState> {
-  const admin = await getSessionUser()
-  if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
+  let admin: Awaited<ReturnType<typeof requireStaff>>
+  try {
+    admin = await requireStaff()
+  } catch {
     return { ok: false, error: "Unauthorized. Staff privileges required." }
   }
 
@@ -177,8 +180,15 @@ export async function submitPendingImageRequest(payload: {
   if (!payload.playerUid.trim()) {
     return { ok: false, error: "Player UID is required." }
   }
-  if (!payload.imageUrls || payload.imageUrls.length === 0) {
-    return { ok: false, error: "Please upload at least one image." }
+  const cleanImageUrls = Array.from(
+    new Set(
+      (payload.imageUrls || [])
+        .map((u) => (typeof u === "string" ? u.trim() : ""))
+        .filter((u) => isSafeHttpOrRelativeUrl(u, { allowImageDataUri: true }))
+    )
+  )
+  if (cleanImageUrls.length === 0) {
+    return { ok: false, error: "Please upload at least one valid image." }
   }
 
   const [request] = await db
@@ -199,7 +209,7 @@ export async function submitPendingImageRequest(payload: {
       submittedTeamName: payload.teamName.trim(),
       submittedPlayerUid: payload.playerUid.trim(),
       submittedPlayerName: submittedPlayer,
-      uploadedImageUrls: payload.imageUrls,
+      uploadedImageUrls: cleanImageUrls,
       notes: payload.notes?.trim() || null,
       status: "submitted",
       submittedAt: new Date(),

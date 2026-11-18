@@ -194,6 +194,13 @@ export async function POST(req: NextRequest) {
       if (!data.whatsapp) {
         return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
       }
+    } else if (reportType === "Bug Report") {
+      if (!data.description && !data.additionalInfo) {
+        return NextResponse.json({ ok: false, error: "Please provide a description of the bug" }, { status: 400 })
+      }
+      if (!data.whatsapp) {
+        return NextResponse.json({ ok: false, error: "Reporter WhatsApp number is required" }, { status: 400 })
+      }
     } else if (reportType === "Other Report") {
       if (!data.description && !data.additionalInfo) {
         return NextResponse.json({ ok: false, error: "Please provide a description of the issue" }, { status: 400 })
@@ -201,9 +208,10 @@ export async function POST(req: NextRequest) {
       if (!data.whatsapp) return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
     }
 
+    const isGeneralNonScrim = reportType === "Feature Request" || reportType === "Bug Report"
     const metaNotes: string[] = []
-    if (data.incidentDate && reportType !== "Feature Request") metaNotes.push(`Incident Date: ${data.incidentDate}`)
-    if (data.customScrimName && reportType !== "Feature Request") metaNotes.push(`Scrim: ${data.customScrimName}`)
+    if (data.incidentDate && !isGeneralNonScrim) metaNotes.push(`Incident Date: ${data.incidentDate}`)
+    if (data.customScrimName && !isGeneralNonScrim) metaNotes.push(`Scrim: ${data.customScrimName}`)
     if (data.additionalInfo) metaNotes.push(data.additionalInfo)
 
     const finalAdditionalInfo = metaNotes.length > 0 ? metaNotes.join(" | ") : null

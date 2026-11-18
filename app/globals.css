@@ -54,22 +54,22 @@
 :root,
 .dark {
   color-scheme: dark;
-  --background: oklch(0.13 0.012 270);
+  --background: oklch(0.125 0.013 268);
   --foreground: oklch(0.96 0.005 270);
-  --card: oklch(0.17 0.014 270);
+  --card: oklch(0.165 0.015 268);
   --card-foreground: oklch(0.96 0.005 270);
-  --popover: oklch(0.16 0.014 270);
+  --popover: oklch(0.155 0.014 268);
   --popover-foreground: oklch(0.96 0.005 270);
   --primary: oklch(0.72 0.19 45);
   --primary-foreground: oklch(0.13 0.012 270);
-  --secondary: oklch(0.22 0.02 270);
+  --secondary: oklch(0.215 0.02 268);
   --secondary-foreground: oklch(0.96 0.005 270);
-  --muted: oklch(0.21 0.016 270);
-  --muted-foreground: oklch(0.66 0.012 270);
+  --muted: oklch(0.205 0.016 268);
+  --muted-foreground: oklch(0.70 0.012 268);
   --accent: oklch(0.55 0.2 290);
   --accent-foreground: oklch(0.98 0.005 270);
   --destructive: oklch(0.6 0.22 25);
-  --border: oklch(0.28 0.018 270);
+  --border: oklch(0.285 0.02 268);
   --input: oklch(0.24 0.018 270);
   --ring: oklch(0.72 0.19 45);
   --success: oklch(0.72 0.17 155);
@@ -115,10 +115,19 @@
 @layer utilities {
   /* Glassmorphism surface */
   .glass {
-    background: color-mix(in oklch, var(--card) 65%, transparent);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+    background: color-mix(in oklch, var(--card) 72%, rgba(5, 7, 12, 0.45));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid color-mix(in oklch, var(--border) 78%, rgba(255, 255, 255, 0.06));
+    box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-strong {
+    background: color-mix(in oklch, var(--card) 86%, #05070c);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid color-mix(in oklch, var(--border) 85%, rgba(255, 255, 255, 0.08));
+    box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   /* Neon glow accents */

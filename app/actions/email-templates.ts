@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/session"
 import { logActivity } from "@/lib/notify"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
-import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import {
   normalizeMediaItems,
   normalizeVariablesHint,
@@ -205,9 +205,10 @@ export async function createCustomEmailTemplateAction(
     }
 
     const newId = `tpl_${key}_${randomUUID().slice(0, 6)}`
+    const safeDesc = escapeHtml(data.description?.trim() || "This is a custom operational email from ACE SCRIMS.")
     const bodyHtml =
       data.bodyHtml.trim() ||
-      `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p><p style="margin:0;color:#94a3b8;line-height:1.65;">${data.description || "This is a custom operational email from ACE SCRIMS."}</p>`
+      `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p><p style="margin:0;color:#94a3b8;line-height:1.65;">${safeDesc}</p>`
     const bodyText =
       data.bodyText.trim() ||
       `Hello {{recipientName}},\n\n${data.description || "This is a custom operational email from ACE SCRIMS."}`

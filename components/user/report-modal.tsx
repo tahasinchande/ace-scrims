@@ -22,6 +22,7 @@ import {
   Lightbulb,
   Video,
   Plus,
+  Bug,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -34,6 +35,7 @@ type ReportType =
   | "Winner Payment Not Received"
   | "Payment Completed But Slot Not Booked"
   | "Feature Request"
+  | "Bug Report"
   | "Other Report"
 
 type ScrimItem = {
@@ -243,7 +245,7 @@ export function ReportFormView({
 
     formData.set("reportType", selectedType)
 
-    if (selectedType === "Feature Request") {
+    if (selectedType === "Feature Request" || selectedType === "Bug Report") {
       formData.set("incidentDate", "")
       formData.set("scrimId", "")
       formData.set("customScrimName", "")
@@ -317,7 +319,7 @@ export function ReportFormView({
   }
 
   const busy = uploadingImage || uploadingVideo || isPending
-  const showScrimAndDate = selectedType !== "Feature Request"
+  const showScrimAndDate = selectedType !== "Feature Request" && selectedType !== "Bug Report"
 
   return (
     <div className="w-full text-left flex flex-col gap-6">
@@ -327,7 +329,7 @@ export function ReportFormView({
             Submit a Report or Feature Request
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Report hackers, prize/slot issues, or suggest new features directly to Ace Scrims administrators.
+            Report hackers, prize/slot issues, technical bugs, or suggest new features directly to Ace Scrims administrators.
           </p>
         </header>
       )}
@@ -339,6 +341,7 @@ export function ReportFormView({
             { id: "Winner Payment Not Received", label: "Winner Payment Not Received", icon: FileText, desc: "Unpaid tournament prize" },
             { id: "Payment Completed But Slot Not Booked", label: "Slot Not Booked", icon: AlertTriangle, desc: "TrxID paid but slot missing" },
             { id: "Feature Request", label: "Feature Request", icon: Lightbulb, desc: "Suggest platform improvements" },
+            { id: "Bug Report", label: "Bug Report", icon: Bug, desc: "Report website or app bugs" },
             { id: "Other Report", label: "Other Report", icon: FileText, desc: "General issues & support" },
           ] as const
         ).map((tab) => {
@@ -373,7 +376,11 @@ export function ReportFormView({
         <div className="rounded-2xl border border-primary/40 bg-primary/10 p-6 text-center flex flex-col items-center gap-3">
           <CheckCircle2 className="size-10 text-primary" />
           <h3 className="font-display text-xl font-bold uppercase">
-            {selectedType === "Feature Request" ? "Feature Request Submitted" : "Report Submitted & Pending Review"}
+            {selectedType === "Feature Request"
+              ? "Feature Request Submitted"
+              : selectedType === "Bug Report"
+                ? "Bug Report Submitted & Pending Review"
+                : "Report Submitted & Pending Review"}
           </h3>
           <p className="text-sm text-muted-foreground max-w-md">
             Your submission is currently <span className="font-semibold text-primary">Pending Review</span> by our administrators.
@@ -562,6 +569,32 @@ export function ReportFormView({
             </>
           )}
 
+          {/* Bug Report Fields */}
+          {selectedType === "Bug Report" && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="description">Bug Description &amp; Reproduction Steps *</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  required
+                  rows={4}
+                  placeholder="Describe the technical issue or bug, what page/action triggered it, and what you expected to happen..."
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="whatsapp">Reporter WhatsApp Number *</Label>
+                <Input
+                  id="whatsapp"
+                  name="whatsapp"
+                  required
+                  placeholder="017XXXXXXXX (so our dev team can reach out for follow-up)"
+                />
+              </div>
+            </>
+          )}
+
           {/* Other Report Fields */}
           {selectedType === "Other Report" && (
             <>
@@ -589,7 +622,9 @@ export function ReportFormView({
               <ImageIcon className="size-4 text-primary" />
               {selectedType === "Feature Request"
                 ? "Mockups, Videos & Reference Links (Optional)"
-                : "Evidence & Proof Attachments"}
+                : selectedType === "Bug Report"
+                  ? "Bug Screenshots, Screen Recordings & Drive Links"
+                  : "Evidence & Proof Attachments"}
             </h4>
 
             {/* 1. Multiple Screenshot Uploads */}
@@ -798,7 +833,9 @@ export function ReportFormView({
               ? "Uploading Proof Media..."
               : selectedType === "Feature Request"
                 ? "Submit Feature Request"
-                : "Submit Report For Review"}
+                : selectedType === "Bug Report"
+                  ? "Submit Bug Report"
+                  : "Submit Report For Review"}
           </Button>
         </form>
       )}

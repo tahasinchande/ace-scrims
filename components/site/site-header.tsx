@@ -80,7 +80,7 @@ export function SiteHeader({
   const activeLogoUrl = liveSettings?.logoUrl || initialSettings?.logoUrl
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-zinc-800/80 bg-[#030407]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-[#04060c]/88 backdrop-blur-xl shadow-sm shadow-black/30">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Brand Logo (Left) */}
         <Link href="/" className="flex items-center gap-2 group transition-opacity hover:opacity-90" aria-label="Ace Scrims Home">
@@ -94,7 +94,7 @@ export function SiteHeader({
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
               pathname === "/"
-                ? "text-white bg-zinc-800/70"
+                ? "text-white bg-zinc-800/80 border border-zinc-700/60"
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40"
             )}
           >
@@ -227,7 +227,7 @@ export function SiteHeader({
         <div className="hidden items-center gap-3 md:flex">
           {/* 2D / 3D Segmented Switch */}
           <div
-            className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900/90 p-0.5"
+            className="inline-flex items-center rounded-lg border border-zinc-800 bg-zinc-900/90 p-0.5 shadow-inner"
             role="group"
             aria-label="View mode toggle"
           >
@@ -235,7 +235,7 @@ export function SiteHeader({
               type="button"
               onClick={() => setMode("2d")}
               className={cn(
-                "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-all",
+                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                 mode === "2d"
                   ? "bg-zinc-800 text-orange-400 shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
@@ -249,7 +249,7 @@ export function SiteHeader({
               type="button"
               onClick={() => setMode("3d")}
               className={cn(
-                "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-all",
+                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                 mode === "3d"
                   ? "bg-zinc-800 text-orange-400 shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"

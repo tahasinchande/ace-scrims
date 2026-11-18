@@ -10,7 +10,7 @@ import { getPublicSiteSettings } from "@/lib/queries/settings"
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Report Issue — Ace Scrims",
-  description: "Submit hack, slot, prize reports, or feature requests to Ace Scrims administrators.",
+  description: "Submit hacker claims, bug reports, slot/prize disputes, or feature requests to Ace Scrims administrators.",
 }
 
 export default async function ReportPage() {

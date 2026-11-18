@@ -35,7 +35,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
 
   return (
-    <footer className="border-t border-border/50 bg-card/40">
+    <footer className="border-t border-border/60 bg-[#05070c]/85 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4 py-12 md:px-6">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="flex flex-col gap-3">
@@ -150,19 +150,19 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             <h3 className="mb-1 font-display text-sm font-bold uppercase tracking-wider text-foreground">
               {t("platform", "Platform")}
             </h3>
-            <Link href="/scrims" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/scrims" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_scrims", "Scrims")}
             </Link>
-            <Link href="/results" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/results" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_results", "Results")}
             </Link>
-            <Link href="/tutorial" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/tutorial" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_tutorial", "Tutorial Video")}
             </Link>
-            <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/dashboard" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_dashboard", "Dashboard")}
             </Link>
-            <Link href="/report" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/report" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               Submit a Report
             </Link>
           </nav>
@@ -171,16 +171,16 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             <h3 className="mb-1 font-display text-sm font-bold uppercase tracking-wider text-foreground">
               {t("legal", "Legal & Policy")}
             </h3>
-            <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/terms" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_terms", "Terms of Service")}
             </Link>
-            <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/privacy" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_privacy", "Privacy Policy")}
             </Link>
-            <Link href="/refund-policy" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/refund-policy" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_refund", "Refund Policy")}
             </Link>
-            <Link href="/copyright" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/copyright" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_copyright", "Copyright")}
             </Link>
           </nav>

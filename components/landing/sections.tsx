@@ -116,15 +116,15 @@ export function Features() {
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.4, delay: i * 0.08 }}
             whileHover={{ y: -4, borderColor: "rgba(249, 115, 22, 0.5)" }}
-            className="glass group relative rounded-2xl p-6 transition-all duration-300 border border-orange-500/15 bg-black/40 hover:shadow-lg hover:shadow-orange-500/10 overflow-hidden"
+            className="glass group relative rounded-2xl p-6 transition-all duration-300 border border-border/70 bg-card/55 hover:shadow-xl hover:shadow-orange-500/10 overflow-hidden"
           >
             {/* Subtle cyber scan line on hover */}
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-orange-950/40 border border-orange-500/20 ${f.color} transition-transform group-hover:scale-110`}>
+            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-orange-950/45 border border-orange-500/25 ${f.color} transition-transform group-hover:scale-105`}>
               <f.icon className="size-5" aria-hidden />
             </span>
-            <h3 className="font-display text-lg font-bold text-foreground">{f.title}</h3>
+            <h3 className="font-display text-lg font-bold tracking-wide text-foreground">{f.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
           </motion.div>
         ))}
@@ -204,7 +204,7 @@ export function HowItWorks() {
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.4, delay: i * 0.1 }}
               whileHover={{ y: -4 }}
-              className="glass group relative rounded-2xl p-6 transition-all border border-orange-500/20 bg-black/40 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10 cursor-pointer flex flex-col justify-between"
+              className="glass group relative rounded-2xl p-6 transition-all border border-border/75 bg-card/55 hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/10 cursor-pointer flex flex-col justify-between"
             >
               <Link
                 href={s.actionHref}
@@ -213,13 +213,13 @@ export function HowItWorks() {
                 aria-label={`${s.title} — ${s.actionText}`}
               />
               <div>
-                <span className="absolute right-5 top-4 font-display text-4xl font-black text-orange-500/20 group-hover:text-orange-500/40 transition-colors" aria-hidden>
+                <span className="absolute right-5 top-4 font-display text-4xl font-black text-orange-500/20 group-hover:text-orange-500/40 transition-colors tabular-nums" aria-hidden>
                   {s.step}
                 </span>
-                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-orange-950/40 border border-orange-500/30 text-orange-400 shadow-sm group-hover:scale-110 group-hover:border-orange-500 transition-all">
+                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-orange-950/45 border border-orange-500/30 text-orange-400 shadow-sm group-hover:scale-105 group-hover:border-orange-500 transition-all">
                   <s.icon className="size-5" aria-hidden />
                 </span>
-                <h3 className="font-display text-lg font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+                <h3 className="font-display text-lg font-bold tracking-wide text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
                   {s.title}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
@@ -272,12 +272,14 @@ export function WhyChooseUs() {
           <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#020306]/50 pointer-events-none" />
           
           {/* Bottom Card Floating Cyber Tag */}
-          <div className="absolute bottom-4 left-4 right-4 p-4 rounded-2xl glass border border-orange-500/30 bg-black/70 backdrop-blur-md flex items-center justify-between">
+          <div className="absolute bottom-4 left-4 right-4 p-4 rounded-2xl glass border border-orange-500/35 bg-black/75 backdrop-blur-md flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-widest font-bold text-orange-400">Elite Battleground</p>
               <p className="text-sm font-semibold text-white">Daily High-Tier Scrims</p>
             </div>
-            <div className="size-2 rounded-full bg-orange-500 animate-ping" />
+            <span className="flex size-8 items-center justify-center rounded-lg bg-orange-500/15 border border-orange-500/35 text-orange-400">
+              <ShieldCheck className="size-4" aria-hidden />
+            </span>
           </div>
         </motion.div>
         <motion.div

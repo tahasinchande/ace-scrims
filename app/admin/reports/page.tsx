@@ -70,10 +70,10 @@ export default async function AdminReportsPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-          Player &amp; Feature Reports
+          Player, Bug &amp; Feature Reports
         </h1>
         <p className="text-sm text-muted-foreground">
-          Review hacker claims, slot/payment disputes, and feature requests with media proofs and advanced filters.
+          Review hacker claims, website bug reports, slot/payment disputes, and feature requests with media proofs and advanced filters.
         </p>
       </header>
       <AdminReports reports={formattedReports} scrims={scrimRows} />

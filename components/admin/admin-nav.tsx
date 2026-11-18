@@ -110,12 +110,12 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors border border-transparent",
                   active
                     ? isRoom1Link
-                      ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-                      : "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                      ? "bg-blue-500/15 text-blue-300 border-blue-500/30 shadow-sm"
+                      : "bg-primary/15 text-primary border-primary/25 shadow-sm"
+                    : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
                 )}
               >
                 <Icon className="size-4" />

@@ -29,6 +29,8 @@ import {
   X,
   Link2,
   Filter,
+  Bug,
+  Lightbulb,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -69,6 +71,7 @@ const KNOWN_REPORT_PURPOSES = [
   "Winner Payment Not Received",
   "Payment Completed But Slot Not Booked",
   "Feature Request",
+  "Bug Report",
   "Other Report",
 ]
 
@@ -243,7 +246,7 @@ export function AdminReports({
               className="h-9 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
             >
               <option value="all">All Scrims</option>
-              <option value="__none__">General / No Scrim (Feature Requests)</option>
+              <option value="__none__">General / No Scrim (Feature &amp; Bug Reports)</option>
               {scrims.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.title} {s.startTime ? `(${s.startTime})` : ""}
@@ -321,6 +324,7 @@ export function AdminReports({
             ].filter((u) => isSafeHttpOrRelativeUrl(u))
 
             const isFeatureRequest = report.reportType === "Feature Request"
+            const isBugReport = report.reportType === "Bug Report"
 
             return (
               <li
@@ -339,12 +343,15 @@ export function AdminReports({
                       {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
                     </button>
                     <Badge
-                      variant={isFeatureRequest ? "default" : "destructive"}
+                      variant={isFeatureRequest || isBugReport ? "default" : "destructive"}
                       className={cn(
-                        "font-bold uppercase tracking-wider",
-                        isFeatureRequest && "bg-primary/20 text-primary border border-primary/40"
+                        "font-bold uppercase tracking-wider gap-1",
+                        isFeatureRequest && "bg-primary/20 text-primary border border-primary/40",
+                        isBugReport && "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                       )}
                     >
+                      {isFeatureRequest && <Lightbulb className="size-3" />}
+                      {isBugReport && <Bug className="size-3" />}
                       {report.reportType}
                     </Badge>
                     <Badge
@@ -433,7 +440,11 @@ export function AdminReports({
 
                   <div className="flex flex-col gap-2 min-w-0 max-w-full w-full overflow-hidden">
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {isFeatureRequest ? "Expected Feature Details:" : "Report Statement & Info:"}
+                      {isFeatureRequest
+                        ? "Expected Feature Details:"
+                        : isBugReport
+                          ? "Bug Report Description:"
+                          : "Report Statement & Info:"}
                     </div>
                     <div className="rounded-xl bg-secondary/60 p-3 text-sm leading-relaxed whitespace-pre-wrap flex-1 border border-border/50 break-words max-w-full min-w-0 w-full">
                       <div className="break-words">{report.description}</div>

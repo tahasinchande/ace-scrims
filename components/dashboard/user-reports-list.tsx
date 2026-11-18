@@ -32,6 +32,8 @@ import {
   PlusCircle,
   X,
   AlertCircle,
+  Bug,
+  Lightbulb,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -438,6 +440,12 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {report.reportType === "Bug Report" && (
+                        <Bug className="size-4 text-amber-400 shrink-0" aria-hidden />
+                      )}
+                      {report.reportType === "Feature Request" && (
+                        <Lightbulb className="size-4 text-primary shrink-0" aria-hidden />
+                      )}
                       <span className="font-display font-bold text-base text-foreground group-hover:text-primary transition-colors">
                         {report.reportType}
                       </span>
@@ -544,6 +552,12 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
             {/* Modal Header */}
             <div className="pr-8 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
+                {selectedReport.reportType === "Bug Report" && (
+                  <Bug className="size-5 text-amber-400 shrink-0" aria-hidden />
+                )}
+                {selectedReport.reportType === "Feature Request" && (
+                  <Lightbulb className="size-5 text-primary shrink-0" aria-hidden />
+                )}
                 <h3 className="font-display text-xl font-bold uppercase text-foreground">
                   {selectedReport.reportType}
                 </h3>

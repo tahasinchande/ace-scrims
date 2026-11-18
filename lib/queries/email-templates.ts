@@ -2,14 +2,15 @@ import "server-only"
 
 import { randomUUID } from "crypto"
 import { db, ensureSchemaReady } from "@/lib/db"
-import { emailTemplates, type EmailTemplate, type EmailTemplateMediaItem } from "@/lib/db/schema"
-import { asc, eq } from "drizzle-orm"
+import { emailTemplates, settings, type EmailTemplate, type EmailTemplateMediaItem } from "@/lib/db/schema"
+import { and, asc, eq, isNull } from "drizzle-orm"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 export type CoreEmailPurposeSeed = {
   purposeKey: string
   label: string
   description: string
+  defaultEnabled: boolean
   isCore: boolean
   category: "system" | "custom"
   format: "html" | "text"
@@ -35,8 +36,9 @@ export const CORE_EMAIL_PURPOSE_ORDER = [
 export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   {
     purposeKey: "verify",
-    label: "Verify",
+    label: "Email Verification",
     description: "Email verification link dispatched when a user registers or requests a verification resend.",
+    defaultEnabled: true,
     isCore: true,
     category: "system",
     format: "html",
@@ -59,8 +61,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   },
   {
     purposeKey: "welcome",
-    label: "Welcome",
-    description: "Welcome onboarding email triggered after email verification or OAuth account activation.",
+    label: "Welcome Email After Sign Up",
+    description: "Welcome onboarding email triggered after email verification or OAuth account activation. Turned OFF by default.",
+    defaultEnabled: false,
     isCore: true,
     category: "system",
     format: "html",
@@ -82,8 +85,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   },
   {
     purposeKey: "register",
-    label: "Register",
-    description: "Booking confirmation email sent automatically when a squad confirms their scrim registration.",
+    label: "After Booking a Slot",
+    description: "Booking confirmation email sent automatically when a squad confirms their scrim registration. Turned OFF by default.",
+    defaultEnabled: false,
     isCore: true,
     category: "system",
     format: "html",
@@ -107,8 +111,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   },
   {
     purposeKey: "id_pass",
-    label: "ID Pass",
+    label: "Room ID & Password",
     description: "Custom room ID and password dispatch sent to confirmed squads before match start.",
+    defaultEnabled: true,
     isCore: true,
     category: "system",
     format: "html",
@@ -143,8 +148,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   },
   {
     purposeKey: "result",
-    label: "Result",
+    label: "Result Published",
     description: "Match result announcement emailed to confirmed participants when admin publishes standings.",
+    defaultEnabled: true,
     isCore: true,
     category: "system",
     format: "html",
@@ -179,8 +185,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   },
   {
     purposeKey: "mvp_image",
-    label: "MVP Image",
+    label: "MVP Image Request",
     description: "Winner / MVP face banner photo request sent to selected players after match completion.",
+    defaultEnabled: true,
     isCore: true,
     category: "system",
     format: "html",
@@ -213,8 +220,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   },
   {
     purposeKey: "notice",
-    label: "Notice",
+    label: "Notice by Admin",
     description: "Official Notice broadcast sent to verified players when an admin publishes a notice with email delivery enabled.",
+    defaultEnabled: true,
     isCore: true,
     category: "system",
     format: "html",
@@ -283,39 +291,71 @@ function normalizeEmailTemplate(row: EmailTemplate): NormalizedEmailTemplate {
   }
 }
 
+const EMAIL_DEFAULTS_SYNC_KEY = "email_defaults_v2_applied"
+
+export function getCoreEmailDefaultEnabled(purposeKey: string): boolean {
+  const found = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === purposeKey)
+  return found ? found.defaultEnabled : true
+}
+
 async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
   await ensureSchemaReady()
   const existing = await db.select({ purposeKey: emailTemplates.purposeKey }).from(emailTemplates)
   const existingKeys = new Set(existing.map((r) => r.purposeKey))
 
   const missing = CORE_EMAIL_TEMPLATES.filter((t) => !existingKeys.has(t.purposeKey))
-  if (missing.length === 0) return
+  if (missing.length > 0) {
+    await db
+      .insert(emailTemplates)
+      .values(
+        missing.map((t) => ({
+          id: `tpl_${t.purposeKey}_${randomUUID().slice(0, 6)}`,
+          purposeKey: t.purposeKey,
+          label: t.label,
+          description: t.description,
+          category: t.category,
+          isEnabled: t.defaultEnabled,
+          isCore: t.isCore,
+          format: t.format,
+          subject: t.subject,
+          preheader: t.preheader,
+          bodyHtml: t.bodyHtml,
+          bodyText: t.bodyText,
+          ctaText: t.ctaText,
+          ctaUrl: t.ctaUrl,
+          mediaItems: [],
+          variablesHint: t.variablesHint,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }))
+      )
+      .onConflictDoNothing()
+  }
 
-  await db
-    .insert(emailTemplates)
-    .values(
-      missing.map((t) => ({
-        id: `tpl_${t.purposeKey}_${randomUUID().slice(0, 6)}`,
-        purposeKey: t.purposeKey,
-        label: t.label,
-        description: t.description,
-        category: t.category,
-        isEnabled: true,
-        isCore: t.isCore,
-        format: t.format,
-        subject: t.subject,
-        preheader: t.preheader,
-        bodyHtml: t.bodyHtml,
-        bodyText: t.bodyText,
-        ctaText: t.ctaText,
-        ctaUrl: t.ctaUrl,
-        mediaItems: [],
-        variablesHint: t.variablesHint,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }))
-    )
-    .onConflictDoNothing()
+  // One-time idempotent sync so untouched pre-seeded welcome/register rows honor default-OFF & crisp labels
+  const syncMarker = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, EMAIL_DEFAULTS_SYNC_KEY))
+    .limit(1)
+
+  if (syncMarker.length === 0) {
+    for (const t of CORE_EMAIL_TEMPLATES) {
+      await db
+        .update(emailTemplates)
+        .set({
+          label: t.label,
+          description: t.description,
+          isEnabled: t.defaultEnabled,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(emailTemplates.purposeKey, t.purposeKey), isNull(emailTemplates.updatedBy)))
+    }
+    await db
+      .insert(settings)
+      .values({ key: EMAIL_DEFAULTS_SYNC_KEY, value: "true", updatedAt: new Date() })
+      .onConflictDoNothing()
+  }
 }
 
 export async function getAllEmailTemplates(): Promise<NormalizedEmailTemplate[]> {
@@ -341,7 +381,7 @@ export async function getAllEmailTemplates(): Promise<NormalizedEmailTemplate[]>
       label: t.label,
       description: t.description,
       category: t.category,
-      isEnabled: true,
+      isEnabled: t.defaultEnabled,
       isCore: t.isCore,
       format: t.format,
       subject: t.subject,

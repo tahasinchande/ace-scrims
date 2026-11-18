@@ -227,7 +227,7 @@ export function AdminUserList({
               <li
                 key={u.id}
                 className={`glass flex flex-wrap items-center gap-3 rounded-xl p-4 border transition-all ${
-                  isSelected ? "border-primary bg-primary/5" : "border-border/60"
+                  isSelected ? "border-primary bg-primary/5" : "border-border/70 hover:border-border"
                 }`}
               >
                 {isCanTrash ? (
@@ -286,7 +286,7 @@ export function AdminUserList({
                         Unverified
                       </Badge>
                     )}
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold tabular-nums text-emerald-400 border border-emerald-500/25">
                       ৳{(u.balance ?? 0).toLocaleString()}
                     </span>
                   </div>
