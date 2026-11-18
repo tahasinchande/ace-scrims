@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     const user = await getSessionUser().catch(() => null)
 
     const searchParams = req.nextUrl.searchParams
-    if (!user || user.role !== "admin") {
+    if (!user || user.banned || user.role !== "admin") {
       return NextResponse.json(
         { ok: false, error: "Unauthorized. Admin privileges required." },
         { status: 401 }

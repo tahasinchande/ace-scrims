@@ -13,6 +13,9 @@ export async function GET() {
     if (!sessionUser) {
       return NextResponse.json({ ok: false, balance: 0 }, { status: 401 })
     }
+    if (sessionUser.banned) {
+      return NextResponse.json({ ok: false, balance: 0, error: "Account suspended" }, { status: 403 })
+    }
     const row = await db.select({ balance: user.balance }).from(user).where(eq(user.id, sessionUser.id)).limit(1)
     return NextResponse.json({ ok: true, balance: row[0]?.balance ?? 0 })
   } catch (err: any) {

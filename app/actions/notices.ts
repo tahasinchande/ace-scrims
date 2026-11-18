@@ -7,7 +7,7 @@ import { eq, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { z } from "zod"
-import { sendEmailBatch, sendNoticeBroadcastEmail } from "@/lib/email"
+import { sendEmailBatch, sendNoticeBroadcastEmail, isEmailTemplateEnabled } from "@/lib/email"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 const noticeSchema = z.object({
@@ -97,54 +97,60 @@ export async function createNoticeAction(
     let emailsSent = 0
     let emailsFailed = 0
     let totalRecipients = 0
+    let skippedByToggle = false
 
     if (sendEmailBroadcast) {
       try {
-        const activeUsers = await db
-          .select({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          })
-          .from(user)
-          .where(
-            and(
-              eq(user.banned, false),
-              eq(user.isTrashed, false),
-              eq(user.emailVerified, true)
+        const noticeEmailEnabled = await isEmailTemplateEnabled("notice")
+        if (!noticeEmailEnabled) {
+          skippedByToggle = true
+        } else {
+          const activeUsers = await db
+            .select({
+              id: user.id,
+              email: user.email,
+              name: user.name,
+            })
+            .from(user)
+            .where(
+              and(
+                eq(user.banned, false),
+                eq(user.isTrashed, false),
+                eq(user.emailVerified, true)
+              )
             )
-          )
 
-        const recipientMap = new Map<string, { email: string; name: string }>()
-        for (const u of activeUsers) {
-          const email = u.email?.trim().toLowerCase()
-          if (email && email.includes("@") && !recipientMap.has(email)) {
-            recipientMap.set(email, {
-              email,
-              name: u.name || "Player",
-            })
+          const recipientMap = new Map<string, { email: string; name: string }>()
+          for (const u of activeUsers) {
+            const email = u.email?.trim().toLowerCase()
+            if (email && email.includes("@") && !recipientMap.has(email)) {
+              recipientMap.set(email, {
+                email,
+                name: u.name || "Player",
+              })
+            }
           }
-        }
 
-        const recipients = Array.from(recipientMap.values())
-        totalRecipients = recipients.length
+          const recipients = Array.from(recipientMap.values())
+          totalRecipients = recipients.length
 
-        if (recipients.length > 0) {
-          const stats = await sendEmailBatch(recipients, (r) =>
-            sendNoticeBroadcastEmail({
-              to: r.email,
-              recipientName: r.name,
-              title: data.title,
-              content: data.content,
-              category: data.category,
-              priority: data.priority,
-              mediaUrl: data.mediaUrl,
-              mediaType: data.mediaType,
-              isPinned: data.isPinned,
-            })
-          )
-          emailsSent = stats.sent
-          emailsFailed = stats.failed
+          if (recipients.length > 0) {
+            const stats = await sendEmailBatch(recipients, (r) =>
+              sendNoticeBroadcastEmail({
+                to: r.email,
+                recipientName: r.name,
+                title: data.title,
+                content: data.content,
+                category: data.category,
+                priority: data.priority,
+                mediaUrl: data.mediaUrl,
+                mediaType: data.mediaType,
+                isPinned: data.isPinned,
+              })
+            )
+            emailsSent = stats.sent
+            emailsFailed = stats.failed
+          }
         }
       } catch (emailErr) {
         console.warn("[createNoticeAction] Failed to broadcast notice emails:", emailErr)
@@ -159,7 +165,9 @@ export async function createNoticeAction(
     return {
       ok: true,
       message: sendEmailBroadcast
-        ? `Notice published and emailed to ${emailsSent} of ${totalRecipients} player(s).`
+        ? skippedByToggle
+          ? "Notice published! Email broadcast skipped because the Notice email template is turned OFF."
+          : `Notice published and emailed to ${emailsSent} of ${totalRecipients} player(s).`
         : "Notice published successfully!",
       emailsSent,
       emailsFailed,

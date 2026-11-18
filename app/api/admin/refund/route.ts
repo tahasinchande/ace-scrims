@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionUser, logActivity } from "@/lib/session"
-import { auth, type SessionUser } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { notHostedTeams, bookings, payments } from "@/lib/db/schema"
 import { eq, or } from "drizzle-orm"
@@ -23,14 +22,8 @@ const gatewayDispatcher = new Agent({
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Authenticate Admin User (Check session from headers)
-    let user = await getSessionUser()
-    if (!user) {
-      const session = await auth.api.getSession({ headers: req.headers }).catch(() => null)
-      if (session?.user) {
-        user = session.user as unknown as SessionUser
-      }
-    }
+    // 1. Authenticate Admin User (uses live DB-verified session check)
+    const user = await getSessionUser()
 
     if (!user) {
       return NextResponse.json(

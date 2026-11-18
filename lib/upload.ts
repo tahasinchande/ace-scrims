@@ -1,19 +1,25 @@
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary"
 import { randomUUID } from "crypto"
 
-// Initialize Cloudinary SDK
-if (process.env.CLOUDINARY_URL) {
-  cloudinary.config({
-    cloudinary_url: process.env.CLOUDINARY_URL,
-    secure: true,
-  })
-} else if (process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true,
-  })
+let cloudinaryConfigured = false
+
+function configureCloudinary(): void {
+  if (cloudinaryConfigured) return
+  if (process.env.CLOUDINARY_URL) {
+    cloudinary.config({
+      cloudinary_url: process.env.CLOUDINARY_URL,
+      secure: true,
+    })
+    cloudinaryConfigured = true
+  } else if (process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
+    })
+    cloudinaryConfigured = true
+  }
 }
 
 /**
@@ -26,6 +32,8 @@ export async function uploadStreamToCloudinary(
   folder: string,
   fileName?: string
 ): Promise<string | null> {
+  configureCloudinary()
+
   const cloudName =
     process.env.CLOUDINARY_CLOUD_NAME ||
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
@@ -104,6 +112,36 @@ export async function uploadStreamToCloudinary(
   })
 }
 
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-matroska",
+  "video/x-msvideo",
+  "application/pdf",
+])
+
+const ALLOWED_EXTENSIONS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "mp4",
+  "webm",
+  "mov",
+  "mkv",
+  "avi",
+  "pdf",
+])
+
+const BLOCKED_EXTENSIONS = new Set(["svg", "html", "htm", "js", "mjs", "cjs", "php", "sh"])
+
 /**
  * Saves an uploaded file directly into cloud storage (Cloudinary)
  * or in-memory Base64 Data URI without touching the local disk.
@@ -111,6 +149,26 @@ export async function uploadStreamToCloudinary(
 export async function saveUploadedFile(file: File, folder: string): Promise<string> {
   if (!file || !(file instanceof File) || file.size === 0) {
     throw new Error("Invalid or empty file uploaded.")
+  }
+
+  if (file.size > 100 * 1024 * 1024) {
+    throw new Error("File size exceeds 100MB limit.")
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || ""
+  const mime = (file.type || "").toLowerCase()
+
+  if (
+    BLOCKED_EXTENSIONS.has(ext) ||
+    mime === "image/svg+xml" ||
+    mime.includes("html") ||
+    mime.includes("javascript")
+  ) {
+    throw new Error("SVG, HTML, and executable script uploads are blocked for security reasons.")
+  }
+
+  if (!ALLOWED_EXTENSIONS.has(ext) && !ALLOWED_MIME_TYPES.has(mime)) {
+    throw new Error("Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, MP4, WEBM, MOV, MKV, AVI, PDF.")
   }
 
   const bytes = await file.arrayBuffer()
@@ -151,9 +209,12 @@ export async function saveUploadedFile(file: File, folder: string): Promise<stri
     }
   }
 
-  // 3. Guaranteed In-memory Base64 Data URI fallback:
-  // 100% reliable on read-only serverless environments without any local filesystem access.
-  const mimeType = file.type || "image/png"
+  // 3. Guaranteed In-memory Base64 Data URI fallback for safe raster images:
+  if (!mime.startsWith("image/") || buffer.byteLength > 4 * 1024 * 1024) {
+    throw new Error("Media cloud storage is not configured for large non-image files.")
+  }
+
+  const safeMime = mime || "image/png"
   const base64 = buffer.toString("base64")
-  return `data:${mimeType};base64,${base64}`
+  return `data:${safeMime};base64,${base64}`
 }

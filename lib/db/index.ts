@@ -31,7 +31,15 @@ pool.on("error", (err: Error) => {
 export const db = drizzle(pool, { schema })
 
 // Automatically ensure new schema columns and tables exist in PostgreSQL
+function isBuildTimeContext(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.npm_lifecycle_event === "build"
+  )
+}
+
 async function ensureSchema() {
+  if (!connectionString || isBuildTimeContext()) return
   try {
     const client = await pool.connect()
     try {
@@ -44,6 +52,10 @@ async function ensureSchema() {
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "category" text`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "hidden" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergEnabled" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergAmount" integer NOT NULL DEFAULT 7`,
+        `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergThreshold" integer NOT NULL DEFAULT 3`,
+        `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergStartRealCount" integer NOT NULL DEFAULT 0`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "isTrashed" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "scrimDate" text`,
@@ -96,6 +108,8 @@ async function ensureSchema() {
         `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "additionalInfo" text`,
         `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "imageUrl" text`,
         `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "videoUrl" text`,
+        `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "videoUrls" jsonb`,
+        `ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "externalLinks" jsonb`,
         `ALTER TABLE "reports" ALTER COLUMN "type" DROP NOT NULL`,
         `ALTER TABLE "reports" ALTER COLUMN "whatsapp" DROP NOT NULL`,
         `CREATE TABLE IF NOT EXISTS "tutorials" (
@@ -224,6 +238,17 @@ async function ensureSchema() {
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "teamName" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "teamTag" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "captainName" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "captainUid" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "phone" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "paymentMethod" text DEFAULT 'bKash'`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "paymentNumber" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "teamMembersDriveLink" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "teamLeaderImageUrl" text`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `ALTER TABLE "user_default_info" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
         `CREATE INDEX IF NOT EXISTS "idx_user_default_info_user_id" ON "user_default_info" ("userId")`,
         `CREATE TABLE IF NOT EXISTS "wallet_transactions" (
           "id" text PRIMARY KEY,
@@ -282,7 +307,148 @@ async function ensureSchema() {
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
-        `CREATE INDEX IF NOT EXISTS "idx_notices_published_created" ON "notices" ("isPublished", "isPinned", "createdAt")`
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "category" text NOT NULL DEFAULT 'General'`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "priority" text NOT NULL DEFAULT 'normal'`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "mediaUrl" text`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "mediaType" text DEFAULT 'none'`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "isPinned" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "isPublished" boolean NOT NULL DEFAULT true`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "authorId" text`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "authorName" text DEFAULT 'Ace Scrims Administration'`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
+        `CREATE INDEX IF NOT EXISTS "idx_notices_published_created" ON "notices" ("isPublished", "isPinned", "createdAt")`,
+        `CREATE TABLE IF NOT EXISTS "payout_methods" (
+          "id" text PRIMARY KEY,
+          "name" text NOT NULL,
+          "code" text NOT NULL UNIQUE,
+          "label" text NOT NULL,
+          "description" text,
+          "accentColor" text NOT NULL DEFAULT '#f97316',
+          "requiresAccountNumber" boolean NOT NULL DEFAULT true,
+          "isActive" boolean NOT NULL DEFAULT true,
+          "sortOrder" integer NOT NULL DEFAULT 0,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "name" text`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "code" text`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "label" text`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "description" text`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "accentColor" text NOT NULL DEFAULT '#f97316'`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "requiresAccountNumber" boolean NOT NULL DEFAULT true`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "isActive" boolean NOT NULL DEFAULT true`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "sortOrder" integer NOT NULL DEFAULT 0`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `ALTER TABLE "payout_methods" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
+        `UPDATE "payout_methods" SET "name" = COALESCE(NULLIF("name", ''), NULLIF("label", ''), NULLIF("code", ''), "id") WHERE "name" IS NULL OR "name" = ''`,
+        `UPDATE "payout_methods" SET "code" = COALESCE(NULLIF("code", ''), NULLIF("name", ''), "id") WHERE "code" IS NULL OR "code" = ''`,
+        `UPDATE "payout_methods" SET "label" = COALESCE(NULLIF("label", ''), NULLIF("name", ''), NULLIF("code", ''), "id") WHERE "label" IS NULL OR "label" = ''`,
+        `DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'payout_methods'
+              AND is_nullable = 'NO'
+              AND column_default IS NULL
+              AND column_name NOT IN ('id', 'name', 'code', 'label', 'accentColor', 'requiresAccountNumber', 'isActive', 'sortOrder', 'createdAt', 'updatedAt')
+          LOOP
+            EXECUTE format('ALTER TABLE "payout_methods" ALTER COLUMN %I DROP NOT NULL', r.column_name);
+          END LOOP;
+        END $$`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_payout_methods_code" ON "payout_methods" ("code")`,
+        `INSERT INTO "payout_methods" ("id", "name", "code", "label", "description", "accentColor", "requiresAccountNumber", "isActive", "sortOrder")
+         VALUES
+          ('pm-bkash', 'bKash', 'bKash', 'bKash Personal', 'Mobile financial service personal account', '#E2136E', true, true, 1),
+          ('pm-nagad', 'Nagad', 'Nagad', 'Nagad Personal', 'Mobile financial service personal account', '#F7941D', true, true, 2),
+          ('pm-rocket', 'Rocket', 'Rocket', 'Rocket Personal', 'Dutch-Bangla Mobile Banking (Rocket)', '#8C3494', true, true, 3),
+          ('pm-tap', 'Tap', 'Tap', 'Tap Personal', 'Trust Axiata Pay digital wallet', '#00A19D', true, true, 4),
+          ('pm-balance', 'Balance', 'Balance', 'Ace Scrims Wallet', 'Instant wallet credit for 1-click scrim booking', '#10B981', false, true, 5)
+         ON CONFLICT DO NOTHING`,
+        `CREATE TABLE IF NOT EXISTS "email_templates" (
+          "id" text PRIMARY KEY,
+          "purposeKey" text NOT NULL UNIQUE,
+          "label" text NOT NULL,
+          "description" text,
+          "category" text NOT NULL DEFAULT 'system',
+          "isEnabled" boolean NOT NULL DEFAULT true,
+          "isCore" boolean NOT NULL DEFAULT false,
+          "format" text NOT NULL DEFAULT 'html',
+          "subject" text NOT NULL,
+          "preheader" text,
+          "bodyHtml" text NOT NULL,
+          "bodyText" text NOT NULL,
+          "ctaText" text,
+          "ctaUrl" text,
+          "mediaItems" jsonb NOT NULL DEFAULT '[]'::jsonb,
+          "variablesHint" jsonb,
+          "updatedBy" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "purposeKey" text`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "label" text NOT NULL DEFAULT ''`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "description" text`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "category" text NOT NULL DEFAULT 'system'`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "isEnabled" boolean NOT NULL DEFAULT true`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "isCore" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "format" text NOT NULL DEFAULT 'html'`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "subject" text NOT NULL DEFAULT ''`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "preheader" text`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "bodyHtml" text NOT NULL DEFAULT ''`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "bodyText" text NOT NULL DEFAULT ''`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "ctaText" text`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "ctaUrl" text`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "mediaItems" jsonb NOT NULL DEFAULT '[]'::jsonb`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "variablesHint" jsonb`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "updatedBy" text`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_email_templates_purpose_key" ON "email_templates" ("purposeKey")`,
+        `CREATE TABLE IF NOT EXISTS "chat_sessions" (
+          "userId" text PRIMARY KEY,
+          "mode" text NOT NULL DEFAULT 'ai',
+          "escalatedAt" timestamp,
+          "takenOverBy" text,
+          "takenOverAt" timestamp,
+          "lastAiReplyAt" timestamp,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE TABLE IF NOT EXISTS "chat_moderation_logs" (
+          "id" text PRIMARY KEY,
+          "userId" text NOT NULL,
+          "userName" text,
+          "userEmail" text,
+          "messageContent" text NOT NULL,
+          "violationCategory" text NOT NULL,
+          "reason" text NOT NULL,
+          "confidence" integer NOT NULL DEFAULT 0,
+          "detectorSource" text NOT NULL,
+          "actionTaken" text NOT NULL,
+          "isResolved" boolean NOT NULL DEFAULT false,
+          "resolvedBy" text,
+          "resolvedAt" timestamp,
+          "createdAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE TABLE IF NOT EXISTS "email_logs" (
+          "id" text PRIMARY KEY,
+          "recipientEmail" text NOT NULL,
+          "purposeKey" text,
+          "subject" text NOT NULL,
+          "status" text NOT NULL DEFAULT 'sent',
+          "provider" text,
+          "error" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "purposeKey" text`,
+        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "status" text NOT NULL DEFAULT 'sent'`,
+        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "provider" text`,
+        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "error" text`,
+        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`
       ]
 
       for (const stmt of statements) {
@@ -300,8 +466,22 @@ async function ensureSchema() {
   }
 }
 
-// Run schema verification asynchronously
-ensureSchema()
+let schemaReadyPromise: Promise<void> | null = null
+
+/**
+ * Lazily ensures schema additions once per server runtime, avoiding top-level
+ * database connections during Next.js static analysis and production build steps.
+ */
+export async function ensureSchemaReady(): Promise<void> {
+  if (!connectionString || isBuildTimeContext()) return
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = ensureSchema().catch((err) => {
+      schemaReadyPromise = null
+      console.warn("[Database] ensureSchemaReady failed:", err)
+    })
+  }
+  await schemaReadyPromise
+}
 
 export async function ensureNotHostedTable() {
   try {

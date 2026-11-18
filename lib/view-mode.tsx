@@ -23,10 +23,8 @@ const STORAGE_KEY = "ace_scrims_view_mode"
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   // Default to 2D static mode as requested
   const [mode, setModeState] = useState<ViewMode>("2d")
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as ViewMode | null
       if (saved === "2d" || saved === "3d") {

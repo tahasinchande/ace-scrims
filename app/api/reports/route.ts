@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { randomUUID } from "crypto"
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { reports, scrims } from "@/lib/db/schema"
 import { getSessionUser } from "@/lib/session"
 import { desc, eq } from "drizzle-orm"
 import { z } from "zod"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,13 +19,15 @@ const sanitizedString = z.preprocess((val) => {
   return String(val).trim()
 }, z.string().nullable().optional())
 
+const urlArrayOrJson = z.union([z.array(z.string()), sanitizedString]).optional()
+
 const apiReportSchema = z.object({
   scrimId: sanitizedString,
   customScrimName: sanitizedString,
   incidentDate: sanitizedString,
   reportType: z.preprocess(
     (val) => (typeof val === "string" && val.trim().length > 0 ? val.trim() : "Hacker Report"),
-    z.string()
+    z.string().max(120)
   ),
   whatsapp: sanitizedString,
   hackerUid: sanitizedString,
@@ -36,9 +39,63 @@ const apiReportSchema = z.object({
   description: sanitizedString,
   additionalInfo: sanitizedString,
   videoLink: sanitizedString,
+  videoUrls: urlArrayOrJson,
+  externalLinks: urlArrayOrJson,
   proofUrlInput: sanitizedString,
-  imageUrls: z.union([z.array(z.string()), sanitizedString]).optional(),
+  imageUrls: urlArrayOrJson,
 })
+
+function normalizeUrlList(
+  inputs: Array<string | string[] | null | undefined>,
+  allowImageDataUri = false
+): string[] {
+  const candidates: string[] = []
+  for (const input of inputs) {
+    if (!input) continue
+    if (Array.isArray(input)) {
+      for (const item of input) {
+        if (typeof item === "string" && item.trim()) candidates.push(item.trim())
+      }
+      continue
+    }
+    const trimmed = input.trim()
+    if (!trimmed) continue
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (typeof item === "string" && item.trim()) candidates.push(item.trim())
+          }
+          continue
+        }
+      } catch {
+        // treat as literal URL
+      }
+    }
+    candidates.push(trimmed)
+  }
+
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const raw of candidates) {
+    const cleaned = raw.trim().replace(/^["']|["']$/g, "")
+    if (!cleaned) continue
+    if (!isSafeHttpOrRelativeUrl(cleaned, { allowImageDataUri })) continue
+    let canonical = cleaned
+    try {
+      canonical = decodeURIComponent(cleaned)
+    } catch {
+      // ignore
+    }
+    canonical = canonical.toLowerCase().replace(/\/+$/, "")
+    if (!seen.has(canonical)) {
+      seen.add(canonical)
+      result.push(cleaned)
+    }
+  }
+  return result
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,18 +103,22 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ ok: false, error: "Authentication required. Please sign in." }, { status: 401 })
     }
+    if (user.banned) {
+      return NextResponse.json({ ok: false, error: "Your account is restricted from submitting reports." }, { status: 403 })
+    }
     if (!user.emailVerified) {
       return NextResponse.json({ ok: false, error: "Please verify your email address to submit reports." }, { status: 403 })
     }
 
-    let payload: any = {}
+    await ensureSchemaReady()
+
+    let payload: Record<string, unknown> = {}
     const contentType = req.headers.get("content-type") || ""
 
     if (contentType.includes("application/json")) {
       try {
         payload = await req.json()
-      } catch (jsonErr) {
-        console.error("[API Reports] Malformed JSON payload:", jsonErr)
+      } catch {
         return NextResponse.json({ ok: false, error: "Malformed JSON payload" }, { status: 400 })
       }
     } else if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
@@ -78,11 +139,12 @@ export async function POST(req: NextRequest) {
           description: formData.get("description"),
           additionalInfo: formData.get("additionalInfo"),
           videoLink: formData.get("videoLink") || formData.get("videoUrlInput"),
+          videoUrls: formData.get("videoUrls"),
+          externalLinks: formData.get("externalLinks"),
           proofUrlInput: formData.get("proofUrlInput"),
           imageUrls: formData.get("imageUrls"),
         }
-      } catch (formErr) {
-        console.error("[API Reports] Failed to parse formData:", formErr)
+      } catch {
         return NextResponse.json({ ok: false, error: "Failed to parse form-data payload" }, { status: 400 })
       }
     } else {
@@ -96,15 +158,14 @@ export async function POST(req: NextRequest) {
     const parsed = apiReportSchema.safeParse(payload)
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0]
-      const errorMsg = firstIssue
-        ? `Validation error (${firstIssue.path.join(".")}): ${firstIssue.message}`
-        : "Invalid report payload"
-      console.error("[API Reports] Validation failed:", {
-        issues: parsed.error.issues,
-        receivedPayload: payload,
-      })
       return NextResponse.json(
-        { ok: false, error: errorMsg, details: parsed.error.issues },
+        {
+          ok: false,
+          error: firstIssue
+            ? `Validation error (${firstIssue.path.join(".")}): ${firstIssue.message}`
+            : "Invalid report payload",
+          details: parsed.error.issues,
+        },
         { status: 400 }
       )
     }
@@ -112,33 +173,23 @@ export async function POST(req: NextRequest) {
     const data = parsed.data
     const reportType = data.reportType || "Hacker Report"
 
-    // Contextual checks with exact descriptive feedback
     if (reportType === "Hacker Report") {
-      if (!data.hackerUid) {
-        return NextResponse.json({ ok: false, error: "Hacker Free Fire UID is required" }, { status: 400 })
-      }
-      if (!data.hackerName) {
-        return NextResponse.json({ ok: false, error: "Hacker in-game name is required" }, { status: 400 })
-      }
-      if (!data.whatsapp) {
-        return NextResponse.json({ ok: false, error: "Reporter WhatsApp number is required" }, { status: 400 })
-      }
+      if (!data.hackerUid) return NextResponse.json({ ok: false, error: "Hacker Free Fire UID is required" }, { status: 400 })
+      if (!data.hackerName) return NextResponse.json({ ok: false, error: "Hacker in-game name is required" }, { status: 400 })
+      if (!data.whatsapp) return NextResponse.json({ ok: false, error: "Reporter WhatsApp number is required" }, { status: 400 })
     } else if (reportType === "Winner Payment Not Received") {
-      if (!data.uid) {
-        return NextResponse.json({ ok: false, error: "Winner Free Fire UID is required" }, { status: 400 })
-      }
-      if (!data.name) {
-        return NextResponse.json({ ok: false, error: "Winner / Team Leader name is required" }, { status: 400 })
-      }
-      if (!data.whatsapp) {
-        return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
-      }
+      if (!data.uid) return NextResponse.json({ ok: false, error: "Winner Free Fire UID is required" }, { status: 400 })
+      if (!data.name) return NextResponse.json({ ok: false, error: "Winner / Team Leader name is required" }, { status: 400 })
+      if (!data.whatsapp) return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
     } else if (reportType === "Payment Completed But Slot Not Booked") {
       if (!data.bookingDetails) {
         return NextResponse.json({ ok: false, error: "Registration details (Team Name, Leader Name) are required" }, { status: 400 })
       }
-      if (!data.trxid) {
-        return NextResponse.json({ ok: false, error: "Payment TrxID is required" }, { status: 400 })
+      if (!data.trxid) return NextResponse.json({ ok: false, error: "Payment TrxID is required" }, { status: 400 })
+      if (!data.whatsapp) return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
+    } else if (reportType === "Feature Request") {
+      if (!data.description && !data.additionalInfo) {
+        return NextResponse.json({ ok: false, error: "Please describe the feature you are requesting" }, { status: 400 })
       }
       if (!data.whatsapp) {
         return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
@@ -147,15 +198,12 @@ export async function POST(req: NextRequest) {
       if (!data.description && !data.additionalInfo) {
         return NextResponse.json({ ok: false, error: "Please provide a description of the issue" }, { status: 400 })
       }
-      if (!data.whatsapp) {
-        return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
-      }
+      if (!data.whatsapp) return NextResponse.json({ ok: false, error: "WhatsApp number is required" }, { status: 400 })
     }
 
-    // Combine metadata notes
     const metaNotes: string[] = []
-    if (data.incidentDate) metaNotes.push(`Incident Date: ${data.incidentDate}`)
-    if (data.customScrimName) metaNotes.push(`Scrim: ${data.customScrimName}`)
+    if (data.incidentDate && reportType !== "Feature Request") metaNotes.push(`Incident Date: ${data.incidentDate}`)
+    if (data.customScrimName && reportType !== "Feature Request") metaNotes.push(`Scrim: ${data.customScrimName}`)
     if (data.additionalInfo) metaNotes.push(data.additionalInfo)
 
     const finalAdditionalInfo = metaNotes.length > 0 ? metaNotes.join(" | ") : null
@@ -165,57 +213,15 @@ export async function POST(req: NextRequest) {
       finalAdditionalInfo ||
       `Report filed for ${reportType} (${data.incidentDate || "No date"})`
 
-    // Normalize image proofs strictly
-    const rawImageCandidates: string[] = []
-    if (Array.isArray(data.imageUrls)) {
-      for (const item of data.imageUrls) {
-        if (typeof item === "string" && item.trim().length > 0) {
-          rawImageCandidates.push(item.trim())
-        }
-      }
-    } else if (typeof data.imageUrls === "string" && data.imageUrls.trim().length > 0) {
-      try {
-        const parsedUrls = JSON.parse(data.imageUrls)
-        if (Array.isArray(parsedUrls)) {
-          for (const item of parsedUrls) {
-            if (typeof item === "string" && item.trim().length > 0) {
-              rawImageCandidates.push(item.trim())
-            }
-          }
-        } else if (typeof parsedUrls === "string" && parsedUrls.trim().length > 0) {
-          rawImageCandidates.push(parsedUrls.trim())
-        }
-      } catch {
-        rawImageCandidates.push(data.imageUrls.trim())
-      }
-    }
-
-    // Only fallback to proofUrlInput if NO imageUrls were provided
-    if (rawImageCandidates.length === 0 && data.proofUrlInput && data.proofUrlInput.trim().length > 0) {
-      rawImageCandidates.push(data.proofUrlInput.trim())
-    }
-
-    // Strictly normalize and deduplicate URLs so each uploaded image is stored and submitted exactly once
-    const seenImageKeys = new Set<string>()
-    const imageUrls: string[] = []
-    for (const url of rawImageCandidates) {
-      const trimmed = url.trim().replace(/^["']|["']$/g, "")
-      if (!trimmed) continue
-      let canonical = trimmed
-      try {
-        canonical = decodeURIComponent(trimmed)
-      } catch {
-        // ignore
-      }
-      canonical = canonical.toLowerCase().replace(/\/+$/, "")
-      if (!seenImageKeys.has(canonical)) {
-        seenImageKeys.add(canonical)
-        imageUrls.push(trimmed)
-      }
-    }
+    const imageUrls = normalizeUrlList(
+      [data.imageUrls, !data.imageUrls ? data.proofUrlInput : null],
+      true
+    )
+    const videoUrls = normalizeUrlList([data.videoUrls], false)
+    const externalLinks = normalizeUrlList([data.externalLinks, data.videoLink], false)
 
     const primaryProofUrl = imageUrls.length > 0 ? imageUrls[0] : null
-    const videoUrl = data.videoLink || null
+    const primaryVideoUrl = videoUrls[0] || externalLinks[0] || null
 
     const reportId = randomUUID()
     await db.insert(reports).values({
@@ -234,29 +240,33 @@ export async function POST(req: NextRequest) {
       additionalInfo: finalAdditionalInfo,
       proofUrl: primaryProofUrl,
       imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null,
-      videoUrl,
+      videoUrl: primaryVideoUrl,
+      videoUrls,
+      externalLinks,
       status: "pending",
     })
 
     return NextResponse.json({ ok: true, reportId, message: "Report submitted successfully." })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[API Reports] Uncaught error handling report POST:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Internal server error submitting report" },
+      { ok: false, error: err instanceof Error ? err.message : "Internal server error submitting report" },
       { status: 500 }
     )
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const user = await getSessionUser().catch(() => null)
-    if (!user) {
+    if (!user || user.banned) {
       return NextResponse.json(
         { ok: false, error: "Authentication required. Please sign in to view your reports." },
         { status: 401 }
       )
     }
+
+    await ensureSchemaReady()
 
     const rows = await db
       .select({
@@ -294,6 +304,8 @@ export async function GET(req: NextRequest) {
         imageUrl: r.report.imageUrl || null,
         imageUrls: parsedImages,
         videoUrl: r.report.videoUrl || null,
+        videoUrls: Array.isArray(r.report.videoUrls) ? r.report.videoUrls : [],
+        externalLinks: Array.isArray(r.report.externalLinks) ? r.report.externalLinks : [],
         whatsapp: r.report.whatsapp || null,
         hackerUid: r.report.hackerUid || null,
         hackerName: r.report.hackerName || null,
@@ -312,12 +324,11 @@ export async function GET(req: NextRequest) {
       reports: userReports,
       count: userReports.length,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[API GET /api/reports] Error fetching user reports:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Failed to fetch user reports." },
+      { ok: false, error: err instanceof Error ? err.message : "Failed to fetch user reports." },
       { status: 500 }
     )
   }
 }
-

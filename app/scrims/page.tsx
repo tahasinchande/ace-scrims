@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { getActiveScrims } from "@/lib/queries/scrims"
+import { sanitizePublicScrim } from "@/lib/iceberg"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
 import { ScrimsExplorer } from "@/components/scrims/scrims-explorer"
@@ -30,7 +31,7 @@ function ScrimsSkeleton() {
 async function ScrimsContent() {
   await checkMaintenanceMode()
   const [scrims, user] = await Promise.all([getActiveScrims(), getSessionUser()])
-  return <ScrimsExplorer scrims={scrims} isAuthed={!!user} />
+  return <ScrimsExplorer scrims={scrims.map((s) => sanitizePublicScrim(s))} isAuthed={!!user} />
 }
 
 export default async function ScrimsPage() {

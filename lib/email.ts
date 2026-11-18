@@ -1,5 +1,11 @@
 import { Resend } from "resend"
 import nodemailer from "nodemailer"
+import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import {
+  getEmailTemplateByPurpose,
+  type NormalizedEmailTemplate,
+} from "@/lib/queries/email-templates"
+import type { EmailTemplateMediaItem } from "@/lib/db/schema"
 
 export type EmailSendResult = {
   success: boolean
@@ -450,13 +456,141 @@ function isRateLimitError(err: unknown): boolean {
   return msg.includes("429") || msg.includes("rate_limit") || msg.includes("rate limit") || msg.includes("too many requests")
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
+function interpolateTemplateText(
+  template: string,
+  vars: Record<string, string | number | boolean | null | undefined>,
+  htmlMode: boolean
+): string {
+  if (!template) return ""
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key: string) => {
+    const raw = vars[key]
+    if (raw === null || raw === undefined) return ""
+    const str = String(raw)
+    if (!htmlMode) return str
+    const escaped = escapeHtml(str)
+    if (key === "content") {
+      return escaped.replace(/\r?\n/g, "<br />")
+    }
+    return escaped
+  })
+}
+
+function renderMediaItemsHtml(mediaItems: EmailTemplateMediaItem[]): string {
+  if (!Array.isArray(mediaItems) || mediaItems.length === 0) return ""
+  const blocks: string[] = []
+  for (const item of mediaItems) {
+    if (!item?.url || !isSafeHttpOrRelativeUrl(item.url, { allowImageDataUri: true })) continue
+    const finalUrl = item.url.startsWith("data:") ? item.url : resolveCleanUrl(item.url)
+    const safeUrl = escapeHtml(finalUrl)
+    const safeName = escapeHtml(item.name || "Attached Media")
+    if (item.type === "image") {
+      blocks.push(`
+        <div style="margin:16px 0;border-radius:10px;overflow:hidden;border:1px solid #1e2235;background:#080a12;">
+          <img src="${safeUrl}" alt="${safeName}" style="display:block;width:100%;max-height:360px;object-fit:cover;" />
+        </div>
+      `)
+    } else if (item.type === "video") {
+      blocks.push(`
+        <div style="margin:16px 0;padding:14px 16px;border-radius:10px;border:1px solid #1e2235;background:#121524;">
+          <p style="margin:0 0 6px 0;color:#cbd5e1;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">
+            Video Attachment: ${safeName}
+          </p>
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
+            Watch Attached Video
+          </a>
+        </div>
+      `)
+    } else {
+      blocks.push(`
+        <div style="margin:12px 0;padding:12px 14px;border-radius:8px;border:1px solid #1e2235;background:#121524;">
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
+            ${safeName} (${safeUrl})
+          </a>
+        </div>
+      `)
+    }
+  }
+  return blocks.join("")
+}
+
+function renderMediaItemsText(mediaItems: EmailTemplateMediaItem[]): string {
+  if (!Array.isArray(mediaItems) || mediaItems.length === 0) return ""
+  const lines = mediaItems
+    .filter((item) => item?.url && isSafeHttpOrRelativeUrl(item.url, { allowImageDataUri: true }))
+    .map((item) => {
+      const finalUrl = item.url.startsWith("data:") ? "[Embedded Image]" : resolveCleanUrl(item.url)
+      return `- ${item.name || item.type.toUpperCase()}: ${finalUrl}`
+    })
+  return lines.length > 0 ? `\n\nAttachments:\n${lines.join("\n")}` : ""
+}
+
+export async function isEmailTemplateEnabled(purposeKey: string): Promise<boolean> {
+  try {
+    const tpl = await getEmailTemplateByPurpose(purposeKey)
+    if (!tpl) return true
+    return tpl.isEnabled
+  } catch {
+    return true
+  }
+}
+
+export function renderEmailFromTemplate(
+  tpl: NormalizedEmailTemplate,
+  vars: Record<string, string | number | boolean | null | undefined>,
+  options?: {
+    useAuthShell?: boolean
+    defaultTitle?: string
+    defaultCtaUrl?: string
+    extraMediaItems?: EmailTemplateMediaItem[]
+  }
+): {
+  subject: string
+  html: string
+  text: string
+} {
+  const subject = interpolateTemplateText(tpl.subject, vars, false)
+  const preheader = tpl.preheader ? interpolateTemplateText(tpl.preheader, vars, true) : undefined
+  const ctaText = tpl.ctaText ? interpolateTemplateText(tpl.ctaText, vars, true) : undefined
+  const rawCtaUrl = tpl.ctaUrl ? interpolateTemplateText(tpl.ctaUrl, vars, false).trim() : ""
+  const resolvedCtaUrl =
+    rawCtaUrl && isSafeHttpOrRelativeUrl(rawCtaUrl)
+      ? resolveCleanUrl(rawCtaUrl)
+      : options?.defaultCtaUrl
+
+  const combinedMedia = [...(tpl.mediaItems || []), ...(options?.extraMediaItems || [])]
+  const mediaHtml = renderMediaItemsHtml(combinedMedia)
+  const mediaText = renderMediaItemsText(combinedMedia)
+
+  const bodyText = `${interpolateTemplateText(tpl.bodyText || "", vars, false)}${
+    resolvedCtaUrl ? `\n\nLink: ${resolvedCtaUrl}` : ""
+  }${mediaText}`
+
+  let contentHtml: string
+  if (tpl.format === "text") {
+    const escapedPlain = escapeHtml(interpolateTemplateText(tpl.bodyText || tpl.bodyHtml || "", vars, false)).replace(
+      /\r?\n/g,
+      "<br />"
+    )
+    contentHtml = `<div style="color:#cbd5e1;font-size:14px;line-height:1.7;">${escapedPlain}</div>${mediaHtml}`
+  } else {
+    const interpolatedHtml = interpolateTemplateText(tpl.bodyHtml || "", vars, true)
+    contentHtml = `${interpolatedHtml}${mediaHtml}`
+  }
+
+  const shellFn = options?.useAuthShell ? authEmailShell : emailShell
+  const html = shellFn({
+    title: escapeHtml(options?.defaultTitle || subject.replace(/\s+—\s+ACE SCRIMS$/i, "")),
+    preheader,
+    contentHtml,
+    ctaText: ctaText || undefined,
+    ctaUrl: resolvedCtaUrl || undefined,
+  })
+
+  return {
+    subject,
+    html,
+    text: bodyText,
+  }
 }
 
 /**
@@ -614,10 +748,29 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
   const rawName = userName?.trim() || "Player"
   const name = escapeHtml(rawName)
 
+  const tpl = await getEmailTemplateByPurpose("verify")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "verify" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   console.log("====================================================================")
   console.log(`[EMAIL VERIFICATION LINK FOR ${to}]`)
   console.log(`URL: ${cleanUrl}`)
   console.log("====================================================================")
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      { userName: rawName, verifyUrl: cleanUrl },
+      { useAuthShell: true, defaultTitle: "Verify your email address", defaultCtaUrl: cleanUrl }
+    )
+    const result = await sendEmail({ to, ...rendered })
+    if (!result.success) {
+      console.error(`[Email Verification Failed] Could not deliver email to ${to}. Error: ${result.error}`)
+    }
+    return result.success
+  }
 
   const contentHtml = `
     <h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">
@@ -626,37 +779,6 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
     <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
       Welcome aboard! Please click the button below to verify your email address and activate your account. You'll be fully geared up to explore our platform.
     </p>
-
-    <!-- Features Section: WHAT'S WAITING FOR YOU -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#121524;border:1px solid #1f2438;border-radius:10px;margin:24px 0 12px 0;">
-      <tr>
-        <td style="padding:18px 20px;">
-          <p style="margin:0 0 12px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">
-            WHAT'S WAITING FOR YOU:
-          </p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
-                <span style="color:#f97316;font-weight:bold;margin-right:8px;">•</span>
-                <strong style="color:#ffffff;">Daily Evening Scrims:</strong> High-tier regular squad showdowns.
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
-                <span style="color:#f97316;font-weight:bold;margin-right:8px;">•</span>
-                <strong style="color:#ffffff;">Friday Special Blast &amp; 10 PM Champion Rush:</strong> Weekend peak events with bigger prize pools.
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
-                <span style="color:#f97316;font-weight:bold;margin-right:8px;">•</span>
-                <strong style="color:#ffffff;">Post-Match Rewards:</strong> Get recognized with custom MVP Face Banners, Top 3 Podium Cards, and real-time Standings.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
   `
 
   const html = authEmailShell({
@@ -736,8 +858,33 @@ export async function sendBookingConfirmationEmail({
   slotNumber: number
   amountBdt: number
 }): Promise<boolean> {
+  const tpl = await getEmailTemplateByPurpose("register")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "register" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard/scrims`
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        recipientName: recipientName || "Captain",
+        teamName,
+        scrimTitle,
+        startTime,
+        slotNumber,
+        amountBdt,
+        dashboardUrl,
+      },
+      { defaultTitle: `Booking Confirmed — Slot #${slotNumber}`, defaultCtaUrl: dashboardUrl }
+    )
+    const result = await sendEmail({ to, ...rendered })
+    return result.success
+  }
+
   const safeRecipient = escapeHtml(recipientName || "Captain")
   const safeTeamName = escapeHtml(teamName)
   const safeScrimTitle = escapeHtml(scrimTitle)
@@ -750,62 +897,7 @@ export async function sendBookingConfirmationEmail({
     <p style="margin:0 0 20px 0;">
       Your squad booking has been confirmed for <strong>${safeScrimTitle}</strong>. Your payment of <strong>BDT ${amountBdt}</strong> was verified automatically.
     </p>
-
-    <!-- Booking Summary Card -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#121524;border:1px solid #23273e;border-radius:10px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:16px 20px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:4px 0;color:#64748b;font-size:13px;width:120px;">Squad Name:</td>
-              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#64748b;font-size:13px;">Assigned Slot:</td>
-              <td style="padding:4px 0;color:#f97316;font-size:14px;font-weight:800;">Slot #${slotNumber}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#64748b;font-size:13px;">Tournament:</td>
-              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:600;">${safeScrimTitle}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#64748b;font-size:13px;">Match Start:</td>
-              <td style="padding:4px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeStartTime}</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <!-- Explicit Timeline & Match Guidelines -->
-    <div style="margin-bottom:24px;">
-      <h3 style="margin:0 0 12px 0;color:#ffffff;font-size:14px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">
-        Match Timeline &amp; Regulations
-      </h3>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0e111d;border:1px solid #1e2337;border-radius:8px;padding:12px;margin-bottom:14px;">
-        <tr>
-          <td style="padding:6px 10px;color:#f97316;font-size:13px;font-weight:700;width:140px;">Scrim Time:</td>
-          <td style="padding:6px 10px;color:#ffffff;font-size:13px;">Scheduled match begins at <strong>${safeStartTime}</strong>.</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 10px;color:#f97316;font-size:13px;font-weight:700;">ID &amp; Password Arrival:</td>
-          <td style="padding:6px 10px;color:#ffffff;font-size:13px;">Credentials will arrive <strong>10 to 15 minutes</strong> before match time directly in your Player Dashboard and via Email.</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 10px;color:#f97316;font-size:13px;font-weight:700;">Joining Window:</td>
-          <td style="padding:6px 10px;color:#ffffff;font-size:13px;">You have exactly <strong>5 minutes</strong> to enter the custom room and sit strictly in your assigned <strong>Slot #${slotNumber}</strong>.</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 10px;color:#f97316;font-size:13px;font-weight:700;">Match Kickoff:</td>
-          <td style="padding:6px 10px;color:#ffffff;font-size:13px;">The match starts promptly <strong>10 minutes</strong> after room creation.</td>
-        </tr>
-      </table>
-
-      <ul style="margin:0;padding-left:18px;color:#94a3b8;font-size:13px;line-height:1.7;">
-        <li>Sit strictly in your assigned <strong style="color:#f97316;">Slot #${slotNumber}</strong> inside the custom room. Taking other slots will cause moderators to kick your players.</li>
-        <li>Mobile devices only. Emulators, iPads with modified aspect ratios, and third-party tools are strictly banned and result in immediate disqualification.</li>
-      </ul>
-    </div>
+    <p style="margin:0;color:#94a3b8;font-size:13px;">Squad: <strong>${safeTeamName}</strong> · Slot: <strong>#${slotNumber}</strong> · Kickoff: <strong>${safeStartTime}</strong></p>
   `
 
   const html = emailShell({
@@ -850,111 +942,65 @@ export async function sendRoomCredentialsEmail({
   roomPassword: string
   isUpdated?: boolean
 }): Promise<boolean> {
+  const tpl = await getEmailTemplateByPurpose("id_pass")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "id_pass" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard/scrims`
+  const slotText = slotNumber ? `Slot #${slotNumber} (${teamName})` : `Squad: ${teamName}`
+  const updateNotice = isUpdated
+    ? "UPDATE NOTICE: Room credentials were updated by the match admin."
+    : "Room credentials are now live."
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        recipientName: recipientName || "Captain",
+        teamName,
+        scrimTitle,
+        startTime,
+        slotNumber: slotNumber ?? "-",
+        slotText,
+        roomId,
+        roomPassword,
+        updateNotice,
+        dashboardUrl,
+      },
+      {
+        defaultTitle: isUpdated ? `Room Credentials Updated: ${scrimTitle}` : `Room Credentials Released: ${scrimTitle}`,
+        defaultCtaUrl: dashboardUrl,
+      }
+    )
+    const subject = isUpdated && !rendered.subject.toUpperCase().includes("UPDATE")
+      ? `UPDATED ${rendered.subject}`
+      : rendered.subject
+    const result = await sendEmail({ to, ...rendered, subject })
+    return result.success
+  }
 
   const safeRoomId = escapeHtml(roomId)
   const safeRoomPass = escapeHtml(roomPassword)
   const safeScrimTitle = escapeHtml(scrimTitle)
-  const safeTeamName = escapeHtml(teamName)
   const safeRecipient = escapeHtml(recipientName || "Captain")
   const safeStartTime = escapeHtml(startTime)
 
-  const statusHeadline = isUpdated
-    ? `ATTENTION: The Room ID or Password has been updated for <strong>${safeScrimTitle}</strong>. Please join using the new credentials below:`
-    : `Room details for <strong>${safeScrimTitle}</strong> are now live. Enter the credentials below in Free Fire immediately.`
-
-  const contentHtml = `
-    <p style="margin:0 0 18px 0;color:#ffffff;font-size:16px;">
-      Hello ${safeRecipient},
-    </p>
-    ${
-      isUpdated
-        ? `
-    <div style="margin-bottom:20px;padding:14px 18px;background:rgba(234,88,12,0.18);border:1px solid #ea580c;border-radius:10px;color:#f97316;font-size:13px;font-weight:700;line-height:1.5;">
-      UPDATE NOTICE: Room credentials for this scrim were updated by the match admin. Make sure your squad enters using these updated details!
-    </div>`
-        : ""
-    }
-    <p style="margin:0 0 20px 0;">
-      ${statusHeadline}
-    </p>
-
-    <!-- Room Credentials Box -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#13182b;border:2px solid #ea580c;border-radius:12px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:22px 24px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;width:130px;font-weight:600;">ROOM ID:</td>
-              <td style="padding:6px 0;">
-                <span style="font-family:Consolas, Monaco, monospace;font-size:22px;font-weight:900;color:#f97316;letter-spacing:1.5px;">
-                  ${safeRoomId}
-                </span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">PASSWORD:</td>
-              <td style="padding:6px 0;">
-                <span style="font-family:Consolas, Monaco, monospace;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:1.5px;">
-                  ${safeRoomPass}
-                </span>
-              </td>
-            </tr>
-            ${
-              slotNumber
-                ? `
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">YOUR SLOT:</td>
-              <td style="padding:6px 0;color:#38bdf8;font-size:15px;font-weight:800;">
-                Slot #${slotNumber} (${safeTeamName})
-              </td>
-            </tr>`
-                : ""
-            }
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SCHEDULE:</td>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:700;">
-                ${safeStartTime}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <div style="margin-bottom:20px;">
-      <h3 style="margin:0 0 10px 0;color:#ffffff;font-size:13px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">
-        Important Joining Rules
-      </h3>
-      <ul style="margin:0;padding-left:18px;color:#94a3b8;font-size:13px;line-height:1.7;">
-        <li>Sit strictly in your assigned slot${slotNumber ? ` (Slot #${slotNumber})` : ""}.</li>
-        <li>Do NOT leak or share room credentials outside of your squad members. Doing so results in permanent ban.</li>
-        <li>Emulators and third-party tools are banned. Mobile devices only.</li>
-      </ul>
-    </div>
-  `
-
   const title = isUpdated ? `Room Credentials Updated: ${safeScrimTitle}` : `Room Credentials Released: ${safeScrimTitle}`
-  const preheader = isUpdated
-    ? `UPDATED Room ID: ${safeRoomId} | Password: ${safeRoomPass} for ${safeScrimTitle}`
-    : `Room ID: ${safeRoomId} | Password: ${safeRoomPass} for ${safeScrimTitle}`
-
+  const contentHtml = `<p style="margin:0 0 16px 0;">Hello ${safeRecipient}, Room ID: <strong>${safeRoomId}</strong> | Password: <strong>${safeRoomPass}</strong> (${safeStartTime})</p>`
   const html = emailShell({
     title,
-    preheader,
+    preheader: `Room ID: ${safeRoomId} | Password: ${safeRoomPass}`,
     contentHtml,
     ctaText: "Go to Dashboard",
     ctaUrl: dashboardUrl,
   })
 
-  const subject = isUpdated
-    ? `UPDATED Room ID & Password: ${scrimTitle} — ACE SCRIMS`
-    : `Room ID & Password: ${scrimTitle} — ACE SCRIMS`
-
   const result = await sendEmail({
     to,
-    subject,
+    subject: `${isUpdated ? "UPDATED " : ""}Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
     html,
     text: `${title}. Room ID: ${roomId} | Password: ${roomPassword}. Start time: ${startTime}. View in dashboard: ${dashboardUrl}`,
   })
@@ -1071,64 +1117,53 @@ export async function sendMatchResultPublishedEmail({
   placement: number
   category: string
 }): Promise<boolean> {
+  const tpl = await getEmailTemplateByPurpose("result")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "result" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const resultsUrl = `${appUrl}/results`
-
   const isWinner = teamName.toLowerCase().trim() === winningTeam.toLowerCase().trim()
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        recipientName: recipientName || "Captain",
+        teamName,
+        scrimTitle,
+        winningTeam,
+        winnerStatus: isWinner ? "(Your Team)" : "",
+        category,
+        kills,
+        prizeBdt,
+        placement,
+        resultsUrl,
+      },
+      { defaultTitle: `Match Results Published: ${scrimTitle}`, defaultCtaUrl: resultsUrl }
+    )
+    try {
+      const result = await sendEmail({ to, ...rendered })
+      if (!result.success) {
+        console.error(`[Match Result Email] Delivery failed to ${to}:`, result.error || "Unknown delivery error")
+      }
+      return result.success
+    } catch (emailErr) {
+      console.error(`[Match Result Email] Exception sending to ${to}:`, emailErr)
+      return false
+    }
+  }
+
   const safeRecipient = escapeHtml(recipientName || "Captain")
-  const safeTeamName = escapeHtml(teamName)
   const safeScrimTitle = escapeHtml(scrimTitle)
   const safeWinningTeam = escapeHtml(winningTeam)
-  const safeCategory = escapeHtml(category)
-
-  const contentHtml = `
-    <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
-      Hello <strong>${safeRecipient}</strong>,
-    </p>
-    <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      The official match results for <strong>${safeScrimTitle}</strong> have just been verified and published by the tournament administration.
-    </p>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:18px 20px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">YOUR SQUAD:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">CHAMPION / WINNER:</td>
-              <td style="padding:6px 0;color:#f97316;font-size:15px;font-weight:800;">${safeWinningTeam} ${isWinner ? "(Your Team)" : ""}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">CATEGORY:</td>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:13px;font-weight:700;">${safeCategory}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">WINNER KILLS:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${kills} Kills</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">PRIZE POOL AWARDED:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:15px;font-weight:800;">৳${prizeBdt} BDT</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <div style="margin-bottom:20px;">
-      <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.65;">
-        You can inspect the full leaderboard, screenshot proofs, and match statistics directly on the official results page.
-      </p>
-    </div>
-  `
 
   const html = emailShell({
     title: `Match Results Published: ${safeScrimTitle}`,
-    preheader: `Official results published for ${safeScrimTitle}. Winner: ${safeWinningTeam} with ${kills} kills.`,
-    contentHtml,
+    preheader: `Official results published for ${safeScrimTitle}. Winner: ${safeWinningTeam}.`,
+    contentHtml: `<p>Hello <strong>${safeRecipient}</strong>, Winner: <strong>${safeWinningTeam}</strong> (${kills} Kills) · Prize: ৳${prizeBdt} BDT.</p>`,
     ctaText: "View Full Match Results",
     ctaUrl: resultsUrl,
   })
@@ -1138,11 +1173,8 @@ export async function sendMatchResultPublishedEmail({
       to,
       subject: `Match Results Published: ${scrimTitle} — ACE SCRIMS`,
       html,
-      text: `Hello ${recipientName}, the official match results for ${scrimTitle} have been published. Winner: ${winningTeam} with ${kills} kills. Prize: ৳${prizeBdt} BDT. View results at ${resultsUrl}`,
+      text: `Hello ${recipientName}, official match results for ${scrimTitle} are published. Winner: ${winningTeam} (${kills} kills). Prize: ৳${prizeBdt} BDT. View results: ${resultsUrl}`,
     })
-    if (!result.success) {
-      console.error(`[Match Result Email] Delivery failed to ${to}:`, result.error || "Unknown delivery error")
-    }
     return result.success
   } catch (emailErr) {
     console.error(`[Match Result Email] Exception sending to ${to}:`, emailErr)
@@ -1170,70 +1202,48 @@ export async function sendMvpImageRequestEmail({
   requestType?: string | null
   scrimDate?: string | null
 }): Promise<boolean> {
+  const tpl = await getEmailTemplateByPurpose("mvp_image")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "mvp_image" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard/image-requests`
+  const targetPlayerLabel = mvpPlayerName ? `${mvpPlayerName} (${teamName})` : teamName
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        recipientName: recipientName || "Captain",
+        teamName,
+        mvpPlayerName: mvpPlayerName || "Squad Captain",
+        targetPlayerLabel,
+        scrimTitle,
+        scrimDate: scrimDate || "Latest Match",
+        requestType: requestType || "MVP Face Banner Image",
+        dashboardUrl,
+      },
+      { defaultTitle: `MVP Image Requested: ${teamName}`, defaultCtaUrl: dashboardUrl }
+    )
+    try {
+      const result = await sendEmail({ to, ...rendered })
+      return result.success
+    } catch (err) {
+      console.error(`[MVP Image Request Email] Exception sending to ${to}:`, err)
+      return false
+    }
+  }
 
   const safeRecipient = escapeHtml(recipientName || "Captain")
   const safeTeamName = escapeHtml(teamName)
   const safeScrimTitle = escapeHtml(scrimTitle)
-  const safeMvpPlayerName = mvpPlayerName ? escapeHtml(mvpPlayerName) : null
-  const safeRequestType = escapeHtml(requestType || "MVP Face Banner Image")
-  const safeScrimDate = scrimDate ? escapeHtml(scrimDate) : null
-
-  const targetPlayerStr = safeMvpPlayerName
-    ? `player <strong>${safeMvpPlayerName}</strong> from squad <strong>${safeTeamName}</strong>`
-    : `your squad <strong>${safeTeamName}</strong>`
-
-  const contentHtml = `
-    <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
-      Hello <strong>${safeRecipient}</strong>,
-    </p>
-    <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      Congratulations! Ace Scrims management has officially requested an image asset for ${targetPlayerStr} from <em>${safeScrimTitle}</em>${safeScrimDate ? ` (${safeScrimDate})` : ""} to be featured in the official Ace Scrims Face Banners showcase.
-    </p>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:18px 20px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SQUAD:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
-            </tr>
-            ${safeMvpPlayerName ? `
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">MVP PLAYER:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:700;">${safeMvpPlayerName}</td>
-            </tr>
-            ` : ""}
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">EVENT:</td>
-              <td style="padding:6px 0;color:#f97316;font-size:14px;font-weight:700;">${safeScrimTitle}${safeScrimDate ? ` · ${safeScrimDate}` : ""}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">REQUEST TYPE:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:14px;font-weight:800;">${safeRequestType}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">PHOTO GUIDELINES:</td>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:13px;">Waist-up photo (কোমর পর্যন্ত ছবি), preferably with background removed</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <div style="margin-bottom:20px;">
-      <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.65;">
-        Please upload your photo now directly from your User Dashboard to ensure your feature in our next production banner.
-      </p>
-    </div>
-  `
 
   const html = emailShell({
     title: `MVP Image Requested: ${safeTeamName}`,
-    preheader: `Ace Scrims management has requested an MVP photo for ${safeTeamName} (${safeScrimTitle}).`,
-    contentHtml,
+    preheader: `Ace Scrims management has requested an MVP photo for ${safeTeamName}.`,
+    contentHtml: `<p>Hello <strong>${safeRecipient}</strong>, please upload your waist-up MVP image for <strong>${safeTeamName}</strong> (${safeScrimTitle}).</p>`,
     ctaText: "Upload MVP Image Now",
     ctaUrl: dashboardUrl,
   })
@@ -1243,7 +1253,7 @@ export async function sendMvpImageRequestEmail({
       to,
       subject: `Action Required: Upload MVP Image for ${teamName} — ACE SCRIMS`,
       html,
-      text: `Hello ${recipientName}, congratulations! Ace Scrims management has requested an MVP photo for ${teamName} (${scrimTitle}). Please upload it on your dashboard at: ${dashboardUrl}`,
+      text: `Hello ${recipientName}, Ace Scrims management has requested an MVP photo for ${teamName} (${scrimTitle}). Upload at: ${dashboardUrl}`,
     })
     return result.success
   } catch (err) {
@@ -1314,13 +1324,14 @@ export async function sendNoticeBroadcastEmail({
   mediaType?: "none" | "image" | "video" | string
   isPinned?: boolean
 }): Promise<boolean> {
+  const tpl = await getEmailTemplateByPurpose("notice")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "notice" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const noticesUrl = `${appUrl}/dashboard/notices`
-
-  const safeName = escapeHtml(recipientName || "Player")
-  const safeTitle = escapeHtml(title)
-  const safeCategory = escapeHtml(category || "General")
-  const formattedContent = escapeHtml(content).replace(/\r?\n/g, "<br />")
 
   const priorityLabel =
     priority === "urgent"
@@ -1331,64 +1342,56 @@ export async function sendNoticeBroadcastEmail({
       ? "PINNED NOTICE"
       : "OFFICIAL NOTICE"
 
-  const priorityColor =
-    priority === "urgent"
-      ? "#ef4444"
-      : priority === "important"
-      ? "#f59e0b"
-      : "#f97316"
-
   const validMediaUrl =
-    mediaUrl && /^https?:\/\//i.test(mediaUrl.trim()) ? mediaUrl.trim() : null
+    mediaUrl && isSafeHttpOrRelativeUrl(mediaUrl.trim(), { allowImageDataUri: true })
+      ? mediaUrl.trim()
+      : null
 
-  const mediaBlock = validMediaUrl
-    ? mediaType === "image"
-      ? `
-    <div style="margin:20px 0;border-radius:10px;overflow:hidden;border:1px solid #1e2235;background:#080a12;">
-      <img src="${escapeHtml(validMediaUrl)}" alt="${safeTitle}" style="display:block;width:100%;max-height:320px;object-fit:cover;" />
-    </div>`
-      : mediaType === "video"
-      ? `
-    <div style="margin:20px 0;padding:14px 16px;border-radius:10px;border:1px solid #1e2235;background:#121524;">
-      <p style="margin:0 0 6px 0;color:#cbd5e1;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">
-        Video Attachment Included
-      </p>
-      <a href="${escapeHtml(validMediaUrl)}" target="_blank" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
-        Watch Attached Video
-      </a>
-    </div>`
-      : ""
-    : ""
+  const extraMediaItems: EmailTemplateMediaItem[] = validMediaUrl
+    ? [
+        {
+          url: validMediaUrl,
+          type: mediaType === "video" ? "video" : "image",
+          name: title,
+        },
+      ]
+    : []
 
-  const contentHtml = `
-    <p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">
-      Hello <strong>${safeName}</strong>,
-    </p>
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        recipientName: recipientName || "Player",
+        title,
+        content,
+        category: category || "General",
+        priority,
+        priorityLabel,
+        noticesUrl,
+      },
+      {
+        defaultTitle: `${priorityLabel}: ${title}`,
+        defaultCtaUrl: noticesUrl,
+        extraMediaItems,
+      }
+    )
+    try {
+      const result = await sendEmail({ to, ...rendered })
+      return result.success
+    } catch (err) {
+      console.error(`[Notice Broadcast Email] Exception sending to ${to}:`, err)
+      return false
+    }
+  }
 
-    <div style="margin-bottom:18px;">
-      <span style="display:inline-block;background:rgba(234,88,12,0.14);color:${priorityColor};font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid ${priorityColor};margin-right:8px;">
-        ${priorityLabel}
-      </span>
-      <span style="display:inline-block;background:#121524;color:#cbd5e1;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #1e2235;">
-        ${safeCategory}
-      </span>
-    </div>
-
-    <div style="background:#121524;border:1px solid #1e2235;border-radius:10px;padding:20px;margin-bottom:20px;">
-      <h2 style="margin:0 0 12px 0;color:#ffffff;font-size:18px;font-weight:800;line-height:1.35;">
-        ${safeTitle}
-      </h2>
-      <div style="color:#cbd5e1;font-size:14px;line-height:1.7;">
-        ${formattedContent}
-      </div>
-      ${mediaBlock}
-    </div>
-  `
+  const safeName = escapeHtml(recipientName || "Player")
+  const safeTitle = escapeHtml(title)
+  const formattedContent = escapeHtml(content).replace(/\r?\n/g, "<br />")
 
   const html = emailShell({
     title: `${priorityLabel}: ${safeTitle}`,
-    preheader: `${safeCategory} — ${safeTitle}`,
-    contentHtml,
+    preheader: `${category} — ${safeTitle}`,
+    contentHtml: `<p>Hello <strong>${safeName}</strong>,</p><div>${formattedContent}</div>${renderMediaItemsHtml(extraMediaItems)}`,
     ctaText: "View Official Notice",
     ctaUrl: noticesUrl,
   })
@@ -1420,13 +1423,44 @@ export async function sendWelcomeEmail({
   authMethod?: "google" | "email"
 }): Promise<boolean> {
   if (!to || !to.includes("@")) return false
+
+  const tpl = await getEmailTemplateByPurpose("welcome")
+  if (tpl && !tpl.isEnabled) {
+    console.log(`[Email Template] "welcome" template is disabled by admin. Skipping email to ${to}.`)
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const scrimsUrl = `${appUrl}/scrims`
-  const safeName = escapeHtml(userName?.trim() || "Player")
+  const rawName = userName?.trim() || "Player"
+  const safeName = escapeHtml(rawName)
   const methodLabel =
     authMethod === "google"
       ? "Your account is active and verified via Google."
       : "Your email has been verified and your account is now active."
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        userName: rawName,
+        authMethod,
+        methodLabel,
+        scrimsUrl,
+      },
+      { defaultTitle: "Welcome to ACE SCRIMS", defaultCtaUrl: scrimsUrl }
+    )
+    try {
+      const result = await sendEmail({ to, ...rendered })
+      if (!result.success) {
+        console.error(`[Welcome Email] Delivery failed for ${to}: ${result.error}`)
+      }
+      return result.success
+    } catch (err) {
+      console.error(`[Welcome Email] Exception sending to ${to}:`, err)
+      return false
+    }
+  }
 
   const contentHtml = `
     <h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">
@@ -1435,36 +1469,6 @@ export async function sendWelcomeEmail({
     <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
       Welcome aboard! ${methodLabel} You're fully geared up to register your squad and compete on ACE SCRIMS.
     </p>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#121524;border:1px solid #1f2438;border-radius:10px;margin:0 0 24px 0;">
-      <tr>
-        <td style="padding:18px 20px;">
-          <p style="margin:0 0 12px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">
-            WHAT'S WAITING FOR YOU:
-          </p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
-                <span style="color:#f97316;font-weight:bold;margin-right:8px;">&bull;</span>
-                <strong style="color:#ffffff;">Daily Evening Scrims:</strong> High-tier regular squad showdowns with instant slot locking.
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
-                <span style="color:#f97316;font-weight:bold;margin-right:8px;">&bull;</span>
-                <strong style="color:#ffffff;">Friday Special Blast &amp; Champion Rush:</strong> Weekend peak events with boosted prize pools.
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;font-size:13px;line-height:1.55;color:#94a3b8;">
-                <span style="color:#f97316;font-weight:bold;margin-right:8px;">&bull;</span>
-                <strong style="color:#ffffff;">Live Room Delivery &amp; Rewards:</strong> Room ID/Password delivered in-app and via email before kickoff.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
   `
 
   const html = emailShell({
@@ -1478,9 +1482,9 @@ export async function sendWelcomeEmail({
   try {
     const result = await sendEmail({
       to,
-      subject: `Welcome aboard, ${userName?.trim() || "Player"} — ACE SCRIMS`,
+      subject: `Welcome aboard, ${rawName} — ACE SCRIMS`,
       html,
-      text: `Hey ${userName?.trim() || "Player"}, welcome to ACE SCRIMS! ${methodLabel} Explore upcoming lobbies at ${scrimsUrl}`,
+      text: `Hey ${rawName}, welcome to ACE SCRIMS! ${methodLabel} Explore upcoming lobbies at ${scrimsUrl}`,
     })
     if (!result.success) {
       console.error(`[Welcome Email] Delivery failed for ${to}: ${result.error}`)

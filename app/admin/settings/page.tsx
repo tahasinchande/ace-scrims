@@ -3,23 +3,29 @@ import { getSessionUser } from "@/lib/session"
 import { db } from "@/lib/db"
 import { settings } from "@/lib/db/schema"
 import { SiteSettingsForm } from "@/components/admin/site-settings-form"
+import { PayoutMethodsManager } from "@/components/admin/payout-methods-manager"
+import { getAllPayoutMethods } from "@/lib/queries/payout-methods"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Settings — Ace Scrims Admin" }
 
 export default async function AdminSettingsPage() {
   const user = await getSessionUser()
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (user?.banned || user?.role !== "admin") redirect("/admin/scrims")
 
-  const rows = await db.select().from(settings)
+  const [rows, payoutMethods] = await Promise.all([
+    db.select().from(settings),
+    getAllPayoutMethods(),
+  ])
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
 
   return (
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Site Settings</h1>
-        <p className="text-sm text-muted-foreground">Community links, TikTok, SupportKori and contact info.</p>
+        <p className="text-sm text-muted-foreground">Community links, TikTok, SupportKori, payout methods, and contact info.</p>
       </header>
+      <PayoutMethodsManager initialMethods={payoutMethods} />
       <SiteSettingsForm
         discordUrl={map.discord_url ?? "https://discord.gg/aKF4hMuhmA"}
         facebookUrl={map.facebook_url ?? "https://facebook.com/acescrims"}

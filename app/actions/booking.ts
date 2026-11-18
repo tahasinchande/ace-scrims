@@ -8,6 +8,8 @@ import { and, eq, or, sql, gte } from "drizzle-orm"
 import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
 import { getScrimById, userHasBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
+import { getActivePayoutMethods } from "@/lib/queries/payout-methods"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 function isUniqueViolationError(err: unknown): { matched: boolean; constraint: string } {
   if (!err || typeof err !== "object") return { matched: false, constraint: "" }
@@ -39,19 +41,10 @@ const bookingSchema = z.object({
     .trim()
     .regex(/^(\+?880|0)1[3-9]\d{8}$/, "Enter a valid Bangladeshi WhatsApp number"),
   teamLeaderImageUrl: z.string().min(1, "Team Leader image is required. Please upload a waist-up photo."),
-  paymentMethod: z.enum(["bKash", "Nagad", "Tap", "Balance"]).default("bKash"),
+  paymentMethod: z.string().trim().min(1, "Select a payout method").max(30).default("bKash"),
   paymentNumber: z.string().trim().max(50).optional().default(""),
   teamMembersDriveLink: z.string().trim().optional().transform((val) => val || ""),
-}).refine(
-  (val) => {
-    if (val.paymentMethod === "Balance") return true
-    return Boolean(val.paymentNumber && val.paymentNumber.length >= 5)
-  },
-  {
-    message: "Payment Number is required for prize pool disbursement",
-    path: ["paymentNumber"],
-  }
-)
+})
 
 export type BookingFormState = {
   ok: boolean
@@ -106,8 +99,47 @@ export async function createBooking(
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors }
   }
   const data = parsed.data
-  if (data.paymentMethod === "Balance" && !data.paymentNumber) {
-    data.paymentNumber = "Ace Scrims Account Balance"
+
+  if (!isSafeHttpOrRelativeUrl(data.teamLeaderImageUrl, { allowImageDataUri: true })) {
+    return {
+      ok: false,
+      error: "Invalid Team Leader image URL.",
+      fieldErrors: { teamLeaderImageUrl: "Please upload a valid PNG, JPG, or WEBP photo." },
+    }
+  }
+  if (data.teamMembersDriveLink && !isSafeHttpOrRelativeUrl(data.teamMembersDriveLink)) {
+    return {
+      ok: false,
+      error: "Invalid Team Members Drive link URL.",
+      fieldErrors: { teamMembersDriveLink: "Please enter a valid HTTP/HTTPS link." },
+    }
+  }
+
+  const activeMethods = await getActivePayoutMethods()
+  const matchedMethod = activeMethods.find(
+    (m) =>
+      m.code.toLowerCase() === data.paymentMethod.toLowerCase() ||
+      m.name.toLowerCase() === data.paymentMethod.toLowerCase()
+  )
+  if (!matchedMethod) {
+    return {
+      ok: false,
+      error: "Selected payout method is not currently available.",
+      fieldErrors: { paymentMethod: "Please select an active payout method." },
+    }
+  }
+
+  data.paymentMethod = matchedMethod.code
+  if (!matchedMethod.requiresAccountNumber) {
+    data.paymentNumber = data.paymentNumber || "Ace Scrims Account Balance"
+  } else if (!data.paymentNumber || data.paymentNumber.trim().length < 5) {
+    return {
+      ok: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: {
+        paymentNumber: `Payment Number is required for ${matchedMethod.name} prize pool disbursement`,
+      },
+    }
   }
 
   // Auto-persist squad details to user profile ("Info Setup") so future registrations auto-populate
@@ -373,7 +405,7 @@ export async function createBooking(
         if (confirmedCount + 1 >= scrim.maxTeams) {
           await tx
             .update(scrims)
-            .set({ registrationOpen: false, updatedAt: new Date() })
+            .set({ registrationOpen: false, icebergEnabled: false, updatedAt: new Date() })
             .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
         }
       })
@@ -550,6 +582,7 @@ export async function getScrimSlots(scrimId: string) {
     await archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
 
+    const { computeIcebergDisplayCount } = await import("@/lib/iceberg")
     const scrimRow = await db
       .select({
         id: scrims.id,
@@ -559,6 +592,10 @@ export async function getScrimSlots(scrimId: string) {
         status: scrims.status,
         scrimDate: scrims.scrimDate,
         startTime: scrims.startTime,
+        icebergEnabled: scrims.icebergEnabled,
+        icebergAmount: scrims.icebergAmount,
+        icebergThreshold: scrims.icebergThreshold,
+        icebergStartRealCount: scrims.icebergStartRealCount,
       })
       .from(scrims)
       .where(or(eq(scrims.id, scrimId), eq(scrims.slug, scrimId)))
@@ -579,7 +616,7 @@ export async function getScrimSlots(scrimId: string) {
         )
       )
 
-    const confirmed = rows[0]?.confirmed ?? 0
+    const realConfirmed = rows[0]?.confirmed ?? 0
     const maxTeams = scrimRow[0]?.maxTeams ?? 12
     const isNewDay = !scrimRow[0]?.scrimDate || scrimRow[0]?.scrimDate < activeDate
     const effectiveDate =
@@ -591,7 +628,7 @@ export async function getScrimSlots(scrimId: string) {
       : (scrimRow[0]?.status || "upcoming")
     const rawRegOpen = isNewDay ? true : (scrimRow[0]?.registrationOpen ?? true)
     const isForcedOpen = rawStatus === "force_open" || rawStatus === "force_turn_on"
-    const isFull = confirmed >= maxTeams
+    const isFull = realConfirmed >= maxTeams
     const startTime = scrimRow[0]?.startTime
     const isTimePassed = startTime
       ? new Date().getTime() >= scrimStartDate(effectiveDate, startTime).getTime()
@@ -600,8 +637,17 @@ export async function getScrimSlots(scrimId: string) {
       ? isFull
       : (!rawRegOpen || isFull || isTimePassed || rawStatus === "registration_closed" || rawStatus === "completed" || rawStatus === "not_hosted")
 
+    const displayConfirmed = computeIcebergDisplayCount({
+      realConfirmed,
+      maxTeams,
+      icebergEnabled: Boolean(scrimRow[0]?.icebergEnabled) && !isFull,
+      icebergAmount: Number(scrimRow[0]?.icebergAmount ?? 7),
+      icebergThreshold: Number(scrimRow[0]?.icebergThreshold ?? 3),
+      icebergStartRealCount: isNewDay ? 0 : Number(scrimRow[0]?.icebergStartRealCount ?? 0),
+    })
+
     return {
-      confirmed,
+      confirmed: displayConfirmed,
       maxTeams,
       registrationOpen: rawStatus === "not_hosted" ? false : isForcedOpen ? !isFull : !isClosed,
       status:
@@ -625,6 +671,7 @@ export async function getLiveScrimSlotsMap(): Promise<
   try {
     const { archivePreviousDayBookings } = await import("@/lib/queries/scrims")
     const { scrimStartDate } = await import("@/lib/format")
+    const { computeIcebergDisplayCount } = await import("@/lib/iceberg")
     await archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
 
@@ -646,6 +693,10 @@ export async function getLiveScrimSlotsMap(): Promise<
           status: scrims.status,
           scrimDate: scrims.scrimDate,
           startTime: scrims.startTime,
+          icebergEnabled: scrims.icebergEnabled,
+          icebergAmount: scrims.icebergAmount,
+          icebergThreshold: scrims.icebergThreshold,
+          icebergStartRealCount: scrims.icebergStartRealCount,
         })
         .from(scrims),
     ])
@@ -678,8 +729,17 @@ export async function getLiveScrimSlotsMap(): Promise<
         ? isFull
         : (!rawRegOpen || isFull || isTimePassed || rawStatus === "registration_closed" || rawStatus === "completed" || rawStatus === "not_hosted")
 
+      const displayConfirmed = computeIcebergDisplayCount({
+        realConfirmed: totalConfirmed,
+        maxTeams,
+        icebergEnabled: Boolean(s.icebergEnabled) && !isFull,
+        icebergAmount: Number(s.icebergAmount ?? 7),
+        icebergThreshold: Number(s.icebergThreshold ?? 3),
+        icebergStartRealCount: isNewDay ? 0 : Number(s.icebergStartRealCount ?? 0),
+      })
+
       const item = {
-        confirmed: totalConfirmed,
+        confirmed: displayConfirmed,
         maxTeams,
         registrationOpen: rawStatus === "not_hosted" ? false : isForcedOpen ? !isFull : !isClosed,
         status:

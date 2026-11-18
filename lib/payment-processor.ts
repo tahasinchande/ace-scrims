@@ -341,11 +341,11 @@ export async function processPayment(
 
     confirmedNow = true
 
-    // 4. Auto-close registration if lobby reached maxTeams for today
+    // 4. Auto-close registration and turn off Iceberg Safety Override if lobby reached maxTeams for today
     if (scrim && currentConfirmedCount + 1 >= scrim.maxTeams) {
       await tx
         .update(scrims)
-        .set({ registrationOpen: false, updatedAt: new Date() })
+        .set({ registrationOpen: false, icebergEnabled: false, updatedAt: new Date() })
         .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
     }
   })

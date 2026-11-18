@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { getScrimBySlug } from "@/lib/queries/scrims"
+import { sanitizePublicScrim } from "@/lib/iceberg"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl } from "@/lib/queries/dashboard"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
@@ -72,7 +73,7 @@ export default async function ScrimDetailPage({
     <>
       <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
       <ScrimDetailView
-        scrim={scrim}
+        scrim={sanitizePublicScrim(scrim)}
         isConfirmed={isConfirmed}
         championRushWhatsappUrl={championRushWhatsappUrl}
         championRush3pmWhatsappUrl={championRush3pmWhatsappUrl}

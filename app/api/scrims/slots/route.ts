@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getActiveScrims, getScrimById, getBangladeshActiveDate } from "@/lib/queries/scrims"
+import { sanitizePublicScrim } from "@/lib/iceberg"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
         {
           ok: true,
           activeDate,
-          scrim,
+          scrim: sanitizePublicScrim(scrim),
           timestamp: Date.now(),
         },
         { headers: NO_STORE_HEADERS }
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
       {
         ok: true,
         activeDate,
-        scrims,
+        scrims: scrims.map((s) => sanitizePublicScrim(s)),
         timestamp: Date.now(),
       },
       { headers: NO_STORE_HEADERS }

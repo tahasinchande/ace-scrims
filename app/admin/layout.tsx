@@ -12,7 +12,7 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const user = await getSessionUser()
-  if (!user || (user.role !== "admin" && user.role !== "moderator")) {
+  if (!user || user.banned || (user.role !== "admin" && user.role !== "moderator")) {
     redirect("/")
   }
 

@@ -2,7 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
 
-const PROTECTED_PREFIXES = ["tutorials/", "scrims/", "banners/", "results/"]
+const PROTECTED_PREFIXES = ["tutorials/", "scrims/", "banners/", "results/", "email-media/", "notices/"]
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
@@ -19,6 +19,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         const isStaff = user.role === "admin" || user.role === "moderator"
         const normalizedPath = pathname.replace(/^\/+/, "")
+        if (normalizedPath.includes("..")) {
+          throw new Error("Invalid upload path.")
+        }
         if (
           PROTECTED_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix)) &&
           !isStaff
@@ -32,15 +35,12 @@ export async function POST(request: Request): Promise<NextResponse> {
             "image/png",
             "image/webp",
             "image/gif",
-            "image/svg+xml",
             "video/mp4",
             "video/webm",
             "video/quicktime",
             "video/x-matroska",
             "video/x-msvideo",
             "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           ],
           maximumSizeInBytes: isStaff
             ? 10 * 1024 * 1024 * 1024 // Up to 10GB for staff tutorial videos

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { Clock, Users, Trophy, MapPin, Swords, CalendarDays, ScrollText, StickyNote, Award, CheckCircle2, Lock, MessageCircle } from "lucide-react"
 import { useLanguage } from "@/lib/language"
 import type { ScrimWithSlots } from "@/lib/queries/scrims"
+import type { PublicScrim } from "@/lib/iceberg"
 import { getRandomScrimImage } from "@/lib/scrim-images"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
 import { ScrimRules } from "@/components/scrims/scrim-rules"
@@ -28,7 +29,7 @@ export function ScrimDetailView({
   championRushWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
   championRush3pmWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
 }: {
-  scrim: ScrimWithSlots
+  scrim: ScrimWithSlots | PublicScrim<ScrimWithSlots>
   isConfirmed?: boolean
   championRushWhatsappUrl?: string
   championRush3pmWhatsappUrl?: string

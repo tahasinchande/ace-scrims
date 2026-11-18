@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, Heart, Coffee } from "lucide-react"
 import { toast } from "sonner"
+import { useLanguage } from "@/lib/language"
 
 export function SiteSettingsForm({
   discordUrl,
@@ -43,6 +44,7 @@ export function SiteSettingsForm({
   fridayScrimsOverride?: string
   logoUrl?: string
 }) {
+  const { lang, t } = useLanguage()
   const [discord, setDiscord] = useState(discordUrl)
   const [facebook, setFacebook] = useState(facebookUrl)
   const [youtube, setYoutube] = useState(youtubeUrl)
@@ -84,7 +86,7 @@ export function SiteSettingsForm({
         })
 
         if (res.ok) {
-          toast.success("Settings saved successfully!")
+          toast.success(lang === "bn" ? "সেটিংস সফলভাবে সংরক্ষণ করা হয়েছে!" : "Settings saved successfully!")
         } else {
           toast.error(res.error || "Failed to save settings")
         }
@@ -95,11 +97,20 @@ export function SiteSettingsForm({
   }
 
   return (
-    <div className="glass flex max-w-2xl flex-col gap-6 rounded-2xl p-6 border border-border">
+    <div className="flex flex-col gap-6">
+      <header>
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+          {t("settings_title", "Site Settings")}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {t("settings_sub")}
+        </p>
+      </header>
+      <div className="glass flex max-w-2xl flex-col gap-6 rounded-2xl p-6 border border-border">
       {/* Brand & Admin Profile Logo */}
       <div className="flex flex-col gap-3 pb-4 border-b border-border">
         <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
-          Brand Logo & Header Avatar
+          {lang === "bn" ? "ব্র্যান্ড লোগো ও হেডার আইকন" : "Brand Logo & Header Avatar"}
         </h3>
         <p className="text-xs text-muted-foreground">
           Sets the brand logo rendered across the public header, live chat support, and admin navigation.
@@ -421,9 +432,10 @@ export function SiteSettingsForm({
       <div>
         <Button onClick={save} disabled={isPending} className="glow-primary font-display font-bold uppercase w-full sm:w-auto">
           {isPending && <Loader2 className="size-4 animate-spin" />}
-          Save Settings
+          {t("settings_save", "Save Settings")}
         </Button>
       </div>
+    </div>
     </div>
   )
 }

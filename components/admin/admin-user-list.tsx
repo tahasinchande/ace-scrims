@@ -1,15 +1,30 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useTransition } from "react"
-import { setUserRole, setUserBanned, trashUsers } from "@/app/actions/admin"
+import { useRouter } from "next/navigation"
+import { useEffect, useState, useTransition } from "react"
+import { setUserRole, setUserBanned, setUserEmailVerified, trashUsers } from "@/app/actions/admin"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDate } from "@/lib/format"
 import { resolveImageUrl } from "@/lib/image-url"
-import { Ban, Search, ShieldCheck, Undo2, User as UserIcon, Trash2, CheckSquare, Square, Coins } from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+  Ban,
+  Search,
+  ShieldCheck,
+  Undo2,
+  User as UserIcon,
+  Trash2,
+  CheckSquare,
+  Square,
+  Coins,
+  BadgeCheck,
+  ShieldAlert,
+} from "lucide-react"
 import { toast } from "sonner"
 
 type UserRow = {
@@ -40,13 +55,20 @@ export function AdminUserList({
   users: UserRow[]
   currentUserId: string
 }) {
+  const router = useRouter()
+  const [localUsers, setLocalUsers] = useState<UserRow[]>(users)
   const [query, setQuery] = useState("")
   const [isPending, startTransition] = useTransition()
+  const [togglingVerifyId, setTogglingVerifyId] = useState<string | null>(null)
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({})
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [pendingTrashIds, setPendingTrashIds] = useState<string[] | null>(null)
 
-  const filtered = users.filter(
+  useEffect(() => {
+    setLocalUsers(users)
+  }, [users])
+
+  const filtered = localUsers.filter(
     (u) =>
       u.name.toLowerCase().includes(query.toLowerCase()) ||
       u.email.toLowerCase().includes(query.toLowerCase()),
@@ -81,6 +103,8 @@ export function AdminUserList({
       if (res.ok) {
         toast.success(`Moved ${res.count} user(s) to Trash`)
         setSelectedUserIds((prev) => prev.filter((i) => !ids.includes(i)))
+        setLocalUsers((prev) => prev.filter((u) => !ids.includes(u.id)))
+        router.refresh()
       } else {
         toast.error(res.error || "Failed to move users to trash")
       }
@@ -91,7 +115,9 @@ export function AdminUserList({
     startTransition(async () => {
       try {
         await setUserRole(userId, role)
+        setLocalUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)))
         toast.success(`Role updated to ${role}`)
+        router.refresh()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update role")
       }
@@ -102,11 +128,46 @@ export function AdminUserList({
     startTransition(async () => {
       try {
         await setUserBanned(userId, banned)
+        setLocalUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, banned } : u)))
         toast.success(banned ? "User banned" : "User unbanned")
+        router.refresh()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update user")
       }
     })
+  }
+
+  async function handleToggleVerified(targetUser: UserRow, nextVerified: boolean) {
+    if (togglingVerifyId === targetUser.id) return
+    const prevVerified = targetUser.emailVerified
+    setTogglingVerifyId(targetUser.id)
+    setLocalUsers((prev) =>
+      prev.map((u) => (u.id === targetUser.id ? { ...u, emailVerified: nextVerified } : u)),
+    )
+
+    try {
+      const res = await setUserEmailVerified(targetUser.id, nextVerified)
+      if (!res.ok) {
+        setLocalUsers((prev) =>
+          prev.map((u) => (u.id === targetUser.id ? { ...u, emailVerified: prevVerified } : u)),
+        )
+        toast.error(res.error || "Failed to update verification status")
+        return
+      }
+      toast.success(
+        nextVerified
+          ? `${targetUser.name || "User"} marked as Verified`
+          : `${targetUser.name || "User"} marked as Unverified`,
+      )
+      router.refresh()
+    } catch (err) {
+      setLocalUsers((prev) =>
+        prev.map((u) => (u.id === targetUser.id ? { ...u, emailVerified: prevVerified } : u)),
+      )
+      toast.error(err instanceof Error ? err.message : "Failed to update verification status")
+    } finally {
+      setTogglingVerifyId(null)
+    }
   }
 
   return (
@@ -160,6 +221,7 @@ export function AdminUserList({
             const isCanTrash = !isSelf && u.role !== "admin"
             const isSelected = selectedUserIds.includes(u.id)
             const hasValidImage = Boolean(u.image && u.image.trim()) && !failedImages[u.id]
+            const isTogglingThis = togglingVerifyId === u.id
 
             return (
               <li
@@ -198,7 +260,7 @@ export function AdminUserList({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 font-medium">
+                  <div className="flex flex-wrap items-center gap-2 font-medium">
                     <span className="truncate">{u.name}</span>
                     {u.role !== "user" && (
                       <Badge variant="default" className="capitalize">
@@ -207,18 +269,66 @@ export function AdminUserList({
                       </Badge>
                     )}
                     {u.banned && <Badge variant="destructive">Banned</Badge>}
-                    {!u.emailVerified && <Badge variant="outline">Unverified</Badge>}
+                    {u.emailVerified ? (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                      >
+                        <BadgeCheck className="size-3" />
+                        Verified
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-400"
+                      >
+                        <ShieldAlert className="size-3" />
+                        Unverified
+                      </Badge>
+                    )}
                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold text-emerald-400 border border-emerald-500/20">
                       ৳{(u.balance ?? 0).toLocaleString()}
                     </span>
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground mt-0.5">
                     {u.email} · joined {formatDate(u.createdAt)}
                   </p>
                 </div>
 
                 {!isSelf && (
                   <div className="flex flex-wrap items-center gap-2">
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
+                        u.emailVerified
+                          ? "border-emerald-500/35 bg-emerald-500/10"
+                          : "border-amber-500/35 bg-amber-500/10",
+                      )}
+                      title={u.emailVerified ? "Click to mark Unverified" : "Click to mark Verified"}
+                    >
+                      <Switch
+                        checked={u.emailVerified}
+                        disabled={isPending || isTogglingThis}
+                        onCheckedChange={(checked) => void handleToggleVerified(u, Boolean(checked))}
+                        aria-label={`Verification status for ${u.name}`}
+                      />
+                      <button
+                        type="button"
+                        disabled={isPending || isTogglingThis}
+                        onClick={() => void handleToggleVerified(u, !u.emailVerified)}
+                        className={cn(
+                          "text-xs font-semibold cursor-pointer disabled:opacity-50",
+                          u.emailVerified ? "text-emerald-300" : "text-amber-300",
+                        )}
+                      >
+                        {isTogglingThis
+                          ? "Saving..."
+                          : u.emailVerified
+                            ? "Verified"
+                            : "Unverified"}
+                      </button>
+                    </div>
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -267,7 +377,22 @@ export function AdminUserList({
                     )}
                   </div>
                 )}
-                {isSelf && <span className="text-xs text-muted-foreground">You</span>}
+                {isSelf && (
+                  <div className="flex items-center gap-2">
+                    {!u.emailVerified && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isTogglingThis}
+                        onClick={() => void handleToggleVerified(u, true)}
+                        className="h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 text-xs"
+                      >
+                        Verify My Account
+                      </Button>
+                    )}
+                    <span className="text-xs text-muted-foreground">You</span>
+                  </div>
+                )}
               </li>
             )
           })}

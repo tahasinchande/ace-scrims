@@ -90,6 +90,10 @@ export const scrims = pgTable("scrims", {
   registrationOpen: boolean("registrationOpen").notNull().default(true),
   status: text("status").notNull().default("upcoming"), // upcoming | live | registration_closed | completed | not_hosted | deleted
   hidden: boolean("hidden").notNull().default(false),
+  icebergEnabled: boolean("icebergEnabled").notNull().default(false),
+  icebergAmount: integer("icebergAmount").notNull().default(7),
+  icebergThreshold: integer("icebergThreshold").notNull().default(3),
+  icebergStartRealCount: integer("icebergStartRealCount").notNull().default(0),
   isTrashed: boolean("isTrashed").notNull().default(false),
   deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -189,6 +193,8 @@ export const reports = pgTable("reports", {
   additionalInfo: text("additionalInfo"),
   imageUrl: text("imageUrl"),
   videoUrl: text("videoUrl"),
+  videoUrls: jsonb("videoUrls").$type<string[]>(),
+  externalLinks: jsonb("externalLinks").$type<string[]>(),
   isTrashed: boolean("isTrashed").notNull().default(false),
   deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -346,6 +352,49 @@ export const notices = pgTable("notices", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+export const payoutMethods = pgTable("payout_methods", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  label: text("label").notNull(),
+  description: text("description"),
+  accentColor: text("accentColor").notNull().default("#f97316"),
+  requiresAccountNumber: boolean("requiresAccountNumber").notNull().default(true),
+  isActive: boolean("isActive").notNull().default(true),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+export type EmailTemplateMediaItem = {
+  id?: string
+  url: string
+  type: "image" | "video" | "link"
+  name?: string
+}
+
+export const emailTemplates = pgTable("email_templates", {
+  id: text("id").primaryKey(),
+  purposeKey: text("purposeKey").notNull().unique(),
+  label: text("label").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("system"), // system | custom
+  isEnabled: boolean("isEnabled").notNull().default(true),
+  isCore: boolean("isCore").notNull().default(false),
+  format: text("format").notNull().default("html"), // html | text
+  subject: text("subject").notNull(),
+  preheader: text("preheader"),
+  bodyHtml: text("bodyHtml").notNull(),
+  bodyText: text("bodyText").notNull(),
+  ctaText: text("ctaText"),
+  ctaUrl: text("ctaUrl"),
+  mediaItems: jsonb("mediaItems").$type<EmailTemplateMediaItem[]>().notNull().default([]),
+  variablesHint: jsonb("variablesHint").$type<string | string[] | null>(),
+  updatedBy: text("updatedBy"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 // ── Types ───────────────────────────────────────────────────────────────
 
 export type Scrim = typeof scrims.$inferSelect
@@ -362,4 +411,48 @@ export type ImageRequest = typeof imageRequests.$inferSelect
 export type WalletTransaction = typeof walletTransactions.$inferSelect
 export type UserDefaultInfo = typeof userDefaultInfo.$inferSelect
 export type Notice = typeof notices.$inferSelect
+export type PayoutMethod = typeof payoutMethods.$inferSelect
+export type EmailTemplate = typeof emailTemplates.$inferSelect
 
+export const chatSessions = pgTable("chat_sessions", {
+  userId: text("userId").primaryKey(),
+  mode: text("mode").notNull().default("ai"), // ai | human
+  escalatedAt: timestamp("escalatedAt"),
+  takenOverBy: text("takenOverBy"),
+  takenOverAt: timestamp("takenOverAt"),
+  lastAiReplyAt: timestamp("lastAiReplyAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+export const chatModerationLogs = pgTable("chat_moderation_logs", {
+  id: text("id").primaryKey(),
+  userId: text("userId").notNull(),
+  userName: text("userName"),
+  userEmail: text("userEmail"),
+  messageContent: text("messageContent").notNull(),
+  violationCategory: text("violationCategory").notNull(),
+  reason: text("reason").notNull(),
+  confidence: integer("confidence").notNull().default(0),
+  detectorSource: text("detectorSource").notNull(),
+  actionTaken: text("actionTaken").notNull(),
+  isResolved: boolean("isResolved").notNull().default(false),
+  resolvedBy: text("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const emailLogs = pgTable("email_logs", {
+  id: text("id").primaryKey(),
+  recipientEmail: text("recipientEmail").notNull(),
+  purposeKey: text("purposeKey"),
+  subject: text("subject").notNull(),
+  status: text("status").notNull().default("sent"),
+  provider: text("provider"),
+  error: text("error"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export type ChatSession = typeof chatSessions.$inferSelect
+export type ChatModerationLog = typeof chatModerationLogs.$inferSelect
+export type EmailLog = typeof emailLogs.$inferSelect

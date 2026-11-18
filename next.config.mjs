@@ -1,11 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   productionBrowserSourceMaps: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  serverExternalPackages: ["pg"],
   experimental: {
-    webpackMemoryOptimizations: true,
+    cpus: 1,
+    workerThreads: false,
     serverActions: {
       bodySizeLimit: "10mb",
     },
@@ -32,4 +31,3 @@ const nextConfig = {
 }
 
 export default nextConfig
-

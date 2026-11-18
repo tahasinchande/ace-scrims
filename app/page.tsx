@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
 import { getActiveScrims } from "@/lib/queries/scrims"
+import { sanitizePublicScrim } from "@/lib/iceberg"
 import { getRecentResults } from "@/lib/queries/results"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { SiteHeader } from "@/components/site/site-header"
@@ -116,7 +117,7 @@ export default async function HomePage() {
                 : "New competitive lobbies will be listed soon. Book before they fill."
             }
           />
-          <HomeScrimsGrid initialScrims={scrims} />
+          <HomeScrimsGrid initialScrims={scrims.map((s) => sanitizePublicScrim(s))} />
         </section>
 
         <HowItWorks />

@@ -6,9 +6,66 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
+const ALLOWED_FOLDERS = new Set([
+  "uploads",
+  "reports",
+  "avatars",
+  "chat",
+  "tutorials",
+  "scrims",
+  "banners",
+  "results",
+  "email-media",
+  "notices",
+])
+
+const PROTECTED_FOLDERS = new Set(["tutorials", "scrims", "banners", "results", "email-media", "notices"])
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-matroska",
+  "video/x-msvideo",
+  "application/pdf",
+])
+
+const ALLOWED_EXTENSIONS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "mp4",
+  "webm",
+  "mov",
+  "mkv",
+  "avi",
+  "pdf",
+])
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser().catch(() => null)
+
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: "Authentication required to upload files." },
+        { status: 401 }
+      )
+    }
+
+    if (user.banned) {
+      return NextResponse.json(
+        { ok: false, error: "Account suspended. File uploads are disabled." },
+        { status: 403 }
+      )
+    }
 
     let formData: FormData
     try {
@@ -22,7 +79,8 @@ export async function POST(req: NextRequest) {
     }
 
     const file = formData.get("file")
-    const folder = (formData.get("folder") as string) || "uploads"
+    const rawFolder = ((formData.get("folder") as string) || "uploads").trim().toLowerCase()
+    const folder = ALLOWED_FOLDERS.has(rawFolder) ? rawFolder : "uploads"
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ ok: false, error: "No file provided in form-data" }, { status: 400 })
@@ -32,15 +90,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "File is empty (0 bytes)" }, { status: 400 })
     }
 
-    // Size limit check (supports images and videos up to 100MB)
+    // Size limit check (Vercel serverless payload safeguard)
     if (file.size > 100 * 1024 * 1024) {
       return NextResponse.json({ ok: false, error: "File size exceeds 100MB limit" }, { status: 413 })
     }
 
-    if (!user) {
+    const ext = file.name.split(".").pop()?.toLowerCase() || ""
+    const mime = (file.type || "").toLowerCase()
+    if (!ALLOWED_EXTENSIONS.has(ext) && !ALLOWED_MIME_TYPES.has(mime)) {
       return NextResponse.json(
-        { ok: false, error: "Authentication required to upload files." },
-        { status: 401 }
+        { ok: false, error: "Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, MP4, WEBM, MOV, MKV, AVI, PDF." },
+        { status: 400 }
+      )
+    }
+    if (mime === "image/svg+xml" || ext === "svg" || ext === "html" || ext === "htm" || ext === "js") {
+      return NextResponse.json(
+        { ok: false, error: "SVG and executable script/HTML uploads are blocked for security reasons." },
+        { status: 400 }
       )
     }
 
@@ -51,8 +117,7 @@ export async function POST(req: NextRequest) {
       user.role === "staff" ||
       user.role === "mod"
 
-    const protectedFolders = ["tutorials", "scrims", "banners", "results"]
-    if (protectedFolders.includes(folder) && !isStaff) {
+    if (PROTECTED_FOLDERS.has(folder) && !isStaff) {
       return NextResponse.json(
         { ok: false, error: `Admin or staff privileges required for ${folder} uploads` },
         { status: 403 }
@@ -60,14 +125,14 @@ export async function POST(req: NextRequest) {
     }
 
     const url = await saveUploadedFile(file, folder)
-    const isImage = file.type.startsWith("image/")
+    const isImage = mime.startsWith("image/")
 
     return NextResponse.json({
       ok: true,
       url,
       fileName: file.name,
       fileSize: file.size,
-      fileType: isImage ? "image" : "video",
+      fileType: isImage ? "image" : mime.startsWith("video/") ? "video" : "file",
     })
   } catch (err: any) {
     let errMsg = err?.message || "File upload failed due to internal server error"

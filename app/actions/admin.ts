@@ -900,8 +900,12 @@ export async function wipeTestData(): Promise<{ ok: boolean; message?: string; e
     await db.delete(payments)
     await db.delete(bookings)
 
-    // 3. Delete live chat history
+    // 3. Delete live chat history & moderation logs
+    const { chatSessions, chatModerationLogs, emailLogs } = await import("@/lib/db/schema")
     await db.delete(chatMessages)
+    await db.delete(chatSessions)
+    await db.delete(chatModerationLogs)
+    await db.delete(emailLogs)
 
     // 4. Delete not-hosted archived teams
     await db.delete(notHostedTeams)
@@ -925,6 +929,8 @@ export async function wipeTestData(): Promise<{ ok: boolean; message?: string; e
     revalidatePath("/admin/results")
     revalidatePath("/admin/image-requests")
     revalidatePath("/admin/chat")
+    revalidatePath("/admin/live-chat")
+    revalidatePath("/admin/email")
     revalidatePath("/admin/logs")
     revalidatePath("/admin/trash")
     revalidatePath("/admin")
@@ -960,8 +966,12 @@ export async function wipeDeploymentData(options?: { deleteNonAdminUsers?: boole
     // 5. Wipe reports
     await db.delete(reports)
 
-    // 6. Wipe chat messages
+    // 6. Wipe chat messages, sessions, moderation logs, and email logs
+    const { chatSessions, chatModerationLogs, emailLogs } = await import("@/lib/db/schema")
     await db.delete(chatMessages)
+    await db.delete(chatSessions)
+    await db.delete(chatModerationLogs)
+    await db.delete(emailLogs)
 
     // 7. Wipe user notifications & activity logs
     await db.delete(notifications)
@@ -982,6 +992,8 @@ export async function wipeDeploymentData(options?: { deleteNonAdminUsers?: boole
     revalidatePath("/admin/users")
     revalidatePath("/admin/trash")
     revalidatePath("/admin/chat")
+    revalidatePath("/admin/live-chat")
+    revalidatePath("/admin/email")
     revalidatePath("/dashboard")
     revalidatePath("/scrims")
 
@@ -1089,6 +1101,46 @@ export async function setUserBanned(userId: string, banned: boolean) {
   await db.update(user).set({ banned, updatedAt: new Date() }).where(eq(user.id, userId))
   await logActivity(admin.id, "admin", banned ? "ban_user" : "unban_user", userId)
   revalidatePath("/admin/users")
+}
+
+export async function setUserEmailVerified(
+  userId: string,
+  verified: boolean
+): Promise<{ ok: boolean; emailVerified?: boolean; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    if (!userId || !userId.trim()) {
+      return { ok: false, error: "Invalid user ID" }
+    }
+    if (userId === admin.id && !verified) {
+      return { ok: false, error: "You cannot unverify your own active admin account." }
+    }
+
+    const updated = await db
+      .update(user)
+      .set({ emailVerified: Boolean(verified), updatedAt: new Date() })
+      .where(eq(user.id, userId))
+      .returning({ id: user.id, emailVerified: user.emailVerified })
+
+    if (updated.length === 0) {
+      return { ok: false, error: "User not found" }
+    }
+
+    await logActivity(
+      admin.id,
+      "admin",
+      verified ? "verify_user" : "unverify_user",
+      userId,
+      { emailVerified: Boolean(verified) }
+    )
+    revalidatePath("/admin/users")
+    return { ok: true, emailVerified: updated[0].emailVerified }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to update verification status",
+    }
+  }
 }
 
 // ── Settings & announcements ────────────────────────────────────────────

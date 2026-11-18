@@ -3,14 +3,48 @@ import "server-only"
 import { headers } from "next/headers"
 import { auth, type SessionUser } from "@/lib/auth"
 
-/** Returns the current session user, or null when unauthenticated. */
+/** Returns the current session user merged with live DB account flags, or null when unauthenticated/trashed. */
 export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const h = await headers().catch(() => null)
     if (!h) return null
     const session = await auth.api.getSession({ headers: h })
     if (!session?.user) return null
-    return session.user as unknown as SessionUser
+    const sessionUser = session.user as unknown as SessionUser
+
+    try {
+      const { db } = await import("@/lib/db")
+      const { user } = await import("@/lib/db/schema")
+      const { eq } = await import("drizzle-orm")
+      const rows = await db
+        .select({
+          name: user.name,
+          image: user.image,
+          role: user.role,
+          emailVerified: user.emailVerified,
+          balance: user.balance,
+          banned: user.banned,
+          isTrashed: user.isTrashed,
+        })
+        .from(user)
+        .where(eq(user.id, sessionUser.id))
+        .limit(1)
+
+      const live = rows[0]
+      if (!live || live.isTrashed) return null
+
+      return {
+        ...sessionUser,
+        name: live.name ?? sessionUser.name,
+        image: live.image ?? sessionUser.image,
+        role: live.role ?? sessionUser.role,
+        emailVerified: live.emailVerified,
+        balance: live.balance,
+        banned: Boolean(live.banned),
+      }
+    } catch {
+      return sessionUser
+    }
   } catch {
     return null
   }

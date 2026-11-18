@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { reports, scrims } from "@/lib/db/schema"
 import { getSessionUser } from "@/lib/session"
 import { desc, eq } from "drizzle-orm"
@@ -11,15 +11,17 @@ export const dynamic = "force-dynamic"
  * GET /api/user/reports
  * Fetches all reports submitted by the currently authenticated user, sorted by creation date (newest first).
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const user = await getSessionUser().catch(() => null)
-    if (!user) {
+    if (!user || user.banned) {
       return NextResponse.json(
         { ok: false, error: "Authentication required. Please sign in to view your reports." },
         { status: 401 }
       )
     }
+
+    await ensureSchemaReady()
 
     const rows = await db
       .select({
@@ -57,6 +59,8 @@ export async function GET(req: NextRequest) {
         imageUrl: r.report.imageUrl || null,
         imageUrls: parsedImages,
         videoUrl: r.report.videoUrl || null,
+        videoUrls: Array.isArray(r.report.videoUrls) ? r.report.videoUrls : [],
+        externalLinks: Array.isArray(r.report.externalLinks) ? r.report.externalLinks : [],
         whatsapp: r.report.whatsapp || null,
         hackerUid: r.report.hackerUid || null,
         hackerName: r.report.hackerName || null,
@@ -75,10 +79,10 @@ export async function GET(req: NextRequest) {
       reports: userReports,
       count: userReports.length,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[API GET /api/user/reports] Error fetching user reports:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Failed to fetch user reports." },
+      { ok: false, error: err instanceof Error ? err.message : "Failed to fetch user reports." },
       { status: 500 }
     )
   }

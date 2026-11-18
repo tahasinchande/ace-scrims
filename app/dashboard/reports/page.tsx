@@ -35,6 +35,8 @@ export default async function MyReportsPage() {
       imageUrl: r.imageUrl || null,
       imageUrls: parsedImages,
       videoUrl: r.videoUrl || null,
+      videoUrls: Array.isArray(r.videoUrls) ? r.videoUrls : [],
+      externalLinks: Array.isArray(r.externalLinks) ? r.externalLinks : [],
       whatsapp: r.whatsapp || null,
       hackerUid: r.hackerUid || null,
       hackerName: r.hackerName || null,

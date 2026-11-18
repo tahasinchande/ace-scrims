@@ -4,7 +4,7 @@ import { isRoom2Enabled } from "@/lib/queries/scrims"
 import { AdminScrimList } from "@/components/admin/admin-scrim-list"
 import { CreateScrimButton } from "@/components/admin/scrim-form-dialog"
 import { getSessionUser } from "@/lib/session"
-import { KeyRound } from "lucide-react"
+import { KeyRound, Snowflake } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Manage Scrims — Ace Scrims Admin" }
@@ -41,6 +41,15 @@ export default async function AdminScrimsPage({
             <KeyRound className="size-4 text-blue-400" />
             Room 1 Lobbies
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin/iceberg"
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-cyan-300 transition-colors hover:bg-cyan-500/20 hover:text-cyan-200"
+            >
+              <Snowflake className="size-4 text-cyan-400" />
+              Iceberg Controls
+            </Link>
+          )}
           {isAdmin && <CreateScrimButton />}
         </div>
       </header>

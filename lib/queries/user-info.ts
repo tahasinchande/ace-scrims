@@ -1,7 +1,7 @@
 import "server-only"
 
 import { randomUUID } from "crypto"
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { userDefaultInfo, type UserDefaultInfo } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 
@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm"
 export async function getUserDefaultInfo(userId: string): Promise<UserDefaultInfo | null> {
   if (!userId) return null
   try {
+    await ensureSchemaReady()
     const rows = await db
       .select()
       .from(userDefaultInfo)
@@ -36,7 +37,7 @@ export async function autoSaveUserDefaultInfo(
     captainName?: string | null
     captainUid?: string | null
     phone?: string | null
-    paymentMethod?: "bKash" | "Nagad" | "Tap" | "Balance"
+    paymentMethod?: string | null
     paymentNumber?: string | null
     teamMembersDriveLink?: string | null
     teamLeaderImageUrl?: string | null
@@ -44,6 +45,7 @@ export async function autoSaveUserDefaultInfo(
 ): Promise<boolean> {
   if (!userId) return false
   try {
+    await ensureSchemaReady()
     const existing = await db
       .select({ id: userDefaultInfo.id })
       .from(userDefaultInfo)
@@ -56,7 +58,7 @@ export async function autoSaveUserDefaultInfo(
       captainName: details.captainName?.trim() || null,
       captainUid: details.captainUid?.trim() || null,
       phone: details.phone?.trim() || null,
-      paymentMethod: details.paymentMethod || "bKash",
+      paymentMethod: details.paymentMethod?.trim() || "bKash",
       paymentNumber: details.paymentNumber?.trim() || null,
       teamMembersDriveLink: details.teamMembersDriveLink?.trim() || null,
       teamLeaderImageUrl: details.teamLeaderImageUrl?.trim() || null,

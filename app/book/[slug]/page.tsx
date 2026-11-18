@@ -45,6 +45,9 @@ export default async function BookPage({
   let userBalance = 0
   let defaultInfo = null
   let alreadyBooked: { teamName: string; slotNumber: number | null } | null = null
+  const { getActivePayoutMethods } = await import("@/lib/queries/payout-methods")
+  const payoutMethods = await getActivePayoutMethods()
+
   if (user) {
     const { getUserDefaultInfo } = await import("@/lib/queries/user-info")
     const { db } = await import("@/lib/db")
@@ -82,6 +85,7 @@ export default async function BookPage({
             userBalance={userBalance}
             defaultInfo={defaultInfo}
             alreadyBooked={alreadyBooked}
+            payoutMethods={payoutMethods}
             scrim={{
               id: scrim.id,
               slug: scrim.slug,
@@ -93,7 +97,7 @@ export default async function BookPage({
               priceBdt: scrim.priceBdt,
               prizePoolBdt: scrim.prizePoolBdt,
               maxTeams: scrim.maxTeams,
-              confirmedTeams: scrim.confirmedTeams,
+              confirmedTeams: scrim.publicConfirmedTeams ?? scrim.confirmedTeams,
             }}
           />
 

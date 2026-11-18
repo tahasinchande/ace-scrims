@@ -1,6 +1,6 @@
 import "server-only"
 
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { bookings, payments, scrims, results, notifications, settings, reports } from "@/lib/db/schema"
 import { and, or, desc, eq, inArray, sql } from "drizzle-orm"
 import { scrimStartDate } from "@/lib/format"
@@ -211,6 +211,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
 
 /** All reports submitted by the user, newest first, with optional scrim title. */
 export async function getUserReports(userId: string) {
+  await ensureSchemaReady()
   const rows = await db
     .select({
       report: reports,

@@ -1,6 +1,6 @@
 import "server-only"
 
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { scrims, bookings, payments, results, user, activityLogs, settings, reports, imageRequests, walletTransactions } from "@/lib/db/schema"
 import { eq, desc, and, or, gte, sql, count, isNull, type SQL } from "drizzle-orm"
 import { appendGlobalScrimRules, getBangladeshActiveDate, archivePreviousDayBookings } from "@/lib/queries/scrims"
@@ -55,6 +55,7 @@ export async function getAdminStats() {
 /** All scrims with confirmed + pending team counts, integrated with all daily and Friday definitions. */
 export async function getAdminScrims(options: { includeDeleted?: boolean } = {}) {
   try {
+    await ensureSchemaReady()
     const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate, archivePreviousDayBookings } = await import("@/lib/queries/scrims")
     await archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
@@ -216,6 +217,10 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           registrationOpen: true,
           status: "upcoming",
           hidden: false,
+          icebergEnabled: false,
+          icebergAmount: 7,
+          icebergThreshold: 3,
+          icebergStartRealCount: 0,
           isTrashed: false,
           deletedAt: null,
           createdAt: new Date(),

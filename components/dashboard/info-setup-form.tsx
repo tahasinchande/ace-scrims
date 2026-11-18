@@ -22,22 +22,41 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { uploadMediaFile } from "@/lib/client-upload"
 import { saveUserDefaultInfo } from "@/app/actions/user-info"
-import type { UserDefaultInfo } from "@/lib/db/schema"
+import type { UserDefaultInfo, PayoutMethod } from "@/lib/db/schema"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
+const FALLBACK_PAYOUT_METHODS: PayoutMethod[] = [
+  { id: "pm-bkash", name: "bKash", code: "bKash", label: "bKash Personal", description: null, accentColor: "#E2136E", requiresAccountNumber: true, isActive: true, sortOrder: 1, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-nagad", name: "Nagad", code: "Nagad", label: "Nagad Personal", description: null, accentColor: "#F7941D", requiresAccountNumber: true, isActive: true, sortOrder: 2, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-rocket", name: "Rocket", code: "Rocket", label: "Rocket Personal", description: null, accentColor: "#8C3494", requiresAccountNumber: true, isActive: true, sortOrder: 3, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-tap", name: "Tap", code: "Tap", label: "Tap Personal", description: null, accentColor: "#00A19D", requiresAccountNumber: true, isActive: true, sortOrder: 4, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-balance", name: "Balance", code: "Balance", label: "Ace Scrims Wallet", description: null, accentColor: "#10B981", requiresAccountNumber: false, isActive: true, sortOrder: 5, createdAt: new Date(0), updatedAt: new Date(0) },
+]
+
 export function InfoSetupForm({
   initialData,
+  payoutMethods,
 }: {
   initialData: UserDefaultInfo | null
+  payoutMethods?: PayoutMethod[]
 }) {
+  const availableMethods =
+    payoutMethods && payoutMethods.length > 0 ? payoutMethods : FALLBACK_PAYOUT_METHODS
+
+  const matchedInitial = availableMethods.find(
+    (m) =>
+      m.code.toLowerCase() === (initialData?.paymentMethod || "").toLowerCase() ||
+      m.name.toLowerCase() === (initialData?.paymentMethod || "").toLowerCase()
+  )
+
   const [teamName, setTeamName] = useState(initialData?.teamName || "")
   const [teamTag, setTeamTag] = useState(initialData?.teamTag || "")
   const [captainName, setCaptainName] = useState(initialData?.captainName || "")
   const [captainUid, setCaptainUid] = useState(initialData?.captainUid || "")
   const [phone, setPhone] = useState(initialData?.phone || "")
-  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap" | "Balance">(
-    (initialData?.paymentMethod as "bKash" | "Nagad" | "Tap" | "Balance") || "bKash"
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    matchedInitial?.code || availableMethods[0]?.code || "bKash"
   )
   const [paymentNumber, setPaymentNumber] = useState(initialData?.paymentNumber || "")
   const [teamMembersDriveLink, setTeamMembersDriveLink] = useState(
@@ -76,6 +95,13 @@ export function InfoSetupForm({
     setErrorMsg(null)
     setSuccessMsg(null)
 
+    const activeMethodObj =
+      availableMethods.find((m) => m.code === paymentMethod) || availableMethods[0]
+    const finalPaymentNumber =
+      activeMethodObj && !activeMethodObj.requiresAccountNumber
+        ? "Ace Scrims Account Balance"
+        : paymentNumber
+
     startTransition(async () => {
       try {
         const res = await saveUserDefaultInfo({
@@ -85,7 +111,7 @@ export function InfoSetupForm({
           captainUid,
           phone,
           paymentMethod,
-          paymentNumber,
+          paymentNumber: finalPaymentNumber,
           teamMembersDriveLink,
           teamLeaderImageUrl,
         })
@@ -104,6 +130,10 @@ export function InfoSetupForm({
       }
     })
   }
+
+  const selectedMethodObj =
+    availableMethods.find((m) => m.code === paymentMethod) || availableMethods[0]
+  const requiresAccountNumber = selectedMethodObj?.requiresAccountNumber ?? paymentMethod !== "Balance"
 
   return (
     <div className="flex flex-col gap-8">
@@ -285,36 +315,38 @@ export function InfoSetupForm({
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Preferred Payout Provider
               </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {(
-                  [
-                    { id: "bKash", label: "bKash", color: "text-[#E2136E]", bg: "bg-[#E2136E]/10", border: "border-[#E2136E]/40" },
-                    { id: "Nagad", label: "Nagad", color: "text-[#F7941D]", bg: "bg-[#F7941D]/10", border: "border-[#F7941D]/40" },
-                    { id: "Tap", label: "Tap", color: "text-[#00A19D]", bg: "bg-[#00A19D]/10", border: "border-[#00A19D]/40" },
-                    { id: "Balance", label: "Balance", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/40" },
-                  ] as const
-                ).map((prov) => {
-                  const active = paymentMethod === prov.id
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {availableMethods.map((prov) => {
+                  const active = paymentMethod === prov.code
                   return (
                     <button
                       key={prov.id}
                       type="button"
                       onClick={() => {
-                        setPaymentMethod(prov.id)
-                        if (prov.id === "Balance" && !paymentNumber) {
+                        setPaymentMethod(prov.code)
+                        if (!prov.requiresAccountNumber && !paymentNumber) {
                           setPaymentNumber("Ace Scrims Account Balance")
                         }
                       }}
+                      style={
+                        active && prov.accentColor
+                          ? {
+                              borderColor: prov.accentColor,
+                              backgroundColor: `${prov.accentColor}1A`,
+                              color: prov.accentColor,
+                            }
+                          : undefined
+                      }
                       className={cn(
-                        "flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl border font-display font-bold text-sm uppercase transition-all",
+                        "flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-xl border font-display font-bold text-sm uppercase transition-all whitespace-nowrap",
                         active
-                          ? `${prov.border} ${prov.bg} ${prov.color} shadow-sm ring-1 ring-primary`
+                          ? "shadow-sm ring-1 ring-primary"
                           : "border-border/60 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                       )}
                     >
-                      <span className="text-base font-extrabold tracking-wide">{prov.label}</span>
+                      <span className="text-base font-extrabold tracking-wide">{prov.name}</span>
                       <span className="text-[10px] font-medium tracking-normal text-muted-foreground">
-                        {active ? "Default Selected" : prov.id === "Balance" ? "Instant Wallet" : "Select"}
+                        {active ? "Default Selected" : !prov.requiresAccountNumber ? "Instant Wallet" : "Select"}
                       </span>
                     </button>
                   )
@@ -324,20 +356,20 @@ export function InfoSetupForm({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="paymentNumber" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {paymentMethod === "Balance"
-                  ? "Payout Destination (Ace Scrims Account Balance)"
-                  : `Personal Payment Number (${paymentMethod})`}
+                {!requiresAccountNumber
+                  ? `Payout Destination (${selectedMethodObj?.label || paymentMethod})`
+                  : `Personal Payment Number (${selectedMethodObj?.name || paymentMethod})`}
               </Label>
               <Input
                 id="paymentNumber"
-                type={paymentMethod === "Balance" ? "text" : "tel"}
-                value={paymentMethod === "Balance" ? "Ace Scrims Wallet Balance (Auto-credited to this account)" : paymentNumber}
+                type={!requiresAccountNumber ? "text" : "tel"}
+                value={!requiresAccountNumber ? "Ace Scrims Wallet Balance (Auto-credited to this account)" : paymentNumber}
                 onChange={(e) => setPaymentNumber(e.target.value)}
-                disabled={paymentMethod === "Balance"}
+                disabled={!requiresAccountNumber}
                 placeholder={
-                  paymentMethod === "Balance"
+                  !requiresAccountNumber
                     ? "Auto-credited to your account wallet"
-                    : `01XXXXXXXXX (${paymentMethod} Personal Account)`
+                    : `01XXXXXXXXX (${selectedMethodObj?.name || paymentMethod} Personal Account)`
                 }
                 className="bg-background/50 font-mono text-base font-bold disabled:opacity-90 disabled:text-emerald-400"
               />
@@ -345,13 +377,13 @@ export function InfoSetupForm({
                 <span className="font-bold text-primary flex items-center gap-1.5">
                   <CheckCircle2 className="size-3.5" /> Prize Pool Disbursement Declaration:
                 </span>
-                {paymentMethod === "Balance" ? (
+                {!requiresAccountNumber ? (
                   <p className="leading-relaxed">
                     When your team ranks in winning positions or secures the Champion title, your prize money will be deposited <strong>directly and instantly into your Ace Scrims account balance</strong>, allowing for seamless 1-click entry into future scrims!
                   </p>
                 ) : (
                   <p className="leading-relaxed">
-                    When your team ranks in top positions or wins the match, your prize money will automatically be sent to this <strong>{paymentMethod}</strong> personal account number.
+                    When your team ranks in top positions or wins the match, your prize money will automatically be sent to this <strong>{selectedMethodObj?.name || paymentMethod}</strong> personal account number.
                   </p>
                 )}
               </div>

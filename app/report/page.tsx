@@ -10,7 +10,7 @@ import { getPublicSiteSettings } from "@/lib/queries/settings"
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Report Issue — Ace Scrims",
-  description: "Submit hack, slot, or prize reports to Ace Scrims administrators.",
+  description: "Submit hack, slot, prize reports, or feature requests to Ace Scrims administrators.",
 }
 
 export default async function ReportPage() {
@@ -33,17 +33,10 @@ export default async function ReportPage() {
   return (
     <>
       <SiteHeader user={user} settings={settings} />
-      <main className="min-h-screen pb-20 pt-10">
+      <main className="min-h-screen pb-20 pt-24">
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
           <div className="glass-strong flex flex-col gap-6 rounded-3xl p-6 sm:p-8 border border-border">
-            <header className="flex flex-col gap-1 text-center sm:text-left">
-              <h1 className="font-display text-2xl font-bold uppercase tracking-tight sm:text-3xl">Report Match Issue / নতুন রিপোর্ট পাঠান</h1>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Select your report type below, choose any of the 18 scrims & incident date, attach screenshot proofs or video drive links, and submit for instant Admin review.
-              </p>
-            </header>
-
-            <ReportFormView scrims={formattedScrims} />
+            <ReportFormView scrims={formattedScrims} showHeader />
           </div>
         </div>
       </main>

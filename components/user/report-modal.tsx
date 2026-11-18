@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useRef } from "react"
+import { useState, useEffect, useTransition, useRef } from "react"
 import { submitReport } from "@/app/actions/reports"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,16 +19,21 @@ import {
   Calendar,
   Layers,
   HelpCircle,
+  Lightbulb,
+  Video,
+  Plus,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { uploadMediaFile } from "@/lib/client-upload"
+import { uploadMediaFile, uploadVideoDirect } from "@/lib/client-upload"
 import { resolveImageUrl } from "@/lib/image-url"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 type ReportType =
   | "Hacker Report"
   | "Winner Payment Not Received"
   | "Payment Completed But Slot Not Booked"
+  | "Feature Request"
   | "Other Report"
 
 type ScrimItem = {
@@ -38,23 +43,45 @@ type ScrimItem = {
   map?: string
 }
 
-export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
+export function ReportFormView({
+  scrims = [],
+  showHeader = false,
+}: {
+  scrims?: ScrimItem[]
+  showHeader?: boolean
+}) {
   const [selectedType, setSelectedType] = useState<ReportType>("Hacker Report")
   const [isPending, startTransition] = useTransition()
   const [isSuccess, setIsSuccess] = useState(false)
 
-  // Scrim and Date selection states
+  // Scrim and Date selection states (avoid SSR date hydration mismatch via useEffect)
   const [selectedScrimId, setSelectedScrimId] = useState("")
   const [customScrimName, setCustomScrimName] = useState("")
-  const todayStr = new Date().toISOString().split("T")[0]
-  const [incidentDate, setIncidentDate] = useState(todayStr)
+  const [todayStr, setTodayStr] = useState("")
+  const [incidentDate, setIncidentDate] = useState("")
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0]
+    setTodayStr(today)
+    setIncidentDate((prev) => prev || today)
+  }, [])
 
   // Upload states for multiple large images
   const [uploadedImages, setUploadedImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageProgress, setImageProgress] = useState(0)
-  const [videoLink, setVideoLink] = useState("")
+
+  // Upload states for direct video attachments
+  const [uploadedVideos, setUploadedVideos] = useState<string[]>([])
+  const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [videoProgress, setVideoProgress] = useState(0)
+
+  // External Links (Google Drive / MEGA / YouTube / Other)
+  const [externalLinks, setExternalLinks] = useState<string[]>([])
+  const [externalLinkInput, setExternalLinkInput] = useState("")
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
   const processedFileSigs = useRef<Set<string>>(new Set())
   const isSubmittingRef = useRef<boolean>(false)
 
@@ -62,7 +89,6 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
     const files = e.target.files
     if (!files || files.length === 0 || uploadingImage) return
 
-    // Immediately clear input element value to prevent accidental double-firing on some browsers
     const fileList = Array.from(files)
     if (e.target) e.target.value = ""
 
@@ -81,9 +107,7 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
         }
 
         const sig = `${file.name}_${file.size}_${file.lastModified}`
-        if (processedFileSigs.current.has(sig)) {
-          continue
-        }
+        if (processedFileSigs.current.has(sig)) continue
 
         const result = await uploadMediaFile(file, "reports", (pct) => {
           const overall = Math.round(((i + pct / 100) / total) * 100)
@@ -112,7 +136,7 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
           }
           return combined
         })
-        toast.success(`${newUrls.length} image(s) uploaded successfully!`)
+        toast.success(`${newUrls.length} screenshot(s) uploaded!`)
       }
       setImageProgress(100)
     } catch (err) {
@@ -123,39 +147,120 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
     }
   }
 
+  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0 || uploadingVideo) return
+
+    const fileList = Array.from(files)
+    if (e.target) e.target.value = ""
+
+    setUploadingVideo(true)
+    setVideoProgress(5)
+
+    try {
+      const newVideoUrls: string[] = []
+      const total = fileList.length
+
+      for (let i = 0; i < total; i++) {
+        const file = fileList[i]
+        const sig = `vid_${file.name}_${file.size}_${file.lastModified}`
+        if (processedFileSigs.current.has(sig)) continue
+
+        const result = await uploadVideoDirect(file, "reports", (pct) => {
+          const overall = Math.round(((i + pct / 100) / total) * 100)
+          setVideoProgress(overall)
+        })
+
+        if (result?.url) {
+          processedFileSigs.current.add(sig)
+          newVideoUrls.push(result.url)
+        }
+      }
+
+      if (newVideoUrls.length > 0) {
+        setUploadedVideos((prev) => [...new Set([...prev, ...newVideoUrls])])
+        toast.success(`${newVideoUrls.length} video file(s) attached!`)
+      }
+      setVideoProgress(100)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Video upload failed")
+    } finally {
+      setUploadingVideo(false)
+      if (videoInputRef.current) videoInputRef.current.value = ""
+    }
+  }
+
+  function handleAddExternalLink() {
+    const candidate = externalLinkInput.trim()
+    if (!candidate) return
+    if (!isSafeHttpOrRelativeUrl(candidate) || (!candidate.startsWith("https://") && !candidate.startsWith("http://"))) {
+      toast.error("Please enter a valid external URL starting with https:// or http://")
+      return
+    }
+    setExternalLinks((prev) => (prev.includes(candidate) ? prev : [...prev, candidate]))
+    setExternalLinkInput("")
+  }
+
   function removeImage(index: number) {
     setUploadedImages((prev) => prev.filter((_, i) => i !== index))
   }
 
+  function removeVideo(index: number) {
+    setUploadedVideos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function removeExternalLink(index: number) {
+    setExternalLinks((prev) => prev.filter((_, i) => i !== index))
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (uploadingImage) {
-      toast.info("Please wait for images to finish uploading")
+    if (uploadingImage || uploadingVideo) {
+      toast.info("Please wait for attached media to finish uploading")
       return
     }
     if (isSubmittingRef.current || isPending) {
       return
     }
+
+    // Auto-include any pending URL typed into the external link field
+    const finalExternalLinks = [...externalLinks]
+    const pendingLink = externalLinkInput.trim()
+    if (pendingLink) {
+      if (!isSafeHttpOrRelativeUrl(pendingLink) || (!pendingLink.startsWith("https://") && !pendingLink.startsWith("http://"))) {
+        toast.error("External link must start with https:// or http://")
+        return
+      }
+      if (!finalExternalLinks.includes(pendingLink)) {
+        finalExternalLinks.push(pendingLink)
+      }
+    }
+
     isSubmittingRef.current = true
 
     const form = e.currentTarget
     const formData = new FormData(form)
 
     formData.set("reportType", selectedType)
-    formData.set("incidentDate", incidentDate || todayStr)
-    
-    if (selectedScrimId === "custom") {
+
+    if (selectedType === "Feature Request") {
+      formData.set("incidentDate", "")
       formData.set("scrimId", "")
-      formData.set("customScrimName", customScrimName.trim())
-    } else if (selectedScrimId) {
-      formData.set("scrimId", selectedScrimId)
       formData.set("customScrimName", "")
     } else {
-      formData.set("scrimId", "")
-      formData.set("customScrimName", "")
+      formData.set("incidentDate", incidentDate || todayStr)
+      if (selectedScrimId === "custom") {
+        formData.set("scrimId", "")
+        formData.set("customScrimName", customScrimName.trim())
+      } else if (selectedScrimId) {
+        formData.set("scrimId", selectedScrimId)
+        formData.set("customScrimName", "")
+      } else {
+        formData.set("scrimId", "")
+        formData.set("customScrimName", "")
+      }
     }
 
-    // Strictly deduplicate attached proof images
     const seen = new Set<string>()
     const uniqueImages: string[] = []
     for (const u of uploadedImages) {
@@ -171,23 +276,19 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
 
     if (uniqueImages.length > 0) {
       formData.set("imageUrls", JSON.stringify(uniqueImages))
-      // Do not set proofUrlInput so backend uses imageUrls directly without duplicate unshifting
       formData.delete("proofUrlInput")
     } else {
       formData.set("imageUrls", "")
       formData.delete("proofUrlInput")
     }
 
-    // Avoid duplicate parsing from raw multipart file fields
+    formData.set("videoUrls", uploadedVideos.length > 0 ? JSON.stringify(uploadedVideos) : "")
+    formData.set("externalLinks", finalExternalLinks.length > 0 ? JSON.stringify(finalExternalLinks) : "")
+    formData.set("videoLink", finalExternalLinks[0] || "")
+
     formData.delete("proof")
     formData.delete("imageProof")
     formData.delete("file")
-    
-    if (videoLink.trim()) {
-      formData.set("videoLink", videoLink.trim())
-    } else {
-      formData.set("videoLink", "")
-    }
 
     startTransition(async () => {
       try {
@@ -195,14 +296,15 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
         if (res.ok) {
           setIsSuccess(true)
           setUploadedImages([])
+          setUploadedVideos([])
+          setExternalLinks([])
+          setExternalLinkInput("")
           processedFileSigs.current.clear()
-          toast.success("Report submitted successfully! Status set to In Review.")
+          toast.success("Report submitted successfully! Status set to Pending Review.")
         } else {
-          console.error("[Report Submit Error]", res.error)
           toast.error(res.error || "Failed to submit report")
         }
       } catch (submitErr) {
-        console.error("[Report Submit Exception]", submitErr)
         toast.error(
           submitErr instanceof Error
             ? `Submission error: ${submitErr.message}`
@@ -214,17 +316,29 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
     })
   }
 
-  const busy = uploadingImage || isPending
+  const busy = uploadingImage || uploadingVideo || isPending
+  const showScrimAndDate = selectedType !== "Feature Request"
 
   return (
     <div className="w-full text-left flex flex-col gap-6">
+      {showHeader && (
+        <header className="border-b border-border/50 pb-4">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-wide text-foreground">
+            Submit a Report or Feature Request
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Report hackers, prize/slot issues, or suggest new features directly to Ace Scrims administrators.
+          </p>
+        </header>
+      )}
       {/* Report Type Selector Tabs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {(
           [
             { id: "Hacker Report", label: "Hacker Report", icon: ShieldAlert, desc: "Report hacking or cheating" },
             { id: "Winner Payment Not Received", label: "Winner Payment Not Received", icon: FileText, desc: "Unpaid tournament prize" },
             { id: "Payment Completed But Slot Not Booked", label: "Slot Not Booked", icon: AlertTriangle, desc: "TrxID paid but slot missing" },
+            { id: "Feature Request", label: "Feature Request", icon: Lightbulb, desc: "Suggest platform improvements" },
             { id: "Other Report", label: "Other Report", icon: FileText, desc: "General issues & support" },
           ] as const
         ).map((tab) => {
@@ -258,16 +372,20 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
       {isSuccess ? (
         <div className="rounded-2xl border border-primary/40 bg-primary/10 p-6 text-center flex flex-col items-center gap-3">
           <CheckCircle2 className="size-10 text-primary" />
-          <h3 className="font-display text-xl font-bold uppercase">Report Submitted & In Review</h3>
+          <h3 className="font-display text-xl font-bold uppercase">
+            {selectedType === "Feature Request" ? "Feature Request Submitted" : "Report Submitted & Pending Review"}
+          </h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Your report is currently <span className="font-semibold text-primary">In Review</span> by our administrators.
-            Once processed, the status will update to <span className="font-semibold text-emerald-400">Resolved</span>.
+            Your submission is currently <span className="font-semibold text-primary">Pending Review</span> by our administrators.
+            You can track updates from your Reports dashboard.
           </p>
           <Button
             onClick={() => {
               setIsSuccess(false)
               setUploadedImages([])
-              setVideoLink("")
+              setUploadedVideos([])
+              setExternalLinks([])
+              setExternalLinkInput("")
               setCustomScrimName("")
             }}
             variant="outline"
@@ -278,59 +396,61 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {/* SCRIM & INCIDENT DATE SELECTION ROW */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-border/80 bg-secondary/20 p-4">
-            {/* Scrim Selection */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="scrimSelect" className="flex items-center gap-1.5 text-xs font-semibold">
-                <Layers className="size-3.5 text-primary" />
-                Select Scrim / Tournament *
-              </Label>
-              <select
-                id="scrimSelect"
-                value={selectedScrimId}
-                onChange={(e) => setSelectedScrimId(e.target.value)}
-                className="h-10 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
-              >
-                <option value="">-- Choose Any Scrim --</option>
-                {scrims.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title} {s.startTime ? `(${s.startTime})` : ""} {s.map ? `[${s.map}]` : ""}
-                  </option>
-                ))}
-                <option value="custom">Other / Custom Scrim Name...</option>
-              </select>
+          {/* SCRIM & INCIDENT DATE SELECTION ROW (Not needed for Feature Requests) */}
+          {showScrimAndDate && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-border/80 bg-secondary/20 p-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="scrimSelect" className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Layers className="size-3.5 text-primary" />
+                  Select Scrim / Tournament *
+                </Label>
+                <select
+                  id="scrimSelect"
+                  value={selectedScrimId}
+                  onChange={(e) => setSelectedScrimId(e.target.value)}
+                  className="h-10 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
+                >
+                  <option value="">-- Choose Any Scrim --</option>
+                  {scrims.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title} {s.startTime ? `(${s.startTime})` : ""} {s.map ? `[${s.map}]` : ""}
+                    </option>
+                  ))}
+                  <option value="custom">Other / Custom Scrim Name...</option>
+                </select>
 
-              {selectedScrimId === "custom" && (
+                {selectedScrimId === "custom" && (
+                  <Input
+                    value={customScrimName}
+                    onChange={(e) => setCustomScrimName(e.target.value)}
+                    placeholder="Type custom scrim or tournament name"
+                    required
+                    className="h-9 text-xs mt-1"
+                  />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="incidentDate" className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Calendar className="size-3.5 text-primary" />
+                  Match / Incident Date *
+                </Label>
                 <Input
-                  value={customScrimName}
-                  onChange={(e) => setCustomScrimName(e.target.value)}
-                  placeholder="Type custom scrim or tournament name"
+                  id="incidentDate"
+                  name="incidentDate"
+                  type="date"
+                  max={todayStr || undefined}
+                  value={incidentDate}
+                  onChange={(e) => setIncidentDate(e.target.value)}
                   required
-                  className="h-9 text-xs mt-1"
+                  className="h-10 rounded-xl border border-border bg-secondary/80 text-xs font-medium"
                 />
-              )}
+                {todayStr && (
+                  <span className="text-[10px] text-muted-foreground">Selectable till today ({todayStr})</span>
+                )}
+              </div>
             </div>
-
-            {/* Date Selection (restricted till today) */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="incidentDate" className="flex items-center gap-1.5 text-xs font-semibold">
-                <Calendar className="size-3.5 text-primary" />
-                Match / Incident Date *
-              </Label>
-              <Input
-                id="incidentDate"
-                name="incidentDate"
-                type="date"
-                max={todayStr}
-                value={incidentDate}
-                onChange={(e) => setIncidentDate(e.target.value)}
-                required
-                className="h-10 rounded-xl border border-border bg-secondary/80 text-xs font-medium"
-              />
-              <span className="text-[10px] text-muted-foreground">Selectable till today ({todayStr})</span>
-            </div>
-          </div>
+          )}
 
           {/* Hacker Report Fields */}
           {selectedType === "Hacker Report" && (
@@ -421,6 +541,27 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
             </>
           )}
 
+          {/* Feature Request Fields */}
+          {selectedType === "Feature Request" && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="description">Expected Feature Description *</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  required
+                  rows={4}
+                  placeholder="Describe the new feature, improvement, or workflow you would love to see on Ace Scrims..."
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="whatsapp">Your WhatsApp Number *</Label>
+                <Input id="whatsapp" name="whatsapp" required placeholder="017XXXXXXXX (for feature feedback & follow-up)" />
+              </div>
+            </>
+          )}
+
           {/* Other Report Fields */}
           {selectedType === "Other Report" && (
             <>
@@ -442,19 +583,21 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
             </>
           )}
 
-          {/* UNIFIED MEDIA PROOF SECTION: MULTIPLE LARGE IMAGES + DRIVE VIDEO LINK */}
+          {/* UNIFIED MEDIA PROOF SECTION: IMAGES + DIRECT VIDEO UPLOAD + EXTERNAL LINKS */}
           <div className="rounded-2xl border border-border/80 bg-secondary/20 p-4 flex flex-col gap-4">
             <h4 className="font-display text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
               <ImageIcon className="size-4 text-primary" />
-              Evidence & Proof Attachments
+              {selectedType === "Feature Request"
+                ? "Mockups, Videos & Reference Links (Optional)"
+                : "Evidence & Proof Attachments"}
             </h4>
 
-            {/* 1. Multiple Large Image Uploads */}
+            {/* 1. Multiple Screenshot Uploads */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <ImageIcon className="size-3.5 text-primary" />
-                  Upload Screenshot Proofs (Multiple Large Images Supported)
+                  Upload Screenshots / Images
                 </Label>
                 <span className="text-[11px] text-muted-foreground">
                   {uploadedImages.length} image{uploadedImages.length === 1 ? "" : "s"} attached
@@ -470,7 +613,6 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
                 className="hidden"
               />
 
-              {/* Image previews grid */}
               {uploadedImages.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-1">
                   {uploadedImages.map((url, idx) => (
@@ -498,7 +640,7 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
                 variant="outline"
                 disabled={uploadingImage}
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full border-dashed h-12 text-xs"
+                className="w-full border-dashed h-11 text-xs"
               >
                 {uploadingImage ? (
                   <div className="flex items-center gap-2">
@@ -508,39 +650,141 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
                 ) : (
                   <div className="flex items-center gap-2">
                     <UploadCloud className="size-4 text-primary" />
-                    <span>Select & Attach Screenshots (PNG, JPG, WebP up to 50MB)</span>
+                    <span>Attach Screenshots (PNG, JPG, WebP up to 50MB)</span>
                   </div>
                 )}
               </Button>
             </div>
 
-            {/* 2. Video Proof Drive Link */}
+            {/* 2. Direct Video File Upload */}
             <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-              <Label htmlFor="videoLinkInput" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Link2 className="size-3.5 text-primary" />
-                Video Proof Link (Google Drive / MEGA / YouTube)
-              </Label>
-
-              <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-xs text-muted-foreground flex flex-col gap-1.5">
-                <p className="font-semibold text-foreground flex items-center gap-1.5">
-                  <HelpCircle className="size-3.5 text-primary" />
-                  Video Upload Instructions:
-                </p>
-                <ul className="list-disc list-inside space-y-0.5 text-[11px] text-foreground/80 pl-1">
-                  <li>Upload your video proof to a cloud drive (Preferred: <strong>Google Drive</strong> and <strong>MEGA</strong>)</li>
-                  <li>Make sure the link is <strong>Public (Accessible to everyone / Anyone with the link)</strong></li>
-                  <li>Paste the public shareable link below</li>
-                </ul>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Video className="size-3.5 text-primary" />
+                  Upload Video Clips Directly (Optional)
+                </Label>
+                <span className="text-[11px] text-muted-foreground">
+                  {uploadedVideos.length} video{uploadedVideos.length === 1 ? "" : "s"} attached
+                </span>
               </div>
 
-              <Input
-                id="videoLinkInput"
-                type="url"
-                value={videoLink}
-                onChange={(e) => setVideoLink(e.target.value)}
-                placeholder="https://drive.google.com/file/d/... or https://mega.nz/..."
-                className="h-10 text-xs"
+              <input
+                ref={videoInputRef}
+                type="file"
+                multiple
+                accept="video/mp4,video/webm,video/quicktime,video/*"
+                onChange={handleVideoUpload}
+                className="hidden"
               />
+
+              {uploadedVideos.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-1">
+                  {uploadedVideos.map((vUrl, idx) => (
+                    <div key={idx} className="relative rounded-xl border border-border/60 overflow-hidden bg-black/60">
+                      <video
+                        src={resolveImageUrl(vUrl)}
+                        controls
+                        preload="metadata"
+                        className="w-full max-h-40 object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeVideo(idx)}
+                        className="absolute top-1.5 right-1.5 size-6 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-destructive transition-colors shadow-md"
+                        title="Remove video"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={uploadingVideo}
+                onClick={() => videoInputRef.current?.click()}
+                className="w-full border-dashed h-11 text-xs"
+              >
+                {uploadingVideo ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                    <span>Uploading video... {videoProgress}%</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Video className="size-4 text-primary" />
+                    <span>Upload Video Clip (MP4, WebM, MOV)</span>
+                  </div>
+                )}
+              </Button>
+            </div>
+
+            {/* 3. External Links (Google Drive / MEGA / YouTube / Reference URLs) */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
+              <Label htmlFor="externalLinkInput" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Link2 className="size-3.5 text-primary" />
+                External Links (Google Drive / MEGA / YouTube / Reference Links)
+              </Label>
+
+              <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-xs text-muted-foreground flex flex-col gap-1">
+                <p className="font-semibold text-foreground flex items-center gap-1.5">
+                  <HelpCircle className="size-3.5 text-primary" />
+                  Link Instructions:
+                </p>
+                <p className="text-[11px] text-foreground/80">
+                  For large screen recordings or design docs, upload to Google Drive or MEGA with{" "}
+                  <strong>Anyone with the link</strong> enabled and add one or more URLs below.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  id="externalLinkInput"
+                  type="url"
+                  value={externalLinkInput}
+                  onChange={(e) => setExternalLinkInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      handleAddExternalLink()
+                    }
+                  }}
+                  placeholder="https://drive.google.com/file/d/... or https://mega.nz/..."
+                  className="h-10 text-xs flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleAddExternalLink}
+                  className="h-10 gap-1 text-xs whitespace-nowrap"
+                >
+                  <Plus className="size-3.5" />
+                  Add Link
+                </Button>
+              </div>
+
+              {externalLinks.length > 0 && (
+                <ul className="flex flex-col gap-1.5 mt-1">
+                  {externalLinks.map((lnk, idx) => (
+                    <li
+                      key={`${lnk}-${idx}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-black/30 px-3 py-1.5 text-xs"
+                    >
+                      <span className="truncate font-mono text-foreground">{lnk}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeExternalLink(idx)}
+                        className="text-muted-foreground hover:text-destructive p-1"
+                        title="Remove link"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
@@ -550,7 +794,11 @@ export function ReportFormView({ scrims = [] }: { scrims?: ScrimItem[] }) {
             className="font-display font-bold uppercase py-6 glow-primary mt-2"
           >
             {busy && <Loader2 className="size-4 animate-spin mr-2" />}
-            {uploadingImage ? "Uploading Proof Media..." : "Submit Report For Review"}
+            {uploadingImage || uploadingVideo
+              ? "Uploading Proof Media..."
+              : selectedType === "Feature Request"
+                ? "Submit Feature Request"
+                : "Submit Report For Review"}
           </Button>
         </form>
       )}

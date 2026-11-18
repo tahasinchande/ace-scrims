@@ -1,0 +1,391 @@
+import "server-only"
+
+import { randomUUID } from "crypto"
+import { db, ensureSchemaReady } from "@/lib/db"
+import { emailTemplates, type EmailTemplate, type EmailTemplateMediaItem } from "@/lib/db/schema"
+import { asc, eq } from "drizzle-orm"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+
+export type CoreEmailPurposeSeed = {
+  purposeKey: string
+  label: string
+  description: string
+  isCore: boolean
+  category: "system" | "custom"
+  format: "html" | "text"
+  subject: string
+  preheader: string
+  bodyHtml: string
+  bodyText: string
+  ctaText: string
+  ctaUrl: string
+  variablesHint: string[]
+}
+
+export const CORE_EMAIL_PURPOSE_ORDER = [
+  "verify",
+  "welcome",
+  "register",
+  "id_pass",
+  "result",
+  "mvp_image",
+  "notice",
+] as const
+
+export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
+  {
+    purposeKey: "verify",
+    label: "Verify",
+    description: "Email verification link dispatched when a user registers or requests a verification resend.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Verify your email — ACE SCRIMS",
+    preheader: "Confirm your email address for ACE SCRIMS account access.",
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">Hey {{userName}},</h2>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
+  Welcome aboard! Please click the button below to verify your email address and activate your account on ACE SCRIMS.
+</p>
+<div style="background:#121524;border:1px solid #1f2438;border-radius:10px;padding:16px 20px;margin:16px 0;">
+  <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">WHAT'S WAITING FOR YOU:</p>
+  <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Daily Evening Scrims:</strong> High-tier regular squad showdowns.</p>
+  <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Friday Special Blast &amp; Champion Rush:</strong> Weekend peak events with bigger prize pools.</p>
+  <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Post-Match Rewards:</strong> MVP Face Banners, Top 3 Podium Cards, and real-time Standings.</p>
+</div>`,
+    bodyText: `Hey {{userName}}, welcome aboard! Please verify your email address by opening this link: {{verifyUrl}}`,
+    ctaText: "VERIFY EMAIL & EXPLORE SCRIMS",
+    ctaUrl: "{{verifyUrl}}",
+    variablesHint: ["userName", "verifyUrl"],
+  },
+  {
+    purposeKey: "welcome",
+    label: "Welcome",
+    description: "Welcome onboarding email triggered after email verification or OAuth account activation.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Welcome aboard, {{userName}} — ACE SCRIMS",
+    preheader: "Welcome aboard {{userName}}! Your ACE SCRIMS account is active.",
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">Hey {{userName}},</h2>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
+  Welcome aboard! {{methodLabel}} You are fully geared up to register your squad and compete on ACE SCRIMS.
+</p>
+<div style="background:#121524;border:1px solid #1f2438;border-radius:10px;padding:16px 20px;margin:16px 0;">
+  <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">COMPETITIVE FEATURES:</p>
+  <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Instant Slot Locking:</strong> Register squads in seconds and get automatic slot assignment.</p>
+  <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Live Room Delivery:</strong> Room ID &amp; Password delivered directly in your dashboard and inbox.</p>
+</div>`,
+    bodyText: `Hey {{userName}}, welcome to ACE SCRIMS! {{methodLabel}} Explore upcoming lobbies at {{scrimsUrl}}`,
+    ctaText: "Explore Scrims & Lobbies",
+    ctaUrl: "{{scrimsUrl}}",
+    variablesHint: ["userName", "methodLabel", "scrimsUrl"],
+  },
+  {
+    purposeKey: "register",
+    label: "Register",
+    description: "Booking confirmation email sent automatically when a squad confirms their scrim registration.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Booking Confirmed: {{scrimTitle}} (Slot #{{slotNumber}}) — ACE SCRIMS",
+    preheader: "Your slot #{{slotNumber}} for {{scrimTitle}} ({{startTime}}) is confirmed.",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:16px;">Hello {{recipientName}},</p>
+<p style="margin:0 0 20px 0;">Your squad booking has been confirmed for <strong>{{scrimTitle}}</strong>. Entry fee of <strong>BDT {{amountBdt}}</strong> has been processed.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#121524;border:1px solid #23273e;border-radius:10px;margin-bottom:20px;">
+  <tr><td style="padding:16px 20px;">
+    <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#64748b;">Squad Name:</strong> {{teamName}}</p>
+    <p style="margin:4px 0;color:#f97316;font-size:14px;font-weight:800;"><strong style="color:#64748b;font-weight:600;">Assigned Slot:</strong> Slot #{{slotNumber}}</p>
+    <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#64748b;">Tournament:</strong> {{scrimTitle}}</p>
+    <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#64748b;">Match Start:</strong> {{startTime}}</p>
+  </td></tr>
+</table>
+<p style="margin:0;color:#94a3b8;font-size:13px;">Room ID &amp; Password arrive 10–15 minutes before kickoff. Mobile devices only — strictly sit in Slot #{{slotNumber}}.</p>`,
+    bodyText: `Your squad {{teamName}} is confirmed for {{scrimTitle}} in Slot #{{slotNumber}}. Match start: {{startTime}}. Entry fee: BDT {{amountBdt}}. Dashboard: {{dashboardUrl}}`,
+    ctaText: "Open Player Dashboard",
+    ctaUrl: "{{dashboardUrl}}",
+    variablesHint: ["recipientName", "teamName", "scrimTitle", "startTime", "slotNumber", "amountBdt", "dashboardUrl"],
+  },
+  {
+    purposeKey: "id_pass",
+    label: "ID Pass",
+    description: "Custom room ID and password dispatch sent to confirmed squads before match start.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Room ID & Password: {{scrimTitle}} — ACE SCRIMS",
+    preheader: "Room ID: {{roomId}} | Password: {{roomPassword}} for {{scrimTitle}}",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:16px;">Hello {{recipientName}},</p>
+<p style="margin:0 0 16px 0;color:#cbd5e1;">{{updateNotice}} Room details for <strong>{{scrimTitle}}</strong> are now ready.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#13182b;border:2px solid #ea580c;border-radius:12px;margin-bottom:20px;">
+  <tr><td style="padding:20px 24px;">
+    <p style="margin:6px 0;color:#94a3b8;font-size:13px;">ROOM ID: <strong style="color:#f97316;font-size:20px;font-family:monospace;">{{roomId}}</strong></p>
+    <p style="margin:6px 0;color:#94a3b8;font-size:13px;">PASSWORD: <strong style="color:#ffffff;font-size:20px;font-family:monospace;">{{roomPassword}}</strong></p>
+    <p style="margin:6px 0;color:#38bdf8;font-size:14px;font-weight:700;">{{slotText}}</p>
+    <p style="margin:6px 0;color:#cbd5e1;font-size:13px;">SCHEDULE: <strong>{{startTime}}</strong></p>
+  </td></tr>
+</table>
+<p style="margin:0;color:#94a3b8;font-size:13px;">Do not share room credentials outside your registered squad. Mobile devices only.</p>`,
+    bodyText: `Room Credentials for {{scrimTitle}} ({{startTime}}). Room ID: {{roomId}} | Password: {{roomPassword}} | {{slotText}}. Dashboard: {{dashboardUrl}}`,
+    ctaText: "Go to Dashboard",
+    ctaUrl: "{{dashboardUrl}}",
+    variablesHint: [
+      "recipientName",
+      "teamName",
+      "scrimTitle",
+      "startTime",
+      "slotNumber",
+      "slotText",
+      "roomId",
+      "roomPassword",
+      "updateNotice",
+      "dashboardUrl",
+    ],
+  },
+  {
+    purposeKey: "result",
+    label: "Result",
+    description: "Match result announcement emailed to confirmed participants when admin publishes standings.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Match Results Published: {{scrimTitle}} — ACE SCRIMS",
+    preheader: "Official results published for {{scrimTitle}}. Winner: {{winningTeam}} with {{kills}} kills.",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
+<p style="margin:0 0 18px 0;color:#94a3b8;">The official match results for <strong>{{scrimTitle}}</strong> have just been verified and published.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:20px;">
+  <tr><td style="padding:18px 20px;">
+    <p style="margin:5px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#94a3b8;">YOUR SQUAD:</strong> {{teamName}}</p>
+    <p style="margin:5px 0;color:#f97316;font-size:15px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">CHAMPION / WINNER:</strong> {{winningTeam}} {{winnerStatus}}</p>
+    <p style="margin:5px 0;color:#cbd5e1;font-size:13px;"><strong style="color:#94a3b8;">CATEGORY:</strong> {{category}}</p>
+    <p style="margin:5px 0;color:#ffffff;font-size:14px;"><strong style="color:#94a3b8;">WINNER KILLS:</strong> {{kills}} Kills</p>
+    <p style="margin:5px 0;color:#10b981;font-size:15px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">PRIZE AWARDED:</strong> ৳{{prizeBdt}} BDT</p>
+  </td></tr>
+</table>`,
+    bodyText: `Hello {{recipientName}}, official match results for {{scrimTitle}} are published. Winner: {{winningTeam}} ({{kills}} kills). Prize: ৳{{prizeBdt}} BDT. View results: {{resultsUrl}}`,
+    ctaText: "View Full Match Results",
+    ctaUrl: "{{resultsUrl}}",
+    variablesHint: [
+      "recipientName",
+      "teamName",
+      "scrimTitle",
+      "winningTeam",
+      "winnerStatus",
+      "category",
+      "kills",
+      "prizeBdt",
+      "placement",
+      "resultsUrl",
+    ],
+  },
+  {
+    purposeKey: "mvp_image",
+    label: "MVP Image",
+    description: "Winner / MVP face banner photo request sent to selected players after match completion.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Action Required: Upload MVP Image for {{teamName}} — ACE SCRIMS",
+    preheader: "Ace Scrims management has requested an MVP photo for {{teamName}} ({{scrimTitle}}).",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
+<p style="margin:0 0 18px 0;color:#94a3b8;">Congratulations! Ace Scrims management has requested an image asset for <strong>{{targetPlayerLabel}}</strong> from <em>{{scrimTitle}}</em> ({{scrimDate}}) for the official Face Banners showcase.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:20px;">
+  <tr><td style="padding:18px 20px;">
+    <p style="margin:5px 0;color:#ffffff;font-size:14px;"><strong style="color:#94a3b8;">SQUAD:</strong> {{teamName}}</p>
+    <p style="margin:5px 0;color:#10b981;font-size:14px;"><strong style="color:#94a3b8;">TARGET PLAYER:</strong> {{mvpPlayerName}}</p>
+    <p style="margin:5px 0;color:#f97316;font-size:14px;"><strong style="color:#94a3b8;">EVENT:</strong> {{scrimTitle}} ({{scrimDate}})</p>
+    <p style="margin:5px 0;color:#10b981;font-size:14px;"><strong style="color:#94a3b8;">REQUEST TYPE:</strong> {{requestType}}</p>
+    <p style="margin:5px 0;color:#cbd5e1;font-size:13px;"><strong style="color:#94a3b8;">GUIDELINES:</strong> Waist-up photo, clean framing, ideally with background removed.</p>
+  </td></tr>
+</table>`,
+    bodyText: `Hello {{recipientName}}, Ace Scrims management requested an MVP photo ({{requestType}}) for {{teamName}} ({{scrimTitle}}). Upload via your dashboard: {{dashboardUrl}}`,
+    ctaText: "Upload MVP Image Now",
+    ctaUrl: "{{dashboardUrl}}",
+    variablesHint: [
+      "recipientName",
+      "teamName",
+      "mvpPlayerName",
+      "targetPlayerLabel",
+      "scrimTitle",
+      "scrimDate",
+      "requestType",
+      "dashboardUrl",
+    ],
+  },
+  {
+    purposeKey: "notice",
+    label: "Notice",
+    description: "Official Notice broadcast sent to verified players when an admin publishes a notice with email delivery enabled.",
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "[{{priorityLabel}}] {{title}} — ACE SCRIMS",
+    preheader: "{{category}} — {{title}}",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
+<div style="margin-bottom:14px;">
+  <span style="display:inline-block;background:rgba(234,88,12,0.14);color:#f97316;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #f97316;margin-right:8px;">{{priorityLabel}}</span>
+  <span style="display:inline-block;background:#121524;color:#cbd5e1;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #1e2235;">{{category}}</span>
+</div>
+<div style="background:#121524;border:1px solid #1e2235;border-radius:10px;padding:20px;margin-bottom:18px;">
+  <h2 style="margin:0 0 10px 0;color:#ffffff;font-size:18px;font-weight:800;">{{title}}</h2>
+  <div style="color:#cbd5e1;font-size:14px;line-height:1.7;">{{content}}</div>
+</div>`,
+    bodyText: `[{{priorityLabel}}] ({{category}}) {{title}}\n\n{{content}}\n\nView notice: {{noticesUrl}}`,
+    ctaText: "View Official Notice",
+    ctaUrl: "{{noticesUrl}}",
+    variablesHint: ["recipientName", "title", "content", "category", "priority", "priorityLabel", "noticesUrl"],
+  },
+]
+
+export type NormalizedEmailTemplate = Omit<EmailTemplate, "mediaItems" | "variablesHint"> & {
+  mediaItems: EmailTemplateMediaItem[]
+  variablesHint: string[]
+}
+
+export function normalizeMediaItems(raw: unknown): EmailTemplateMediaItem[] {
+  if (!Array.isArray(raw)) return []
+  const cleaned: EmailTemplateMediaItem[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue
+    const rec = item as Record<string, unknown>
+    const url = typeof rec.url === "string" ? rec.url.trim() : ""
+    if (!url || !isSafeHttpOrRelativeUrl(url, { allowImageDataUri: true })) continue
+    const typeRaw = typeof rec.type === "string" ? rec.type : "image"
+    const type: "image" | "video" | "link" =
+      typeRaw === "video" || typeRaw === "link" ? typeRaw : "image"
+    cleaned.push({
+      id: typeof rec.id === "string" && rec.id.trim() ? rec.id.trim() : undefined,
+      url,
+      type,
+      name: typeof rec.name === "string" ? rec.name.trim() : undefined,
+    })
+  }
+  return cleaned
+}
+
+export function normalizeVariablesHint(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0).map((v) => v.trim())
+  }
+  if (typeof raw === "string") {
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function normalizeEmailTemplate(row: EmailTemplate): NormalizedEmailTemplate {
+  return {
+    ...row,
+    mediaItems: normalizeMediaItems(row.mediaItems),
+    variablesHint: normalizeVariablesHint(row.variablesHint),
+  }
+}
+
+async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
+  await ensureSchemaReady()
+  const existing = await db.select({ purposeKey: emailTemplates.purposeKey }).from(emailTemplates)
+  const existingKeys = new Set(existing.map((r) => r.purposeKey))
+
+  const missing = CORE_EMAIL_TEMPLATES.filter((t) => !existingKeys.has(t.purposeKey))
+  if (missing.length === 0) return
+
+  await db
+    .insert(emailTemplates)
+    .values(
+      missing.map((t) => ({
+        id: `tpl_${t.purposeKey}_${randomUUID().slice(0, 6)}`,
+        purposeKey: t.purposeKey,
+        label: t.label,
+        description: t.description,
+        category: t.category,
+        isEnabled: true,
+        isCore: t.isCore,
+        format: t.format,
+        subject: t.subject,
+        preheader: t.preheader,
+        bodyHtml: t.bodyHtml,
+        bodyText: t.bodyText,
+        ctaText: t.ctaText,
+        ctaUrl: t.ctaUrl,
+        mediaItems: [],
+        variablesHint: t.variablesHint,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }))
+    )
+    .onConflictDoNothing()
+}
+
+export async function getAllEmailTemplates(): Promise<NormalizedEmailTemplate[]> {
+  try {
+    await seedCoreEmailTemplatesIfMissing()
+    const rows = await db.select().from(emailTemplates).orderBy(asc(emailTemplates.createdAt))
+    const orderMap = new Map<string, number>(
+      CORE_EMAIL_PURPOSE_ORDER.map((key, idx) => [key, idx])
+    )
+    return rows
+      .map(normalizeEmailTemplate)
+      .sort((a, b) => {
+        const idxA = orderMap.has(a.purposeKey) ? orderMap.get(a.purposeKey)! : 999
+        const idxB = orderMap.has(b.purposeKey) ? orderMap.get(b.purposeKey)! : 999
+        if (idxA !== idxB) return idxA - idxB
+        return a.label.localeCompare(b.label)
+      })
+  } catch (err) {
+    console.warn("[EmailTemplates] Fallback to default core templates:", err)
+    return CORE_EMAIL_TEMPLATES.map((t) => ({
+      id: `default_${t.purposeKey}`,
+      purposeKey: t.purposeKey,
+      label: t.label,
+      description: t.description,
+      category: t.category,
+      isEnabled: true,
+      isCore: t.isCore,
+      format: t.format,
+      subject: t.subject,
+      preheader: t.preheader,
+      bodyHtml: t.bodyHtml,
+      bodyText: t.bodyText,
+      ctaText: t.ctaText,
+      ctaUrl: t.ctaUrl,
+      mediaItems: [],
+      variablesHint: t.variablesHint,
+      updatedBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }))
+  }
+}
+
+export async function getEmailTemplateByPurpose(
+  purposeKey: string
+): Promise<NormalizedEmailTemplate | null> {
+  try {
+    await ensureSchemaReady()
+    let rows = await db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.purposeKey, purposeKey))
+      .limit(1)
+
+    if (rows.length === 0) {
+      const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === purposeKey)
+      if (coreSeed) {
+        await seedCoreEmailTemplatesIfMissing()
+        rows = await db
+          .select()
+          .from(emailTemplates)
+          .where(eq(emailTemplates.purposeKey, purposeKey))
+          .limit(1)
+      }
+    }
+
+    if (rows.length === 0) return null
+    return normalizeEmailTemplate(rows[0])
+  } catch (err) {
+    console.warn(`[EmailTemplates] Failed fetching template "${purposeKey}":`, err)
+    return null
+  }
+}

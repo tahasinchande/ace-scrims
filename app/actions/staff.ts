@@ -9,7 +9,13 @@ import { notifyScrimParticipants, logActivity } from "@/lib/notify"
 import { eq, and, or, ne, inArray } from "drizzle-orm"
 import { z } from "zod"
 import { put } from "@vercel/blob"
-import { sendRoomCredentialsEmail, sendMatchResultPublishedEmail, sendEmailBatch, isEmailProviderConfigured } from "@/lib/email"
+import {
+  sendRoomCredentialsEmail,
+  sendMatchResultPublishedEmail,
+  sendEmailBatch,
+  isEmailProviderConfigured,
+  isEmailTemplateEnabled,
+} from "@/lib/email"
 import { resolveOrEnsureScrim, getBangladeshActiveDate } from "@/lib/queries/scrims"
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -138,7 +144,10 @@ export async function publishRoom(_prev: PublishRoomState, formData: FormData): 
       totalRecipients = recipients.length
 
       if (recipients.length > 0) {
-        if (!isEmailProviderConfigured()) {
+        const roomEmailEnabled = await isEmailTemplateEnabled("id_pass")
+        if (!roomEmailEnabled) {
+          emailWarning = "Room published in dashboard. Email dispatch skipped because the ID Pass template is turned OFF."
+        } else if (!isEmailProviderConfigured()) {
           emailsFailed = recipients.length
           emailWarning =
             "Room published in dashboard, but no email provider is configured (set RESEND_API_KEY or SMTP credentials)."
@@ -396,7 +405,10 @@ export async function publishResult(_prev: unknown, formData: FormData): Promise
 
       totalRecipients = recipientMap.size
       if (totalRecipients > 0) {
-        if (!isEmailProviderConfigured()) {
+        const resultEmailEnabled = await isEmailTemplateEnabled("result")
+        if (!resultEmailEnabled) {
+          emailWarning = "Result published. Email notifications skipped because the Result email template is turned OFF."
+        } else if (!isEmailProviderConfigured()) {
           emailsFailed = totalRecipients
           emailWarning = "Result published, but no email provider is configured to notify teams."
           console.warn(`[publishResult] ${emailWarning}`)

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { reports, user, scrims } from "@/lib/db/schema"
 import { eq, desc, and } from "drizzle-orm"
 import { AdminReports } from "@/components/admin/admin-reports"
@@ -10,22 +10,35 @@ export const metadata = { title: "Reports — Ace Scrims Admin" }
 
 export default async function AdminReportsPage() {
   const sessionUser = await getSessionUser()
-  if (!sessionUser || sessionUser.role !== "admin") {
+  if (!sessionUser || sessionUser.banned || sessionUser.role !== "admin") {
     redirect("/admin/scrims")
   }
 
-  const rows = await db
-    .select({
-      report: reports,
-      userName: user.name,
-      userPhone: user.phone,
-      scrimTitle: scrims.title,
-    })
-    .from(reports)
-    .leftJoin(user, eq(reports.userId, user.id))
-    .leftJoin(scrims, eq(reports.scrimId, scrims.id))
-    .where(and(eq(reports.isTrashed, false)))
-    .orderBy(desc(reports.createdAt))
+  await ensureSchemaReady()
+
+  const [rows, scrimRows] = await Promise.all([
+    db
+      .select({
+        report: reports,
+        userName: user.name,
+        userPhone: user.phone,
+        scrimTitle: scrims.title,
+      })
+      .from(reports)
+      .leftJoin(user, eq(reports.userId, user.id))
+      .leftJoin(scrims, eq(reports.scrimId, scrims.id))
+      .where(and(eq(reports.isTrashed, false)))
+      .orderBy(desc(reports.createdAt)),
+    db
+      .select({
+        id: scrims.id,
+        title: scrims.title,
+        startTime: scrims.startTime,
+      })
+      .from(scrims)
+      .where(eq(scrims.isTrashed, false))
+      .orderBy(desc(scrims.scrimDate)),
+  ])
 
   const formattedReports = rows.map((r) => ({
     id: r.report.id,
@@ -39,6 +52,8 @@ export default async function AdminReportsPage() {
     proofUrl: r.report.proofUrl,
     imageUrl: r.report.imageUrl,
     videoUrl: r.report.videoUrl,
+    videoUrls: Array.isArray(r.report.videoUrls) ? r.report.videoUrls : [],
+    externalLinks: Array.isArray(r.report.externalLinks) ? r.report.externalLinks : [],
     whatsapp: r.report.whatsapp,
     hackerUid: r.report.hackerUid,
     hackerName: r.report.hackerName,
@@ -54,12 +69,14 @@ export default async function AdminReportsPage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">Player & Hacker Reports</h1>
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+          Player &amp; Feature Reports
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Review hacker claims, dispute tickets, and user submissions with uploaded proof.
+          Review hacker claims, slot/payment disputes, and feature requests with media proofs and advanced filters.
         </p>
       </header>
-      <AdminReports reports={formattedReports} />
+      <AdminReports reports={formattedReports} scrims={scrimRows} />
     </div>
   )
 }

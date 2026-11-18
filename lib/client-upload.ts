@@ -244,8 +244,27 @@ export async function uploadVideoDirect(
   }
 
   if (!config.mediaCloud) {
+    // Allow small videos (<= 4MB) to fall back to /api/upload cleanly
+    if (file.size <= 4 * 1024 * 1024) {
+      onProgress?.(15)
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("folder", folder)
+      const res = await fetch("/api/upload", { method: "POST", body: formData })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok && json.ok && json.url) {
+        onProgress?.(100)
+        return {
+          url: json.url,
+          fileName: json.fileName || file.name,
+          fileSize: json.fileSize || file.size,
+        }
+      }
+      throw new Error(sanitizeUploadError(json.error || "Video upload failed."))
+    }
+
     throw new Error(
-      "Media storage is not configured. Please check storage environment variables or paste a YouTube or Google Drive video link."
+      "Media storage is not configured for large video files (>4MB). Please compress under 4MB or share a Google Drive / MEGA link."
     )
   }
 
@@ -370,9 +389,21 @@ export const uploadVideoToCloudinaryDirect = uploadVideoDirect
  * Routes large videos directly via chunked/multipart upload to bypass serverless limits.
  * Uploads images/documents cleanly via configured media storage or /api/upload.
  */
+export type UploadMediaFolder =
+  | "reports"
+  | "tutorials"
+  | "results"
+  | "scrims"
+  | "banners"
+  | "chat"
+  | "avatars"
+  | "email-media"
+  | "notices"
+  | "uploads"
+
 export async function uploadMediaFile(
   file: File,
-  folder: "reports" | "tutorials" | "results" | "scrims" | "banners" | "chat" | "avatars" | "uploads" = "uploads",
+  folder: UploadMediaFolder = "uploads",
   onProgress?: UploadProgressCallback
 ): Promise<UploadResult> {
   if (!file || !(file instanceof File) || file.size === 0) {
@@ -537,7 +568,7 @@ export async function uploadMediaFile(
  */
 export async function uploadMultipleMediaFiles(
   files: File[],
-  folder: "reports" | "tutorials" | "results" | "scrims" | "banners" | "chat" | "avatars" | "uploads" = "uploads",
+  folder: UploadMediaFolder = "uploads",
   onOverallProgress?: (percent: number, currentFileIdx: number, totalFiles: number) => void
 ): Promise<UploadResult[]> {
   const results: UploadResult[] = []

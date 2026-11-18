@@ -12,7 +12,15 @@ import { Check, ChevronLeft, Loader2, Lock, ShieldCheck, Users, CreditCard, Awar
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
 import { uploadMediaFile } from "@/lib/client-upload"
 import { toast } from "sonner"
-import type { UserDefaultInfo } from "@/lib/db/schema"
+import type { UserDefaultInfo, PayoutMethod } from "@/lib/db/schema"
+
+const FALLBACK_PAYOUT_METHODS: PayoutMethod[] = [
+  { id: "pm-bkash", name: "bKash", code: "bKash", label: "bKash Personal", description: null, accentColor: "#E2136E", requiresAccountNumber: true, isActive: true, sortOrder: 1, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-nagad", name: "Nagad", code: "Nagad", label: "Nagad Personal", description: null, accentColor: "#F7941D", requiresAccountNumber: true, isActive: true, sortOrder: 2, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-rocket", name: "Rocket", code: "Rocket", label: "Rocket Personal", description: null, accentColor: "#8C3494", requiresAccountNumber: true, isActive: true, sortOrder: 3, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-tap", name: "Tap", code: "Tap", label: "Tap Personal", description: null, accentColor: "#00A19D", requiresAccountNumber: true, isActive: true, sortOrder: 4, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-balance", name: "Balance", code: "Balance", label: "Ace Scrims Wallet", description: null, accentColor: "#10B981", requiresAccountNumber: false, isActive: true, sortOrder: 5, createdAt: new Date(0), updatedAt: new Date(0) },
+]
 
 type WizardScrim = {
   id: string
@@ -69,20 +77,43 @@ export function BookingWizard({
   userBalance = 0,
   defaultInfo = null,
   alreadyBooked = null,
+  payoutMethods,
 }: {
   scrim: WizardScrim
   userBalance?: number
   defaultInfo?: UserDefaultInfo | null
   alreadyBooked?: { teamName: string; slotNumber: number | null } | null
+  payoutMethods?: PayoutMethod[]
 }) {
+  const availableMethods =
+    payoutMethods && payoutMethods.length > 0 ? payoutMethods : FALLBACK_PAYOUT_METHODS
+  const matchedInitialMethod = availableMethods.find(
+    (m) =>
+      m.code.toLowerCase() === (defaultInfo?.paymentMethod || "").toLowerCase() ||
+      m.name.toLowerCase() === (defaultInfo?.paymentMethod || "").toLowerCase()
+  )
+
   const [step, setStep] = useState(1)
   const [state, formAction, pending] = useActionState(createBooking, initialState)
   const [leaderImageUrl, setLeaderImageUrl] = useState(defaultInfo?.teamLeaderImageUrl || "")
   const [isUploadingLeader, setIsUploadingLeader] = useState(false)
   const [leaderUploadError, setLeaderUploadError] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<"bKash" | "Nagad" | "Tap" | "Balance">(
-    (defaultInfo?.paymentMethod as "bKash" | "Nagad" | "Tap" | "Balance") || "bKash"
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    matchedInitialMethod?.code || availableMethods[0]?.code || "bKash"
   )
+  const [paymentNumber, setPaymentNumber] = useState<string>(() => {
+    if (matchedInitialMethod && !matchedInitialMethod.requiresAccountNumber) {
+      return defaultInfo?.paymentNumber || "Ace Scrims Account Balance"
+    }
+    return defaultInfo?.paymentNumber === "Ace Scrims Account Balance"
+      ? ""
+      : defaultInfo?.paymentNumber || ""
+  })
+
+  const selectedMethodObj =
+    availableMethods.find((m) => m.code === paymentMethod) || availableMethods[0]
+  const requiresAccountNumber = selectedMethodObj?.requiresAccountNumber ?? paymentMethod !== "Balance"
+  const methodListText = availableMethods.map((m) => m.name).join(", ")
 
   // Redirect to the payment gateway or dashboard when the action completes
   useEffect(() => {
@@ -400,37 +431,51 @@ export function BookingWizard({
                     Prize Pool Payout Method <span className="text-destructive">*</span>
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Select your preferred prize pool payout provider (bKash, Nagad, Tap, or Balance) to receive your tournament winnings.
+                    Select your preferred prize pool payout provider ({methodListText}) to receive your tournament winnings.
                   </p>
                 </div>
 
                 <input type="hidden" name="paymentMethod" value={paymentMethod} />
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-1">
-                  {(
-                    [
-                      { id: "bKash", label: "bKash" },
-                      { id: "Nagad", label: "Nagad" },
-                      { id: "Tap", label: "Tap" },
-                      { id: "Balance", label: "Balance" },
-                    ] as const
-                  ).map((provider) => {
-                    const active = paymentMethod === provider.id
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 mt-1">
+                  {availableMethods.map((provider) => {
+                    const active = paymentMethod === provider.code
                     return (
                       <button
                         key={provider.id}
                         type="button"
-                        onClick={() => setPaymentMethod(provider.id)}
+                        onClick={() => {
+                          setPaymentMethod(provider.code)
+                          if (!provider.requiresAccountNumber) {
+                            setPaymentNumber("Ace Scrims Account Balance")
+                          } else if (paymentNumber === "Ace Scrims Account Balance") {
+                            setPaymentNumber(
+                              defaultInfo?.paymentNumber &&
+                                defaultInfo.paymentNumber !== "Ace Scrims Account Balance"
+                                ? defaultInfo.paymentNumber
+                                : ""
+                            )
+                          }
+                        }}
+                        style={
+                          active && provider.accentColor
+                            ? {
+                                borderColor: provider.accentColor,
+                                backgroundColor: `${provider.accentColor}1F`,
+                                color: provider.accentColor,
+                              }
+                            : undefined
+                        }
                         className={cn(
-                          "flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border font-display font-bold text-sm uppercase transition-all",
+                          "flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border font-display font-bold text-sm uppercase transition-all whitespace-nowrap",
                           active
-                            ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary"
+                            ? "shadow-sm ring-1 ring-primary"
                             : "border-border/60 bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                         )}
                       >
-                        <span className="text-base font-extrabold tracking-wide">{provider.label}</span>
+                        <span className="text-base font-extrabold tracking-wide">{provider.name}</span>
                         <span className="text-[10px] font-medium tracking-normal text-muted-foreground">
-                          {active ? "Selected" : provider.id === "Balance" ? "Account Wallet" : "Select"}
+                          {active ? "Selected" : !provider.requiresAccountNumber ? "Account Wallet" : "Select"}
                         </span>
                       </button>
                     )
@@ -443,34 +488,34 @@ export function BookingWizard({
                 <Field
                   id="paymentNumber"
                   label={
-                    paymentMethod === "Balance"
-                      ? "Payout Destination (Ace Scrims Account Balance)"
-                      : `Payment Number (${paymentMethod} Personal Account for Prize Pool Payout)`
+                    !requiresAccountNumber
+                      ? `Payout Destination (${selectedMethodObj?.label || paymentMethod})`
+                      : `Payment Number (${selectedMethodObj?.name || paymentMethod} Personal Account for Prize Pool Payout)`
                   }
-                  type={paymentMethod === "Balance" ? "text" : "tel"}
+                  type={!requiresAccountNumber ? "text" : "tel"}
                   placeholder={
-                    paymentMethod === "Balance"
+                    !requiresAccountNumber
                       ? "Ace Scrims Account Balance (Auto-credited)"
-                      : `01XXXXXXXXX (${paymentMethod} Personal Account)`
+                      : `01XXXXXXXXX (${selectedMethodObj?.name || paymentMethod} Personal Account)`
                   }
-                  defaultValue={
-                    defaultInfo?.paymentMethod === "Balance"
-                      ? (defaultInfo?.paymentNumber || "Ace Scrims Account Balance")
-                      : paymentMethod === "Balance"
+                  value={
+                    !requiresAccountNumber
                       ? "Ace Scrims Account Balance"
-                      : (defaultInfo?.paymentNumber || "")
+                      : paymentNumber
                   }
+                  onChange={(e) => setPaymentNumber(e.target.value)}
+                  readOnly={!requiresAccountNumber}
                   error={state.fieldErrors?.paymentNumber}
-                  required={paymentMethod !== "Balance"}
+                  required={requiresAccountNumber}
                 />
 
                 {/* Dynamic Prizepool Declaration Bracket */}
                 <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-xs text-foreground flex flex-col gap-1 shadow-sm">
                   <div className="flex items-center gap-1.5 font-bold text-primary">
                     <CheckCircle2 className="size-4 shrink-0" />
-                    <span>Prize Pool Payout Declaration ({paymentMethod}):</span>
+                    <span>Prize Pool Payout Declaration ({selectedMethodObj?.name || paymentMethod}):</span>
                   </div>
-                  {paymentMethod === "Balance" ? (
+                  {!requiresAccountNumber ? (
                     <>
                       <p className="leading-relaxed">
                         Tournament winning prize pool will be deposited <strong>directly into your Ace Scrims account balance</strong> upon match result publication.
@@ -482,10 +527,10 @@ export function BookingWizard({
                   ) : (
                     <>
                       <p className="leading-relaxed">
-                        Tournament winning prize pool will be disbursed strictly to the specific <strong>{paymentMethod}</strong> number/account you provide above.
+                        Tournament winning prize pool will be disbursed strictly to the specific <strong>{selectedMethodObj?.name || paymentMethod}</strong> number/account you provide above.
                       </p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        (আপনার টুর্নামেন্ট প্রাইজপুল বিজয়ী হলে সরাসরি আপনার দেওয়া এই <strong>{paymentMethod}</strong> একাউন্ট নম্বরে পাঠানো হবে।)
+                        (আপনার টুর্নামেন্ট প্রাইজপুল বিজয়ী হলে সরাসরি আপনার দেওয়া এই <strong>{selectedMethodObj?.name || paymentMethod}</strong> একাউন্ট নম্বরে পাঠানো হবে।)
                       </p>
                     </>
                   )}
@@ -682,7 +727,7 @@ export function BookingWizard({
                   </span>
                 ) : (
                   <span className="text-zinc-400">
-                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via bKash, Nagad, or Tap.
+                    Your wallet balance is {bdt(userBalance)} (Need {bdt(scrim.priceBdt)}). You will be securely redirected to pay {bdt(scrim.priceBdt)} via bKash, Nagad, Rocket, or Tap.
                   </span>
                 )}
               </p>
@@ -705,7 +750,7 @@ export function BookingWizard({
             <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/10 p-4 text-xs leading-relaxed text-warning-foreground">
               <p className="font-bold text-amber-300">⚠️ জরুরি নির্দেশনা (Important Disclaimer):</p>
               <p className="flex items-start gap-1.5">
-                • <span>প্রাইজপুলের টাকা পাওয়ার জন্য আপনার বিকাশ/নগদ/ট্যাপ নাম্বারটি সঠিকভাবে দিয়েছেন কি না নিশ্চিত করুন।</span>
+                • <span>প্রাইজপুলের টাকা পাওয়ার জন্য আপনার {selectedMethodObj?.name || paymentMethod} একাউন্ট নাম্বারটি সঠিকভাবে দিয়েছেন কি না নিশ্চিত করুন।</span>
               </p>
               <p className="flex items-start gap-1.5">
                 • <span>স্লট কনফার্ম হওয়ার পর আপনার ড্যাশবোর্ডে রুম আইডি এবং পাসওয়ার্ড দেখতে পাবেন।</span>
@@ -749,7 +794,7 @@ export function BookingWizard({
                 ) : userBalance >= scrim.priceBdt ? (
                   <>Register with Balance ({bdt(scrim.priceBdt)})</>
                 ) : (
-                  <>Pay {bdt(scrim.priceBdt)} (bKash / Nagad / Tap)</>
+                  <>Pay {bdt(scrim.priceBdt)} (bKash / Nagad / Rocket / Tap)</>
                 )}
               </Button>
             </div>

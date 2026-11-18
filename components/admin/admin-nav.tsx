@@ -23,6 +23,8 @@ import {
   Coins,
   BellRing,
   KeyRound,
+  Mail,
+  Snowflake,
 } from "lucide-react"
 
 type NavLink = {
@@ -36,7 +38,9 @@ const adminLinks: NavLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/scrims", label: "Scrims", icon: Swords },
   { href: "/admin/scrims?tab=room1", label: "Room 1", icon: KeyRound, exact: true },
+  { href: "/admin/iceberg", label: "Iceberg", icon: Snowflake },
   { href: "/admin/notices", label: "Notices", icon: BellRing },
+  { href: "/admin/email", label: "Email", icon: Mail },
   { href: "/admin/history", label: "Historical Data", icon: History },
   { href: "/admin/announce", label: "Announce", icon: Megaphone },
   { href: "/admin/tutorials", label: "Tutorials", icon: Video },

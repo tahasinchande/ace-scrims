@@ -5,9 +5,11 @@ import { updateReportStatus } from "@/app/actions/reports"
 import { trashReports } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDate } from "@/lib/format"
 import { resolveImageUrl, extractImageUrls } from "@/lib/image-url"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import { cn } from "@/lib/utils"
 import {
   Trash2,
@@ -19,13 +21,14 @@ import {
   Image as ImageIcon,
   MessageSquare,
   User,
-  Hash,
   CreditCard,
   AlertCircle,
   CheckSquare,
   Square,
   RotateCcw,
   X,
+  Link2,
+  Filter,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -41,6 +44,8 @@ type ReportItem = {
   proofUrl: string | null
   imageUrl?: string | null
   videoUrl?: string | null
+  videoUrls?: string[]
+  externalLinks?: string[]
   whatsapp?: string | null
   hackerUid?: string | null
   hackerName?: string | null
@@ -50,20 +55,78 @@ type ReportItem = {
   bookingDetails?: string | null
   additionalInfo?: string | null
   status: string
-  createdAt: Date
+  createdAt: Date | string
 }
 
-export function AdminReports({ reports }: { reports: ReportItem[] }) {
+type ScrimFilterOption = {
+  id: string
+  title: string
+  startTime?: string | null
+}
+
+const KNOWN_REPORT_PURPOSES = [
+  "Hacker Report",
+  "Winner Payment Not Received",
+  "Payment Completed But Slot Not Booked",
+  "Feature Request",
+  "Other Report",
+]
+
+function getIsoDateString(val: Date | string): string {
+  try {
+    const d = typeof val === "string" ? new Date(val) : val
+    if (Number.isNaN(d.getTime())) return ""
+    return d.toISOString().split("T")[0]
+  } catch {
+    return ""
+  }
+}
+
+export function AdminReports({
+  reports,
+  scrims = [],
+}: {
+  reports: ReportItem[]
+  scrims?: ScrimFilterOption[]
+}) {
   const [isPending, startTransition] = useTransition()
   const [filter, setFilter] = useState<"all" | "pending" | "reviewed" | "resolved">("all")
+  const [purposeFilter, setPurposeFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>("")
+  const [scrimFilter, setScrimFilter] = useState<string>("all")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
 
+  const uniquePurposes = Array.from(
+    new Set([
+      ...KNOWN_REPORT_PURPOSES,
+      ...reports.map((r) => r.reportType).filter((t): t is string => Boolean(t && t.trim())),
+    ])
+  )
+
   const filteredReports = reports.filter((r) => {
-    if (filter === "all") return true
-    return r.status === filter
+    if (filter !== "all" && r.status !== filter) return false
+    if (purposeFilter !== "all" && r.reportType !== purposeFilter) return false
+    if (scrimFilter === "__none__" && r.scrimId) return false
+    if (scrimFilter !== "all" && scrimFilter !== "__none__" && r.scrimId !== scrimFilter) return false
+    if (dateFilter) {
+      const createdDay = getIsoDateString(r.createdAt)
+      const incidentMatch = r.additionalInfo?.includes(dateFilter) ?? false
+      if (createdDay !== dateFilter && !incidentMatch) return false
+    }
+    return true
   })
+
+  const hasActiveFilters =
+    filter !== "all" || purposeFilter !== "all" || dateFilter !== "" || scrimFilter !== "all"
+
+  const clearAllFilters = () => {
+    setFilter("all")
+    setPurposeFilter("all")
+    setDateFilter("")
+    setScrimFilter("all")
+  }
 
   const allSelected = filteredReports.length > 0 && selectedIds.length === filteredReports.length
 
@@ -103,28 +166,107 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-            Player Reports ({reports.length})
-          </h1>
+          <h2 className="font-display text-xl font-bold uppercase tracking-wide">
+            Submissions ({filteredReports.length} of {reports.length})
+          </h2>
           <p className="text-sm text-muted-foreground">
-            Review hacker reports, slot verification issues, payment claims, and video proofs.
+            Filter by status, report purpose, scrim lobby, or submission date.
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-xl bg-secondary/50 p-1">
+        <div className="flex items-center gap-1.5 rounded-xl bg-secondary/50 p-1 flex-wrap">
           {(["all", "pending", "reviewed", "resolved"] as const).map((tab) => (
             <Button
               key={tab}
               size="sm"
               variant={filter === tab ? "default" : "ghost"}
               onClick={() => setFilter(tab)}
-              className="text-xs uppercase font-bold"
+              className="text-xs uppercase font-bold whitespace-nowrap"
             >
               {tab} ({reports.filter((r) => tab === "all" || r.status === tab).length})
             </Button>
           ))}
         </div>
       </header>
+
+      {/* Advanced Filters Toolbar: Purpose + Scrim + Date */}
+      <div className="glass rounded-2xl border border-border/70 p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <Filter className="size-3.5 text-primary" />
+            Filter Reports
+          </span>
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={clearAllFilters}
+              className="h-7 gap-1 text-xs text-primary hover:text-primary"
+            >
+              <RotateCcw className="size-3" />
+              Clear Filters
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Purpose Dropdown Filter */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="report-purpose-filter" className="text-[11px] font-semibold text-muted-foreground">
+              Report Purpose
+            </label>
+            <select
+              id="report-purpose-filter"
+              value={purposeFilter}
+              onChange={(e) => setPurposeFilter(e.target.value)}
+              className="h-9 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
+            >
+              <option value="all">All Purposes</option>
+              {uniquePurposes.map((purpose) => (
+                <option key={purpose} value={purpose}>
+                  {purpose}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Scrim Selector Dropdown */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="report-scrim-filter" className="text-[11px] font-semibold text-muted-foreground">
+              Scrim / Tournament
+            </label>
+            <select
+              id="report-scrim-filter"
+              value={scrimFilter}
+              onChange={(e) => setScrimFilter(e.target.value)}
+              className="h-9 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
+            >
+              <option value="all">All Scrims</option>
+              <option value="__none__">General / No Scrim (Feature Requests)</option>
+              {scrims.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} {s.startTime ? `(${s.startTime})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date Filter Selector */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="report-date-filter" className="text-[11px] font-semibold text-muted-foreground">
+              Submission / Incident Date
+            </label>
+            <Input
+              id="report-date-filter"
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="h-9 rounded-xl border border-border bg-secondary/80 text-xs"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Batch Selection Toolbar */}
       {filteredReports.length > 0 && (
@@ -146,7 +288,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
               variant="destructive"
               disabled={isPending}
               onClick={() => handleDeleteToTrash(selectedIds)}
-              className="h-8 gap-1.5 text-xs"
+              className="h-8 gap-1.5 text-xs whitespace-nowrap"
             >
               <Trash2 className="size-3.5" /> Move Selected to Trash ({selectedIds.length})
             </Button>
@@ -156,15 +298,29 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
 
       {filteredReports.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
-          No reports found for the selected filter.
+          No reports found for the selected filters.
         </div>
       ) : (
         <ul className="flex flex-col gap-5">
           {filteredReports.map((report) => {
             const isSelected = selectedIds.includes(report.id)
             const cleanWa = report.whatsapp?.replace(/[^0-9]/g, "")
-            const imageProofs = extractImageUrls(report.imageUrl || report.proofUrl)
-            const videoProof = report.videoUrl
+            const imageProofs = extractImageUrls(report.imageUrl || report.proofUrl).filter((u) =>
+              isSafeHttpOrRelativeUrl(u, { allowImageDataUri: true })
+            )
+            const uploadedVideos = (Array.isArray(report.videoUrls) ? report.videoUrls : []).filter((u) =>
+              isSafeHttpOrRelativeUrl(u)
+            )
+            const linkList = [
+              ...(Array.isArray(report.externalLinks) ? report.externalLinks : []),
+              ...(report.videoUrl &&
+              !uploadedVideos.includes(report.videoUrl) &&
+              !(report.externalLinks || []).includes(report.videoUrl)
+                ? [report.videoUrl]
+                : []),
+            ].filter((u) => isSafeHttpOrRelativeUrl(u))
+
+            const isFeatureRequest = report.reportType === "Feature Request"
 
             return (
               <li
@@ -174,7 +330,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                 } shadow-md`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <button
                       type="button"
                       onClick={() => toggleSelect(report.id)}
@@ -182,7 +338,13 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                     >
                       {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
                     </button>
-                    <Badge variant="destructive" className="font-bold uppercase tracking-wider">
+                    <Badge
+                      variant={isFeatureRequest ? "default" : "destructive"}
+                      className={cn(
+                        "font-bold uppercase tracking-wider",
+                        isFeatureRequest && "bg-primary/20 text-primary border border-primary/40"
+                      )}
+                    >
                       {report.reportType}
                     </Badge>
                     <Badge
@@ -211,7 +373,9 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                   <div className="flex flex-col gap-2 min-w-0 max-w-full w-full overflow-hidden">
                     <div className="flex items-center gap-2 text-foreground font-medium">
                       <User className="size-4 text-primary shrink-0" />
-                      <span className="truncate">Reporter: {report.userName || "Guest"} ({report.userPhone || report.userId})</span>
+                      <span className="truncate">
+                        Reporter: {report.userName || "Guest"} ({report.userPhone || report.userId})
+                      </span>
                     </div>
 
                     {report.whatsapp && (
@@ -231,18 +395,23 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                     {report.scrimTitle && (
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
                         <AlertCircle className="size-4 text-primary shrink-0" />
-                        <span className="truncate">Related Scrim: <strong className="text-foreground">{report.scrimTitle}</strong></span>
+                        <span className="truncate">
+                          Related Scrim: <strong className="text-foreground">{report.scrimTitle}</strong>
+                        </span>
                       </div>
                     )}
 
-                    {/* Specific details based on report */}
                     {(report.hackerUid || report.hackerName) && (
                       <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-xs flex flex-col gap-1 min-w-0 max-w-full">
                         <span className="font-bold text-destructive flex items-center gap-1">
                           <AlertCircle className="size-3.5" /> Accused Hacker Info:
                         </span>
-                        {report.hackerName && <div className="break-words [overflow-wrap:break-word] [word-break:break-word]">Name: <strong>{report.hackerName}</strong></div>}
-                        {report.hackerUid && <div className="break-words [overflow-wrap:break-word] [word-break:break-word]">UID: <strong className="font-mono">{report.hackerUid}</strong></div>}
+                        {report.hackerName && (
+                          <div className="break-words">Name: <strong>{report.hackerName}</strong></div>
+                        )}
+                        {report.hackerUid && (
+                          <div className="break-words">UID: <strong className="font-mono">{report.hackerUid}</strong></div>
+                        )}
                       </div>
                     )}
 
@@ -256,10 +425,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                     )}
 
                     {report.bookingDetails && (
-                      <div
-                        className="rounded-xl bg-secondary/50 p-2.5 text-xs text-muted-foreground break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full overflow-hidden"
-                        style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
-                      >
+                      <div className="rounded-xl bg-secondary/50 p-2.5 text-xs text-muted-foreground break-words max-w-full min-w-0 w-full">
                         <strong className="text-foreground">Registration Info:</strong> {report.bookingDetails}
                       </div>
                     )}
@@ -267,23 +433,12 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
 
                   <div className="flex flex-col gap-2 min-w-0 max-w-full w-full overflow-hidden">
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Report Statement & Info:
+                      {isFeatureRequest ? "Expected Feature Details:" : "Report Statement & Info:"}
                     </div>
-                    <div
-                      className="rounded-xl bg-secondary/60 p-3 text-sm leading-relaxed whitespace-pre-wrap flex-1 border border-border/50 break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full overflow-hidden"
-                      style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
-                    >
-                      <div
-                        className="break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full"
-                        style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
-                      >
-                        {report.description}
-                      </div>
+                    <div className="rounded-xl bg-secondary/60 p-3 text-sm leading-relaxed whitespace-pre-wrap flex-1 border border-border/50 break-words max-w-full min-w-0 w-full">
+                      <div className="break-words">{report.description}</div>
                       {report.additionalInfo && (
-                        <div
-                          className="mt-2 pt-2 border-t border-border/40 text-xs text-muted-foreground break-words [overflow-wrap:break-word] [word-break:break-word] max-w-full min-w-0 w-full"
-                          style={{ overflowWrap: "break-word", wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}
-                        >
+                        <div className="mt-2 pt-2 border-t border-border/40 text-xs text-muted-foreground break-words">
                           <strong className="text-foreground">Additional Info:</strong> {report.additionalInfo}
                         </div>
                       )}
@@ -291,8 +446,8 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                   </div>
                 </div>
 
-                {/* Proof Media Preview (Screenshots & Large Videos) */}
-                {(imageProofs.length > 0 || videoProof) && (
+                {/* Proof Media Preview (Screenshots, Uploaded Videos, & External Links) */}
+                {(imageProofs.length > 0 || uploadedVideos.length > 0 || linkList.length > 0) && (
                   <div className="flex flex-col gap-3 border-t border-border/40 pt-3">
                     {imageProofs.length > 0 && (
                       <div className="flex flex-col gap-2 rounded-xl bg-black/40 p-3 border border-border/60">
@@ -300,22 +455,14 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                           <span className="flex items-center gap-1.5 text-primary">
                             <ImageIcon className="size-4" /> Screenshot Proof ({imageProofs.length})
                           </span>
-                          {imageProofs.length === 1 && (
-                            <a
-                              href={imageProofs[0]}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline flex items-center gap-1 text-[11px]"
-                            >
-                              <ExternalLink className="size-3" /> Full View
-                            </a>
-                          )}
                         </div>
 
-                        <div className={cn(
-                          "grid gap-2.5",
-                          imageProofs.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
-                        )}>
+                        <div
+                          className={cn(
+                            "grid gap-2.5",
+                            imageProofs.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
+                          )}
+                        >
                           {imageProofs.map((imgSrc, imgIdx) => (
                             <div
                               key={imgIdx}
@@ -328,8 +475,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                                 alt={`Screenshot Proof ${imgIdx + 1}`}
                                 className="max-h-52 w-full object-contain group-hover:scale-105 transition-transform duration-200"
                                 onError={(e) => {
-                                  // Fallback gracefully if image fails to load
-                                  (e.target as HTMLImageElement).src = "/placeholder.svg"
+                                  ;(e.target as HTMLImageElement).src = "/placeholder.svg"
                                 }}
                               />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
@@ -352,31 +498,55 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                       </div>
                     )}
 
-                    {videoProof ? (
+                    {uploadedVideos.length > 0 && (
                       <div className="flex flex-col gap-2 rounded-xl bg-black/40 p-3 border border-border/60">
-                        <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                          <span className="flex items-center gap-1.5 text-accent">
-                            <Video className="size-4" /> Video Proof (Screen Recording)
-                          </span>
-                          <a
-                            href={resolveImageUrl(videoProof)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-accent hover:underline flex items-center gap-1 text-[11px]"
-                          >
-                            <ExternalLink className="size-3" /> Open Video
-                          </a>
-                        </div>
-                        <div className="relative rounded-lg overflow-hidden border border-border/40 aspect-video bg-black/90 flex items-center justify-center">
-                          <video src={resolveImageUrl(videoProof)} controls preload="metadata" className="w-full h-full object-contain" />
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-accent">
+                          <Video className="size-4" /> Uploaded Video Proofs ({uploadedVideos.length})
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {uploadedVideos.map((vUrl, vIdx) => (
+                            <div
+                              key={`${vUrl}-${vIdx}`}
+                              className="rounded-lg overflow-hidden border border-border/40 bg-black/90"
+                            >
+                              <video
+                                src={resolveImageUrl(vUrl)}
+                                controls
+                                preload="metadata"
+                                className="w-full max-h-56 object-contain"
+                              />
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ) : null}
+                    )}
+
+                    {linkList.length > 0 && (
+                      <div className="flex flex-col gap-2 rounded-xl bg-black/40 p-3 border border-border/60">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-sky-400">
+                          <Link2 className="size-4" /> External Video / Drive Links ({linkList.length})
+                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          {linkList.map((lnk, lIdx) => (
+                            <a
+                              key={`${lnk}-${lIdx}`}
+                              href={lnk}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
+                            >
+                              <span className="truncate pr-2 font-mono">{lnk}</span>
+                              <ExternalLink className="size-3.5 shrink-0" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3 mt-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant={report.status === "reviewed" ? "default" : "outline"}
@@ -388,7 +558,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                           else toast.error(res.error)
                         })
                       }
-                      className="gap-1.5 text-xs"
+                      className="gap-1.5 text-xs whitespace-nowrap"
                     >
                       <Eye className="size-3.5" />
                       In Review
@@ -400,11 +570,11 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                       onClick={() =>
                         startTransition(async () => {
                           const res = await updateReportStatus(report.id, "resolved")
-                          if (res.ok) toast.success("Marked as Solved (Resolved)")
+                          if (res.ok) toast.success("Marked as Resolved")
                           else toast.error(res.error)
                         })
                       }
-                      className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                      className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white whitespace-nowrap"
                     >
                       <CheckCircle className="size-3.5" />
                       Mark Resolved
@@ -420,7 +590,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                           else toast.error(res.error)
                         })
                       }
-                      className="gap-1.5 text-xs"
+                      className="gap-1.5 text-xs whitespace-nowrap"
                     >
                       <Clock className="size-3.5" />
                       Pending
@@ -432,7 +602,7 @@ export function AdminReports({ reports }: { reports: ReportItem[] }) {
                     variant="destructive"
                     disabled={isPending}
                     onClick={() => handleDeleteToTrash([report.id])}
-                    className="gap-1.5 text-xs"
+                    className="gap-1.5 text-xs whitespace-nowrap"
                   >
                     <Trash2 className="size-3.5" />
                     Move to Trash

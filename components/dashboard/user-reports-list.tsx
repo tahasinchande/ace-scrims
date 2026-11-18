@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { formatDate } from "@/lib/format"
 import { resolveImageUrl, extractImageUrls } from "@/lib/image-url"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import {
   ShieldAlert,
   AlertTriangle,
@@ -46,6 +47,8 @@ export type UserReportItem = {
   imageUrl?: string | null
   imageUrls?: string[]
   videoUrl?: string | null
+  videoUrls?: string[]
+  externalLinks?: string[]
   whatsapp?: string | null
   hackerUid?: string | null
   hackerName?: string | null
@@ -421,6 +424,8 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
             const hasMedia = Boolean(
               report.proofUrl ||
               report.videoUrl ||
+              (report.videoUrls && report.videoUrls.length > 0) ||
+              (report.externalLinks && report.externalLinks.length > 0) ||
               (report.imageUrls && report.imageUrls.length > 0)
             )
 
@@ -485,8 +490,12 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
                     )}
                     {hasMedia && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-secondary/80 px-2 py-0.5 text-xs text-muted-foreground">
-                        {report.videoUrl ? <Video className="size-3 text-sky-400" /> : <ImageIcon className="size-3 text-primary" />}
-                        {report.videoUrl ? "Video Link" : `${report.imageUrls?.length || 1} Proof Image(s)`}
+                        {(report.videoUrls?.length || report.videoUrl) ? <Video className="size-3 text-sky-400" /> : <ImageIcon className="size-3 text-primary" />}
+                        {report.videoUrls?.length
+                          ? `${report.videoUrls.length} Video(s)`
+                          : report.videoUrl || report.externalLinks?.length
+                            ? "Video / Link"
+                            : `${report.imageUrls?.length || 1} Proof Image(s)`}
                       </span>
                     )}
                   </div>
@@ -623,24 +632,61 @@ export function UserReportsList({ initialReports }: UserReportsListProps) {
                 )}
               </div>
 
-              {/* Video Proof */}
-              {selectedReport.videoUrl && (
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1.5 flex items-center gap-1.5">
+              {/* Uploaded Video Clips */}
+              {selectedReport.videoUrls && selectedReport.videoUrls.filter((u) => isSafeHttpOrRelativeUrl(u)).length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Video className="size-3.5 text-sky-400" />
-                    Video Proof URL
+                    Uploaded Video Proofs
                   </label>
-                  <a
-                    href={selectedReport.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 text-xs font-semibold transition-colors"
-                  >
-                    <span className="truncate pr-2">{selectedReport.videoUrl}</span>
-                    <ExternalLink className="size-3.5 shrink-0" />
-                  </a>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {selectedReport.videoUrls
+                      .filter((u) => isSafeHttpOrRelativeUrl(u))
+                      .map((vUrl, vIdx) => (
+                        <video
+                          key={`${vUrl}-${vIdx}`}
+                          src={resolveImageUrl(vUrl)}
+                          controls
+                          preload="metadata"
+                          className="w-full max-h-56 rounded-xl border border-border/50 bg-black"
+                        />
+                      ))}
+                  </div>
                 </div>
               )}
+
+              {/* External Links / Legacy Video URL */}
+              {(() => {
+                const links = [
+                  ...(selectedReport.externalLinks || []),
+                  ...(selectedReport.videoUrl &&
+                  !(selectedReport.videoUrls || []).includes(selectedReport.videoUrl) &&
+                  !(selectedReport.externalLinks || []).includes(selectedReport.videoUrl)
+                    ? [selectedReport.videoUrl]
+                    : []),
+                ].filter((u) => isSafeHttpOrRelativeUrl(u))
+                if (links.length === 0) return null
+                return (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <ExternalLink className="size-3.5 text-sky-400" />
+                      External Links
+                    </label>
+                    {links.map((lnk, idx) => (
+                      <a
+                        key={`${lnk}-${idx}`}
+                        href={lnk}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 text-xs font-semibold transition-colors"
+                      >
+                        <span className="truncate pr-2">{lnk}</span>
+                        <ExternalLink className="size-3.5 shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                )
+              })()}
 
               {/* Image Proof Gallery */}
               {((selectedReport.imageUrls && selectedReport.imageUrls.length > 0) || selectedReport.proofUrl) && (
