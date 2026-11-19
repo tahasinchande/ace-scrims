@@ -50,6 +50,7 @@ export default async function AdminIcebergPage() {
         status: s.status,
         hidden: Boolean(s.hidden),
         icebergEnabled: Boolean(s.icebergEnabled),
+        icebergShowAllFilled: Boolean(s.icebergShowAllFilled),
         icebergAmount: Number(s.icebergAmount ?? 7),
         icebergThreshold: Number(s.icebergThreshold ?? 3),
         icebergStartRealCount: Number(s.icebergStartRealCount ?? 0),

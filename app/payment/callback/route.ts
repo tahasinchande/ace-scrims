@@ -1,73 +1,157 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { payments } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { processPayment } from "@/lib/payment-processor"
 
 /**
- * The user lands here after paying (redirect_url with return_type=GET).
- * UddoktaPay appends ?invoice_id=... — we re-verify server-side before
- * showing any success state. The pid param scopes to our payment record.
+ * Shared callback handler for both GET (redirect_url return_type=GET) and POST redirects.
+ * UddoktaPay passes invoice_id & optional transaction params — we always re-verify server-side.
  */
-export async function GET(req: NextRequest) {
+async function handleCallback(
+  req: NextRequest,
+  extraParams: Record<string, string | null> = {},
+) {
   const url = req.nextUrl
-  const paymentId = url.searchParams.get("pid")
-  const invoiceId = url.searchParams.get("invoice_id")
+  const fallbackOrigin = url.origin
+  let isWallet =
+    url.searchParams.get("type") === "wallet" || extraParams.type === "wallet"
 
-  if (!paymentId) {
-    return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
+  try {
+    await ensureSchemaReady()
+
+    const paymentId = url.searchParams.get("pid") || extraParams.pid
+    const invoiceId = url.searchParams.get("invoice_id") || url.searchParams.get("invoiceId") || extraParams.invoice_id
+    const callbackStatus = (url.searchParams.get("status") || extraParams.status || "").trim().toLowerCase()
+
+    if (!paymentId) {
+      return NextResponse.redirect(
+        new URL(
+          isWallet ? "/dashboard/wallet?status=failed" : "/payment/result?status=failed",
+          fallbackOrigin,
+        ),
+      )
+    }
+
+    if (callbackStatus === "cancelled" || callbackStatus === "canceled") {
+      return NextResponse.redirect(
+        new URL(
+          isWallet ? "/dashboard/wallet?status=cancelled" : "/payment/result?status=cancelled",
+          fallbackOrigin,
+        ),
+      )
+    }
+
+    // Ownership / existence check
+    const rows = await db
+      .select({
+        id: payments.id,
+        status: payments.status,
+        invoiceId: payments.invoiceId,
+        bookingId: payments.bookingId,
+        scrimId: payments.scrimId,
+      })
+      .from(payments)
+      .where(eq(payments.id, paymentId))
+      .limit(1)
+
+    const payment = rows[0]
+    if (!payment) {
+      return NextResponse.redirect(
+        new URL(
+          isWallet ? "/dashboard/wallet?status=failed" : "/payment/result?status=failed",
+          fallbackOrigin,
+        ),
+      )
+    }
+
+    isWallet =
+      isWallet ||
+      payment.bookingId === "wallet_deposit" ||
+      payment.scrimId === "wallet_deposit"
+
+    const effectiveInvoice = invoiceId ?? payment.invoiceId
+    if (!effectiveInvoice) {
+      return NextResponse.redirect(
+        new URL(
+          isWallet ? "/dashboard/wallet?status=pending" : "/payment/result?status=pending",
+          fallbackOrigin,
+        ),
+      )
+    }
+
+    const callbackTrxId =
+      url.searchParams.get("transaction_id") ||
+      url.searchParams.get("trx_id") ||
+      url.searchParams.get("trxid") ||
+      extraParams.transaction_id ||
+      extraParams.trx_id ||
+      extraParams.trxid ||
+      null
+
+    const outcome = await processPayment(paymentId, effectiveInvoice, callbackTrxId)
+
+    switch (outcome.status) {
+      case "confirmed":
+      case "already-confirmed":
+        return NextResponse.redirect(
+          new URL(
+            isWallet ? "/dashboard/wallet?status=success" : "/payment/result?status=success",
+            fallbackOrigin,
+          ),
+        )
+      case "pending":
+        return NextResponse.redirect(
+          new URL(
+            isWallet ? "/dashboard/wallet?status=pending" : "/payment/result?status=pending",
+            fallbackOrigin,
+          ),
+        )
+      default:
+        return NextResponse.redirect(
+          new URL(
+            isWallet ? "/dashboard/wallet?status=failed" : "/payment/result?status=failed",
+            fallbackOrigin,
+          ),
+        )
+    }
+  } catch (err) {
+    console.error("[Payment Callback] Unexpected error:", err)
+    return NextResponse.redirect(
+      new URL(
+        isWallet ? "/dashboard/wallet?status=pending" : "/payment/result?status=pending",
+        fallbackOrigin,
+      ),
+    )
   }
+}
 
-  // Ownership / existence check
-  const rows = await db
-    .select({
-      id: payments.id,
-      status: payments.status,
-      invoiceId: payments.invoiceId,
-      bookingId: payments.bookingId,
-      scrimId: payments.scrimId,
-    })
-    .from(payments)
-    .where(eq(payments.id, paymentId))
-    .limit(1)
-  const payment = rows[0]
-  if (!payment) {
-    return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
-  }
+export async function GET(req: NextRequest) {
+  return handleCallback(req)
+}
 
-  const effectiveInvoice = invoiceId ?? payment.invoiceId
-  if (!effectiveInvoice) {
-    return NextResponse.redirect(new URL("/payment/result?status=pending", url.origin))
-  }
-
-  const callbackTrxId =
-    url.searchParams.get("transaction_id") ||
-    url.searchParams.get("trx_id") ||
-    url.searchParams.get("trxid")
-
-  const outcome = await processPayment(paymentId, effectiveInvoice, callbackTrxId)
-
-  const isWallet =
-    url.searchParams.get("type") === "wallet" ||
-    payment.bookingId === "wallet_deposit" ||
-    payment.scrimId === "wallet_deposit"
-
-  switch (outcome.status) {
-    case "confirmed":
-    case "already-confirmed":
-      if (isWallet) {
-        return NextResponse.redirect(new URL("/dashboard/wallet?status=success", url.origin))
+export async function POST(req: NextRequest) {
+  const extra: Record<string, string | null> = {}
+  try {
+    const contentType = req.headers.get("content-type") || ""
+    if (contentType.includes("application/json")) {
+      const json = (await req.json()) as Record<string, unknown>
+      for (const key of ["pid", "invoice_id", "invoiceId", "transaction_id", "trx_id", "trxid", "type", "status"]) {
+        if (typeof json[key] === "string") {
+          extra[key === "invoiceId" ? "invoice_id" : key] = json[key] as string
+        }
       }
-      return NextResponse.redirect(new URL("/payment/result?status=success", url.origin))
-    case "pending":
-      if (isWallet) {
-        return NextResponse.redirect(new URL("/dashboard/wallet?status=pending", url.origin))
+    } else {
+      const form = await req.formData()
+      for (const key of ["pid", "invoice_id", "invoiceId", "transaction_id", "trx_id", "trxid", "type", "status"]) {
+        const val = form.get(key)
+        if (typeof val === "string") {
+          extra[key === "invoiceId" ? "invoice_id" : key] = val
+        }
       }
-      return NextResponse.redirect(new URL("/payment/result?status=pending", url.origin))
-    default:
-      if (isWallet) {
-        return NextResponse.redirect(new URL("/dashboard/wallet?status=failed", url.origin))
-      }
-      return NextResponse.redirect(new URL("/payment/result?status=failed", url.origin))
+    }
+  } catch {
+    // Fallback to query params only
   }
+  return handleCallback(req, extra)
 }

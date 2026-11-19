@@ -2,6 +2,7 @@ export type IcebergConfig = {
   realConfirmed: number
   maxTeams: number
   icebergEnabled: boolean
+  icebergShowAllFilled?: boolean
   icebergAmount: number
   icebergThreshold: number
   icebergStartRealCount: number
@@ -10,20 +11,31 @@ export type IcebergConfig = {
 export function isIcebergActiveForScrim(cfg: IcebergConfig): boolean {
   const max = Math.max(1, cfg.maxTeams || 12)
   const real = Math.max(0, cfg.realConfirmed || 0)
-  return Boolean(cfg.icebergEnabled && real < max && cfg.icebergAmount > 0)
+  if (real >= max) return false
+  return Boolean(cfg.icebergShowAllFilled || (cfg.icebergEnabled && cfg.icebergAmount > 0))
 }
 
 /**
  * Computes the public displayed slot fill count for a scrim.
- * - Safety override: if realConfirmed >= maxTeams OR Iceberg is disabled, always returns realConfirmed.
- * - Otherwise displays `icebergAmount + (deltaReal % icebergThreshold)`, clamped below `maxTeams`
- *   so an open lobby never prematurely appears full on the public UI.
+ * - Safety override: if realConfirmed >= maxTeams, always returns realConfirmed.
+ * - Marketing full override: if icebergShowAllFilled is enabled and realConfirmed < maxTeams,
+ *   returns maxTeams so public UI displays all slots filled (e.g. 12/12).
+ * - Otherwise if Iceberg is enabled, displays `icebergAmount + (deltaReal % icebergThreshold)`,
+ *   clamped below `maxTeams` so an open lobby never prematurely appears full.
  */
 export function computeIcebergDisplayCount(cfg: IcebergConfig): number {
   const max = Math.max(1, cfg.maxTeams || 12)
   const real = Math.max(0, cfg.realConfirmed || 0)
 
-  if (real >= max || !cfg.icebergEnabled) {
+  if (real >= max) {
+    return real
+  }
+
+  if (cfg.icebergShowAllFilled) {
+    return max
+  }
+
+  if (!cfg.icebergEnabled) {
     return real
   }
 
@@ -46,6 +58,7 @@ export function getIcebergCycleProgress(cfg: IcebergConfig): {
   remainingUntilReset: number
   displayedCount: number
   isSafetyOverridden: boolean
+  isShowAllFilled: boolean
 } {
   const max = Math.max(1, cfg.maxTeams || 12)
   const real = Math.max(0, cfg.realConfirmed || 0)
@@ -60,6 +73,7 @@ export function getIcebergCycleProgress(cfg: IcebergConfig): {
     remainingUntilReset: threshold - cycleOffset,
     displayedCount: computeIcebergDisplayCount(cfg),
     isSafetyOverridden: real >= max,
+    isShowAllFilled: Boolean(cfg.icebergShowAllFilled) && real < max,
   }
 }
 
@@ -67,6 +81,7 @@ export type PublicScrim<T> = Omit<
   T,
   | "publicConfirmedTeams"
   | "icebergEnabled"
+  | "icebergShowAllFilled"
   | "icebergAmount"
   | "icebergThreshold"
   | "icebergStartRealCount"
@@ -88,6 +103,7 @@ export function sanitizePublicScrim<
     roomId?: string | null
     roomPassword?: string | null
     icebergEnabled?: boolean
+    icebergShowAllFilled?: boolean
     icebergAmount?: number
     icebergThreshold?: number
     icebergStartRealCount?: number
@@ -96,6 +112,7 @@ export function sanitizePublicScrim<
   const {
     publicConfirmedTeams,
     icebergEnabled: _ie,
+    icebergShowAllFilled: _isaf,
     icebergAmount: _ia,
     icebergThreshold: _it,
     icebergStartRealCount: _isr,

@@ -357,18 +357,34 @@ export function AdminLiveChatHub({
     setAttachedName(null)
 
     startSending(async () => {
-      notifyUserSentMessage()
-      const res = await sendChatMessage(
-        textToSend,
-        targetUser,
-        urlToSend,
-        typeToSend,
-        nameToSend
-      )
-      if (res.ok) {
-        await Promise.all([fetchThread(targetUser, true), refreshHub()])
-      } else {
-        toast.error(res.error || (lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message"))
+      try {
+        notifyUserSentMessage()
+        const res = await sendChatMessage(
+          textToSend,
+          targetUser,
+          urlToSend,
+          typeToSend,
+          nameToSend
+        )
+        if (res.ok) {
+          await Promise.all([fetchThread(targetUser, true), refreshHub()])
+        } else {
+          setInputText(textToSend)
+          if (urlToSend) {
+            setAttachedUrl(urlToSend)
+            setAttachedType(typeToSend || null)
+            setAttachedName(nameToSend || null)
+          }
+          toast.error(res.error || (lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message"))
+        }
+      } catch (err) {
+        setInputText(textToSend)
+        if (urlToSend) {
+          setAttachedUrl(urlToSend)
+          setAttachedType(typeToSend || null)
+          setAttachedName(nameToSend || null)
+        }
+        toast.error(err instanceof Error ? err.message : lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message")
       }
     })
   }

@@ -78,6 +78,7 @@ export async function updateScrimIcebergAction(input: {
   icebergAmount: number
   icebergThreshold: number
   resetBaseline?: boolean
+  showAllFilled?: boolean
 }): Promise<{
   ok: boolean
   updatedCount: number
@@ -119,11 +120,12 @@ export async function updateScrimIcebergAction(input: {
       const safeAmount = Math.max(0, Math.min(maxTeams - 1, rawAmount))
       const safeThreshold = Math.max(1, Math.min(maxTeams, rawThreshold))
 
-      if (input.enabled && realConfirmed >= maxTeams) {
+      if ((input.enabled || input.showAllFilled) && realConfirmed >= maxTeams) {
         await db
           .update(scrims)
           .set({
             icebergEnabled: false,
+            icebergShowAllFilled: false,
             icebergAmount: safeAmount,
             icebergThreshold: safeThreshold,
             updatedAt: new Date(),
@@ -141,6 +143,9 @@ export async function updateScrimIcebergAction(input: {
         .update(scrims)
         .set({
           icebergEnabled: Boolean(input.enabled),
+          ...(typeof input.showAllFilled === "boolean"
+            ? { icebergShowAllFilled: input.showAllFilled }
+            : {}),
           icebergAmount: safeAmount,
           icebergThreshold: safeThreshold,
           ...(shouldSnapshotBaseline ? { icebergStartRealCount: realConfirmed } : {}),
@@ -159,6 +164,7 @@ export async function updateScrimIcebergAction(input: {
       targetIds.length === 1 ? targetIds[0] : `${targetIds.length} scrims`,
       {
         enabled: input.enabled,
+        ...(typeof input.showAllFilled === "boolean" ? { showAllFilled: input.showAllFilled } : {}),
         icebergAmount: rawAmount,
         icebergThreshold: rawThreshold,
         updatedCount,
@@ -179,6 +185,93 @@ export async function updateScrimIcebergAction(input: {
       updatedCount: 0,
       skippedFullTitles: [],
       error: err instanceof Error ? err.message : "Failed to update Iceberg settings",
+    }
+  }
+}
+
+export async function setScrimsShowAllFilledAction(input: {
+  scrimIds: string[]
+  selectAllActive?: boolean
+  showAllFilled: boolean
+}): Promise<{
+  ok: boolean
+  updatedCount: number
+  skippedFullTitles: string[]
+  error?: string
+}> {
+  try {
+    const admin = await requireAdmin()
+    await ensureSchemaReady()
+
+    const targetIds = input.selectAllActive
+      ? await getActiveScheduleScrimIds()
+      : Array.from(new Set(input.scrimIds.filter(Boolean)))
+
+    if (targetIds.length === 0) {
+      return { ok: false, updatedCount: 0, skippedFullTitles: [], error: "Please select at least one scrim." }
+    }
+
+    const activeDate = getBangladeshActiveDate()
+    const skippedFullTitles: string[] = []
+    let updatedCount = 0
+
+    for (const rawId of targetIds) {
+      const ensured = await resolveOrEnsureScrim(rawId)
+      if (!ensured) continue
+
+      const maxTeams = Math.max(2, ensured.maxTeams || 12)
+      const realConfirmed = await getRealConfirmedForScrim(ensured.id, ensured.slug, activeDate)
+
+      if (input.showAllFilled && realConfirmed >= maxTeams) {
+        await db
+          .update(scrims)
+          .set({
+            icebergEnabled: false,
+            icebergShowAllFilled: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(scrims.id, ensured.id))
+        skippedFullTitles.push(ensured.title)
+        continue
+      }
+
+      await db
+        .update(scrims)
+        .set({
+          icebergShowAllFilled: Boolean(input.showAllFilled),
+          updatedAt: new Date(),
+        })
+        .where(eq(scrims.id, ensured.id))
+
+      updatedCount++
+      revalidateIcebergPaths(ensured.slug)
+    }
+
+    await logActivity(
+      admin.id,
+      "admin",
+      input.showAllFilled ? "iceberg_show_all_filled_on" : "iceberg_show_all_filled_off",
+      targetIds.length === 1 ? targetIds[0] : `${targetIds.length} scrims`,
+      {
+        showAllFilled: Boolean(input.showAllFilled),
+        updatedCount,
+        skippedFullCount: skippedFullTitles.length,
+      },
+    )
+
+    revalidateIcebergPaths()
+
+    return {
+      ok: true,
+      updatedCount,
+      skippedFullTitles,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      updatedCount: 0,
+      skippedFullTitles: [],
+      error: err instanceof Error ? err.message : "Failed to update Show All Slots Filled",
     }
   }
 }
@@ -228,7 +321,7 @@ export async function fluctuateIcebergAction(input: {
       if (realConfirmed >= maxTeams) {
         await db
           .update(scrims)
-          .set({ icebergEnabled: false, updatedAt: new Date() })
+          .set({ icebergEnabled: false, icebergShowAllFilled: false, updatedAt: new Date() })
           .where(eq(scrims.id, ensured.id))
         skippedFullTitles.push(ensured.title)
         continue

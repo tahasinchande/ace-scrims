@@ -11,7 +11,7 @@ import {
   user,
 } from "@/lib/db/schema"
 import { getSessionUser, requireStaff, logActivity } from "@/lib/session"
-import { eq, desc, asc, and } from "drizzle-orm"
+import { eq, desc, asc, and, inArray } from "drizzle-orm"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import { generateAiSupportReply, moderateUserMessage } from "@/lib/ai-support"
 
@@ -150,6 +150,7 @@ export async function sendChatMessage(
   error: string | null
   banned?: boolean
   aiUnavailable?: boolean
+  mode?: "ai" | "human"
 }> {
   try {
     await ensureSchemaReady()
@@ -243,9 +244,10 @@ export async function sendChatMessage(
 
     // Staff reply marks conversation read & keeps mode unless changed explicitly
     const markReadByStaff = isStaff || sessionMode === "ai"
+    const insertedMessageId = randomUUID()
 
     await db.insert(chatMessages).values({
-      id: randomUUID(),
+      id: insertedMessageId,
       userId: conversationUserId,
       senderId: sessionUser.id,
       senderName: freshUser?.name || sessionUser.name || "User",
@@ -316,6 +318,13 @@ export async function sendChatMessage(
           .where(eq(chatSessions.userId, conversationUserId))
       } else {
         aiUnavailable = true
+        // Surface unanswered player messages to staff so nothing gets lost silently
+        await db
+          .update(chatMessages)
+          .set({ readByStaff: false })
+          .where(eq(chatMessages.id, insertedMessageId))
+          .catch(() => {})
+
         await db.insert(chatMessages).values({
           id: randomUUID(),
           userId: conversationUserId,
@@ -333,8 +342,9 @@ export async function sendChatMessage(
 
     revalidatePath("/admin/live-chat")
     revalidatePath("/admin/chat")
-    return { ok: true, error: null, aiUnavailable }
+    return { ok: true, error: null, aiUnavailable, mode: sessionMode }
   } catch (err) {
+    console.error("[Chat] sendChatMessage failed:", err)
     return { ok: false, error: err instanceof Error ? err.message : "Failed to send message" }
   }
 }
@@ -577,18 +587,30 @@ export async function getStaffChatConversations(): Promise<AdminChatConversation
     }
 
     // Also include human-escalated sessions that may have just clicked escalation before messaging
-    for (const sRow of sessionRows) {
-      if (sRow.mode === "human" && !map.has(sRow.userId)) {
-        const uRow = await db
-          .select({ name: user.name, email: user.email, image: user.image, banned: user.banned })
-          .from(user)
-          .where(eq(user.id, sRow.userId))
-          .limit(1)
+    const missingHumanSessions = sessionRows.filter(
+      (sRow) => sRow.mode === "human" && !map.has(sRow.userId)
+    )
+    if (missingHumanSessions.length > 0) {
+      const missingUserIds = missingHumanSessions.map((s) => s.userId)
+      const userRows = await db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          banned: user.banned,
+        })
+        .from(user)
+        .where(inArray(user.id, missingUserIds))
+      const userMap = new Map(userRows.map((u) => [u.id, u]))
+
+      for (const sRow of missingHumanSessions) {
+        const uRow = userMap.get(sRow.userId)
         map.set(sRow.userId, {
           userId: sRow.userId,
-          userName: uRow[0]?.name || "Player",
-          userEmail: uRow[0]?.email || null,
-          userImage: uRow[0]?.image || null,
+          userName: uRow?.name || "Player",
+          userEmail: uRow?.email || null,
+          userImage: uRow?.image || null,
           latestMessage: "Requested human agent support",
           createdAt: sRow.escalatedAt || sRow.updatedAt,
           unread: 1,
@@ -597,7 +619,7 @@ export async function getStaffChatConversations(): Promise<AdminChatConversation
           mode: "human",
           escalatedAt: sRow.escalatedAt,
           takenOverBy: sRow.takenOverBy,
-          banned: Boolean(uRow[0]?.banned),
+          banned: Boolean(uRow?.banned),
         })
       }
     }

@@ -218,6 +218,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           status: "upcoming",
           hidden: false,
           icebergEnabled: false,
+          icebergShowAllFilled: false,
           icebergAmount: 7,
           icebergThreshold: 3,
           icebergStartRealCount: 0,

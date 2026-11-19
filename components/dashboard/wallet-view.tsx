@@ -42,6 +42,7 @@ export function WalletView({
   const [amount, setAmount] = useState<number | string>(100)
   const [isPending, startTransition] = useTransition()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [gatewayUrl, setGatewayUrl] = useState<string | null>(null)
 
   // Dispatch wallet balance update event to keep header widget in sync
   useEffect(() => {
@@ -71,6 +72,7 @@ export function WalletView({
   async function handleLoadFunds(e: React.FormEvent) {
     e.preventDefault()
     setErrorMsg(null)
+    setGatewayUrl(null)
     const num = typeof amount === "string" ? Number.parseInt(amount, 10) : amount
 
     if (isNaN(num) || num < 10) {
@@ -90,10 +92,10 @@ export function WalletView({
           toast.error(res.error || "Failed to initialize payment")
           return
         }
-        // Redirect to Payment Gateway
-        window.location.href = res.paymentUrl
+        setGatewayUrl(res.paymentUrl)
+        window.location.assign(res.paymentUrl)
       } catch (err: any) {
-        setErrorMsg(err?.message || "An unexpected error occurred.")
+        setErrorMsg(err?.message || "An unexpected error occurred while connecting to the payment gateway.")
         toast.error("Payment initialization error")
       }
     })
@@ -277,6 +279,15 @@ export function WalletView({
             {errorMsg && (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
                 {errorMsg}
+              </div>
+            )}
+
+            {gatewayUrl && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-xs text-emerald-200">
+                <span>Redirecting to payment gateway…</span>
+                <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shrink-0">
+                  <a href={gatewayUrl}>Open Payment Gateway →</a>
+                </Button>
               </div>
             )}
 

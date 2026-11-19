@@ -110,6 +110,8 @@ export function BookingWizard({
       : defaultInfo?.paymentNumber || ""
   })
 
+  const [gatewayRedirectUrl, setGatewayRedirectUrl] = useState<string | null>(null)
+
   const selectedMethodObj =
     availableMethods.find((m) => m.code === paymentMethod) || availableMethods[0]
   const requiresAccountNumber = selectedMethodObj?.requiresAccountNumber ?? paymentMethod !== "Balance"
@@ -130,9 +132,11 @@ export function BookingWizard({
         toast.success("Slot booked successfully using your account balance!")
         window.location.href = state.redirectUrl
       } else if (state.paymentUrl) {
-        window.location.href = state.paymentUrl
+        setGatewayRedirectUrl(state.paymentUrl)
+        window.location.assign(state.paymentUrl)
       }
     } else if (state.error) {
+      setGatewayRedirectUrl(null)
       toast.error(state.error)
     }
   }, [state.ok, state.error, state.paidWithBalance, state.redirectUrl, state.paymentUrl, scrim.id])
@@ -696,6 +700,20 @@ export function BookingWizard({
               </div>
             )}
 
+            {gatewayRedirectUrl && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-200">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-emerald-300">Payment Gateway Ready</p>
+                  <p className="text-emerald-200/80">
+                    If you are not redirected automatically within a few seconds, tap the button to complete checkout.
+                  </p>
+                </div>
+                <Button asChild size="sm" className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
+                  <a href={gatewayRedirectUrl}>Continue to Gateway →</a>
+                </Button>
+              </div>
+            )}
+
             {/* Wallet Balance Status Card */}
             <div
               className={`rounded-xl border p-4 ${
@@ -781,7 +799,7 @@ export function BookingWizard({
               <Button
                 type="submit"
                 size="lg"
-                disabled={pending || (state.ok && !!state.paymentUrl)}
+                disabled={pending}
                 className={`glow-primary font-display font-bold uppercase ${
                   userBalance >= scrim.priceBdt ? "bg-emerald-600 hover:bg-emerald-500 text-white" : ""
                 }`}

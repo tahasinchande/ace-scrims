@@ -1,24 +1,95 @@
 import "server-only"
-import { Agent } from "undici"
+import { Agent, fetch as undiciFetch } from "undici"
 
 /**
- * UddoktaPay official API client (Self-hosted on pay.acescrims.online)
- * Docs: https://uddoktapay.readme.io
+ * UddoktaPay / Paymently official API client
  *
  * Env:
  * - UDDOKTAPAY_API_KEY          — merchant API key (also used to verify webhooks)
  * - UDDOKTAPAY_BASE_URL         — e.g. https://pay.acescrims.online/api (no trailing slash)
- * - UDDOKTAPAY_PAYMENT_LINK_URL — direct payment link: https://pay.acescrims.online/paymentlink/default/BDT
+ * - UDDOKTAPAY_PAYMENT_LINK_URL — direct payment link fallback
  */
 
 const API_KEY_HEADER = "RT-UDDOKTAPAY-API-KEY"
+const GATEWAY_TIMEOUT_MS = 15000
 
-// Dispatcher to support self-hosted instances with custom or self-signed TLS certificates
+// Dispatcher for undiciFetch fallback ONLY if the host uses a self-signed/custom TLS certificate.
+// Never pass this dispatcher to Node's global fetch(), which uses its own internal undici version
+// and throws UND_ERR_INVALID_ARG ("invalid onRequestStart method") with npm undici Agents.
 const gatewayDispatcher = new Agent({
   connect: {
     rejectUnauthorized: false,
   },
 })
+
+function isTlsError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false
+  const e = err as { code?: string; message?: string; cause?: { code?: string; message?: string } }
+  const code = String(e.code || e.cause?.code || "").toUpperCase()
+  const msg = String(e.message || e.cause?.message || "").toUpperCase()
+  return (
+    code.includes("CERT") ||
+    code.includes("TLS") ||
+    code.includes("SELF_SIGNED") ||
+    msg.includes("CERTIFICATE") ||
+    msg.includes("SELF_SIGNED") ||
+    msg.includes("TLS")
+  )
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function gatewayFetch(url: string, init: RequestInit): Promise<Response> {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        cache: "no-store",
+        signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
+      })
+
+      if (res.status >= 500 && attempt === 0) {
+        await sleep(450)
+        continue
+      }
+      return res
+    } catch (err) {
+      lastError = err
+      if (isTlsError(err)) {
+        // Fallback strictly using undiciFetch paired with its matching undici Agent
+        const res = await undiciFetch(url, {
+          method: init.method || "GET",
+          headers: init.headers as Record<string, string>,
+          body: init.body as string | undefined,
+          signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
+          dispatcher: gatewayDispatcher,
+        })
+        return res as unknown as Response
+      }
+
+      if (attempt === 0) {
+        await sleep(450)
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError || "Gateway request failed"))
+}
+
+async function safeParseJson(res: Response): Promise<Record<string, unknown>> {
+  const rawText = await res.text().catch(() => "")
+  if (!rawText.trim()) return {}
+  try {
+    const parsed = JSON.parse(rawText)
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : { rawText }
+  } catch {
+    return { message: rawText.slice(0, 240) }
+  }
+}
 
 export function getUddoktaPayConfig() {
   const apiKey = (process.env.UDDOKTAPAY_API_KEY || "").trim()
@@ -26,15 +97,15 @@ export function getUddoktaPayConfig() {
     process.env.UDDOKTAPAY_BASE_URL ||
     process.env.UDDOKTAPAY_PANEL_URL ||
     "https://pay.acescrims.online/api"
-  )?.replace(/\/+$/, "")
+  )
+    ?.trim()
+    .replace(/\/+$/, "")
   const paymentLinkUrl =
-    process.env.UDDOKTAPAY_PAYMENT_LINK_URL ||
-    "https://pay.acescrims.online/paymentlink/default/BDT"
+    (process.env.UDDOKTAPAY_PAYMENT_LINK_URL ||
+      "https://pay.acescrims.online/paymentlink/default/BDT").trim()
 
   if (!apiKey || !baseUrl) return null
-  // Accept both forms: "https://pay.domain.com" and "https://pay.domain.com/api".
-  // Endpoints below always append "/api/...", so strip a trailing "/api".
-  baseUrl = baseUrl.replace(/\/api$/, "")
+  baseUrl = baseUrl.replace(/\/api$/i, "")
   return { apiKey, baseUrl, paymentLinkUrl }
 }
 
@@ -70,15 +141,21 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
   if (!config) {
     return {
       ok: false,
-      error:
-        "Payment gateway is not configured. Please set UDDOKTAPAY_API_KEY and UDDOKTAPAY_BASE_URL.",
+      error: "Payment gateway is currently unavailable. Please contact support or try again shortly.",
     }
   }
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
     return { ok: false, error: "Payment amount must be a positive number." }
   }
+
+  const safeFullName = (input.fullName || "Ace Scrims Player").trim().slice(0, 80) || "Ace Scrims Player"
+  const safeEmail = (input.email || "").trim()
+  if (!safeEmail || !safeEmail.includes("@")) {
+    return { ok: false, error: "A valid account email address is required for checkout." }
+  }
+
   try {
-    const res = await fetch(`${config.baseUrl}/api/checkout-v2`, {
+    const res = await gatewayFetch(`${config.baseUrl}/api/checkout-v2`, {
       method: "POST",
       headers: {
         [API_KEY_HEADER]: config.apiKey,
@@ -86,11 +163,10 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
         Accept: "application/json",
       },
       body: JSON.stringify({
-        full_name: input.fullName,
-        email: input.email,
-        amount: String(input.amount),
-        // Without an explicit currency the gateway defaults to USD, where no
-        // payment methods are enabled — the Pay button would do nothing.
+        full_name: safeFullName,
+        email: safeEmail,
+        amount: String(Math.round(input.amount)),
+        // Explicit BDT currency ensures bKash / Nagad / Rocket / Tap channels load on checkout
         currency: "BDT",
         metadata: input.metadata,
         redirect_url: input.redirectUrl,
@@ -98,24 +174,37 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
         webhook_url: input.webhookUrl,
         return_type: "GET",
       }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(15000),
-      // @ts-ignore - undici dispatcher for self-hosted instances
-      dispatcher: gatewayDispatcher,
-    } as any)
-    const data = (await res.json()) as {
-      status?: boolean
-      message?: string
-      payment_url?: string
+    })
+
+    const data = await safeParseJson(res)
+    const rawUrl = (data.payment_url || data.url) as string | undefined
+    const paymentUrl = typeof rawUrl === "string" ? rawUrl.trim() : ""
+
+    if (!res.ok || !paymentUrl || !/^https?:\/\//i.test(paymentUrl)) {
+      const gatewayMsg =
+        typeof data.message === "string" && data.message.trim()
+          ? data.message.trim()
+          : typeof data.error === "string" && data.error.trim()
+            ? data.error.trim()
+            : `Gateway responded with status ${res.status}.`
+      console.warn("[UddoktaPay] createCharge rejected:", {
+        status: res.status,
+        message: gatewayMsg,
+      })
+      return {
+        ok: false,
+        error: `Payment gateway could not initialize checkout (${gatewayMsg}). Please try again or use wallet balance.`,
+      }
     }
-    if (!res.ok || !data.payment_url) {
-      let errorMsg = data.message ?? "Failed to create payment charge."
-      return { ok: false, error: errorMsg }
-    }
-    return { ok: true, paymentUrl: data.payment_url }
+
+    return { ok: true, paymentUrl }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    return { ok: false, error: `Could not reach the payment gateway (${msg}). Try again.` }
+    console.error("[UddoktaPay] createCharge network failure:", msg)
+    return {
+      ok: false,
+      error: "Unable to connect to the payment gateway right now (connection timeout or network error). Please try again in a few seconds.",
+    }
   }
 }
 
@@ -133,35 +222,54 @@ export type VerifiedPayment = {
 }
 
 /**
- * Server-to-server verification of an invoice. This is the source of truth —
- * webhook payloads and redirect params are never trusted on their own.
+ * Server-to-server verification of an invoice.
+ * Returns null only when the gateway cannot be reached or experiences a 5xx error,
+ * allowing callers to keep the payment pending rather than prematurely marking it failed.
  */
 export async function verifyPayment(invoiceId: string): Promise<VerifiedPayment | null> {
   const config = getConfig()
-  if (!config) return null
+  const cleanInvoiceId = (invoiceId || "").trim()
+  if (!config || !cleanInvoiceId) return null
+
   try {
-    const res = await fetch(`${config.baseUrl}/api/verify-payment`, {
+    const res = await gatewayFetch(`${config.baseUrl}/api/verify-payment`, {
       method: "POST",
       headers: {
         [API_KEY_HEADER]: config.apiKey,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ invoice_id: invoiceId }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(15000),
-      // @ts-ignore - undici dispatcher for self-hosted instances
-      dispatcher: gatewayDispatcher,
-    } as any)
+      body: JSON.stringify({ invoice_id: cleanInvoiceId }),
+    })
+
+    const data = await safeParseJson(res)
+    if (res.status >= 500) {
+      return null
+    }
+
+    if (res.status === 400 || res.status === 404 || data.status === false) {
+      return { status: "ERROR", raw: data }
+    }
+
     if (!res.ok) return null
-    const data = (await res.json()) as Record<string, unknown>
-    const status = data.status as string | undefined
-    if (status !== "COMPLETED" && status !== "PENDING" && status !== "ERROR") return null
+
+    const rawStatus = String(data.status || "").trim().toUpperCase()
+    const normalizedStatus: "COMPLETED" | "PENDING" | "ERROR" | null =
+      rawStatus === "COMPLETED"
+        ? "COMPLETED"
+        : rawStatus === "PENDING"
+          ? "PENDING"
+          : rawStatus === "ERROR" || rawStatus === "FAILED" || rawStatus === "CANCELLED"
+            ? "ERROR"
+            : null
+
+    if (!normalizedStatus) return null
+
     return {
-      status,
+      status: normalizedStatus,
       fullName: data.full_name as string | undefined,
       email: data.email as string | undefined,
-      amount: data.amount as string | undefined,
+      amount: data.amount !== undefined && data.amount !== null ? String(data.amount) : undefined,
       invoiceId: (data.invoice_id || data.invoiceId) as string | undefined,
       paymentMethod: (data.payment_method || data.paymentMethod || data.method) as string | undefined,
       senderNumber: (data.sender_number || data.senderNumber) as string | undefined,
@@ -169,7 +277,8 @@ export async function verifyPayment(invoiceId: string): Promise<VerifiedPayment 
       metadata: data.metadata as Record<string, string> | undefined,
       raw: data,
     }
-  } catch {
+  } catch (err) {
+    console.warn("[UddoktaPay] verifyPayment connection error:", err instanceof Error ? err.message : err)
     return null
   }
 }
@@ -219,7 +328,6 @@ export async function refundPayment(
   const productName = params.productName?.trim() || "Scrim Match Entry Fee"
   const reason = params.reason?.trim() || "Match Not Hosted / Cancelled"
 
-  // Automatically retrieve transactionId from the database if not provided
   if (!trxId && (invId || pymId)) {
     try {
       const { db } = await import("@/lib/db")
@@ -270,7 +378,6 @@ export async function refundPayment(
     }
   }
 
-  // Automatically retrieve transactionId and paymentMethod from gateway verification if not provided
   if (!trxId && invId) {
     try {
       const verified = await verifyPayment(invId)
@@ -290,7 +397,6 @@ export async function refundPayment(
     payment_method: (method || "bkash").toLowerCase(),
   }
 
-  // UddoktaPay refund requires transaction_id/trx_id and/or invoice_id
   if (trxId) {
     payload.transaction_id = trxId
     payload.trx_id = trxId
@@ -307,39 +413,18 @@ export async function refundPayment(
   }
 
   try {
-    let baseUrl = config.baseUrl.replace(/\/+$/, "")
-    if (baseUrl.endsWith("/api")) {
-      baseUrl = baseUrl.replace(/\/api$/, "")
-    }
-    const endpoint = `${baseUrl}/api/refund-payment`
-
-    const res = await fetch(endpoint, {
+    const endpoint = `${config.baseUrl}/api/refund-payment`
+    const res = await gatewayFetch(endpoint, {
       method: "POST",
       headers: {
-        [API_KEY_HEADER]: config.apiKey.trim(),
+        [API_KEY_HEADER]: config.apiKey,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify(payload),
-      cache: "no-store",
-      signal: AbortSignal.timeout(15000),
-      // @ts-ignore - undici dispatcher for self-hosted instances
-      dispatcher: gatewayDispatcher,
-    } as any)
+    })
 
-    const contentType = res.headers.get("content-type") || ""
-    let data: any = {}
-    if (contentType.includes("application/json")) {
-      data = await res.json()
-    } else {
-      const text = await res.text()
-      try {
-        data = JSON.parse(text)
-      } catch {
-        data = { message: text }
-      }
-    }
-
+    const data = await safeParseJson(res)
     const isSuccess =
       res.ok &&
       data &&
@@ -365,15 +450,15 @@ export async function refundPayment(
     }
 
     const refundRef =
-      data?.refund_ref ||
-      data?.refund_id ||
-      data?.transaction_id ||
-      data?.trx_id ||
+      (data?.refund_ref as string | undefined) ||
+      (data?.refund_id as string | undefined) ||
+      (data?.transaction_id as string | undefined) ||
+      (data?.trx_id as string | undefined) ||
       `RFD-${Date.now().toString().slice(-6)}`
 
     return {
       ok: true,
-      message: data?.message || "Refund processed successfully.",
+      message: String(data?.message || "Refund processed successfully."),
       refundRef,
       raw: data,
     }

@@ -53,6 +53,7 @@ async function ensureSchema() {
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "category" text`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "hidden" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergEnabled" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergShowAllFilled" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergAmount" integer NOT NULL DEFAULT 7`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergThreshold" integer NOT NULL DEFAULT 3`,
         `ALTER TABLE "scrims" ADD COLUMN IF NOT EXISTS "icebergStartRealCount" integer NOT NULL DEFAULT 0`,
@@ -418,22 +419,56 @@ async function ensureSchema() {
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "mode" text NOT NULL DEFAULT 'ai'`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "escalatedAt" timestamp`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "takenOverBy" text`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "takenOverAt" timestamp`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "lastAiReplyAt" timestamp`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
         `CREATE TABLE IF NOT EXISTS "chat_moderation_logs" (
           "id" text PRIMARY KEY,
           "userId" text NOT NULL,
           "userName" text,
           "userEmail" text,
-          "messageContent" text NOT NULL,
-          "violationCategory" text NOT NULL,
-          "reason" text NOT NULL,
+          "messageContent" text NOT NULL DEFAULT '',
+          "violationCategory" text NOT NULL DEFAULT 'abusive',
+          "reason" text NOT NULL DEFAULT '',
           "confidence" integer NOT NULL DEFAULT 0,
-          "detectorSource" text NOT NULL,
-          "actionTaken" text NOT NULL,
+          "detectorSource" text NOT NULL DEFAULT 'regex',
+          "actionTaken" text NOT NULL DEFAULT 'permanent_ban',
           "isResolved" boolean NOT NULL DEFAULT false,
           "resolvedBy" text,
           "resolvedAt" timestamp,
           "createdAt" timestamp NOT NULL DEFAULT NOW()
         )`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "userName" text`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "userEmail" text`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "messageContent" text NOT NULL DEFAULT ''`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "violationCategory" text NOT NULL DEFAULT 'abusive'`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "reason" text NOT NULL DEFAULT ''`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "confidence" integer NOT NULL DEFAULT 0`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "detectorSource" text NOT NULL DEFAULT 'regex'`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "actionTaken" text NOT NULL DEFAULT 'permanent_ban'`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "isResolved" boolean NOT NULL DEFAULT false`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "resolvedBy" text`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "resolvedAt" timestamp`,
+        `ALTER TABLE "chat_moderation_logs" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'chat_moderation_logs'
+              AND is_nullable = 'NO'
+              AND column_default IS NULL
+              AND column_name NOT IN ('id', 'userId', 'messageContent', 'violationCategory', 'reason', 'confidence', 'detectorSource', 'actionTaken', 'isResolved', 'createdAt')
+          LOOP
+            EXECUTE format('ALTER TABLE "chat_moderation_logs" ALTER COLUMN %I DROP NOT NULL', r.column_name);
+          END LOOP;
+        END $$`,
         `CREATE TABLE IF NOT EXISTS "email_logs" (
           "id" text PRIMARY KEY,
           "recipientEmail" text NOT NULL,

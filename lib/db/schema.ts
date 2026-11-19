@@ -91,6 +91,7 @@ export const scrims = pgTable("scrims", {
   status: text("status").notNull().default("upcoming"), // upcoming | live | registration_closed | completed | not_hosted | deleted
   hidden: boolean("hidden").notNull().default(false),
   icebergEnabled: boolean("icebergEnabled").notNull().default(false),
+  icebergShowAllFilled: boolean("icebergShowAllFilled").notNull().default(false),
   icebergAmount: integer("icebergAmount").notNull().default(7),
   icebergThreshold: integer("icebergThreshold").notNull().default(3),
   icebergStartRealCount: integer("icebergStartRealCount").notNull().default(0),

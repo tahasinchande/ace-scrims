@@ -103,6 +103,7 @@ export async function archivePreviousDayBookings(): Promise<number> {
         roomId: null,
         roomPassword: null,
         icebergStartRealCount: 0,
+        icebergShowAllFilled: false,
         updatedAt: new Date(),
       })
       .where(
@@ -237,6 +238,7 @@ export function getAllSampleScrims(): ScrimWithSlots[] {
       publicConfirmedTeams: 0,
       hidden: false,
       icebergEnabled: false,
+      icebergShowAllFilled: false,
       icebergAmount: 7,
       icebergThreshold: 3,
       icebergStartRealCount: 0,
@@ -292,6 +294,7 @@ function getSampleScrims(isFriday: boolean = false): ScrimWithSlots[] {
       publicConfirmedTeams: 0,
       hidden: false,
       icebergEnabled: false,
+      icebergShowAllFilled: false,
       icebergAmount: 7,
       icebergThreshold: 3,
       icebergStartRealCount: 0,
@@ -406,6 +409,7 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     realConfirmed: confirmed,
     maxTeams: s.maxTeams || 12,
     icebergEnabled: Boolean(s.icebergEnabled) && !isFull,
+    icebergShowAllFilled: Boolean(s.icebergShowAllFilled) && !isFull,
     icebergAmount: Number(s.icebergAmount ?? 7),
     icebergThreshold: Number(s.icebergThreshold ?? 3),
     icebergStartRealCount: Number(s.icebergStartRealCount ?? 0),
@@ -605,11 +609,12 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
         if (s.status === "upcoming") {
           s.status = "registration_closed"
         }
-        if (s.icebergEnabled) {
+        if (s.icebergEnabled || s.icebergShowAllFilled) {
           s.icebergEnabled = false
+          s.icebergShowAllFilled = false
           void db
             .update(scrims)
-            .set({ icebergEnabled: false, updatedAt: new Date() })
+            .set({ icebergEnabled: false, icebergShowAllFilled: false, updatedAt: new Date() })
             .where(or(eq(scrims.id, s.id), eq(scrims.slug, s.slug)))
             .catch(() => {})
         }
@@ -618,6 +623,7 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
         realConfirmed: s.confirmedTeams,
         maxTeams,
         icebergEnabled: Boolean(s.icebergEnabled),
+        icebergShowAllFilled: Boolean(s.icebergShowAllFilled),
         icebergAmount: Number(s.icebergAmount ?? 7),
         icebergThreshold: Number(s.icebergThreshold ?? 3),
         icebergStartRealCount: Number(s.icebergStartRealCount ?? 0),
@@ -689,11 +695,12 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
         if (result.status === "upcoming") {
           result.status = "registration_closed"
         }
-        if (result.icebergEnabled) {
+        if (result.icebergEnabled || result.icebergShowAllFilled) {
           result.icebergEnabled = false
+          result.icebergShowAllFilled = false
           await db
             .update(scrims)
-            .set({ icebergEnabled: false, updatedAt: new Date() })
+            .set({ icebergEnabled: false, icebergShowAllFilled: false, updatedAt: new Date() })
             .where(or(eq(scrims.id, result.id), eq(scrims.slug, result.slug)))
             .catch(() => {})
         }
@@ -702,6 +709,7 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
         realConfirmed: result.confirmedTeams,
         maxTeams,
         icebergEnabled: Boolean(result.icebergEnabled),
+        icebergShowAllFilled: Boolean(result.icebergShowAllFilled),
         icebergAmount: Number(result.icebergAmount ?? 7),
         icebergThreshold: Number(result.icebergThreshold ?? 3),
         icebergStartRealCount: Number(result.icebergStartRealCount ?? 0),
@@ -759,11 +767,12 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
         if (result.status === "upcoming") {
           result.status = "registration_closed"
         }
-        if (result.icebergEnabled) {
+        if (result.icebergEnabled || result.icebergShowAllFilled) {
           result.icebergEnabled = false
+          result.icebergShowAllFilled = false
           await db
             .update(scrims)
-            .set({ icebergEnabled: false, updatedAt: new Date() })
+            .set({ icebergEnabled: false, icebergShowAllFilled: false, updatedAt: new Date() })
             .where(or(eq(scrims.id, result.id), eq(scrims.slug, result.slug)))
             .catch(() => {})
         }
@@ -772,6 +781,7 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
         realConfirmed: result.confirmedTeams,
         maxTeams,
         icebergEnabled: Boolean(result.icebergEnabled),
+        icebergShowAllFilled: Boolean(result.icebergShowAllFilled),
         icebergAmount: Number(result.icebergAmount ?? 7),
         icebergThreshold: Number(result.icebergThreshold ?? 3),
         icebergStartRealCount: Number(result.icebergStartRealCount ?? 0),
@@ -820,13 +830,15 @@ export async function getAllScrims(): Promise<ScrimWithSlots[]> {
       const c1 = countMap.get(r.scrim.id) ?? 0
       const c2 = r.scrim.slug && r.scrim.slug !== r.scrim.id ? (countMap.get(r.scrim.slug) ?? 0) : 0
       const normalized = normalizeScrim({ ...r.scrim, confirmedTeams: c1 + c2 }, isFriday)
-      if (normalized.confirmedTeams >= (normalized.maxTeams || 12) && normalized.icebergEnabled) {
-        normalized.icebergEnabled = false
+      if (normalized.confirmedTeams >= (normalized.maxTeams || 12)) {
+        if (normalized.icebergEnabled) normalized.icebergEnabled = false
+        if (normalized.icebergShowAllFilled) normalized.icebergShowAllFilled = false
       }
       normalized.publicConfirmedTeams = computeIcebergDisplayCount({
         realConfirmed: normalized.confirmedTeams,
         maxTeams: normalized.maxTeams || 12,
         icebergEnabled: Boolean(normalized.icebergEnabled),
+        icebergShowAllFilled: Boolean(normalized.icebergShowAllFilled),
         icebergAmount: Number(normalized.icebergAmount ?? 7),
         icebergThreshold: Number(normalized.icebergThreshold ?? 3),
         icebergStartRealCount: Number(normalized.icebergStartRealCount ?? 0),
@@ -915,6 +927,7 @@ export async function resolveOrEnsureScrim(scrimIdOrSlug: string) {
             roomId: null,
             roomPassword: null,
             icebergStartRealCount: 0,
+            icebergShowAllFilled: false,
             updatedAt: new Date(),
           })
           .where(eq(scrims.id, rows[0].id))

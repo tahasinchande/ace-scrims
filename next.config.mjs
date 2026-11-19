@@ -1,10 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   productionBrowserSourceMaps: false,
-  serverExternalPackages: ["pg"],
+  serverExternalPackages: ["pg", "undici"],
+  turbopack: {},
+  webpack: (config, { dev }) => {
+    if (!dev) {
+      config.cache = false
+    }
+    return config
+  },
   experimental: {
     cpus: 1,
     workerThreads: false,
+    webpackMemoryOptimizations: true,
+    preloadEntriesOnStart: false,
     serverActions: {
       bodySizeLimit: "10mb",
     },

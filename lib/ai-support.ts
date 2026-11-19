@@ -9,6 +9,7 @@ import { getActivePayoutMethods } from "@/lib/queries/payout-methods"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 
 const MODEL_ID = "gemini-4-hydrogen"
+const FALLBACK_MODEL_ID = "gemini-3.1-flash-lite"
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = (process.env.GEMINI_API_KEY || "").trim()
@@ -21,6 +22,52 @@ function getGeminiClient(): GoogleGenAI | null {
       },
     },
   })
+}
+
+function isTransientGeminiError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err || "")
+  const status = (err as { status?: number; code?: number })?.status ?? (err as { code?: number })?.code
+  return (
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    /503|429|UNAVAILABLE|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed/i.test(msg)
+  )
+}
+
+async function generateWithRetry(
+  ai: GoogleGenAI,
+  params: Omit<Parameters<GoogleGenAI["models"]["generateContent"]>[0], "model">,
+) {
+  const attempts: Array<{ model: string; delayMs: number }> = [
+    { model: MODEL_ID, delayMs: 0 },
+    { model: MODEL_ID, delayMs: 450 },
+    { model: FALLBACK_MODEL_ID, delayMs: 0 },
+  ]
+
+  let lastErr: unknown
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i]
+    if (attempt.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, attempt.delayMs))
+    }
+    try {
+      return await ai.models.generateContent({
+        ...params,
+        model: attempt.model,
+      })
+    } catch (err) {
+      lastErr = err
+      const shouldContinue = i < attempts.length - 1 && (isTransientGeminiError(err) || attempt.model !== FALLBACK_MODEL_ID)
+      if (!shouldContinue) {
+        throw err
+      }
+      console.warn(`[AI Support] Gemini attempt ${i + 1} (${attempt.model}) failed, falling back:`, err instanceof Error ? err.message : err)
+    }
+  }
+  throw lastErr
 }
 
 export type ModerationResult = {
@@ -94,8 +141,7 @@ export async function moderateUserMessage(messageText: string): Promise<Moderati
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL_ID,
+    const response = await generateWithRetry(ai, {
       contents: [
         {
           role: "user",
@@ -284,8 +330,7 @@ export async function generateAiSupportReply(params: {
       .map((h) => `${h.senderRole === "user" ? params.userName || "Player" : h.senderName}: ${h.message}`)
       .join("\n")
 
-    const response = await ai.models.generateContent({
-      model: MODEL_ID,
+    const response = await generateWithRetry(ai, {
       contents: [
         {
           role: "user",

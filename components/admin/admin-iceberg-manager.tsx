@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   fluctuateIcebergAction,
   resetIcebergCycleAction,
+  setScrimsShowAllFilledAction,
   updateScrimIcebergAction,
 } from "@/app/actions/iceberg"
 import {
@@ -18,17 +19,22 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
+  CheckCheck,
   CheckSquare,
   Flame,
   Info,
+  Lock,
   Power,
   RefreshCw,
   Search,
   ShieldAlert,
   Shuffle,
   Snowflake,
+  Sparkles,
   Square,
+  Unlock,
   Users,
+  XCircle,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -46,6 +52,7 @@ export type AdminIcebergScrim = {
   status: string
   hidden: boolean
   icebergEnabled: boolean
+  icebergShowAllFilled: boolean
   icebergAmount: number
   icebergThreshold: number
   icebergStartRealCount: number
@@ -78,11 +85,10 @@ export function AdminIcebergManager({
   const [scrims, setScrims] = useState<AdminIcebergScrim[]>(initialScrims)
   const [isPending, startTransition] = useTransition()
 
-  // Scope & Filters
+  // Multi-Scrim Selection & Filters
   const [selectAllScrims, setSelectAllScrims] = useState<boolean>(true)
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [focusedScrimId, setFocusedScrimId] = useState<string>(
-    initialScrims.find((s) => s.isTodaySchedule)?.id ?? initialScrims[0]?.id ?? "",
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    initialScrims.filter((s) => s.isTodaySchedule).map((s) => s.id),
   )
   const [scheduleFilter, setScheduleFilter] = useState<"today" | "all">("today")
   const [searchQuery, setSearchQuery] = useState("")
@@ -132,19 +138,24 @@ export function AdminIcebergManager({
     })
   }, [scrims, scheduleFilter, searchQuery])
 
+  const visibleIdSet = useMemo(() => new Set(visibleScrims.map((s) => s.id)), [visibleScrims])
+
   const effectiveTargetIds = useMemo(() => {
     if (selectAllScrims) {
       return visibleScrims.map((s) => s.id)
     }
-    if (selectedIds.length > 0) {
-      return selectedIds
-    }
-    return focusedScrimId ? [focusedScrimId] : []
-  }, [selectAllScrims, visibleScrims, selectedIds, focusedScrimId])
+    return selectedIds.filter((id) => scrims.some((s) => s.id === id))
+  }, [selectAllScrims, visibleScrims, selectedIds, scrims])
+
+  const selectedVisibleCount = useMemo(() => {
+    if (selectAllScrims) return visibleScrims.length
+    return selectedIds.filter((id) => visibleIdSet.has(id)).length
+  }, [selectAllScrims, visibleScrims.length, selectedIds, visibleIdSet])
 
   const summary = useMemo(() => {
     const todayScrims = scrims.filter((s) => s.isTodaySchedule)
     let activeIceberg = 0
+    let showAllFilledCount = 0
     let safetyLocked = 0
     let totalReal = 0
     let totalDisplayed = 0
@@ -155,6 +166,8 @@ export function AdminIcebergManager({
       totalReal += real
       if (real >= max) {
         safetyLocked++
+      } else if (s.icebergShowAllFilled) {
+        showAllFilledCount++
       } else if (s.icebergEnabled) {
         activeIceberg++
       }
@@ -162,6 +175,7 @@ export function AdminIcebergManager({
         realConfirmed: real,
         maxTeams: max,
         icebergEnabled: s.icebergEnabled,
+        icebergShowAllFilled: s.icebergShowAllFilled,
         icebergAmount: s.icebergAmount,
         icebergThreshold: s.icebergThreshold,
         icebergStartRealCount: s.icebergStartRealCount,
@@ -171,25 +185,43 @@ export function AdminIcebergManager({
     return {
       todayCount: todayScrims.length,
       activeIceberg,
+      showAllFilledCount,
       safetyLocked,
       totalReal,
       totalDisplayed,
     }
   }, [scrims])
 
-  function handleSelectFocusedScrim(scrimId: string) {
-    setFocusedScrimId(scrimId)
-    setSelectAllScrims(false)
-    setSelectedIds([scrimId])
-    const found = scrims.find((s) => s.id === scrimId)
-    if (found) {
-      setBulkAmount(found.icebergAmount || 7)
-      setBulkThreshold(found.icebergThreshold || 3)
+  function handleSelectAllToggle(checked: boolean) {
+    setSelectAllScrims(checked)
+    if (checked) {
+      setSelectedIds(visibleScrims.map((s) => s.id))
+    } else {
+      setSelectedIds([])
     }
   }
 
-  function toggleRowSelection(id: string) {
+  function handleSelectTodayOpenOnly() {
+    const openIds = visibleScrims
+      .filter((s) => s.confirmedTeams < s.maxTeams && s.registrationOpen && s.status !== "not_hosted" && s.status !== "completed")
+      .map((s) => s.id)
     setSelectAllScrims(false)
+    setSelectedIds(openIds)
+  }
+
+  function handleClearSelection() {
+    setSelectAllScrims(false)
+    setSelectedIds([])
+  }
+
+  function toggleRowSelection(id: string) {
+    if (selectAllScrims) {
+      // Switching from "Select All" to explicit multi-selection keeping every visible scrim except toggled row
+      const next = visibleScrims.map((s) => s.id).filter((item) => item !== id)
+      setSelectAllScrims(false)
+      setSelectedIds(next)
+      return
+    }
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
   }
 
@@ -199,9 +231,10 @@ export function AdminIcebergManager({
       return
     }
     startTransition(async () => {
+      const useSelectAllToday = selectAllScrims && scheduleFilter === "today" && !searchQuery.trim()
       const res = await updateScrimIcebergAction({
         scrimIds: effectiveTargetIds,
-        selectAllActive: selectAllScrims && scheduleFilter === "today",
+        selectAllActive: useSelectAllToday,
         enabled,
         icebergAmount: bulkAmount,
         icebergThreshold: bulkThreshold,
@@ -211,6 +244,19 @@ export function AdminIcebergManager({
         toast.error(res.error || "Failed to update Iceberg settings")
         return
       }
+      setScrims((prev) =>
+        prev.map((item) =>
+          effectiveTargetIds.includes(item.id) && item.confirmedTeams < item.maxTeams
+            ? {
+                ...item,
+                icebergEnabled: enabled,
+                icebergAmount: bulkAmount,
+                icebergThreshold: bulkThreshold,
+                ...(enabled ? { icebergStartRealCount: item.confirmedTeams } : {}),
+              }
+            : item,
+        ),
+      )
       if (res.skippedFullTitles.length > 0) {
         toast.warning(
           `Updated ${res.updatedCount} scrim(s). Safety override kept ${res.skippedFullTitles.length} full lobby(s) OFF.`,
@@ -227,15 +273,84 @@ export function AdminIcebergManager({
     })
   }
 
+  function handleBulkShowAllFilled(showAllFilled: boolean) {
+    if (effectiveTargetIds.length === 0) {
+      toast.error("Select at least one scrim or enable Select All Scrims.")
+      return
+    }
+    startTransition(async () => {
+      const useSelectAllToday = selectAllScrims && scheduleFilter === "today" && !searchQuery.trim()
+      const res = await setScrimsShowAllFilledAction({
+        scrimIds: effectiveTargetIds,
+        selectAllActive: useSelectAllToday,
+        showAllFilled,
+      })
+      if (!res.ok) {
+        toast.error(res.error || "Failed to update Show All Slots Filled")
+        return
+      }
+      setScrims((prev) =>
+        prev.map((item) =>
+          effectiveTargetIds.includes(item.id) && item.confirmedTeams < item.maxTeams
+            ? { ...item, icebergShowAllFilled: showAllFilled }
+            : item,
+        ),
+      )
+      if (res.skippedFullTitles.length > 0) {
+        toast.warning(
+          `Updated ${res.updatedCount} scrim(s). ${res.skippedFullTitles.length} already-full lobby(s) kept real count.`,
+        )
+      } else {
+        toast.success(
+          showAllFilled
+            ? `Marked all slots filled (12/12) across ${res.updatedCount} selected scrim(s)!`
+            : `Cleared "Show All Slots Filled" override on ${res.updatedCount} scrim(s).`,
+        )
+      }
+      broadcastSlotsRefresh()
+      router.refresh()
+    })
+  }
+
+  function handleSingleRowShowAllFilled(scrim: AdminIcebergScrim, nextShowAllFilled: boolean) {
+    if (nextShowAllFilled && scrim.confirmedTeams >= scrim.maxTeams) {
+      toast.error(`${scrim.title} already has ${scrim.confirmedTeams}/${scrim.maxTeams} real teams.`)
+      return
+    }
+    startTransition(async () => {
+      const res = await setScrimsShowAllFilledAction({
+        scrimIds: [scrim.id],
+        showAllFilled: nextShowAllFilled,
+      })
+      if (!res.ok) {
+        toast.error(res.error || "Failed to update Show All Slots Filled")
+        return
+      }
+      setScrims((prev) =>
+        prev.map((item) =>
+          item.id === scrim.id ? { ...item, icebergShowAllFilled: nextShowAllFilled } : item,
+        ),
+      )
+      toast.success(
+        nextShowAllFilled
+          ? `${scrim.title}: All slots marked filled (${scrim.maxTeams}/${scrim.maxTeams})`
+          : `${scrim.title}: Show All Slots Filled turned OFF`,
+      )
+      broadcastSlotsRefresh()
+      router.refresh()
+    })
+  }
+
   function handleFluctuateNow() {
     if (effectiveTargetIds.length === 0) {
       toast.error("Select at least one scrim or enable Select All Scrims.")
       return
     }
     startTransition(async () => {
+      const useSelectAllToday = selectAllScrims && scheduleFilter === "today" && !searchQuery.trim()
       const res = await fluctuateIcebergAction({
         scrimIds: effectiveTargetIds,
-        selectAllActive: selectAllScrims && scheduleFilter === "today",
+        selectAllActive: useSelectAllToday,
         minAmount: fluctuateMin,
         maxAmount: fluctuateMax,
         icebergThreshold: bulkThreshold,
@@ -264,9 +379,10 @@ export function AdminIcebergManager({
       return
     }
     startTransition(async () => {
+      const useSelectAllToday = selectAllScrims && scheduleFilter === "today" && !searchQuery.trim()
       const res = await resetIcebergCycleAction({
         scrimIds: effectiveTargetIds,
-        selectAllActive: selectAllScrims && scheduleFilter === "today",
+        selectAllActive: useSelectAllToday,
       })
       if (!res.ok) {
         toast.error(res.error || "Failed to reset Iceberg cycles")
@@ -301,6 +417,18 @@ export function AdminIcebergManager({
         toast.error(res.error || "Failed to update scrim Iceberg")
         return
       }
+      setScrims((prev) =>
+        prev.map((item) =>
+          item.id === scrim.id
+            ? {
+                ...item,
+                icebergEnabled: nextEnabled,
+                icebergAmount: draft.amount,
+                icebergThreshold: draft.threshold,
+              }
+            : item,
+        ),
+      )
       toast.success(
         nextEnabled
           ? `${scrim.title}: Iceberg ON (Base ${draft.amount}, Reset every ${draft.threshold})`
@@ -318,6 +446,8 @@ export function AdminIcebergManager({
     return `${i} real → ${Math.min(11, safePreviewBase + offset)}/12`
   }).join("  ·  ")
 
+  const activeTargetCount = selectAllScrims ? visibleScrims.length : effectiveTargetIds.length
+
   return (
     <div className="flex flex-col gap-6">
       {/* KPI Overview */}
@@ -331,7 +461,9 @@ export function AdminIcebergManager({
             {summary.activeIceberg} <span className="text-xs font-normal text-muted-foreground">/ {summary.todayCount}</span>
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {isFriday ? "Friday Schedule" : "Daily Schedule"} · Room 2 {showRoom2 ? "On" : "Off"}
+            {summary.showAllFilledCount > 0
+              ? `${summary.showAllFilledCount} Marked Full (12/12)`
+              : `${isFriday ? "Friday Schedule" : "Daily Schedule"} · Room 2 ${showRoom2 ? "On" : "Off"}`}
           </p>
         </div>
 
@@ -369,7 +501,7 @@ export function AdminIcebergManager({
         </div>
       </div>
 
-      {/* Main Automation & Bulk Control Card */}
+      {/* Main Automation & Multi-Scrim Batch Control Card */}
       <section className="glass rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-card/70 to-card p-5 sm:p-6 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 pb-4">
           <div>
@@ -378,56 +510,74 @@ export function AdminIcebergManager({
               Iceberg Automation Controls
             </h2>
             <p className="mt-1 text-xs text-muted-foreground max-w-2xl">
-              Configure baseline display slots and automatic reset cycles. When real bookings reach the threshold, the counter resets cleanly back to the Iceberg baseline until all 12 real slots fill organically.
+              Select single or multiple scrims below, or use Select All to configure baseline slots, cyclic resets, or instant &quot;Show All Slots Filled&quot; marketing overrides in one click.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3.5 py-2">
-            <Switch
-              checked={selectAllScrims}
-              onCheckedChange={(checked) => {
-                const next = Boolean(checked)
-                setSelectAllScrims(next)
-                if (next) setSelectedIds([])
-              }}
-              aria-label="Select All Scrims"
-            />
-            <span className="text-xs font-bold uppercase tracking-wider text-cyan-200">
-              Select All Scrims ({visibleScrims.length})
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className="border-cyan-500/40 bg-cyan-500/10 text-cyan-200 font-mono text-xs px-2.5 py-1"
+            >
+              {activeTargetCount} Scrim{activeTargetCount === 1 ? "" : "s"} Selected
+            </Badge>
+            <div className="flex items-center gap-2.5 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3.5 py-2">
+              <Switch
+                checked={selectAllScrims}
+                onCheckedChange={(checked) => handleSelectAllToggle(Boolean(checked))}
+                aria-label="Select All Scrims"
+              />
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+                Select All ({visibleScrims.length})
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Target Selection + Parameters Grid */}
+        {/* Multi-Scrim Selection Quick Chips + Parameters Grid */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
-            <Label htmlFor="iceberg-scrim-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Target Scrim (Single / Scope)
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Multi-Scrim Selection Scope
             </Label>
-            <select
-              id="iceberg-scrim-select"
-              value={selectAllScrims ? "__ALL__" : focusedScrimId}
-              onChange={(e) => {
-                if (e.target.value === "__ALL__") {
-                  setSelectAllScrims(true)
-                  setSelectedIds([])
-                } else {
-                  handleSelectFocusedScrim(e.target.value)
-                }
-              }}
-              className="h-10 w-full rounded-lg border border-input bg-secondary px-3 text-sm font-medium text-foreground"
-            >
-              <option value="__ALL__">All Active Scrims ({visibleScrims.length})</option>
-              {visibleScrims.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.startTime} — {s.title} ({s.confirmedTeams}/{s.maxTeams} real)
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={selectAllScrims ? "default" : "outline"}
+                onClick={() => handleSelectAllToggle(true)}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <CheckCheck className="size-3.5" />
+                Select All ({visibleScrims.length})
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleSelectTodayOpenOnly}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <Sparkles className="size-3.5 text-cyan-400" />
+                Select Open
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={handleClearSelection}
+                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <XCircle className="size-3.5" />
+                Clear
+              </Button>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               {selectAllScrims
-                ? `Applying to all ${visibleScrims.length} displayed scrim(s).`
-                : `Applying to ${effectiveTargetIds.length} selected scrim(s).`}
+                ? `Batch actions apply to all ${visibleScrims.length} visible scrim(s).`
+                : selectedVisibleCount > 0
+                ? `${selectedVisibleCount} scrim(s) checked below (${effectiveTargetIds.length} total selected).`
+                : "Check individual scrim checkboxes below to select multiple lobbies."}
             </p>
           </div>
 
@@ -532,6 +682,42 @@ export function AdminIcebergManager({
           </div>
         </div>
 
+        {/* Show All Slots Filled Batch Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/35 bg-rose-500/10 px-4 py-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-200">
+              <Lock className="size-3.5 text-rose-400" />
+              Show All Slots Filled (Marketing Attraction Mode)
+            </div>
+            <p className="text-[11px] text-rose-200/80">
+              Instantly display selected scrims as 12/12 Full on public pages &amp; cards while preserving actual booking counts underneath.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={isPending || activeTargetCount === 0}
+              onClick={() => handleBulkShowAllFilled(true)}
+              className="gap-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold"
+            >
+              <Lock className="size-3.5" />
+              Show All Slots Filled ({selectAllScrims ? "All" : activeTargetCount})
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isPending || activeTargetCount === 0}
+              onClick={() => handleBulkShowAllFilled(false)}
+              className="gap-1.5 border-rose-500/40 text-rose-200 hover:bg-rose-500/15"
+            >
+              <Unlock className="size-3.5" />
+              Clear Filled Override
+            </Button>
+          </div>
+        </div>
+
         {/* Live Logic Simulation Preview */}
         <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-secondary/40 px-4 py-3 text-xs">
           <Info className="size-4 shrink-0 text-cyan-400 mt-0.5" />
@@ -541,7 +727,7 @@ export function AdminIcebergManager({
             </p>
             <p className="font-mono text-[11px] text-cyan-300">{sampleSequence}</p>
             <p className="text-[11px] text-muted-foreground">
-              Safety Override: Reaching 12/12 real bookings automatically disables Iceberg for that scrim so lobbies close cleanly with zero overfilling.
+              Safety Override: Reaching 12/12 real bookings automatically disables Iceberg &amp; marketing overrides for that scrim so lobbies close cleanly.
             </p>
           </div>
         </div>
@@ -550,17 +736,17 @@ export function AdminIcebergManager({
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             type="button"
-            disabled={isPending}
+            disabled={isPending || activeTargetCount === 0}
             onClick={() => handleBulkApply(true)}
             className="gap-2 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold"
           >
             <Power className="size-4" />
-            Apply & Enable Iceberg ({selectAllScrims ? "All" : effectiveTargetIds.length})
+            Apply &amp; Enable Iceberg ({selectAllScrims ? "All" : activeTargetCount})
           </Button>
 
           <Button
             type="button"
-            disabled={isPending}
+            disabled={isPending || activeTargetCount === 0}
             onClick={handleFluctuateNow}
             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
           >
@@ -571,7 +757,7 @@ export function AdminIcebergManager({
           <Button
             type="button"
             variant="outline"
-            disabled={isPending}
+            disabled={isPending || activeTargetCount === 0}
             onClick={handleResetCycles}
             className="gap-2 border-border/70"
           >
@@ -582,7 +768,7 @@ export function AdminIcebergManager({
           <Button
             type="button"
             variant="destructive"
-            disabled={isPending}
+            disabled={isPending || activeTargetCount === 0}
             onClick={() => handleBulkApply(false)}
             className="gap-2 ml-auto"
           >
@@ -595,7 +781,7 @@ export function AdminIcebergManager({
       {/* Scrim List & Per-Scrim Controls */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setScheduleFilter("today")}
@@ -618,7 +804,7 @@ export function AdminIcebergManager({
                   : "border-border/60 bg-secondary/50 text-muted-foreground hover:text-foreground",
               )}
             >
-              All Standard & Custom Scrims ({scrims.length})
+              All Standard &amp; Custom Scrims ({scrims.length})
             </button>
           </div>
 
@@ -649,18 +835,24 @@ export function AdminIcebergManager({
                 realConfirmed: s.confirmedTeams,
                 maxTeams: s.maxTeams,
                 icebergEnabled: s.icebergEnabled,
+                icebergShowAllFilled: s.icebergShowAllFilled,
                 icebergAmount: s.icebergAmount,
                 icebergThreshold: s.icebergThreshold,
                 icebergStartRealCount: s.icebergStartRealCount,
               })
               const isRealFull = s.confirmedTeams >= s.maxTeams
+              const isShowAllFilledActive = Boolean(s.icebergShowAllFilled && !isRealFull)
 
               return (
                 <div
                   key={s.id}
                   className={cn(
-                    "glass flex flex-col gap-3 rounded-xl border p-4 transition-all lg:flex-row lg:items-center lg:justify-between",
-                    isSelected ? "border-cyan-500/45 bg-cyan-500/5" : "border-border/60",
+                    "glass flex flex-col gap-3 rounded-xl border p-4 transition-all xl:flex-row xl:items-center xl:justify-between",
+                    isShowAllFilledActive
+                      ? "border-rose-500/45 bg-rose-500/5"
+                      : isSelected
+                      ? "border-cyan-500/45 bg-cyan-500/5"
+                      : "border-border/60",
                   )}
                 >
                   {/* Left: Checkbox + Scrim Metadata */}
@@ -693,6 +885,13 @@ export function AdminIcebergManager({
                           >
                             Safety Override: Full (Auto-OFF)
                           </Badge>
+                        ) : isShowAllFilledActive ? (
+                          <Badge
+                            variant="outline"
+                            className="border-rose-500/45 bg-rose-500/15 text-rose-300 text-[11px]"
+                          >
+                            All Slots Filled ({s.maxTeams}/{s.maxTeams})
+                          </Badge>
                         ) : s.icebergEnabled ? (
                           <Badge
                             variant="outline"
@@ -717,11 +916,11 @@ export function AdminIcebergManager({
                         <span>·</span>
                         <span>
                           Public Display:{" "}
-                          <strong className="font-mono text-primary">
+                          <strong className={cn("font-mono", isShowAllFilledActive ? "text-rose-300" : "text-primary")}>
                             {progress.displayedCount}/{s.maxTeams}
                           </strong>
                         </span>
-                        {s.icebergEnabled && !isRealFull && (
+                        {s.icebergEnabled && !isRealFull && !isShowAllFilledActive && (
                           <>
                             <span>·</span>
                             <span className="font-mono text-[11px] text-cyan-300">
@@ -735,7 +934,7 @@ export function AdminIcebergManager({
                     </div>
                   </div>
 
-                  {/* Right: Inline Amount / Threshold / Save / Toggle */}
+                  {/* Right: Inline Amount / Threshold / Save / All-Filled / Iceberg Toggle */}
                   <div className="flex flex-wrap items-center gap-2.5">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] text-muted-foreground">Base:</span>
@@ -790,6 +989,31 @@ export function AdminIcebergManager({
                     >
                       Save
                     </Button>
+
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-2.5 py-1",
+                        isShowAllFilledActive
+                          ? "border-rose-500/45 bg-rose-500/15"
+                          : "border-border/60 bg-secondary/50",
+                      )}
+                      title="Display all slots filled (12/12) publicly for marketing"
+                    >
+                      <Switch
+                        checked={isShowAllFilledActive}
+                        disabled={isPending || isRealFull}
+                        onCheckedChange={(checked) => handleSingleRowShowAllFilled(s, Boolean(checked))}
+                        aria-label={`Show All Slots Filled for ${s.title}`}
+                      />
+                      <span
+                        className={cn(
+                          "text-[11px] font-semibold whitespace-nowrap",
+                          isShowAllFilledActive ? "text-rose-200" : "text-muted-foreground",
+                        )}
+                      >
+                        All Filled
+                      </span>
+                    </div>
 
                     <div
                       className={cn(

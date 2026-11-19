@@ -53,7 +53,14 @@ export async function processPayment(
 
   // Never trust callback params — re-verify with the gateway
   const verified = await verifyPayment(invoiceId)
-  if (!verified) return { status: "failed", reason: "Gateway verification failed" }
+  if (!verified) {
+    await db
+      .update(payments)
+      .set({ invoiceId, updatedAt: new Date() })
+      .where(eq(payments.id, paymentId))
+      .catch(() => {})
+    return { status: "pending" }
+  }
 
   if (verified.status === "PENDING") {
     await db
@@ -345,7 +352,12 @@ export async function processPayment(
     if (scrim && currentConfirmedCount + 1 >= scrim.maxTeams) {
       await tx
         .update(scrims)
-        .set({ registrationOpen: false, icebergEnabled: false, updatedAt: new Date() })
+        .set({
+          registrationOpen: false,
+          icebergEnabled: false,
+          icebergShowAllFilled: false,
+          updatedAt: new Date(),
+        })
         .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
     }
   })

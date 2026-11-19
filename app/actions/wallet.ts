@@ -1,27 +1,12 @@
 "use server"
 
 import { randomUUID } from "crypto"
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { user, payments, walletTransactions } from "@/lib/db/schema"
 import { eq, desc } from "drizzle-orm"
 import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
-
-function getBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    const raw = process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "")
-    if (raw && !raw.includes("localhost") && !raw.includes("vercel.app")) {
-      return raw.startsWith("http") ? raw : `https://${raw}`
-    }
-  }
-  if (process.env.BETTER_AUTH_URL) {
-    const raw = process.env.BETTER_AUTH_URL.trim().replace(/\/$/, "")
-    if (raw && !raw.includes("localhost") && !raw.includes("vercel.app")) {
-      return raw.startsWith("http") ? raw : `https://${raw}`
-    }
-  }
-  return "https://www.acescrims.online"
-}
+import { resolveAppBaseUrl } from "@/lib/base-url"
 
 export type WalletDepositResult = {
   ok: boolean
@@ -53,46 +38,66 @@ export async function createWalletDeposit(amountBdt: number): Promise<WalletDepo
   }
 
   const paymentId = randomUUID()
-  const baseUrl = getBaseUrl()
 
-  // Pre-insert pending payment record
-  await db.insert(payments).values({
-    id: paymentId,
-    userId: sessionUser.id,
-    bookingId: "wallet_deposit",
-    scrimId: "wallet_deposit",
-    amountBdt: amount,
-    method: "online_gateway",
-    status: "pending",
-  })
+  try {
+    await ensureSchemaReady()
+    const baseUrl = await resolveAppBaseUrl()
 
-  const charge = await createCharge({
-    fullName: sessionUser.name,
-    email: sessionUser.email,
-    amount,
-    metadata: {
-      type: "wallet_deposit",
-      payment_id: paymentId,
-      user_id: sessionUser.id,
-      amount: String(amount),
-    },
-    redirectUrl: `${baseUrl}/payment/callback?pid=${paymentId}&type=wallet`,
-    cancelUrl: `${baseUrl}/dashboard/wallet?status=cancelled`,
-    webhookUrl: `${baseUrl}/api/payment/webhook`,
-  })
+    // Pre-insert pending payment record
+    await db.insert(payments).values({
+      id: paymentId,
+      userId: sessionUser.id,
+      bookingId: "wallet_deposit",
+      scrimId: "wallet_deposit",
+      amountBdt: amount,
+      method: "online_gateway",
+      status: "pending",
+    })
 
-  if (!charge.ok) {
+    const charge = await createCharge({
+      fullName: sessionUser.name,
+      email: sessionUser.email,
+      amount,
+      metadata: {
+        type: "wallet_deposit",
+        payment_id: paymentId,
+        user_id: sessionUser.id,
+        amount: String(amount),
+      },
+      redirectUrl: `${baseUrl}/payment/callback?pid=${paymentId}&type=wallet`,
+      cancelUrl: `${baseUrl}/dashboard/wallet?status=cancelled`,
+      webhookUrl: `${baseUrl}/api/payment/webhook`,
+    })
+
+    if (!charge.ok) {
+      await db
+        .update(payments)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(eq(payments.id, paymentId))
+        .catch(() => {})
+      return { ok: false, error: charge.error || "Failed to initialize payment gateway." }
+    }
+
+    return { ok: true, paymentUrl: charge.paymentUrl }
+  } catch (err) {
+    console.error("[Wallet] createWalletDeposit error:", err)
     await db
       .update(payments)
       .set({ status: "failed", updatedAt: new Date() })
       .where(eq(payments.id, paymentId))
-    return { ok: false, error: charge.error || "Failed to initialize payment gateway." }
+      .catch(() => {})
+    return {
+      ok: false,
+      error:
+        err instanceof Error
+          ? err.message
+          : "Unable to initialize wallet deposit right now. Please try again.",
+    }
   }
-
-  return { ok: true, paymentUrl: charge.paymentUrl }
 }
 
 export async function getUserWalletData() {
+  await ensureSchemaReady()
   const sessionUser = await requireUser()
 
   const [uRow, history] = await Promise.all([

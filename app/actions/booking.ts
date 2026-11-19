@@ -2,11 +2,12 @@
 
 import { randomUUID } from "crypto"
 import { z } from "zod"
-import { db } from "@/lib/db"
+import { db, ensureSchemaReady } from "@/lib/db"
 import { bookings, payments, scrims, user as userTable, walletTransactions } from "@/lib/db/schema"
 import { and, eq, or, sql, gte } from "drizzle-orm"
 import { requireUser } from "@/lib/session"
 import { createCharge } from "@/lib/uddoktapay"
+import { resolveAppBaseUrl } from "@/lib/base-url"
 import { getScrimById, userHasBooking, getBangladeshActiveDate } from "@/lib/queries/scrims"
 import { getActivePayoutMethods } from "@/lib/queries/payout-methods"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
@@ -55,26 +56,12 @@ export type BookingFormState = {
   redirectUrl?: string
 }
 
-function getBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    const raw = process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "")
-    if (raw && !raw.includes("localhost") && !raw.includes("vercel.app")) {
-      return raw.startsWith("http") ? raw : `https://${raw}`
-    }
-  }
-  if (process.env.BETTER_AUTH_URL) {
-    const raw = process.env.BETTER_AUTH_URL.trim().replace(/\/$/, "")
-    if (raw && !raw.includes("localhost") && !raw.includes("vercel.app")) {
-      return raw.startsWith("http") ? raw : `https://${raw}`
-    }
-  }
-  return "https://www.acescrims.online"
-}
-
 export async function createBooking(
   _prev: BookingFormState,
   formData: FormData,
 ): Promise<BookingFormState> {
+  await ensureSchemaReady()
+
   let user
   try {
     user = await requireUser()
@@ -405,7 +392,12 @@ export async function createBooking(
         if (confirmedCount + 1 >= scrim.maxTeams) {
           await tx
             .update(scrims)
-            .set({ registrationOpen: false, icebergEnabled: false, updatedAt: new Date() })
+            .set({
+              registrationOpen: false,
+              icebergEnabled: false,
+              icebergShowAllFilled: false,
+              updatedAt: new Date(),
+            })
             .where(or(eq(scrims.id, scrim.id), eq(scrims.slug, scrim.slug)))
         }
       })
@@ -475,13 +467,41 @@ export async function createBooking(
     }
   }
 
-  // 3. If balance is insufficient: gracefully redirect user to pay for that scrim via UddoktaPay
-  if (existing) {
-    // Reuse the pending booking, update the team info
-    await db
-      .update(bookings)
-      .set({
+  // 3. If balance is insufficient: gracefully redirect user to pay for that scrim via gateway
+  try {
+    if (existing) {
+      await db
+        .update(bookings)
+        .set({
+          scrimId: scrim.id,
+          teamName: data.teamName,
+          captainName: data.captainName,
+          captainUid: data.captainUid,
+          player2Name: "N/A",
+          player2Uid: "N/A",
+          player3Name: "N/A",
+          player3Uid: "N/A",
+          player4Name: "N/A",
+          player4Uid: "N/A",
+          player5Name: null,
+          player5Uid: null,
+          phone: data.phone,
+          discordTelegram: teamTag,
+          scrimDate: targetDate,
+          teamLeaderImageUrl: data.teamLeaderImageUrl,
+          paymentMethod: data.paymentMethod,
+          paymentNumber: data.paymentNumber,
+          teamMembersDriveLink: data.teamMembersDriveLink || null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(bookings.id, bookingId), eq(bookings.userId, user.id)))
+    } else {
+      await db.insert(bookings).values({
+        id: bookingId,
+        userId: user.id,
         scrimId: scrim.id,
+        scrimDate: targetDate,
+        status: "pending",
         teamName: data.teamName,
         captainName: data.captainName,
         captainUid: data.captainUid,
@@ -495,69 +515,60 @@ export async function createBooking(
         player5Uid: null,
         phone: data.phone,
         discordTelegram: teamTag,
-        scrimDate: targetDate,
         teamLeaderImageUrl: data.teamLeaderImageUrl,
         paymentMethod: data.paymentMethod,
         paymentNumber: data.paymentNumber,
         teamMembersDriveLink: data.teamMembersDriveLink || null,
-        updatedAt: new Date(),
       })
-      .where(and(eq(bookings.id, bookingId), eq(bookings.userId, user.id)))
-  } else {
-    await db.insert(bookings).values({
-      id: bookingId,
+    }
+
+    await db.insert(payments).values({
+      id: paymentId,
       userId: user.id,
+      bookingId,
       scrimId: scrim.id,
-      scrimDate: targetDate,
+      amountBdt: scrim.priceBdt,
       status: "pending",
-      teamName: data.teamName,
-      captainName: data.captainName,
-      captainUid: data.captainUid,
-      player2Name: "N/A",
-      player2Uid: "N/A",
-      player3Name: "N/A",
-      player3Uid: "N/A",
-      player4Name: "N/A",
-      player4Uid: "N/A",
-      player5Name: null,
-      player5Uid: null,
-      phone: data.phone,
-      discordTelegram: teamTag,
-      teamLeaderImageUrl: data.teamLeaderImageUrl,
-      paymentMethod: data.paymentMethod,
-      paymentNumber: data.paymentNumber,
-      teamMembersDriveLink: data.teamMembersDriveLink || null,
     })
+
+    const baseUrl = await resolveAppBaseUrl()
+    const charge = await createCharge({
+      fullName: data.captainName,
+      email: user.email,
+      amount: scrim.priceBdt,
+      metadata: {
+        payment_id: paymentId,
+        booking_id: bookingId,
+        scrim_id: scrim.id,
+        user_id: user.id,
+      },
+      redirectUrl: `${baseUrl}/payment/callback?pid=${paymentId}`,
+      cancelUrl: `${baseUrl}/payment/result?status=cancelled`,
+      webhookUrl: `${baseUrl}/api/payment/webhook`,
+    })
+
+    if (!charge.ok) {
+      await db
+        .update(payments)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(eq(payments.id, paymentId))
+        .catch(() => {})
+      return { ok: false, error: charge.error || "Unable to initialize payment gateway. Please try again." }
+    }
+
+    return { ok: true, paymentUrl: charge.paymentUrl }
+  } catch (err) {
+    console.error("[Booking] Unexpected gateway checkout initialization failure:", err)
+    await db
+      .update(payments)
+      .set({ status: "failed", updatedAt: new Date() })
+      .where(eq(payments.id, paymentId))
+      .catch(() => {})
+    return {
+      ok: false,
+      error: "Payment gateway encountered a temporary issue. Please try again or deposit to wallet balance.",
+    }
   }
-
-  const baseUrl = getBaseUrl()
-  const charge = await createCharge({
-    fullName: data.captainName,
-    email: user.email,
-    amount: scrim.priceBdt,
-    metadata: {
-      payment_id: paymentId,
-      booking_id: bookingId,
-      scrim_id: scrim.id,
-      user_id: user.id,
-    },
-    redirectUrl: `${baseUrl}/payment/callback?pid=${paymentId}`,
-    cancelUrl: `${baseUrl}/payment/result?status=cancelled`,
-    webhookUrl: `${baseUrl}/api/payment/webhook`,
-  })
-
-  if (!charge.ok) return { ok: false, error: charge.error }
-
-  await db.insert(payments).values({
-    id: paymentId,
-    userId: user.id,
-    bookingId,
-    scrimId: scrim.id,
-    amountBdt: scrim.priceBdt,
-    status: "pending",
-  })
-
-  return { ok: true, paymentUrl: charge.paymentUrl }
 }
 
 export async function cancelPendingBooking(bookingId: string): Promise<void> {
@@ -593,6 +604,7 @@ export async function getScrimSlots(scrimId: string) {
         scrimDate: scrims.scrimDate,
         startTime: scrims.startTime,
         icebergEnabled: scrims.icebergEnabled,
+        icebergShowAllFilled: scrims.icebergShowAllFilled,
         icebergAmount: scrims.icebergAmount,
         icebergThreshold: scrims.icebergThreshold,
         icebergStartRealCount: scrims.icebergStartRealCount,
@@ -641,6 +653,7 @@ export async function getScrimSlots(scrimId: string) {
       realConfirmed,
       maxTeams,
       icebergEnabled: Boolean(scrimRow[0]?.icebergEnabled) && !isFull,
+      icebergShowAllFilled: Boolean(scrimRow[0]?.icebergShowAllFilled) && !isFull,
       icebergAmount: Number(scrimRow[0]?.icebergAmount ?? 7),
       icebergThreshold: Number(scrimRow[0]?.icebergThreshold ?? 3),
       icebergStartRealCount: isNewDay ? 0 : Number(scrimRow[0]?.icebergStartRealCount ?? 0),
@@ -694,6 +707,7 @@ export async function getLiveScrimSlotsMap(): Promise<
           scrimDate: scrims.scrimDate,
           startTime: scrims.startTime,
           icebergEnabled: scrims.icebergEnabled,
+          icebergShowAllFilled: scrims.icebergShowAllFilled,
           icebergAmount: scrims.icebergAmount,
           icebergThreshold: scrims.icebergThreshold,
           icebergStartRealCount: scrims.icebergStartRealCount,
@@ -733,6 +747,7 @@ export async function getLiveScrimSlotsMap(): Promise<
         realConfirmed: totalConfirmed,
         maxTeams,
         icebergEnabled: Boolean(s.icebergEnabled) && !isFull,
+        icebergShowAllFilled: Boolean(s.icebergShowAllFilled) && !isFull,
         icebergAmount: Number(s.icebergAmount ?? 7),
         icebergThreshold: Number(s.icebergThreshold ?? 3),
         icebergStartRealCount: isNewDay ? 0 : Number(s.icebergStartRealCount ?? 0),

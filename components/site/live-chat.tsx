@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { usePathname } from "next/navigation"
-import { sendChatMessage, getUserChatState, escalateToHumanAgent } from "@/app/actions/chat"
 import { useSession } from "@/lib/auth-client"
 import { useLanguage } from "@/lib/language"
 import {
@@ -24,6 +23,7 @@ import {
   ShieldAlert,
   Headset,
   Sparkles,
+  AlertCircle,
 } from "lucide-react"
 import { resolveImageUrl } from "@/lib/image-url"
 import { uploadMediaFile } from "@/lib/client-upload"
@@ -58,7 +58,7 @@ function isMediaType(m: ChatThreadItem): "image" | "video" | "file" | null {
 
 export function LiveChatWidget() {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const { data: session, isPending: sessionPending } = useSession()
   const { lang, t } = useLanguage()
 
   const [open, setOpen] = useState(false)
@@ -66,6 +66,7 @@ export function LiveChatWidget() {
   const [chatMode, setChatMode] = useState<"ai" | "human">("ai")
   const [isBanned, setIsBanned] = useState(false)
   const [escalating, setEscalating] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const [text, setText] = useState("")
   const [sending, setSending] = useState(false)
@@ -115,13 +116,39 @@ export function LiveChatWidget() {
     setLightboxOpen(true)
   }
 
+  const applyChatState = useCallback(
+    (state: { messages?: ChatThreadItem[]; mode?: "ai" | "human"; banned?: boolean } | null | undefined) => {
+      if (!state) return
+      if (Array.isArray(state.messages)) {
+        setMessages(state.messages)
+      }
+      if (state.mode === "human" || state.mode === "ai") {
+        setChatMode(state.mode)
+      }
+      if (typeof state.banned === "boolean") {
+        setIsBanned(state.banned)
+      }
+    },
+    [],
+  )
+
   const loadChatState = useCallback(async () => {
     if (!session?.user) return
-    const state = await getUserChatState()
-    setMessages(state.messages as ChatThreadItem[])
-    setChatMode(state.mode)
-    setIsBanned(Boolean(state.banned))
-  }, [session?.user])
+    try {
+      const res = await fetch("/api/chat", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      })
+      if (!res.ok) return
+      const data = await res.json().catch(() => null)
+      if (data?.ok) {
+        applyChatState(data)
+      }
+    } catch {
+      // Silent retry on next poll interval
+    }
+  }, [session?.user, applyChatState])
 
   useEffect(() => {
     const handleOpen = () => setOpen(true)
@@ -211,27 +238,66 @@ export function LiveChatWidget() {
   async function handleEscalateToHuman() {
     if (!session?.user || isBanned || escalating || chatMode === "human") return
     setEscalating(true)
+    setSendError(null)
     try {
-      const res = await escalateToHumanAgent()
-      if (res.ok) {
+      const res = await fetch("/api/chat/escalate", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.ok) {
         setChatMode("human")
+        if (data.state) {
+          applyChatState(data.state)
+        } else {
+          await loadChatState()
+        }
         toast.success(
           lang === "bn"
             ? "হিউম্যান এজেন্টের সাথে সংযুক্ত করা হয়েছে"
             : "Connected to Human Agent queue"
         )
-        await loadChatState()
       } else {
-        toast.error(res.error || (lang === "bn" ? "সংযোগ করা যায়নি" : "Failed to connect to human agent"))
+        const errMsg =
+          data?.error || (lang === "bn" ? "সংযোগ করা যায়নি" : "Failed to connect to human agent")
+        setSendError(errMsg)
+        toast.error(errMsg)
       }
+    } catch (err) {
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : lang === "bn"
+            ? "সংযোগ করা যায়নি"
+            : "Failed to connect to human agent"
+      setSendError(errMsg)
+      toast.error(errMsg)
     } finally {
       setEscalating(false)
     }
   }
 
+  async function postSingleChatPayload(payload: {
+    message: string
+    attachmentUrl?: string
+    attachmentType?: string
+    attachmentName?: string
+  }) {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => null)
+    return { status: res.status, ok: res.ok && Boolean(data?.ok), data }
+  }
+
   async function handleSend(e?: React.FormEvent) {
     if (e) e.preventDefault()
-    if (isBanned) return
+    if (isBanned || sending) return
     if (!text.trim() && selectedFiles.length === 0) return
     if (!session?.user) {
       toast.error(lang === "bn" ? "সাপোর্টে মেসেজ দিতে সাইন ইন করুন" : "Please sign in to send messages to support")
@@ -240,41 +306,96 @@ export function LiveChatWidget() {
 
     const msgText = text.trim()
     const filesToSend = [...selectedFiles]
-    setText("")
-    setSelectedFiles([])
+    setSendError(null)
     setSending(true)
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"
-    }
 
     try {
       if (filesToSend.length === 0) {
-        const res = await sendChatMessage(msgText)
-        if (res.banned) {
+        const { ok, data } = await postSingleChatPayload({ message: msgText })
+        if (data?.banned) {
           setIsBanned(true)
-          toast.error(res.error || t("chat_banned_title"))
-        } else if (!res.ok) {
-          toast.error(res.error || (lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message"))
+          setText("")
+          toast.error(data.error || t("chat_banned_title"))
+        } else if (!ok) {
+          const errMsg = data?.error || (lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message")
+          setSendError(errMsg)
+          toast.error(errMsg)
+          return
+        } else {
+          setText("")
+          if (textareaRef.current) {
+            textareaRef.current.style.height = "auto"
+          }
+          if (data?.state) {
+            applyChatState(data.state)
+          } else {
+            await loadChatState()
+          }
+          notifyUserSentMessage()
         }
       } else {
+        const unsentFiles: Array<{ url: string; name: string; type: string }> = []
+        let latestState: { messages?: ChatThreadItem[]; mode?: "ai" | "human"; banned?: boolean } | null = null
+        let firstError: string | null = null
+        let textConsumed = false
+
         for (let i = 0; i < filesToSend.length; i++) {
           const f = filesToSend[i]
-          const currentText = i === 0 ? msgText : ""
-          const res = await sendChatMessage(currentText, undefined, f.url, f.type, f.name)
-          if (res.banned) {
+          const currentText = !textConsumed ? msgText : ""
+          const { ok, data } = await postSingleChatPayload({
+            message: currentText,
+            attachmentUrl: f.url,
+            attachmentType: f.type,
+            attachmentName: f.name,
+          })
+
+          if (data?.banned) {
             setIsBanned(true)
-            toast.error(res.error || t("chat_banned_title"))
-            break
-          } else if (!res.ok) {
-            toast.error(res.error || (lang === "bn" ? "অ্যাটাচমেন্ট পাঠানো যায়নি" : "Failed to send attachment"))
+            setText("")
+            setSelectedFiles([])
+            toast.error(data.error || t("chat_banned_title"))
+            return
+          } else if (!ok) {
+            firstError =
+              firstError ||
+              data?.error ||
+              (lang === "bn" ? "অ্যাটাচমেন্ট পাঠানো যায়নি" : "Failed to send attachment")
+            unsentFiles.push(f)
+          } else {
+            if (currentText) textConsumed = true
+            if (data?.state) latestState = data.state
           }
         }
+
+        if (textConsumed) {
+          setText("")
+          if (textareaRef.current) {
+            textareaRef.current.style.height = "auto"
+          }
+        }
+        setSelectedFiles(unsentFiles)
+
+        if (firstError) {
+          setSendError(firstError)
+          toast.error(firstError)
+        }
+
+        if (latestState) {
+          applyChatState(latestState)
+        } else {
+          await loadChatState()
+        }
+        notifyUserSentMessage()
       }
-      notifyUserSentMessage()
-      await loadChatState()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : lang === "bn" ? "মেসেজ পাঠাতে ত্রুটি হয়েছে" : "Error sending message")
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : lang === "bn"
+            ? "মেসেজ পাঠাতে ত্রুটি হয়েছে"
+            : "Error sending message. Please check your connection and try again."
+      setSendError(errMsg)
+      toast.error(errMsg)
     } finally {
       setSending(false)
     }
@@ -381,7 +502,14 @@ export function LiveChatWidget() {
             onScroll={handleScroll}
             className="relative flex-1 min-h-0 overflow-y-auto px-3.5 py-4 flex flex-col gap-1.5 bg-[#18191A]"
           >
-            {!session?.user ? (
+            {sessionPending ? (
+              <div className="my-auto flex flex-col items-center justify-center gap-2 p-6 text-center">
+                <Loader2 className="size-7 animate-spin text-[#0084FF]" />
+                <p className="text-xs text-zinc-400">
+                  {lang === "bn" ? "সেশন যাচাই হচ্ছে..." : "Checking your session..."}
+                </p>
+              </div>
+            ) : !session?.user ? (
               <div className="my-auto flex flex-col items-center justify-center p-6 text-center gap-3.5">
                 <div className="size-12 rounded-full bg-[#242526] border border-zinc-700 flex items-center justify-center text-[#0084FF]">
                   <User className="size-6" />
@@ -688,6 +816,23 @@ export function LiveChatWidget() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {sendError && !isBanned && (
+            <div className="flex items-start justify-between gap-2 border-t border-rose-500/30 bg-rose-950/40 px-3.5 py-2 text-[11px] text-rose-200">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle className="size-3.5 shrink-0 mt-0.5 text-rose-400" />
+                <span className="break-words">{sendError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSendError(null)}
+                className="shrink-0 text-rose-300 hover:text-white p-0.5"
+                aria-label="Dismiss error"
+              >
+                <X className="size-3.5" />
+              </button>
             </div>
           )}
 
