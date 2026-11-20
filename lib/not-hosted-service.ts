@@ -7,7 +7,7 @@ import { scrims, bookings, payments, notHostedTeams, notifications, user } from 
 import { logActivity } from "@/lib/session"
 import { refundPayment } from "@/lib/uddoktapay"
 import { getAllSampleScrims } from "@/lib/queries/scrims"
-import { sendScrimNotHostedEmail, sendEmailBatch } from "@/lib/email"
+import { isEmailTemplateEnabled, sendScrimNotHostedEmail, sendEmailBatch } from "@/lib/email"
 import { eq, and, or, sql, isNull } from "drizzle-orm"
 
 /** Core internal service to mark a scrim as Not Hosted and transfer registered teams */
@@ -204,7 +204,7 @@ export async function executeMarkScrimNotHosted(
       }
     }
 
-    if (emailRecipients.size > 0) {
+    if (emailRecipients.size > 0 && (await isEmailTemplateEnabled("not_hosted"))) {
       await sendEmailBatch(Array.from(emailRecipients.values()), (r) =>
         sendScrimNotHostedEmail({
           to: r.email,

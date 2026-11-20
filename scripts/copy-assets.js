@@ -8,14 +8,33 @@ if (!fs.existsSync(destDir)) {
   fs.mkdirSync(destDir, { recursive: true });
 }
 
+function copyIfNeeded(srcPath, destPath) {
+  try {
+    const srcStat = fs.statSync(srcPath);
+    if (fs.existsSync(destPath)) {
+      const destStat = fs.statSync(destPath);
+      if (destStat.size === srcStat.size) {
+        return false;
+      }
+    }
+    fs.copyFileSync(srcPath, destPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 if (fs.existsSync(srcDir)) {
   const files = fs.readdirSync(srcDir);
+  let copied = 0;
   files.forEach(file => {
     const srcFile = path.join(srcDir, file);
     const destFile = path.join(destDir, file);
-    fs.copyFileSync(srcFile, destFile);
+    if (copyIfNeeded(srcFile, destFile)) copied++;
   });
-  console.log(`Copied ${files.length} images from src/assets/images to public/images`);
+  if (copied > 0) {
+    console.log(`Copied ${copied} images from src/assets/images to public/images`);
+  }
 }
 
 // Ensure standard aliases exist
@@ -42,13 +61,16 @@ const aliasMap = {
   'scrim_12_1786463459348.jpg': ['scrim-12.jpg'],
 };
 
+let aliasCopied = 0;
 for (const [srcName, aliases] of Object.entries(aliasMap)) {
   const srcPath = path.join(srcDir, srcName);
   if (fs.existsSync(srcPath)) {
     for (const alias of aliases) {
       const targetPath = path.join(destDir, alias);
-      fs.copyFileSync(srcPath, targetPath);
+      if (copyIfNeeded(srcPath, targetPath)) aliasCopied++;
     }
   }
 }
-console.log('Finished copying asset aliases for production builds.');
+if (aliasCopied > 0) {
+  console.log(`Synced ${aliasCopied} asset aliases.`);
+}

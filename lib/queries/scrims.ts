@@ -51,9 +51,19 @@ export function isFridayBD(): boolean {
   }
 }
 
-export async function archivePreviousDayBookings(): Promise<number> {
+let lastArchivedDate: string | null = null
+let lastArchivedAtMs = 0
+const ARCHIVE_THROTTLE_MS = 5 * 60 * 1000
+
+export async function archivePreviousDayBookings(force = false): Promise<number> {
   try {
     const activeDate = getBangladeshActiveDate()
+    const nowMs = Date.now()
+    if (!force && lastArchivedDate === activeDate && nowMs - lastArchivedAtMs < ARCHIVE_THROTTLE_MS) {
+      return 0
+    }
+    lastArchivedDate = activeDate
+    lastArchivedAtMs = nowMs
 
     // 1. Recover any confirmed, non-trashed active/future-date bookings that may have been prematurely archived
     await db
@@ -117,6 +127,7 @@ export async function archivePreviousDayBookings(): Promise<number> {
 
     return 1
   } catch (err) {
+    lastArchivedAtMs = 0
     console.warn("[Queries] Auto-archive previous day bookings error:", err)
     return 0
   }
@@ -343,7 +354,8 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
   const isForcedOpen = baseStatus === "force_open" || baseStatus === "force_turn_on"
 
   // Check if start time is passed for effective scrim date (ignored when admin enables Force Turn On)
-  const startDate = scrimStartDate(effectiveDate, match ? match.time : s.startTime)
+  const effectiveStartTime = s.startTime?.trim() || match?.time || "7:00 PM"
+  const startDate = scrimStartDate(effectiveDate, effectiveStartTime)
   const isTimePassed = new Date().getTime() >= startDate.getTime()
 
   const isClosed = isForcedOpen
@@ -360,8 +372,13 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     ? s.bannerUrl!
     : (match?.bannerUrl || (s.bannerUrl && !s.bannerUrl.includes("map-") ? s.bannerUrl : bannerFallback))
 
-  const isCR = s.id?.includes("-cr") || s.slug?.includes("champion-rush") || s.title?.toLowerCase().includes("champion rush")
-  const isBlast = match?.category === "Friday Special Blast"
+  const isCR =
+    s.id?.includes("-cr") ||
+    s.slug?.includes("champion-rush") ||
+    s.title?.toLowerCase().includes("champion rush") ||
+    (s.category || "").toLowerCase().includes("champion rush")
+  const isFridayCat =
+    (s.category || "").toLowerCase().includes("friday") || match?.category === "Friday Special Blast"
 
   // Sanitize title if Champion Rush leaked onto standard scrims
   let title = s.title && !s.title.startsWith("scrim-") ? s.title : match?.name || s.title
@@ -372,17 +389,17 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
   // Sanitize description if Champion Rush leaked
   let description = s.description
   if (!isCR && (!description || description.toLowerCase().includes("champion rush") || description.toLowerCase().includes("survival championship"))) {
-    description = isBlast
-      ? `Friday Special Blast (${title}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
+    description = isFridayCat
+      ? `Friday Scrims (${title}) — ${s.map || "Bermuda, Purgatory, Kalahari, Solara, NeXTerra"}.`
       : `Competitive Free Fire squad scrim lobby (${title}).`
   }
 
   // Sanitize rules if Champion Rush leaked
   let rules = s.rules
   if (!isCR && (!rules || rules.toLowerCase().includes("champion rush") || rules.toLowerCase().includes("80 points"))) {
-    rules = isBlast
-      ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
-      : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
+    rules = isFridayCat
+      ? `1. Maps: ${s.map || "Bermuda, Purgatory, Kalahari, Solara, NeXTerra"}.\n2. BATTLE ROYALE squad mode (${s.maxTeams || 12} Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.`
+      : `1. Maps: ${s.map || "Bermuda, Purgatory & Kalahari"}.\n2. BATTLE ROYALE squad mode (${s.maxTeams || 12} Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.`
   } else if (rules) {
     rules = appendGlobalScrimRules(rules)
   }
@@ -390,8 +407,8 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
   // Sanitize notes
   let notes = s.notes
   if (!isCR && (!notes || notes.toLowerCase().includes("champion rush") || notes.toLowerCase().includes("80 pts"))) {
-    notes = isBlast
-      ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+    notes = isFridayCat
+      ? `Friday Scrims Tournament (${s.map || "5 Matches"}). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।`
       : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
   }
 
@@ -415,26 +432,17 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     icebergStartRealCount: Number(s.icebergStartRealCount ?? 0),
   })
 
-  if (match) {
-    return {
-      ...s,
-      roomId: null,
-      roomPassword: null,
-      title,
-      description,
-      rules,
-      notes,
-      mode: "BATTLE ROYALE",
-      startTime: match.time,
-      scrimDate: effectiveDate,
-      priceBdt: match.priceBdt ?? s.priceBdt ?? 35,
-      prizePoolBdt: match.prizePoolBdt ?? s.prizePoolBdt ?? 330,
-      bannerUrl: chosenBanner,
-      registrationOpen: finalRegOpen,
-      status: finalStatus,
-      publicConfirmedTeams,
-    }
-  }
+  // Always preserve admin-saved DB values (including 0 BDT for free/giveaway scrims!)
+  const resolvedPrice =
+    typeof s.priceBdt === "number" && Number.isFinite(s.priceBdt) && s.priceBdt >= 0
+      ? s.priceBdt
+      : (match?.priceBdt ?? (isCR ? 50 : 35))
+  const resolvedPrize =
+    typeof s.prizePoolBdt === "number" && Number.isFinite(s.prizePoolBdt) && s.prizePoolBdt >= 0
+      ? s.prizePoolBdt
+      : (match?.prizePoolBdt ?? (isCR ? 480 : 330))
+  const resolvedCategory = s.category?.trim() || match?.category || (isCR ? "Champion Rush" : "Daily Scrims")
+
   return {
     ...s,
     roomId: null,
@@ -443,10 +451,12 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
     description,
     rules,
     notes,
-    mode: "BATTLE ROYALE",
+    category: resolvedCategory,
+    mode: s.mode?.trim() || "BATTLE ROYALE",
+    startTime: effectiveStartTime,
     scrimDate: effectiveDate,
-    priceBdt: s.priceBdt || (isCR ? 50 : 35),
-    prizePoolBdt: s.prizePoolBdt || (isCR ? 480 : 330),
+    priceBdt: resolvedPrice,
+    prizePoolBdt: resolvedPrize,
     bannerUrl: chosenBanner,
     registrationOpen: finalRegOpen,
     status: finalStatus,
@@ -466,18 +476,22 @@ export async function isRoom2Enabled(): Promise<boolean> {
 
 export function isFridayTournament(s: { id?: string; slug?: string; title?: string; category?: string | null; map?: string; scrimDate?: string }): boolean {
   if (!s) return false
+  const cat = (s.category || "").trim().toLowerCase()
+  if (cat === "daily scrims") return false
+  if (cat === "friday scrims" || cat === "friday special blast" || cat.includes("friday") || cat.includes("champion rush")) return true
   if (s.id?.startsWith("scrim-fri-") || s.id?.includes("-cr")) return true
   if (s.slug?.includes("friday") || s.slug?.includes("champion-rush")) return true
   if (s.title?.toLowerCase().includes("friday") || s.title?.toLowerCase().includes("champion rush")) return true
-  if (s.category === "Friday Special Blast" || s.category?.toLowerCase().includes("champion rush")) return true
   if (s.map?.toLowerCase().includes("champion mode")) return true
   return false
 }
 
 export function isDailyWeekdayScrim(s: { id?: string; slug?: string; title?: string; category?: string | null }): boolean {
   if (!s) return false
+  const cat = (s.category || "").trim().toLowerCase()
+  if (cat.includes("friday") || cat.includes("champion rush")) return false
+  if (cat === "daily scrims") return true
   if (DAILY_SCRIM_DEFINITIONS.some((d) => d.id === s.id || d.slug === s.slug)) return true
-  if (s.category === "Daily Scrims") return true
   if (s.title?.toLowerCase().includes("scrim room 1") || s.title?.toLowerCase().includes("scrim room 2")) return true
   return false
 }

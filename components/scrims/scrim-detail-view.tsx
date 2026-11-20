@@ -127,23 +127,29 @@ export function ScrimDetailView({
   const isChampionRush =
     scrim.title.toLowerCase().includes("champion rush") ||
     scrim.slug.toLowerCase().includes("champion-rush") ||
+    (scrim.category || "").toLowerCase().includes("champion rush") ||
     scrim.id.includes("-cr")
 
   const isFridaySpecial =
     scrim.title.toLowerCase().includes("friday special") ||
-    scrim.slug.toLowerCase().includes("friday-special")
+    scrim.slug.toLowerCase().includes("friday-special") ||
+    (scrim.category || "").toLowerCase().includes("friday")
 
-  const mapValue = isChampionRush
-    ? (scrim.map || (isBn ? "চ্যাম্পিয়ন মোড (সর্বোচ্চ ৮ ম্যাচ)" : "Champion Mode (Max 8 Matches)"))
-    : isFridaySpecial
-      ? (isBn ? "৫টি ম্যাচ (বারমুডা, পারগেটরি, কালাহারি, সোলানা ও নেক্সটেরা)" : "5 Matches (Bermuda, Purgatory, Kalahari, Solana, Nexterra)")
-      : (isBn ? "৩টি ম্যাচ (বারমুডা, পারগেটরি ও কালাহারি)" : "3 Matches (BERMUDA, PURGATORY & KALAHARI)")
+  const hasCustomMultiMap = Boolean(scrim.map && (scrim.map.includes(",") || scrim.map.includes("&") || scrim.map.includes("/")))
+
+  const mapValue = hasCustomMultiMap
+    ? scrim.map
+    : isChampionRush
+      ? (scrim.map || (isBn ? "চ্যাম্পিয়ন মোড (সর্বোচ্চ ৮ ম্যাচ)" : "Champion Mode (Max 8 Matches)"))
+      : isFridaySpecial
+        ? (scrim.map || (isBn ? "৫টি ম্যাচ (বারমুডা, পারগেটরি, কালাহারি, সোলানা ও নেক্সটেরা)" : "5 Matches (Bermuda, Purgatory, Kalahari, Solana, Nexterra)"))
+        : (scrim.map && scrim.map !== "Bermuda" && scrim.map !== "Purgatory" && scrim.map !== "Kalahari"
+            ? scrim.map
+            : (isBn ? "৩টি ম্যাচ (বারমুডা, পারগেটরি ও কালাহারি)" : "3 Matches (BERMUDA, PURGATORY & KALAHARI)"))
 
   const modeValue = isChampionRush
     ? "8 MATCHES BATTLE ROYALE"
-    : isFridaySpecial
-      ? "5 MATCHES BATTLE ROYALE"
-      : scrim.mode
+    : scrim.mode || (isFridaySpecial ? "5 MATCHES BATTLE ROYALE" : "BATTLE ROYALE")
 
   const prizeBreakdown = getScrimPrizeBreakdown(scrim)
 
@@ -160,7 +166,7 @@ export function ScrimDetailView({
     { icon: CalendarDays, label: isBn ? "তারিখ" : "Date", value: formatDate(scrim.scrimDate) },
     { icon: MapPin, label: isBn ? "ম্যাপ / ফরম্যাট" : "Map / Format", value: mapValue },
     { icon: Swords, label: isBn ? "মোড" : "Mode", value: modeValue },
-    { icon: Trophy, label: isBn ? "প্রাইজ পুল" : "Prize Pool", value: bdt(prizeBreakdown.totalPrizeBdt || scrim.prizePoolBdt) },
+    { icon: Trophy, label: isBn ? "প্রাইজ পুল" : "Prize Pool", value: scrim.prizePoolBdt === 0 ? "Free / Practice" : bdt(prizeBreakdown.totalPrizeBdt || scrim.prizePoolBdt) },
     { icon: Users, label: isBn ? "স্লট" : "Slots", value: `${confirmedCount}/${maxCount} ${isBn ? "টিম" : "teams"}` },
   ]
 

@@ -38,11 +38,27 @@ function isBuildTimeContext(): boolean {
   )
 }
 
+const SCHEMA_VERSION_KEY = "schema_migration_version"
+const CURRENT_SCHEMA_VERSION = "v2026_11_20_referrals_partnerships"
+
 async function ensureSchema() {
   if (!connectionString || isBuildTimeContext()) return
   try {
     const client = await pool.connect()
     try {
+      // Fast-path: 1 single lightweight query skips 110+ DDL round-trips when schema is already current
+      try {
+        const versionRes = await client.query(
+          `SELECT "value" FROM "settings" WHERE "key" = $1 LIMIT 1`,
+          [SCHEMA_VERSION_KEY]
+        )
+        if (versionRes.rows?.[0]?.value === CURRENT_SCHEMA_VERSION) {
+          return
+        }
+      } catch {
+        // settings table may not exist yet on brand-new databases; proceed with full DDL
+      }
+
       const statements = [
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "category" text NOT NULL DEFAULT 'Top 3 Prize Pool'`,
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "imageUrls" jsonb`,
@@ -266,10 +282,9 @@ async function ensureSchema() {
         `CREATE INDEX IF NOT EXISTS "idx_wallet_user_created" ON "wallet_transactions" ("userId", "createdAt")`,
         `DELETE FROM "settings" WHERE "key" = 'support_phone'`,
         `INSERT INTO "settings" ("key", "value", "updatedAt") VALUES ('champion_rush_3pm_whatsapp_url', 'https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V', NOW()) ON CONFLICT ("key") DO NOTHING`,
-        `UPDATE "scrims" SET "category" = 'Friday Special Blast' WHERE "slug" LIKE '%friday-special%' OR "title" ILIKE '%Friday Special%' OR "title" ILIKE '%Special Blast%'`,
-        `UPDATE "scrims" SET "category" = 'Champion Rush', "map" = 'Champion Mode (Max 8 Matches)', "priceBdt" = 50, "prizePoolBdt" = 480 WHERE "slug" = '10-pm-champion-rush' OR "slug" = '3-pm-champion-rush' OR "slug" LIKE '%champion-rush%' OR "title" ILIKE '%Champion Rush%' OR "id" LIKE '%-cr'`,
+        `UPDATE "scrims" SET "category" = 'Friday Special Blast' WHERE ("category" IS NULL OR "category" = '') AND ("slug" LIKE '%friday-special%' OR "title" ILIKE '%Friday Special%' OR "title" ILIKE '%Special Blast%')`,
+        `UPDATE "scrims" SET "category" = 'Champion Rush' WHERE ("category" IS NULL OR "category" = '') AND ("slug" = '10-pm-champion-rush' OR "slug" = '3-pm-champion-rush' OR "slug" LIKE '%champion-rush%' OR "title" ILIKE '%Champion Rush%' OR "id" LIKE '%-cr')`,
         `UPDATE "scrims" SET "category" = 'Daily Scrims' WHERE ("category" IS NULL OR "category" = '') AND "slug" NOT LIKE '%champion-rush%' AND "slug" NOT LIKE '%friday-special%' AND "title" NOT ILIKE '%Champion Rush%' AND "title" NOT ILIKE '%Friday Special%'`,
-        `UPDATE "scrims" SET "priceBdt" = 35, "prizePoolBdt" = 330 WHERE ("id" LIKE 'scrim-%' OR "slug" NOT LIKE '%champion-rush%') AND "slug" NOT LIKE '%champion-rush%' AND "slug" NOT LIKE '%friday-special%' AND "id" NOT LIKE '%-cr' AND "id" NOT LIKE '%-fri%' AND "title" NOT ILIKE '%Champion Rush%' AND "title" NOT ILIKE '%Friday Special%'`,
         `UPDATE "scrims" SET "bannerUrl" = CASE "slug"
           WHEN '3-pm-scrim-room-1' THEN '/images/scrim-1.jpg'
           WHEN '3-pm-scrim-room-2' THEN '/images/scrim-2.jpg'
@@ -483,15 +498,106 @@ async function ensureSchema() {
         `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "status" text NOT NULL DEFAULT 'sent'`,
         `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "provider" text`,
         `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "error" text`,
-        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`
+        `ALTER TABLE "email_logs" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
+        `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "referralCode" text`,
+        `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "referredByCode" text`,
+        `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "referredByUserId" text`,
+        `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "referralType" text`,
+        `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "referralLockedAt" timestamp`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_user_referral_code" ON "user" ("referralCode") WHERE "referralCode" IS NOT NULL`,
+        `CREATE TABLE IF NOT EXISTS "creator_applications" (
+          "id" text PRIMARY KEY,
+          "userId" text NOT NULL,
+          "creatorName" text NOT NULL,
+          "platform" text NOT NULL,
+          "channelUrl" text NOT NULL,
+          "secondaryLinks" jsonb NOT NULL DEFAULT '[]'::jsonb,
+          "followerCount" text NOT NULL,
+          "averageViews" text,
+          "whatsapp" text NOT NULL,
+          "notes" text,
+          "status" text NOT NULL DEFAULT 'pending',
+          "referralCode" text UNIQUE,
+          "adminNote" text,
+          "reviewedBy" text,
+          "reviewedAt" timestamp,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE INDEX IF NOT EXISTS "idx_creator_applications_user" ON "creator_applications" ("userId", "status")`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_creator_applications_referral_code" ON "creator_applications" ("referralCode") WHERE "referralCode" IS NOT NULL`,
+        `CREATE TABLE IF NOT EXISTS "referrals" (
+          "id" text PRIMARY KEY,
+          "referrerUserId" text NOT NULL,
+          "referredUserId" text NOT NULL UNIQUE,
+          "referralCode" text NOT NULL,
+          "referralType" text NOT NULL,
+          "creatorApplicationId" text,
+          "qualifyingScrimsCount" integer NOT NULL DEFAULT 0,
+          "requiredScrimsCount" integer NOT NULL DEFAULT 1,
+          "status" text NOT NULL DEFAULT 'pending',
+          "rewardAmountBdt" integer NOT NULL DEFAULT 0,
+          "rewardModeUsed" text,
+          "rewardedAt" timestamp,
+          "walletTxId" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_referrals_referred_user" ON "referrals" ("referredUserId")`,
+        `CREATE INDEX IF NOT EXISTS "idx_referrals_referrer" ON "referrals" ("referrerUserId", "status")`,
+        `CREATE TABLE IF NOT EXISTS "referral_qualifying_bookings" (
+          "id" text PRIMARY KEY,
+          "referralId" text NOT NULL,
+          "bookingId" text NOT NULL UNIQUE,
+          "scrimId" text NOT NULL,
+          "amountBdt" integer NOT NULL DEFAULT 0,
+          "createdAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "uq_ref_qualifying_booking" ON "referral_qualifying_bookings" ("bookingId")`,
+        `CREATE TABLE IF NOT EXISTS "partnership_items" (
+          "id" text PRIMARY KEY,
+          "partnerName" text NOT NULL,
+          "headline" text NOT NULL,
+          "tagline" text,
+          "logoUrl" text,
+          "linkUrl" text,
+          "badgeText" text,
+          "isActive" boolean NOT NULL DEFAULT true,
+          "sortOrder" integer NOT NULL DEFAULT 0,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE INDEX IF NOT EXISTS "idx_partnership_items_active_sort" ON "partnership_items" ("isActive", "sortOrder", "createdAt")`
       ]
 
-      for (const stmt of statements) {
+      // Execute DDL in compact multi-statement batches to minimize remote Neon round-trips
+      const CHUNK_SIZE = 15
+      for (let i = 0; i < statements.length; i += CHUNK_SIZE) {
+        const chunk = statements.slice(i, i + CHUNK_SIZE)
         try {
-          await client.query(stmt)
-        } catch (stmtErr) {
-          console.warn("[Database] ensureSchema statement failed (continuing):", stmtErr)
+          await client.query(chunk.join(";\n"))
+        } catch {
+          // If any statement in a batch fails, fall back to executing that chunk individually
+          for (const stmt of chunk) {
+            try {
+              await client.query(stmt)
+            } catch (stmtErr) {
+              console.warn("[Database] ensureSchema statement failed (continuing):", stmtErr)
+            }
+          }
         }
+      }
+
+      // Stamp schema version so future cold starts return in 1 query (~150ms)
+      try {
+        await client.query(
+          `INSERT INTO "settings" ("key", "value", "updatedAt")
+           VALUES ($1, $2, NOW())
+           ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW()`,
+          [SCHEMA_VERSION_KEY, CURRENT_SCHEMA_VERSION]
+        )
+      } catch (stampErr) {
+        console.warn("[Database] Failed stamping schema version:", stampErr)
       }
     } finally {
       client.release()

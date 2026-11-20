@@ -19,6 +19,11 @@ export const user = pgTable("user", {
   phone: text("phone"),
   role: text("role").notNull().default("user"), // user | moderator | admin
   balance: integer("balance").notNull().default(0),
+  referralCode: text("referralCode").unique(),
+  referredByCode: text("referredByCode"),
+  referredByUserId: text("referredByUserId"),
+  referralType: text("referralType"), // creator | user
+  referralLockedAt: timestamp("referralLockedAt"),
   banned: boolean("banned").notNull().default(false),
   isTrashed: boolean("isTrashed").notNull().default(false),
   deletedAt: timestamp("deletedAt"),
@@ -454,6 +459,83 @@ export const emailLogs = pgTable("email_logs", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 })
 
+export const creatorApplications = pgTable("creator_applications", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  creatorName: text("creatorName").notNull(),
+  platform: text("platform").notNull(), // YouTube | Facebook | TikTok | Instagram | Twitch | Other
+  channelUrl: text("channelUrl").notNull(),
+  secondaryLinks: jsonb("secondaryLinks").$type<string[]>().notNull().default([]),
+  followerCount: text("followerCount").notNull(),
+  averageViews: text("averageViews"),
+  whatsapp: text("whatsapp").notNull(),
+  notes: text("notes"),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  referralCode: text("referralCode").unique(),
+  adminNote: text("adminNote"),
+  reviewedBy: text("reviewedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+export const referrals = pgTable("referrals", {
+  id: text("id").primaryKey(),
+  referrerUserId: text("referrerUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  referredUserId: text("referredUserId")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  referralCode: text("referralCode").notNull(),
+  referralType: text("referralType").notNull(), // creator | user
+  creatorApplicationId: text("creatorApplicationId"),
+  qualifyingScrimsCount: integer("qualifyingScrimsCount").notNull().default(0),
+  requiredScrimsCount: integer("requiredScrimsCount").notNull().default(1),
+  status: text("status").notNull().default("pending"), // pending | rewarded
+  rewardAmountBdt: integer("rewardAmountBdt").notNull().default(0),
+  rewardModeUsed: text("rewardModeUsed"), // fixed | random
+  rewardedAt: timestamp("rewardedAt"),
+  walletTxId: text("walletTxId"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
+export const referralQualifyingBookings = pgTable("referral_qualifying_bookings", {
+  id: text("id").primaryKey(),
+  referralId: text("referralId")
+    .notNull()
+    .references(() => referrals.id, { onDelete: "cascade" }),
+  bookingId: text("bookingId")
+    .notNull()
+    .unique()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  scrimId: text("scrimId").notNull(),
+  amountBdt: integer("amountBdt").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const partnershipItems = pgTable("partnership_items", {
+  id: text("id").primaryKey(),
+  partnerName: text("partnerName").notNull(),
+  headline: text("headline").notNull(),
+  tagline: text("tagline"),
+  logoUrl: text("logoUrl"),
+  linkUrl: text("linkUrl"),
+  badgeText: text("badgeText"),
+  isActive: boolean("isActive").notNull().default(true),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 export type ChatSession = typeof chatSessions.$inferSelect
 export type ChatModerationLog = typeof chatModerationLogs.$inferSelect
 export type EmailLog = typeof emailLogs.$inferSelect
+export type CreatorApplication = typeof creatorApplications.$inferSelect
+export type Referral = typeof referrals.$inferSelect
+export type ReferralQualifyingBooking = typeof referralQualifyingBookings.$inferSelect
+export type PartnershipItem = typeof partnershipItems.$inferSelect

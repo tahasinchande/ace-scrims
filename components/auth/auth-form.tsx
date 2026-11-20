@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
@@ -8,21 +8,174 @@ import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Loader2, Eye, EyeOff, Gift, CheckCircle2, AlertCircle, Lock } from "lucide-react"
 
 type Mode = "sign-in" | "sign-up"
+
+type ReferralCheckState =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "valid"; type: "creator" | "user"; referrerName: string; code: string }
+  | { status: "invalid"; reason: string }
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [referralCode, setReferralCode] = useState("")
+  const [refCheck, setRefCheck] = useState<ReferralCheckState>({ status: "idle" })
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [iframeTabUrl, setIframeTabUrl] = useState<string | null>(null)
+
+  // Prefill referral code on sign-up from ?ref= query parameter or previously staged cookie
+  useEffect(() => {
+    if (mode !== "sign-up" || typeof window === "undefined") return
+    let active = true
+
+    const params = new URLSearchParams(window.location.search)
+    const urlRef = (params.get("ref") || params.get("referral") || "").trim().toUpperCase()
+
+    async function initReferral() {
+      if (urlRef) {
+        setReferralCode(urlRef)
+        setRefCheck({ status: "checking" })
+        try {
+          const res = await fetch("/api/referrals/stage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: urlRef }),
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!active) return
+          if (res.ok && json.valid) {
+            setRefCheck({
+              status: "valid",
+              type: json.type,
+              referrerName: json.referrerName,
+              code: json.code,
+            })
+          } else {
+            setRefCheck({
+              status: "invalid",
+              reason: json.error || "Referral code not found.",
+            })
+          }
+        } catch {
+          if (active) setRefCheck({ status: "idle" })
+        }
+        return
+      }
+
+      // Otherwise check if a referral code was already staged in HttpOnly cookie
+      try {
+        const res = await fetch("/api/referrals/stage", { cache: "no-store" })
+        const json = await res.json().catch(() => ({}))
+        if (!active) return
+        if (json.code && json.valid) {
+          setReferralCode(json.code)
+          setRefCheck({
+            status: "valid",
+            type: json.type,
+            referrerName: json.referrerName,
+            code: json.code,
+          })
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    initReferral()
+    return () => {
+      active = false
+    }
+  }, [mode])
+
+  // Debounced live validation when user types a referral code manually
+  useEffect(() => {
+    if (mode !== "sign-up") return
+    const trimmed = referralCode.trim().toUpperCase()
+    if (!trimmed) {
+      setRefCheck({ status: "idle" })
+      return
+    }
+    if (refCheck.status === "valid" && refCheck.code === trimmed) {
+      return
+    }
+    if (trimmed.length < 4) {
+      setRefCheck({ status: "invalid", reason: "Referral codes are at least 4 characters." })
+      return
+    }
+
+    let cancelled = false
+    setRefCheck({ status: "checking" })
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/referrals/stage?code=${encodeURIComponent(trimmed)}`, {
+          cache: "no-store",
+        })
+        const json = await res.json().catch(() => ({}))
+        if (cancelled) return
+        if (json.valid) {
+          setRefCheck({
+            status: "valid",
+            type: json.type,
+            referrerName: json.referrerName,
+            code: json.code,
+          })
+        } else {
+          setRefCheck({
+            status: "invalid",
+            reason: json.reason || "Referral code not found.",
+          })
+        }
+      } catch {
+        if (!cancelled) setRefCheck({ status: "idle" })
+      }
+    }, 350)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referralCode, mode])
+
+  async function stageReferralBeforeSignup(): Promise<boolean> {
+    if (mode !== "sign-up") return true
+    const trimmed = referralCode.trim().toUpperCase()
+    if (!trimmed) {
+      await fetch("/api/referrals/stage", { method: "DELETE" }).catch(() => null)
+      return true
+    }
+
+    const res = await fetch("/api/referrals/stage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: trimmed }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json.valid) {
+      setError(json.error || "Invalid referral code. Please check the code or leave the field blank.")
+      setRefCheck({
+        status: "invalid",
+        reason: json.error || "Invalid referral code.",
+      })
+      return false
+    }
+    setRefCheck({
+      status: "valid",
+      type: json.type,
+      referrerName: json.referrerName,
+      code: json.code,
+    })
+    return true
+  }
 
   async function handleGoogle() {
     setError(null)
@@ -40,6 +193,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
 
     try {
+      if (mode === "sign-up") {
+        const okToProceed = await stageReferralBeforeSignup()
+        if (!okToProceed) {
+          setGoogleLoading(false)
+          return
+        }
+      }
+
       const callbackURL = `${window.location.origin}/dashboard`
       const res = await authClient.signIn.social({
         provider: "google",
@@ -52,9 +213,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
         )
         setGoogleLoading(false)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
-        err?.message ||
+        (err instanceof Error ? err.message : null) ||
           "Google sign-in failed. Ensure your preview URL is added to Authorized Redirect URIs in Google Cloud Console, or sign in using email & password above."
       )
       setGoogleLoading(false)
@@ -68,6 +229,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setLoading(true)
     try {
       if (mode === "sign-up") {
+        const okToProceed = await stageReferralBeforeSignup()
+        if (!okToProceed) {
+          setLoading(false)
+          return
+        }
+
         const { error } = await authClient.signUp.email({
           email,
           password,
@@ -77,6 +244,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         if (error) {
           setError(error.message ?? "Could not create account.")
         } else {
+          await fetch("/api/referrals/stage", { method: "DELETE" }).catch(() => null)
           setInfo("Account created! Check your email to verify your address.")
           router.push(`/verify-email?email=${encodeURIComponent(email)}`)
           router.refresh()
@@ -162,6 +330,52 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </div>
       </div>
 
+      {mode === "sign-up" && (
+        <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-secondary/20 p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="referralCode" className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Gift className="size-3.5 text-primary" />
+              Referral Code (Optional)
+            </Label>
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+              <Lock className="size-3" /> Sign-up only
+            </span>
+          </div>
+          <Input
+            id="referralCode"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+            placeholder="Enter Creator or Player referral code"
+            maxLength={24}
+            autoComplete="off"
+            className="font-mono uppercase tracking-wider bg-background/70"
+          />
+          {refCheck.status === "checking" && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" /> Checking referral code...
+            </p>
+          )}
+          {refCheck.status === "valid" && (
+            <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+              <CheckCircle2 className="size-3.5 shrink-0" />
+              {refCheck.type === "creator" ? "Verified Creator Code" : "Valid Player Code"} by{" "}
+              <span className="font-bold">{refCheck.referrerName}</span> — works with both Email &amp; Google sign-up.
+            </p>
+          )}
+          {refCheck.status === "invalid" && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-400">
+              <AlertCircle className="size-3.5 shrink-0" />
+              {refCheck.reason}
+            </p>
+          )}
+          {refCheck.status === "idle" && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Applies to both Email &amp; Password and Google sign-up. Referral codes lock permanently after registration.
+            </p>
+          )}
+        </div>
+      )}
+
       {error && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -244,7 +458,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       </motion.div>
 
       <p className="text-center text-xs text-muted-foreground leading-relaxed bg-muted/30 p-2.5 rounded-lg border border-border/50">
-        💡 <strong>Tip:</strong> You can enter any <strong>@gmail.com</strong> address in the Email field above with a password to sign up or sign in instantly.
+        Tip: You can enter any <strong>@gmail.com</strong> address in the Email field above with a password to sign up or sign in instantly.
       </p>
 
       <p className="text-center text-sm text-muted-foreground">

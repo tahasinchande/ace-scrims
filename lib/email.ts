@@ -15,6 +15,34 @@ export type EmailSendResult = {
   error?: string
 }
 
+async function recordEmailLog(entry: {
+  to: string
+  purposeKey?: string | null
+  subject: string
+  status: "sent" | "failed" | "blocked_by_toggle"
+  provider?: string | null
+  error?: string | null
+}): Promise<void> {
+  try {
+    const [{ randomUUID }, { db }, { emailLogs }] = await Promise.all([
+      import("crypto"),
+      import("@/lib/db"),
+      import("@/lib/db/schema"),
+    ])
+    await db.insert(emailLogs).values({
+      id: randomUUID(),
+      recipientEmail: entry.to,
+      purposeKey: entry.purposeKey ?? null,
+      subject: entry.subject.slice(0, 240),
+      status: entry.status,
+      provider: entry.provider ?? null,
+      error: entry.error ? entry.error.slice(0, 500) : null,
+    })
+  } catch {
+    // Non-blocking audit log insert
+  }
+}
+
 const DEFAULT_SENDER = "ACE SCRIMS <noreply@mail.acescrims.online>"
 
 /**
@@ -606,17 +634,31 @@ export async function sendEmail({
   html,
   text,
   from,
+  purposeKey,
 }: {
   to: string
   subject: string
   html: string
   text?: string
   from?: string
+  purposeKey?: string
 }): Promise<EmailSendResult> {
   const sender = from || getFromAddress()
   const resend = getResendClient()
   const sendGridKey = getSendGridApiKey()
   const smtp = getSmtpTransporter()
+
+  const finish = async (res: EmailSendResult): Promise<EmailSendResult> => {
+    await recordEmailLog({
+      to,
+      purposeKey: purposeKey ?? null,
+      subject,
+      status: res.success ? "sent" : "failed",
+      provider: res.provider ?? null,
+      error: res.error ?? null,
+    })
+    return res
+  }
 
   // 1. Try Resend if configured (retry up to 2 times on 429 rate-limit)
   if (resend) {
@@ -633,7 +675,7 @@ export async function sendEmail({
 
         if (!response.error) {
           console.log(`[Email Service] Successfully sent email to ${to} via Resend. Message ID: ${response.data?.id}`)
-          return { success: true, provider: "resend", messageId: response.data?.id }
+          return finish({ success: true, provider: "resend", messageId: response.data?.id })
         }
 
         if (isRateLimitError(response.error) && attempt < 2) {
@@ -657,7 +699,7 @@ export async function sendEmail({
           })
           if (!fallbackRes.error) {
             console.log(`[Email Service] Successfully sent email via Resend fallback onboarding@resend.dev.`)
-            return { success: true, provider: "resend", messageId: fallbackRes.data?.id }
+            return finish({ success: true, provider: "resend", messageId: fallbackRes.data?.id })
           }
           console.error(`[Email Service] Resend fallback also failed:`, fallbackRes.error)
         }
@@ -704,7 +746,7 @@ export async function sendEmail({
       if (sgRes.ok) {
         const messageId = sgRes.headers.get("x-message-id") || undefined
         console.log(`[Email Service] Successfully sent email to ${to} via SendGrid.`)
-        return { success: true, provider: "sendgrid", messageId }
+        return finish({ success: true, provider: "sendgrid", messageId })
       }
       const errBody = await sgRes.text().catch(() => "")
       console.error(`[Email Service] SendGrid error (${sgRes.status}):`, errBody)
@@ -726,7 +768,7 @@ export async function sendEmail({
         text,
       })
       console.log(`[Email Service] Successfully sent email to ${to} via SMTP. Message ID: ${info.messageId}`)
-      return { success: true, provider: "smtp", messageId: info.messageId }
+      return finish({ success: true, provider: "smtp", messageId: info.messageId })
     } catch (smtpErr: any) {
       console.error(`[Email Service] SMTP delivery exception:`, smtpErr?.message || smtpErr)
     }
@@ -738,7 +780,7 @@ export async function sendEmail({
     : "Email delivery failed across all configured providers."
 
   console.error(`[Email Service Warning] ${errorMsg}`)
-  return { success: false, error: errorMsg }
+  return finish({ success: false, error: errorMsg })
 }
 
 /**
@@ -753,6 +795,12 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("verify")
   if (!enabled) {
     console.log(`[Email Template] "verify" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "verify",
+      subject: tpl?.subject || "Verify your email — ACE SCRIMS",
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -767,7 +815,7 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
       { userName: rawName, verifyUrl: cleanUrl },
       { useAuthShell: true, defaultTitle: "Verify your email address", defaultCtaUrl: cleanUrl }
     )
-    const result = await sendEmail({ to, ...rendered })
+    const result = await sendEmail({ to, ...rendered, purposeKey: "verify" })
     if (!result.success) {
       console.error(`[Email Verification Failed] Could not deliver email to ${to}. Error: ${result.error}`)
     }
@@ -796,6 +844,7 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
     subject: "Verify your email — ACE SCRIMS",
     html,
     text: `Hey ${rawName}, welcome aboard! Please verify your email by opening this link: ${cleanUrl}`,
+    purposeKey: "verify",
   })
 
   if (!result.success) {
@@ -811,10 +860,36 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
 export async function sendPasswordResetEmail(to: string, url: string): Promise<boolean> {
   const cleanUrl = resolveCleanUrl(url)
 
+  const tpl = await getEmailTemplateByPurpose("password_reset")
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("password_reset")
+  if (!enabled) {
+    console.log(`[Email Template] "password_reset" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "password_reset",
+      subject: tpl?.subject || "Reset your password — ACE SCRIMS",
+      status: "blocked_by_toggle",
+    })
+    return true
+  }
+
   console.log("====================================================================")
   console.log(`[PASSWORD RESET LINK FOR ${to}]`)
   console.log(`URL: ${cleanUrl}`)
   console.log("====================================================================")
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      { resetUrl: cleanUrl },
+      { useAuthShell: true, defaultTitle: "Reset your password", defaultCtaUrl: cleanUrl }
+    )
+    const result = await sendEmail({ to, ...rendered, purposeKey: "password_reset" })
+    if (!result.success) {
+      console.error(`[Password Reset Failed] Could not deliver email to ${to}. Error: ${result.error}`)
+    }
+    return result.success
+  }
 
   const title = "Reset your password"
   const body = "We received a request to reset the password for your ACE SCRIMS account. Click the button below to choose a new password."
@@ -831,6 +906,7 @@ export async function sendPasswordResetEmail(to: string, url: string): Promise<b
     subject: "Reset your password — ACE SCRIMS",
     html,
     text: `Reset your ACE SCRIMS password by opening this link: ${cleanUrl}`,
+    purposeKey: "password_reset",
   })
 
   if (!result.success) {
@@ -864,6 +940,12 @@ export async function sendBookingConfirmationEmail({
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("register")
   if (!enabled) {
     console.log(`[Email Template] "register" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "register",
+      subject: tpl?.subject || `Booking Confirmed: ${scrimTitle} — ACE SCRIMS`,
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -884,7 +966,7 @@ export async function sendBookingConfirmationEmail({
       },
       { defaultTitle: `Booking Confirmed — Slot #${slotNumber}`, defaultCtaUrl: dashboardUrl }
     )
-    const result = await sendEmail({ to, ...rendered })
+    const result = await sendEmail({ to, ...rendered, purposeKey: "register" })
     return result.success
   }
 
@@ -916,6 +998,7 @@ export async function sendBookingConfirmationEmail({
     subject: `Booking Confirmed: ${scrimTitle} (Slot #${slotNumber}) — ACE SCRIMS`,
     html,
     text: `Your squad ${teamName} is confirmed for ${scrimTitle} in Slot #${slotNumber}. Match start: ${startTime}. View details in your dashboard: ${dashboardUrl}`,
+    purposeKey: "register",
   })
 
   return result.success
@@ -949,6 +1032,12 @@ export async function sendRoomCredentialsEmail({
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("id_pass")
   if (!enabled) {
     console.log(`[Email Template] "id_pass" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "id_pass",
+      subject: tpl?.subject || `Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -982,7 +1071,7 @@ export async function sendRoomCredentialsEmail({
     const subject = isUpdated && !rendered.subject.toUpperCase().includes("UPDATE")
       ? `UPDATED ${rendered.subject}`
       : rendered.subject
-    const result = await sendEmail({ to, ...rendered, subject })
+    const result = await sendEmail({ to, ...rendered, subject, purposeKey: "id_pass" })
     return result.success
   }
 
@@ -1007,6 +1096,7 @@ export async function sendRoomCredentialsEmail({
     subject: `${isUpdated ? "UPDATED " : ""}Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
     html,
     text: `${title}. Room ID: ${roomId} | Password: ${roomPassword}. Start time: ${startTime}. View in dashboard: ${dashboardUrl}`,
+    purposeKey: "id_pass",
   })
 
   return result.success
@@ -1032,8 +1122,40 @@ export async function sendScrimNotHostedEmail({
   startTime: string
   amountBdt: number
 }): Promise<boolean> {
+  const tpl = await getEmailTemplateByPurpose("not_hosted")
+  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("not_hosted")
+  if (!enabled) {
+    console.log(`[Email Template] "not_hosted" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "not_hosted",
+      subject: tpl?.subject || `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
+      status: "blocked_by_toggle",
+    })
+    return true
+  }
+
   const appUrl = getProductionAppUrl()
   const dashboardUrl = `${appUrl}/dashboard`
+
+  if (tpl) {
+    const rendered = renderEmailFromTemplate(
+      tpl,
+      {
+        recipientName: recipientName || "Captain",
+        teamName,
+        scrimTitle,
+        scrimDate,
+        startTime,
+        amountBdt,
+        dashboardUrl,
+      },
+      { defaultTitle: `Scrim Not Hosted: ${scrimTitle}`, defaultCtaUrl: dashboardUrl }
+    )
+    const result = await sendEmail({ to, ...rendered, purposeKey: "not_hosted" })
+    return result.success
+  }
+
   const safeRecipient = escapeHtml(recipientName || "Captain")
   const safeTeamName = escapeHtml(teamName)
   const safeScrimTitle = escapeHtml(scrimTitle)
@@ -1047,36 +1169,7 @@ export async function sendScrimNotHostedEmail({
     <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
       We regret to inform you that <strong>${safeScrimTitle}</strong> (${safeScrimDate} at ${safeStartTime}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.
     </p>
-
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:18px 20px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">SQUAD NAME:</td>
-              <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:700;">${safeTeamName}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">STATUS:</td>
-              <td style="padding:6px 0;color:#ef4444;font-size:14px;font-weight:800;text-transform:uppercase;">Not Hosted</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8;font-size:13px;font-weight:600;">REFUND AMOUNT:</td>
-              <td style="padding:6px 0;color:#10b981;font-size:15px;font-weight:800;">৳${amountBdt} BDT (Full Refund)</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <div style="margin-bottom:20px;">
-      <h3 style="margin:0 0 10px 0;color:#ffffff;font-size:13px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">
-        Refund Processing Notice
-      </h3>
-      <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.65;">
-        Your squad's entry fee has been transferred to our refund queue. It will be credited back via your original payment method / digital wallet. You can track this and other matches from your player dashboard.
-      </p>
-    </div>
+    <p style="margin:0;color:#10b981;font-size:14px;font-weight:700;">Squad: ${safeTeamName} · Full Refund: ৳${amountBdt} BDT</p>
   `
 
   const html = emailShell({
@@ -1092,6 +1185,7 @@ export async function sendScrimNotHostedEmail({
     subject: `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
     html,
     text: `Hello ${recipientName}, ${scrimTitle} (${scrimDate} at ${startTime}) was not hosted. Your squad ${teamName} will be refunded ৳${amountBdt}. View status: ${dashboardUrl}`,
+    purposeKey: "not_hosted",
   })
 
   return result.success
@@ -1125,6 +1219,12 @@ export async function sendMatchResultPublishedEmail({
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("result")
   if (!enabled) {
     console.log(`[Email Template] "result" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "result",
+      subject: tpl?.subject || `Match Results Published: ${scrimTitle} — ACE SCRIMS`,
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -1150,7 +1250,7 @@ export async function sendMatchResultPublishedEmail({
       { defaultTitle: `Match Results Published: ${scrimTitle}`, defaultCtaUrl: resultsUrl }
     )
     try {
-      const result = await sendEmail({ to, ...rendered })
+      const result = await sendEmail({ to, ...rendered, purposeKey: "result" })
       if (!result.success) {
         console.error(`[Match Result Email] Delivery failed to ${to}:`, result.error || "Unknown delivery error")
       }
@@ -1179,6 +1279,7 @@ export async function sendMatchResultPublishedEmail({
       subject: `Match Results Published: ${scrimTitle} — ACE SCRIMS`,
       html,
       text: `Hello ${recipientName}, official match results for ${scrimTitle} are published. Winner: ${winningTeam} (${kills} kills). Prize: ৳${prizeBdt} BDT. View results: ${resultsUrl}`,
+      purposeKey: "result",
     })
     return result.success
   } catch (emailErr) {
@@ -1211,6 +1312,12 @@ export async function sendMvpImageRequestEmail({
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("mvp_image")
   if (!enabled) {
     console.log(`[Email Template] "mvp_image" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "mvp_image",
+      subject: tpl?.subject || `Action Required: Upload MVP Image for ${teamName} — ACE SCRIMS`,
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -1234,7 +1341,7 @@ export async function sendMvpImageRequestEmail({
       { defaultTitle: `MVP Image Requested: ${teamName}`, defaultCtaUrl: dashboardUrl }
     )
     try {
-      const result = await sendEmail({ to, ...rendered })
+      const result = await sendEmail({ to, ...rendered, purposeKey: "mvp_image" })
       return result.success
     } catch (err) {
       console.error(`[MVP Image Request Email] Exception sending to ${to}:`, err)
@@ -1260,6 +1367,7 @@ export async function sendMvpImageRequestEmail({
       subject: `Action Required: Upload MVP Image for ${teamName} — ACE SCRIMS`,
       html,
       text: `Hello ${recipientName}, Ace Scrims management has requested an MVP photo for ${teamName} (${scrimTitle}). Upload at: ${dashboardUrl}`,
+      purposeKey: "mvp_image",
     })
     return result.success
   } catch (err) {
@@ -1334,6 +1442,12 @@ export async function sendNoticeBroadcastEmail({
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("notice")
   if (!enabled) {
     console.log(`[Email Template] "notice" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "notice",
+      subject: tpl?.subject || `[NOTICE] ${title} — ACE SCRIMS`,
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -1383,7 +1497,7 @@ export async function sendNoticeBroadcastEmail({
       }
     )
     try {
-      const result = await sendEmail({ to, ...rendered })
+      const result = await sendEmail({ to, ...rendered, purposeKey: "notice" })
       return result.success
     } catch (err) {
       console.error(`[Notice Broadcast Email] Exception sending to ${to}:`, err)
@@ -1409,6 +1523,7 @@ export async function sendNoticeBroadcastEmail({
       subject: `[${priorityLabel}] ${title} — ACE SCRIMS`,
       html,
       text: `${priorityLabel} (${category}): ${title}\n\n${content}\n\nView notice in your dashboard: ${noticesUrl}`,
+      purposeKey: "notice",
     })
     return result.success
   } catch (err) {
@@ -1435,6 +1550,12 @@ export async function sendWelcomeEmail({
   const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("welcome")
   if (!enabled) {
     console.log(`[Email Template] "welcome" template is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey: "welcome",
+      subject: tpl?.subject || "Welcome aboard — ACE SCRIMS",
+      status: "blocked_by_toggle",
+    })
     return true
   }
 
@@ -1459,7 +1580,7 @@ export async function sendWelcomeEmail({
       { defaultTitle: "Welcome to ACE SCRIMS", defaultCtaUrl: scrimsUrl }
     )
     try {
-      const result = await sendEmail({ to, ...rendered })
+      const result = await sendEmail({ to, ...rendered, purposeKey: "welcome" })
       if (!result.success) {
         console.error(`[Welcome Email] Delivery failed for ${to}: ${result.error}`)
       }
@@ -1493,6 +1614,7 @@ export async function sendWelcomeEmail({
       subject: `Welcome aboard, ${rawName} — ACE SCRIMS`,
       html,
       text: `Hey ${rawName}, welcome to ACE SCRIMS! ${methodLabel} Explore upcoming lobbies at ${scrimsUrl}`,
+      purposeKey: "welcome",
     })
     if (!result.success) {
       console.error(`[Welcome Email] Delivery failed for ${to}: ${result.error}`)
@@ -1524,11 +1646,17 @@ export async function sendCustomPurposeEmail({
   }
   if (!tpl.isEnabled) {
     console.log(`[Email Template] Custom purpose "${purposeKey}" is disabled by admin. Skipping email to ${to}.`)
+    await recordEmailLog({
+      to,
+      purposeKey,
+      subject: tpl.subject || purposeKey,
+      status: "blocked_by_toggle",
+    })
     return true
   }
   const rendered = renderEmailFromTemplate(tpl, vars)
   try {
-    const res = await sendEmail({ to, ...rendered })
+    const res = await sendEmail({ to, ...rendered, purposeKey })
     return res.success
   } catch (err) {
     console.error(`[Custom Email "${purposeKey}"] Exception sending to ${to}:`, err)

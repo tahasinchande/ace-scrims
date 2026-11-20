@@ -80,27 +80,63 @@ export function getScrimPrizeBreakdown(scrim: {
   const category = (scrim.category || "").toLowerCase()
   const id = (scrim.id || "").toLowerCase()
 
-  // 1. Friday Special Blasts
+  let base: ScrimPrizeBreakdown = PRIZE_DISTRIBUTIONS.daily
+
+  // 1. Friday Special Blasts / Friday Scrims
   if (
     title.includes("friday special") ||
     slug.includes("friday-special") ||
     category.includes("friday special") ||
-    id.includes("scrim-fri-") && !id.includes("cr")
+    category === "friday scrims" ||
+    (id.includes("scrim-fri-") && !id.includes("cr"))
   ) {
-    return PRIZE_DISTRIBUTIONS.friday_special
+    base = {
+      ...PRIZE_DISTRIBUTIONS.friday_special,
+      categoryName: category === "friday scrims" ? "Friday Scrims" : "Friday Special Blasts",
+    }
   }
-
   // 2. Champion Rush (3 PM and 10 PM)
-  if (
+  else if (
     title.includes("champion rush") ||
     slug.includes("champion-rush") ||
     category.includes("champion rush") ||
     id.includes("-cr") ||
     id.includes("champion-rush")
   ) {
-    return PRIZE_DISTRIBUTIONS.champion_rush
+    base = PRIZE_DISTRIBUTIONS.champion_rush
   }
 
-  // 3. Default: Daily Scrims
-  return PRIZE_DISTRIBUTIONS.daily
+  // Respect custom admin-configured prize pools (including 0 BDT)
+  if (typeof scrim.prizePoolBdt === "number" && Number.isFinite(scrim.prizePoolBdt) && scrim.prizePoolBdt >= 0) {
+    const customTotal = Math.round(scrim.prizePoolBdt)
+    if (customTotal === base.totalPrizeBdt) {
+      return base
+    }
+    if (customTotal === 0) {
+      return {
+        categoryName: base.categoryName,
+        totalPrizeBdt: 0,
+        places: [],
+      }
+    }
+
+    // Scale places proportionally so custom totals sum cleanly to customTotal
+    const ratio = customTotal / base.totalPrizeBdt
+    const scaled = base.places.map((p) => ({
+      ...p,
+      prizeBdt: Math.max(0, Math.round(p.prizeBdt * ratio)),
+    }))
+    const currentSum = scaled.reduce((acc, p) => acc + p.prizeBdt, 0)
+    const diff = customTotal - currentSum
+    if (scaled.length > 0 && diff !== 0) {
+      scaled[0] = { ...scaled[0], prizeBdt: Math.max(0, scaled[0].prizeBdt + diff) }
+    }
+    return {
+      categoryName: base.categoryName,
+      totalPrizeBdt: customTotal,
+      places: scaled.filter((p) => p.prizeBdt > 0),
+    }
+  }
+
+  return base
 }

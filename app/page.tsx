@@ -13,6 +13,7 @@ import { Features, HowItWorks, WhyChooseUs, Faq, Contact, SectionHeading } from 
 import { Top3FaceBannersSection, type Top3BannerItem } from "@/components/landing/top3-face-banners"
 import { MvpFaceBannersSection, type MvpBannerItem } from "@/components/landing/mvp-face-banners"
 import { HomeScrimsGrid } from "@/components/site/home-scrims-grid"
+import { PartnershipTickerBar } from "@/components/site/partnership-ticker-bar"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -105,6 +106,11 @@ export default async function HomePage() {
       </Suspense>
       <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
       <main className="w-full max-w-full overflow-x-hidden flex-1">
+        <div className="pt-16">
+          <Suspense fallback={null}>
+            <PartnershipTickerBar />
+          </Suspense>
+        </div>
         <Hero stats={stats} />
 
         <section id="schedule" className="mx-auto max-w-6xl px-4 py-20 md:px-6 scroll-mt-20" aria-labelledby="tonight-heading">

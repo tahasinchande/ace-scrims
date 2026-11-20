@@ -934,10 +934,19 @@ export function AdminScrimList({
   const isRoom2Scrim = (s: AdminScrim) =>
     s.id.includes("r2") || s.slug.includes("room-2") || s.title.toLowerCase().includes("room 2")
 
+  const isChampionRushScrim = (s: AdminScrim) =>
+    (s.category || "").toLowerCase().includes("champion rush") ||
+    s.title.toLowerCase().includes("champion rush") ||
+    s.slug.includes("champion-rush")
+
+  const isFridayCategoryScrim = (s: AdminScrim) =>
+    !isChampionRushScrim(s) &&
+    ((s.category || "").toLowerCase().includes("friday") ||
+      s.title.toLowerCase().includes("friday special") ||
+      s.slug.includes("friday-special"))
+
   const isRoom1Scrim = (s: AdminScrim) => {
-    const isCR = s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush")
-    const isFridayBlast = s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special")
-    return !isRoom2Scrim(s) && !isCR && !isFridayBlast
+    return !isRoom2Scrim(s) && !isChampionRushScrim(s) && !isFridayCategoryScrim(s)
   }
 
   const notHostedCount = liveScrims.filter((s) => s.status === "not_hosted").length
@@ -955,16 +964,16 @@ export function AdminScrimList({
         return false
       }
 
-      const isCR = scrim.title.toLowerCase().includes("champion rush") || scrim.slug.includes("champion-rush")
-      const isFridayBlast = scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
-      const isDaily = !isCR && !isFridayBlast
+      const isCR = isChampionRushScrim(scrim)
+      const isFridayCat = isFridayCategoryScrim(scrim)
+      const isDaily = !isCR && !isFridayCat
       const isR2 = isRoom2Scrim(scrim)
       const isR1 = isRoom1Scrim(scrim)
 
       if (activeTab === "daily" && !isDaily) return false
       if (activeTab === "room1" && !isR1) return false
       if (activeTab === "room2" && !isR2) return false
-      if (activeTab === "friday" && !isFridayBlast) return false
+      if (activeTab === "friday" && !isFridayCat) return false
       if (activeTab === "champion" && !isCR) return false
 
       if (searchQuery.trim()) {
@@ -973,6 +982,7 @@ export function AdminScrimList({
           scrim.title.toLowerCase().includes(q) ||
           scrim.startTime.toLowerCase().includes(q) ||
           scrim.map.toLowerCase().includes(q) ||
+          (scrim.category || "").toLowerCase().includes(q) ||
           scrim.slug.toLowerCase().includes(q)
         if (!match) return false
       }
@@ -982,11 +992,11 @@ export function AdminScrimList({
   )
 
   const activeScrimsCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
-  const dailyCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !s.title.toLowerCase().includes("champion rush") && !s.title.toLowerCase().includes("friday special") && !s.slug.includes("champion-rush") && !s.slug.includes("friday-special")).length
+  const dailyCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !isChampionRushScrim(s) && !isFridayCategoryScrim(s)).length
   const room1Count = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom1Scrim(s)).length
   const room2Count = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
-  const fridayCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special"))).length
-  const crCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && (s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush"))).length
+  const fridayCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isFridayCategoryScrim(s)).length
+  const crCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isChampionRushScrim(s)).length
 
   async function executeBulkConfirm() {
     const mode = bulkConfirm

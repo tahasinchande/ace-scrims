@@ -245,19 +245,23 @@ export function BookingWizard({
               <div>
                 <dt className="text-xs text-muted-foreground">Map / Format</dt>
                 <dd className="font-semibold">
-                  {scrim.title.trim().toLowerCase() === "10 pm champion rush" ||
-                  scrim.title.toLowerCase().includes("champion rush") ||
-                  scrim.slug.toLowerCase().includes("champion-rush")
+                  {scrim.map && (scrim.map.includes("(") || scrim.map.includes(","))
+                    ? scrim.map
+                    : scrim.title.trim().toLowerCase() === "10 pm champion rush" ||
+                      scrim.title.toLowerCase().includes("champion rush") ||
+                      scrim.slug.toLowerCase().includes("champion-rush")
                     ? "Champion Mode (Max 8 Matches)"
                     : scrim.title.toLowerCase().includes("friday special") ||
                       scrim.slug.toLowerCase().includes("friday-special")
                     ? "5 Matches (Bermuda, Purgatory, Kalahari, Solana, Nexterra)"
-                    : "3 Matches (BERMUDA, PURGATORY & KALAHARI)"}
+                    : scrim.map || "3 Matches (BERMUDA, PURGATORY & KALAHARI)"}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Entry Fee</dt>
-                <dd className="font-semibold text-primary">{bdt(scrim.priceBdt)}</dd>
+                <dd className={cn("font-semibold", scrim.priceBdt <= 0 ? "text-emerald-400" : "text-primary")}>
+                  {scrim.priceBdt <= 0 ? "FREE (৳0)" : bdt(scrim.priceBdt)}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Prize Pool</dt>
@@ -738,7 +742,12 @@ export function BookingWizard({
                 </span>
               </div>
               <p className="mt-2 text-xs leading-relaxed">
-                {userBalance >= scrim.priceBdt ? (
+                {scrim.priceBdt <= 0 ? (
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5 shrink-0" />
+                    Free / Giveaway Scrim! No entry fee will be deducted — your squad confirms instantly.
+                  </span>
+                ) : userBalance >= scrim.priceBdt ? (
                   <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
                     <CheckCircle2 className="size-3.5 shrink-0" />
                     Sufficient balance! ৳{scrim.priceBdt} will be automatically deducted from your account for instant confirmation.
@@ -807,8 +816,14 @@ export function BookingWizard({
                 {pending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden />
-                    {userBalance >= scrim.priceBdt ? "Confirming with Balance..." : "Connecting to Payment Gateway..."}
+                    {scrim.priceBdt <= 0
+                      ? "Confirming Free Slot..."
+                      : userBalance >= scrim.priceBdt
+                      ? "Confirming with Balance..."
+                      : "Connecting to Payment Gateway..."}
                   </>
+                ) : scrim.priceBdt <= 0 ? (
+                  <>Confirm Free Entry (৳0)</>
                 ) : userBalance >= scrim.priceBdt ? (
                   <>Register with Balance ({bdt(scrim.priceBdt)})</>
                 ) : (

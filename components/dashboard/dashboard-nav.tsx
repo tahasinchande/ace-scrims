@@ -20,6 +20,7 @@ import {
   Wallet,
   UserCog,
   Megaphone,
+  Gift,
 } from "lucide-react"
 
 const links = [
@@ -27,6 +28,7 @@ const links = [
   { href: "/dashboard/notices", label: "Notices", icon: Megaphone },
   { href: "/dashboard/info-setup", label: "Info Setup", icon: UserCog },
   { href: "/dashboard/wallet", label: "Wallet & Balance", icon: Wallet },
+  { href: "/dashboard/referrals", label: "Referrals", icon: Gift },
   { href: "/dashboard/scrims", label: "My Scrims", icon: Swords },
   { href: "/dashboard/results", label: "My Results", icon: Trophy },
   { href: "/dashboard/image-requests", label: "Image Requests", icon: Camera },

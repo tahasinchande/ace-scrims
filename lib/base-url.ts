@@ -25,7 +25,20 @@ export async function resolveAppBaseUrl(): Promise<string> {
     const hdrs = await headers()
     const originHeader = normalizeOrigin(hdrs.get("origin"))
     const forwardedHost = hdrs.get("x-forwarded-host")?.split(",")[0]?.trim()
-    const forwardedProto = hdrs.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https"
+    let cfScheme: string | null = null
+    const cfVisitor = hdrs.get("cf-visitor")
+    if (cfVisitor) {
+      try {
+        const parsed = JSON.parse(cfVisitor) as { scheme?: string }
+        if (parsed.scheme === "https" || parsed.scheme === "http") {
+          cfScheme = parsed.scheme
+        }
+      } catch {
+        // Ignore malformed header
+      }
+    }
+    const forwardedProto =
+      cfScheme || hdrs.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https"
     const hostHeader = hdrs.get("host")?.split(",")[0]?.trim()
 
     const candidateHost = forwardedHost || hostHeader

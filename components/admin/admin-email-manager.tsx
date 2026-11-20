@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   Mail,
@@ -45,6 +46,7 @@ type Props = {
 }
 
 export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
+  const router = useRouter()
   const [templates, setTemplates] = useState<NormalizedEmailTemplate[]>(initialTemplates)
   const [selectedId, setSelectedId] = useState<string>(initialTemplates[0]?.id || "")
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor")
@@ -122,6 +124,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
           setIsEnabled(nextValue)
         }
         toast.success(`${tpl.label} email trigger ${nextValue ? "enabled" : "disabled"}.`)
+        router.refresh()
       } else {
         toast.error(res.error || "Failed to toggle template status")
       }
@@ -154,6 +157,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
           prev.map((item) => (item.id === res.template!.id ? res.template! : item))
         )
         toast.success(`"${label}" template saved successfully!`)
+        router.refresh()
       } else {
         toast.error(res.error || "Failed to save email template")
       }

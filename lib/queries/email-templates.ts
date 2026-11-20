@@ -25,9 +25,11 @@ export type CoreEmailPurposeSeed = {
 
 export const CORE_EMAIL_PURPOSE_ORDER = [
   "verify",
+  "password_reset",
   "welcome",
   "register",
   "id_pass",
+  "not_hosted",
   "result",
   "mvp_image",
   "notice",
@@ -58,6 +60,23 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     ctaText: "VERIFY EMAIL & EXPLORE SCRIMS",
     ctaUrl: "{{verifyUrl}}",
     variablesHint: ["userName", "verifyUrl"],
+  },
+  {
+    purposeKey: "password_reset",
+    label: "Password Reset",
+    description: "Password reset link emailed when a user submits the Forgot Password form.",
+    defaultEnabled: true,
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Reset your password — ACE SCRIMS",
+    preheader: "Instructions to reset your ACE SCRIMS password.",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#cbd5e1;font-size:14px;line-height:1.65;">We received a request to reset the password for your ACE SCRIMS account. Click the button below to choose a new password.</p>
+<p style="margin:0;color:#64748b;font-size:13px;">If you did not request a password reset, you can safely ignore this email.</p>`,
+    bodyText: `Reset your ACE SCRIMS password by opening this link: {{resetUrl}}`,
+    ctaText: "Reset Password",
+    ctaUrl: "{{resetUrl}}",
+    variablesHint: ["resetUrl"],
   },
   {
     purposeKey: "welcome",
@@ -145,6 +164,31 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
       "updateNotice",
       "dashboardUrl",
     ],
+  },
+  {
+    purposeKey: "not_hosted",
+    label: "Scrim Not Hosted & Refund",
+    description: "Cancellation and automatic refund email sent to registered squads when a scrim is marked Not Hosted.",
+    defaultEnabled: true,
+    isCore: true,
+    category: "system",
+    format: "html",
+    subject: "Scrim Match Not Hosted: {{scrimTitle}} — ACE SCRIMS",
+    preheader: "{{scrimTitle}} has been marked as Not Hosted. Your entry fee will be refunded.",
+    bodyHtml: `<p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">Hello <strong>{{recipientName}}</strong>,</p>
+<p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">We regret to inform you that <strong>{{scrimTitle}}</strong> ({{scrimDate}} at {{startTime}}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:20px;">
+  <tr><td style="padding:18px 20px;">
+    <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#94a3b8;">SQUAD:</strong> {{teamName}}</p>
+    <p style="margin:4px 0;color:#ef4444;font-size:14px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">STATUS:</strong> NOT HOSTED</p>
+    <p style="margin:4px 0;color:#10b981;font-size:15px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">REFUND AMOUNT:</strong> ৳{{amountBdt}} BDT (Full Refund)</p>
+  </td></tr>
+</table>
+<p style="margin:0;color:#94a3b8;font-size:13px;">Your entry fee has been queued for refund back to your original payment method or wallet.</p>`,
+    bodyText: `Hello {{recipientName}}, {{scrimTitle}} ({{scrimDate}} at {{startTime}}) was not hosted. Your squad {{teamName}} will be refunded ৳{{amountBdt}}. View status: {{dashboardUrl}}`,
+    ctaText: "Go to Dashboard",
+    ctaUrl: "{{dashboardUrl}}",
+    variablesHint: ["recipientName", "teamName", "scrimTitle", "scrimDate", "startTime", "amountBdt", "dashboardUrl"],
   },
   {
     purposeKey: "result",

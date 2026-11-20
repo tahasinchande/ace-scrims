@@ -319,6 +319,7 @@ export async function sendTestEmailTemplateAction(
       userName: admin.name || "Test Player",
       recipientName: admin.name || "Captain Test",
       verifyUrl: `${appUrl}/verify?token=sample-test-token`,
+      resetUrl: `${appUrl}/reset-password?token=sample-reset-token`,
       methodLabel: "Your email has been verified and your account is now active.",
       scrimsUrl: `${appUrl}/scrims`,
       dashboardUrl: `${appUrl}/dashboard/scrims`,
@@ -351,7 +352,7 @@ export async function sendTestEmailTemplateAction(
     }
 
     const rendered = renderEmailFromTemplate(tpl, sampleVars, {
-      useAuthShell: tpl.purposeKey === "verify",
+      useAuthShell: tpl.purposeKey === "verify" || tpl.purposeKey === "password_reset",
     })
 
     const sendRes = await sendEmail({
@@ -359,6 +360,7 @@ export async function sendTestEmailTemplateAction(
       subject: `[TEST] ${rendered.subject}`,
       html: rendered.html,
       text: rendered.text,
+      purposeKey: `test:${tpl.purposeKey}`,
     })
 
     if (!sendRes.success) {

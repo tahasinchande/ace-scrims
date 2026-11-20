@@ -98,13 +98,41 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        after: async (user) => {
+        after: async (createdUser) => {
           try {
+            // Read staged referral cookie (works seamlessly for both Email/Password & Google OAuth sign-ups)
+            let stagedRefCode: string | null = null
+            try {
+              const { cookies } = await import("next/headers")
+              const cookieStore = await cookies()
+              stagedRefCode = cookieStore.get("ace_ref_code")?.value ?? null
+              if (stagedRefCode) {
+                try {
+                  cookieStore.delete("ace_ref_code")
+                } catch {
+                  // Deleting cookies is ignored in read-only contexts
+                }
+              }
+            } catch {
+              // Ignore when invoked outside a request scope
+            }
+
+            try {
+              const { attributeReferralOnSignup, ensureUserReferralCode } = await import("@/lib/referrals")
+              await attributeReferralOnSignup({
+                newUserId: createdUser.id,
+                rawCode: stagedRefCode,
+              })
+              await ensureUserReferralCode(createdUser.id, createdUser.name)
+            } catch (refErr) {
+              console.error("[Better Auth Hook] Referral attribution error:", refErr)
+            }
+
             // Send welcome email immediately for pre-verified OAuth signups (e.g. Google)
-            if (user?.email && user?.emailVerified) {
+            if (createdUser?.email && createdUser?.emailVerified) {
               await sendWelcomeEmail({
-                to: user.email,
-                userName: user.name,
+                to: createdUser.email,
+                userName: createdUser.name,
                 authMethod: "google",
               })
             }

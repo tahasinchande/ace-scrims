@@ -2,6 +2,19 @@ import { type NextRequest, NextResponse } from "next/server"
 import { isValidWebhookKey, API_KEY_HEADER } from "@/lib/uddoktapay"
 import { processPayment } from "@/lib/payment-processor"
 
+export const dynamic = "force-dynamic"
+
+const WEBHOOK_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, private",
+  "CDN-Cache-Control": "no-store",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": `Content-Type, ${API_KEY_HEADER}`,
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: WEBHOOK_HEADERS })
+}
+
 /**
  * UddoktaPay webhook. Security layers:
  * 1. The RT-UDDOKTAPAY-API-KEY header must equal our API key (constant-time compare).
@@ -12,14 +25,20 @@ import { processPayment } from "@/lib/payment-processor"
 export async function POST(req: NextRequest) {
   try {
     if (!isValidWebhookKey(req.headers.get(API_KEY_HEADER))) {
-      return NextResponse.json({ error: "Unauthorized: Invalid webhook signature", statusCode: 401 }, { status: 401 })
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid webhook signature", statusCode: 401 },
+        { status: 401, headers: WEBHOOK_HEADERS }
+      )
     }
 
     let body: Record<string, unknown>
     try {
       body = (await req.json()) as Record<string, unknown>
     } catch {
-      return NextResponse.json({ error: "Invalid JSON payload", statusCode: 400 }, { status: 400 })
+      return NextResponse.json(
+        { error: "Invalid JSON payload", statusCode: 400 },
+        { status: 400, headers: WEBHOOK_HEADERS }
+      )
     }
 
     const invoiceId = (body.invoice_id || body.invoiceId) as string | undefined
@@ -32,13 +51,22 @@ export async function POST(req: NextRequest) {
         body.transactionId) as string | undefined
 
     if (!invoiceId || !paymentId) {
-      return NextResponse.json({ error: "Missing invoice_id or payment_id in metadata", statusCode: 400 }, { status: 400 })
+      return NextResponse.json(
+        { error: "Missing invoice_id or payment_id in metadata", statusCode: 400 },
+        { status: 400, headers: WEBHOOK_HEADERS }
+      )
     }
 
     const outcome = await processPayment(paymentId, invoiceId, webhookTrxId)
-    return NextResponse.json({ ok: true, outcome: outcome.status, statusCode: 200 })
+    return NextResponse.json(
+      { ok: true, outcome: outcome.status, statusCode: 200 },
+      { headers: WEBHOOK_HEADERS }
+    )
   } catch (err: any) {
     console.error("[Webhook Error]:", err)
-    return NextResponse.json({ error: err?.message || "Internal server error", statusCode: 500 }, { status: 500 })
+    return NextResponse.json(
+      { error: err?.message || "Internal server error", statusCode: 500 },
+      { status: 500, headers: WEBHOOK_HEADERS }
+    )
   }
 }

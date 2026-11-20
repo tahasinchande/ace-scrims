@@ -25,6 +25,8 @@ import {
   KeyRound,
   Mail,
   Snowflake,
+  Gift,
+  Handshake,
 } from "lucide-react"
 
 type NavLink = {
@@ -47,6 +49,8 @@ const adminLinks: NavLink[] = [
   { href: "/admin/logs", label: "Logs", icon: ScrollText },
   { href: "/admin/live-chat", label: "Live Chat", icon: MessageSquare },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/referrals", label: "Referrals & Creators", icon: Gift },
+  { href: "/admin/partnerships", label: "Partnerships", icon: Handshake },
   { href: "/admin/credits", label: "Credit Management", icon: Coins },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/results", label: "Results", icon: Trophy },

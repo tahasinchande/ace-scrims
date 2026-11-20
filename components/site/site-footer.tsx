@@ -162,6 +162,9 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             <Link href="/dashboard" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               {t("nav_dashboard", "Dashboard")}
             </Link>
+            <Link href="/creators" className="text-sm text-muted-foreground transition-colors hover:text-primary">
+              Creator Program
+            </Link>
             <Link href="/report" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               Submit a Report
             </Link>

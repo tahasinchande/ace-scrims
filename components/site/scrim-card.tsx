@@ -31,6 +31,7 @@ export type ScrimCardData = {
   confirmedTeams: number
   map: string
   mode: string
+  category?: string | null
   registrationOpen: boolean
   status: string
   bannerUrl: string | null
@@ -67,11 +68,20 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
           ? t("status_full", "FULL")
           : status.label
 
-  const matchesLabel = scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
-    ? "5 Matches (All Maps)"
-    : scrim.title.toLowerCase().includes("champion rush") || scrim.slug.includes("champion-rush")
-    ? "Max 8 Matches"
-    : t("matches_per_scrim", "3 Matches per Scrim")
+  const customMapList = (scrim.map || "")
+    .replace(/^\d+\s*matches?\s*\((.+)\)$/i, "$1")
+    .split(/[,&+/|]+/)
+    .map((m) => m.trim())
+    .filter(Boolean)
+
+  const matchesLabel =
+    scrim.title.toLowerCase().includes("champion rush") || scrim.slug.includes("champion-rush")
+      ? "Max 8 Matches"
+      : customMapList.length > 1
+        ? `${customMapList.length} Maps (${customMapList.slice(0, 3).join(", ")}${customMapList.length > 3 ? "…" : ""})`
+        : scrim.title.toLowerCase().includes("friday special") || scrim.slug.includes("friday-special")
+          ? "5 Matches (All Maps)"
+          : scrim.map || t("matches_per_scrim", "3 Matches per Scrim")
 
   return (
     <motion.article
@@ -121,21 +131,31 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
             </p>
           </div>
           <div className="text-right shrink-0">
-            <p className="font-display text-xl font-bold text-primary tabular-nums">{bdt(scrim.priceBdt)}</p>
-            <p className="text-[11px] font-medium text-muted-foreground">{t("price_label", "per team")}</p>
+            <p className="font-display text-xl font-bold text-primary tabular-nums">
+              {scrim.priceBdt === 0 ? "FREE" : bdt(scrim.priceBdt)}
+            </p>
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {scrim.priceBdt === 0 ? "free entry" : t("price_label", "per team")}
+            </p>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
             <Trophy className="mx-auto mb-1 size-4 text-primary" aria-hidden />
-            <p className="text-xs font-bold tabular-nums text-foreground">{bdt(scrim.prizePoolBdt)}</p>
+            <p className="text-xs font-bold tabular-nums text-foreground">
+              {scrim.prizePoolBdt === 0 ? "Fun / Practice" : bdt(scrim.prizePoolBdt)}
+            </p>
             <p className="text-[10px] text-muted-foreground">{t("prize_label", "Prize Pool")}</p>
           </div>
           <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
             <MapPin className="mx-auto mb-1 size-4 text-accent" aria-hidden />
-            <p className="text-xs font-bold uppercase tracking-wider text-accent">BATTLE ROYALE</p>
-            <p className="text-[10px] text-muted-foreground">{scrim.mode}</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-accent truncate" title={scrim.mode}>
+              {scrim.mode || "BATTLE ROYALE"}
+            </p>
+            <p className="text-[10px] text-muted-foreground truncate" title={scrim.category || scrim.map}>
+              {scrim.category || scrim.map}
+            </p>
           </div>
           <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
             <Users className="mx-auto mb-1 size-4 text-info" aria-hidden />

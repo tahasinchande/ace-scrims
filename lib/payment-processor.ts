@@ -422,6 +422,21 @@ export async function processPayment(
     console.warn("[Payment Processor] Failed sending booking confirmation email:", emailQueryErr)
   }
 
+  // Evaluate & credit referral reward for confirmed paid scrims (non-blocking)
+  if (payment.amountBdt > 0) {
+    try {
+      const { evaluateReferralRewardForPaidBooking } = await import("@/lib/referrals")
+      await evaluateReferralRewardForPaidBooking({
+        userId: payment.userId,
+        bookingId: payment.bookingId,
+        scrimId: payment.scrimId,
+        amountBdt: payment.amountBdt,
+      })
+    } catch (refErr) {
+      console.warn("[Payment Processor] Referral reward evaluation error:", refErr)
+    }
+  }
+
   // Flush cached views so /scrims and homepage immediately show fresh slot state
   try {
     revalidatePath("/scrims")
@@ -429,7 +444,9 @@ export async function processPayment(
     revalidatePath("/")
     revalidatePath("/dashboard/scrims")
     revalidatePath("/dashboard/wallet")
+    revalidatePath("/dashboard/referrals")
     revalidatePath("/admin/scrims")
+    revalidatePath("/admin/referrals")
     revalidatePath("/admin")
     revalidatePath("/admin/payments")
   } catch {}

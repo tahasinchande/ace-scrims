@@ -8,6 +8,7 @@ import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
 import { ScrimsExplorer } from "@/components/scrims/scrims-explorer"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PartnershipTickerBar } from "@/components/site/partnership-ticker-bar"
 
 export const metadata: Metadata = {
   title: "Daily Scrims — Ace Scrims",
@@ -40,8 +41,11 @@ export default async function ScrimsPage() {
   return (
     <>
       <SiteHeader settings={settings} />
-      <main className="min-h-screen pt-24 pb-20">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+      <main className="min-h-screen pt-16 pb-20">
+        <Suspense fallback={null}>
+          <PartnershipTickerBar />
+        </Suspense>
+        <div className="mx-auto w-full max-w-6xl px-4 pt-8 sm:px-6">
           <Suspense fallback={<ScrimsSkeleton />}>
             <ScrimsContent />
           </Suspense>

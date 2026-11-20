@@ -7,7 +7,7 @@ import { imageRequests, bookings, scrims, user } from "@/lib/db/schema"
 import { eq, and, desc } from "drizzle-orm"
 import { getSessionUser, requireUser, requireStaff } from "@/lib/session"
 import { notifyUser } from "@/lib/notify"
-import { sendMvpImageRequestEmail } from "@/lib/email"
+import { isEmailTemplateEnabled, sendMvpImageRequestEmail } from "@/lib/email"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
 export type ImageRequestState = {
@@ -118,7 +118,8 @@ export async function requestTeamImage(
     .where(eq(user.id, booking.userId))
     .limit(1)
 
-  if (userRecord?.email) {
+  const mvpEmailEnabled = await isEmailTemplateEnabled("mvp_image")
+  if (userRecord?.email && mvpEmailEnabled) {
     try {
       await sendMvpImageRequestEmail({
         to: userRecord.email,
@@ -153,7 +154,7 @@ export async function requestTeamImage(
 
   return {
     ok: true,
-    message: `${requestType} requested for "${booking.teamName}"${mvpPlayerName ? ` (Player: ${mvpPlayerName})` : ""}. Notification sent.`,
+    message: `${requestType} requested for "${booking.teamName}"${mvpPlayerName ? ` (Player: ${mvpPlayerName})` : ""}. ${mvpEmailEnabled ? "In-app notification & email sent." : "In-app notification sent (MVP email toggle is OFF)."}`,
   }
 }
 

@@ -1,2 +1,2 @@
 [install]
-networkConcurrency = 4
+networkConcurrency = 24

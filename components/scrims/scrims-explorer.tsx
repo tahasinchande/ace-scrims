@@ -90,10 +90,19 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
       scrims.filter((s) => {
         // Category filter
         if (selectedCategory === "friday-special-blast") {
-          const isBlast = s.title.toLowerCase().includes("friday special") || s.slug.includes("friday-special")
+          const cat = (s.category || "").toLowerCase()
+          const isBlast =
+            s.title.toLowerCase().includes("friday special") ||
+            s.slug.includes("friday-special") ||
+            cat === "friday scrims" ||
+            cat.includes("friday special")
           if (!isBlast) return false
         } else if (selectedCategory === "champion-rush") {
-          const isCR = s.title.toLowerCase().includes("champion rush") || s.slug.includes("champion-rush")
+          const cat = (s.category || "").toLowerCase()
+          const isCR =
+            s.title.toLowerCase().includes("champion rush") ||
+            s.slug.includes("champion-rush") ||
+            cat.includes("champion rush")
           if (!isCR) return false
         }
 

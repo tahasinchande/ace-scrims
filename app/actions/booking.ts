@@ -288,25 +288,30 @@ export async function createBooking(
           return
         }
 
-        // Atomic deduction: ensure balance >= priceBdt at the moment of update
-        const updateBalResult = await tx
-          .update(userTable)
-          .set({
-            balance: sql`${userTable.balance} - ${scrim.priceBdt}`,
-            updatedAt: new Date(),
-          })
-          .where(and(eq(userTable.id, user.id), gte(userTable.balance, scrim.priceBdt)))
-          .returning({ newBalance: userTable.balance })
+        const isFreeScrim = scrim.priceBdt === 0
+        let newBal = currentBalance
 
-        if (updateBalResult.length === 0) {
-          return // insufficient balance or concurrent deduction
+        if (!isFreeScrim) {
+          // Atomic deduction: ensure balance >= priceBdt at the moment of update
+          const updateBalResult = await tx
+            .update(userTable)
+            .set({
+              balance: sql`${userTable.balance} - ${scrim.priceBdt}`,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(userTable.id, user.id), gte(userTable.balance, scrim.priceBdt)))
+            .returning({ newBalance: userTable.balance })
+
+          if (updateBalResult.length === 0) {
+            return // insufficient balance or concurrent deduction
+          }
+          newBal = updateBalResult[0].newBalance
         }
 
         balanceDeducted = true
-        const newBal = updateBalResult[0].newBalance
 
         confirmedSlotNumber = pickLowestFreeSlot(slotRows.map((r) => r.slotNumber))
-        const walletTrxId = `WALLET_${randomUUID().slice(0, 8).toUpperCase()}`
+        const walletTrxId = `${isFreeScrim ? "FREE" : "WALLET"}_${randomUUID().slice(0, 8).toUpperCase()}`
 
         if (existing) {
           await tx
@@ -372,22 +377,24 @@ export async function createBooking(
           bookingId,
           scrimId: scrim.id,
           amountBdt: scrim.priceBdt,
-          method: "wallet_balance",
+          method: isFreeScrim ? "free_entry" : "wallet_balance",
           transactionId: walletTrxId,
           status: "completed",
         })
 
-        await tx.insert(walletTransactions).values({
-          id: randomUUID(),
-          userId: user.id,
-          type: "scrim_registration",
-          amountBdt: scrim.priceBdt,
-          balanceBefore: currentBalance,
-          balanceAfter: newBal,
-          description: `Scrim Registration: "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber}`,
-          referenceId: bookingId,
-          status: "completed",
-        })
+        if (!isFreeScrim) {
+          await tx.insert(walletTransactions).values({
+            id: randomUUID(),
+            userId: user.id,
+            type: "scrim_registration",
+            amountBdt: scrim.priceBdt,
+            balanceBefore: currentBalance,
+            balanceAfter: newBal,
+            description: `Scrim Registration: "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber}`,
+            referenceId: bookingId,
+            status: "completed",
+          })
+        }
 
         if (confirmedCount + 1 >= scrim.maxTeams) {
           await tx
@@ -417,16 +424,34 @@ export async function createBooking(
     }
 
     if (balanceDeducted) {
+      const isFreeScrim = scrim.priceBdt === 0
+
       try {
         const { notifyUser } = await import("@/lib/notify")
         await notifyUser(
           user.id,
           "booking",
-          "Scrim Slot Confirmed (Paid with Balance)",
-          `৳${scrim.priceBdt} was deducted from your wallet balance. Slot #${confirmedSlotNumber} for "${scrim.title}" (${scrim.startTime}) is confirmed!`,
+          isFreeScrim ? "Free Scrim Slot Confirmed" : "Scrim Slot Confirmed (Paid with Balance)",
+          isFreeScrim
+            ? `Your FREE entry for "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber} is confirmed!`
+            : `৳${scrim.priceBdt} was deducted from your wallet balance. Slot #${confirmedSlotNumber} for "${scrim.title}" (${scrim.startTime}) is confirmed!`,
           "/dashboard/scrims"
         )
       } catch {}
+
+      if (scrim.priceBdt > 0) {
+        try {
+          const { evaluateReferralRewardForPaidBooking } = await import("@/lib/referrals")
+          await evaluateReferralRewardForPaidBooking({
+            userId: user.id,
+            bookingId,
+            scrimId: scrim.id,
+            amountBdt: scrim.priceBdt,
+          })
+        } catch (refErr) {
+          console.warn("[Booking] Referral reward evaluation failed:", refErr)
+        }
+      }
 
       try {
         const { sendBookingConfirmationEmail } = await import("@/lib/email")
@@ -453,9 +478,11 @@ export async function createBooking(
         revalidatePath("/")
         revalidatePath("/dashboard/scrims")
         revalidatePath("/dashboard/wallet")
+        revalidatePath("/dashboard/referrals")
         revalidatePath("/dashboard/info-setup")
         revalidatePath("/dashboard")
         revalidatePath("/admin/scrims")
+        revalidatePath("/admin/referrals")
         revalidatePath("/admin")
       } catch {}
 

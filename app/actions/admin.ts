@@ -17,16 +17,17 @@ import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 // ─────────────────────────────────────────────────────────────────────────
 
 const scrimSchema = z.object({
-  title: z.string().trim().min(3).max(80),
-  description: z.string().trim().max(1000).optional().or(z.literal("")),
-  rules: z.string().trim().max(4000).optional().or(z.literal("")),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
-  map: z.enum(["Bermuda", "Purgatory", "Kalahari", "Alpine", "NeXTerra"]),
-  mode: z.string().trim().min(2).max(40),
-  startTime: z.string().trim().min(4).max(10),
-  priceBdt: z.coerce.number().int().min(0).max(10000),
-  prizePoolBdt: z.coerce.number().int().min(0).max(1000000),
-  maxTeams: z.coerce.number().int().min(2).max(48),
+  title: z.string().trim().min(2, "Title must be at least 2 characters").max(120),
+  description: z.string().trim().max(1500).optional().or(z.literal("")),
+  rules: z.string().trim().max(5000).optional().or(z.literal("")),
+  notes: z.string().trim().max(2500).optional().or(z.literal("")),
+  map: z.string().trim().min(1, "Select or enter at least one map").max(300),
+  mode: z.string().trim().min(2).max(60),
+  startTime: z.string().trim().min(2, "Start time is required").max(40),
+  category: z.string().trim().min(2).max(80).default("Daily Scrims"),
+  priceBdt: z.coerce.number().int().min(0, "Entry fee cannot be negative").max(100000),
+  prizePoolBdt: z.coerce.number().int().min(0, "Prize pool cannot be negative").max(10000000),
+  maxTeams: z.coerce.number().int().min(2).max(64),
 })
 
 function slugify(title: string) {
@@ -50,15 +51,16 @@ async function maybeUploadBanner(formData: FormData): Promise<string | null> {
   return null
 }
 
-function ensureGlobalRules(rules: string | null | undefined): string {
+function ensureGlobalRules(rules: string | null | undefined, fallbackRules?: string): string {
   const HACKER_RULE = "If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed."
   const PRIZE_FEE_RULE = "Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
 
-  if (!rules || !rules.trim()) {
+  const source = rules && rules.trim() ? rules : fallbackRules
+  if (!source || !source.trim()) {
     return `1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. ${HACKER_RULE}\n6. ${PRIZE_FEE_RULE}`
   }
 
-  const lines = rules
+  const lines = source
     .split("\n")
     .map((r) => r.trim())
     .filter(Boolean)
@@ -84,6 +86,7 @@ function parseScrimForm(formData: FormData) {
     map: formData.get("map"),
     mode: formData.get("mode"),
     startTime: formData.get("startTime"),
+    category: formData.get("category") || "Daily Scrims",
     priceBdt: formData.get("priceBdt"),
     prizePoolBdt: formData.get("prizePoolBdt"),
     maxTeams: formData.get("maxTeams"),
@@ -100,25 +103,44 @@ export async function createScrim(_prev: unknown, formData: FormData) {
     const bannerUrl = await maybeUploadBanner(formData)
     const d = parsed.data
     const { getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const { getScrimCategoryConfig } = await import("@/lib/scrim-categories")
+    const catCfg = getScrimCategoryConfig(d.category)
+
+    const resolvedDescription =
+      d.description && d.description.trim()
+        ? d.description.trim()
+        : catCfg.defaultDescription(d.title, d.map)
+    const resolvedRules = ensureGlobalRules(
+      d.rules,
+      catCfg.defaultRules(d.map, d.maxTeams)
+    )
+    const resolvedNotes =
+      d.notes && d.notes.trim() ? d.notes.trim() : catCfg.defaultNotes(d.map)
 
     await db.insert(scrims).values({
       id: randomUUID(),
       title: d.title,
       slug: slugify(d.title),
-      description: d.description || null,
-      rules: ensureGlobalRules(d.rules),
-      notes: d.notes || null,
+      description: resolvedDescription,
+      rules: resolvedRules,
+      notes: resolvedNotes,
       map: d.map,
       mode: d.mode,
       startTime: d.startTime,
       scrimDate: getBangladeshActiveDate(),
+      category: d.category,
       priceBdt: d.priceBdt,
       prizePoolBdt: d.prizePoolBdt,
       maxTeams: d.maxTeams,
       bannerUrl,
     })
 
-    await logActivity(admin.id, "admin", "create_scrim", d.title)
+    await logActivity(admin.id, "admin", "create_scrim", d.title, {
+      category: d.category,
+      priceBdt: d.priceBdt,
+      prizePoolBdt: d.prizePoolBdt,
+      map: d.map,
+    })
     revalidatePath("/admin/scrims")
     revalidatePath("/scrims")
     revalidatePath("/")
@@ -139,17 +161,33 @@ export async function updateScrim(_prev: unknown, formData: FormData) {
     }
     const bannerUrl = await maybeUploadBanner(formData)
     const d = parsed.data
+    await ensureScrimInDb(scrimId)
+
+    const { getScrimCategoryConfig } = await import("@/lib/scrim-categories")
+    const catCfg = getScrimCategoryConfig(d.category)
+
+    const resolvedDescription =
+      d.description && d.description.trim()
+        ? d.description.trim()
+        : catCfg.defaultDescription(d.title, d.map)
+    const resolvedRules = ensureGlobalRules(
+      d.rules,
+      catCfg.defaultRules(d.map, d.maxTeams)
+    )
+    const resolvedNotes =
+      d.notes && d.notes.trim() ? d.notes.trim() : catCfg.defaultNotes(d.map)
 
     await db
       .update(scrims)
       .set({
         title: d.title,
-        description: d.description || null,
-        rules: ensureGlobalRules(d.rules),
-        notes: d.notes || null,
+        description: resolvedDescription,
+        rules: resolvedRules,
+        notes: resolvedNotes,
         map: d.map,
         mode: d.mode,
         startTime: d.startTime,
+        category: d.category,
         priceBdt: d.priceBdt,
         prizePoolBdt: d.prizePoolBdt,
         maxTeams: d.maxTeams,
@@ -158,7 +196,12 @@ export async function updateScrim(_prev: unknown, formData: FormData) {
       })
       .where(eq(scrims.id, scrimId))
 
-    await logActivity(admin.id, "admin", "update_scrim", d.title)
+    await logActivity(admin.id, "admin", "update_scrim", d.title, {
+      scrimId,
+      category: d.category,
+      priceBdt: d.priceBdt,
+      prizePoolBdt: d.prizePoolBdt,
+    })
     revalidatePath("/admin/scrims")
     revalidatePath("/scrims")
     revalidatePath("/")
