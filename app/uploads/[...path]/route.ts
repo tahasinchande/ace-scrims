@@ -5,8 +5,54 @@ import os from "os"
 
 export const dynamic = "force-dynamic"
 
+const MIME_MAP: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".pdf": "application/pdf",
+}
+
+const ATTACHMENT_EXTENSIONS = new Set([".svg", ".pdf"])
+
+function isSafePathSegment(segment: string): boolean {
+  if (!segment || segment === "." || segment === "..") return false
+  if (segment.includes("\0") || segment.includes("/") || segment.includes("\\") || segment.includes("..")) {
+    return false
+  }
+  return true
+}
+
+function resolveConfinedFile(baseDir: string, segments: string[]): string | null {
+  const resolvedBase = path.resolve(baseDir)
+  if (!fs.existsSync(resolvedBase)) return null
+
+  const candidate = path.resolve(resolvedBase, ...segments)
+  if (!candidate.startsWith(resolvedBase + path.sep)) {
+    return null
+  }
+
+  if (!fs.existsSync(candidate)) return null
+
+  // Resolve symlinks and re-verify strict confinement within the uploads root
+  const realBase = fs.realpathSync(resolvedBase)
+  const realCandidate = fs.realpathSync(candidate)
+  if (!realCandidate.startsWith(realBase + path.sep)) {
+    return null
+  }
+
+  const stat = fs.statSync(realCandidate)
+  if (!stat.isFile()) return null
+
+  return realCandidate
+}
+
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
@@ -16,60 +62,62 @@ export async function GET(
       return new NextResponse("Not Found", { status: 404 })
     }
 
-    // Sanitize path against directory traversal
-    const safeSubPath = path.normalize(pathSegments.join("/")).replace(/^(\.\.[\/\\])+/, "")
-    // Check multiple candidate locations:
-    const candidatePaths = [
-      path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads", safeSubPath),
-      path.join(/*turbopackIgnore: true*/ process.cwd(), "uploads", safeSubPath),
-      path.join(os.tmpdir(), "uploads", safeSubPath),
-      path.join(os.tmpdir(), safeSubPath),
-      path.join(/*turbopackIgnore: true*/ process.cwd(), "public", safeSubPath),
+    // Strictly validate every path segment to prevent directory traversal
+    for (const rawSegment of pathSegments) {
+      let decoded: string
+      try {
+        decoded = decodeURIComponent(rawSegment)
+      } catch {
+        return new NextResponse("Bad Request", { status: 400 })
+      }
+      if (!isSafePathSegment(rawSegment) || !isSafePathSegment(decoded)) {
+        return new NextResponse("Bad Request", { status: 400 })
+      }
+    }
+
+    // Restrict lookups strictly to dedicated uploads directories (never bare /tmp or arbitrary public/ files)
+    const allowedRoots = [
+      path.resolve(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads"),
+      path.resolve(/*turbopackIgnore: true*/ process.cwd(), "uploads"),
+      path.resolve(os.tmpdir(), "uploads"),
     ]
 
     let filePath: string | null = null
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p) && !fs.statSync(p).isDirectory()) {
-        filePath = p
+    for (const root of allowedRoots) {
+      const resolved = resolveConfinedFile(root, pathSegments)
+      if (resolved) {
+        filePath = resolved
         break
       }
     }
 
     if (!filePath) {
-      // Graceful fallback for files uploaded in prior ephemeral containers or sample media
-      const fallbackPath = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "images", "scrim-1.jpg")
-      if (fs.existsSync(fallbackPath)) {
-        const fallbackBuffer = await fs.promises.readFile(fallbackPath)
-        return new NextResponse(fallbackBuffer, {
-          status: 200,
-          headers: {
-            "Content-Type": "image/jpeg",
-            "Cache-Control": "public, max-age=3600",
-          },
-        })
-      }
-      return new NextResponse("File Not Found", { status: 404 })
+      return new NextResponse("File Not Found", {
+        status: 404,
+        headers: { "X-Content-Type-Options": "nosniff" },
+      })
     }
 
     const fileBuffer = await fs.promises.readFile(filePath)
     const ext = path.extname(filePath).toLowerCase()
+    const contentType = MIME_MAP[ext] ?? "application/octet-stream"
 
-    let contentType = "application/octet-stream"
-    if (ext === ".jpg" || ext === ".jpeg") contentType = "image/jpeg"
-    else if (ext === ".png") contentType = "image/png"
-    else if (ext === ".gif") contentType = "image/gif"
-    else if (ext === ".webp") contentType = "image/webp"
-    else if (ext === ".svg") contentType = "image/svg+xml"
-    else if (ext === ".mp4") contentType = "video/mp4"
-    else if (ext === ".webm") contentType = "video/webm"
-    else if (ext === ".pdf") contentType = "application/pdf"
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    }
+
+    // Prevent active/scriptable content (e.g., SVG or unknown binary) from executing in origin context
+    if (ATTACHMENT_EXTENSIONS.has(ext) || !MIME_MAP[ext]) {
+      const safeDownloadName = path.basename(filePath).replace(/[^a-zA-Z0-9._-]/g, "_")
+      headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+      headers["Content-Disposition"] = `attachment; filename="${safeDownloadName}"`
+    }
 
     return new NextResponse(fileBuffer, {
       status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
+      headers,
     })
   } catch (err) {
     console.error("[Upload Route] Error serving file:", err)

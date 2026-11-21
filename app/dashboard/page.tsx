@@ -7,15 +7,17 @@ import { user as userTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { getUserBookings, splitBookings, getUserNotifications, getChampionRushWhatsappUrl, getChampionRush3pmWhatsappUrl, getMainWhatsappUrl } from "@/lib/queries/dashboard"
 import { getUserPendingImageRequests } from "@/app/actions/image-requests"
+import { getUserReferralRedemptionStatus } from "@/app/actions/referrals"
 import { BookingCard } from "@/components/dashboard/booking-card"
 import { PendingImageRequestsSection } from "@/components/dashboard/pending-image-requests"
+import { ReferralRedeemCard } from "@/components/dashboard/referral-redeem-card"
 import { Button } from "@/components/ui/button"
 import { bdt, timeAgo } from "@/lib/format"
 import { Swords, Trophy, CalendarCheck, Bell, Wallet, Plus, ArrowRight, UserCog } from "lucide-react"
 
 export default async function DashboardPage() {
   const user = await requireUser()
-  const [userRow, allBookings, recentNotifications, championRushWhatsappUrl, championRush3pmWhatsappUrl, mainWhatsappUrl, pendingImageRequests] = await Promise.all([
+  const [userRow, allBookings, recentNotifications, championRushWhatsappUrl, championRush3pmWhatsappUrl, mainWhatsappUrl, pendingImageRequests, referralRedemption] = await Promise.all([
     db.select({ balance: userTable.balance }).from(userTable).where(eq(userTable.id, user.id)).limit(1),
     getUserBookings(user.id),
     getUserNotifications(user.id, 5),
@@ -23,6 +25,7 @@ export default async function DashboardPage() {
     getChampionRush3pmWhatsappUrl(),
     getMainWhatsappUrl(),
     getUserPendingImageRequests(user.id),
+    getUserReferralRedemptionStatus(user.id),
   ])
   const balance = userRow[0]?.balance ?? 0
   const { upcoming, past } = splitBookings(allBookings)
@@ -55,6 +58,18 @@ export default async function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Gmail / New User 6-Hour One-Time Referral Code Redemption */}
+      <ReferralRedeemCard
+        isGoogleUser={referralRedemption.isGoogleUser}
+        alreadyRedeemed={referralRedemption.alreadyRedeemed}
+        referredByCode={referralRedemption.referredByCode}
+        referredByType={referralRedemption.referredByType}
+        canRedeem={referralRedemption.canRedeem}
+        windowExpired={referralRedemption.windowExpired}
+        windowEndsAt={referralRedemption.windowEndsAt}
+        compact
+      />
 
       {/* Account Balance Highlight Banner */}
       <div className="glass relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/30 via-zinc-900/60 to-zinc-900/40 p-5 shadow-sm">

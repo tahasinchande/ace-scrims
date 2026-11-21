@@ -12,6 +12,7 @@ import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import {
   normalizeMediaItems,
   normalizeVariablesHint,
+  resolveOrEnsureEmailTemplate,
   type NormalizedEmailTemplate,
 } from "@/lib/queries/email-templates"
 import { sendEmail, renderEmailFromTemplate, getProductionAppUrl } from "@/lib/email"
@@ -25,6 +26,7 @@ const mediaItemSchema = z.object({
 
 const updateTemplateSchema = z.object({
   id: z.string().min(1),
+  purposeKey: z.string().trim().max(80).optional(),
   label: z.string().trim().min(1, "Label is required").max(80),
   description: z.string().trim().max(300).optional().nullable(),
   isEnabled: z.boolean(),
@@ -92,6 +94,11 @@ export async function updateEmailTemplateAction(
       ...(m.name?.trim() ? { name: m.name.trim() } : {}),
     }))
 
+    const resolved = await resolveOrEnsureEmailTemplate(data.id, data.purposeKey)
+    if (!resolved) {
+      return { ok: false, error: "Email template not found." }
+    }
+
     const rows = await db
       .update(emailTemplates)
       .set({
@@ -110,7 +117,7 @@ export async function updateEmailTemplateAction(
         updatedBy: admin.id,
         updatedAt: new Date(),
       })
-      .where(eq(emailTemplates.id, data.id))
+      .where(eq(emailTemplates.id, resolved.id))
       .returning()
 
     if (rows.length === 0) {
@@ -140,11 +147,17 @@ export async function updateEmailTemplateAction(
 
 export async function toggleEmailTemplateAction(
   id: string,
-  nextEnabled: boolean
-): Promise<{ ok: boolean; isEnabled?: boolean; error?: string }> {
+  nextEnabled: boolean,
+  purposeKey?: string
+): Promise<{ ok: boolean; isEnabled?: boolean; template?: NormalizedEmailTemplate; error?: string }> {
   try {
     const admin = await requireAdmin()
     await ensureSchemaReady()
+
+    const resolved = await resolveOrEnsureEmailTemplate(id, purposeKey)
+    if (!resolved) {
+      return { ok: false, error: "Email template not found." }
+    }
 
     const rows = await db
       .update(emailTemplates)
@@ -153,19 +166,28 @@ export async function toggleEmailTemplateAction(
         updatedBy: admin.id,
         updatedAt: new Date(),
       })
-      .where(eq(emailTemplates.id, id))
+      .where(eq(emailTemplates.id, resolved.id))
       .returning()
 
     if (rows.length === 0) {
       return { ok: false, error: "Email template not found." }
     }
 
-    await logActivity(admin.id, admin.role, "toggle_email_template", rows[0].purposeKey, {
+    const updated = rows[0]
+    await logActivity(admin.id, admin.role, "toggle_email_template", updated.purposeKey, {
       isEnabled: nextEnabled,
     })
 
     revalidatePath("/admin/email")
-    return { ok: true, isEnabled: nextEnabled }
+    return {
+      ok: true,
+      isEnabled: nextEnabled,
+      template: {
+        ...updated,
+        mediaItems: normalizeMediaItems(updated.mediaItems),
+        variablesHint: normalizeVariablesHint(updated.variablesHint),
+      },
+    }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to toggle template" }
   }
@@ -256,27 +278,23 @@ export async function createCustomEmailTemplateAction(
 }
 
 export async function deleteEmailTemplateAction(
-  id: string
+  id: string,
+  purposeKey?: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const admin = await requireAdmin()
     await ensureSchemaReady()
 
-    const rows = await db
-      .select()
-      .from(emailTemplates)
-      .where(eq(emailTemplates.id, id))
-      .limit(1)
-
-    if (rows.length === 0) {
+    const resolved = await resolveOrEnsureEmailTemplate(id, purposeKey)
+    if (!resolved) {
       return { ok: false, error: "Template not found." }
     }
-    if (rows[0].isCore) {
+    if (resolved.isCore) {
       return { ok: false, error: "Core system email purposes cannot be deleted. You can toggle them OFF instead." }
     }
 
-    await db.delete(emailTemplates).where(eq(emailTemplates.id, id))
-    await logActivity(admin.id, admin.role, "delete_email_template", rows[0].purposeKey)
+    await db.delete(emailTemplates).where(eq(emailTemplates.id, resolved.id))
+    await logActivity(admin.id, admin.role, "delete_email_template", resolved.purposeKey)
 
     revalidatePath("/admin/email")
     return { ok: true }
@@ -287,7 +305,8 @@ export async function deleteEmailTemplateAction(
 
 export async function sendTestEmailTemplateAction(
   templateId: string,
-  toEmail: string
+  toEmail: string,
+  purposeKey?: string
 ): Promise<{ ok: boolean; error?: string; provider?: string }> {
   try {
     const admin = await requireAdmin()
@@ -298,20 +317,15 @@ export async function sendTestEmailTemplateAction(
       return { ok: false, error: "Please provide a valid recipient email address." }
     }
 
-    const rows = await db
-      .select()
-      .from(emailTemplates)
-      .where(eq(emailTemplates.id, templateId))
-      .limit(1)
-
-    if (rows.length === 0) {
+    const resolved = await resolveOrEnsureEmailTemplate(templateId, purposeKey)
+    if (!resolved) {
       return { ok: false, error: "Template not found." }
     }
 
     const tpl: NormalizedEmailTemplate = {
-      ...rows[0],
-      mediaItems: normalizeMediaItems(rows[0].mediaItems),
-      variablesHint: normalizeVariablesHint(rows[0].variablesHint),
+      ...resolved,
+      mediaItems: normalizeMediaItems(resolved.mediaItems),
+      variablesHint: normalizeVariablesHint(resolved.variablesHint),
     }
 
     const appUrl = getProductionAppUrl()

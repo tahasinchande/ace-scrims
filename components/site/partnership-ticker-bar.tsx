@@ -1,8 +1,14 @@
-import { getActivePartnershipItems } from "@/lib/queries/partnerships"
+import {
+  getActivePartnershipItems,
+  getPartnershipMarqueeSettings,
+} from "@/lib/queries/partnerships"
 import { PartnershipTicker } from "@/components/site/partnership-ticker"
 
-export async function PartnershipTickerBar() {
-  const items = await getActivePartnershipItems()
-  if (items.length === 0) return null
-  return <PartnershipTicker items={items} />
+export async function PartnershipTickerBar({ compact = false }: { compact?: boolean }) {
+  const [items, marqueeSettings] = await Promise.all([
+    getActivePartnershipItems(),
+    getPartnershipMarqueeSettings(),
+  ])
+  if (!marqueeSettings.enabled || items.length === 0) return null
+  return <PartnershipTicker items={items} marqueeSettings={marqueeSettings} compact={compact} />
 }

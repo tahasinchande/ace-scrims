@@ -8,6 +8,10 @@ import { db } from "@/lib/db"
 import { partnershipItems } from "@/lib/db/schema"
 import { requireAdmin, logActivity } from "@/lib/session"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import {
+  savePartnershipMarqueeSettings,
+  type PartnershipMarqueeSettings,
+} from "@/lib/queries/partnerships"
 
 const partnershipSchema = z.object({
   partnerName: z.string().trim().min(2, "Partner name is required").max(80),
@@ -35,10 +39,42 @@ const partnershipSchema = z.object({
   isActive: z.boolean().optional(),
 })
 
+const marqueeSettingsSchema = z.object({
+  enabled: z.boolean(),
+  heading: z.string().trim().min(2, "Section heading is required").max(80),
+  subheading: z.string().trim().max(180),
+  speedSeconds: z.coerce.number().int().min(10).max(90),
+  direction: z.enum(["left", "right"]),
+  showBadges: z.boolean(),
+})
+
 function revalidatePartnershipPaths() {
   revalidatePath("/")
+  revalidatePath("/partnerships")
   revalidatePath("/scrims")
   revalidatePath("/admin/partnerships")
+}
+
+export async function updatePartnershipMarqueeSettingsAction(
+  input: PartnershipMarqueeSettings
+) {
+  const admin = await requireAdmin()
+  const parsed = marqueeSettingsSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid marquee settings.",
+    }
+  }
+
+  const saved = await savePartnershipMarqueeSettings(parsed.data)
+  await logActivity(admin.id, admin.role, "partnerships.marquee_settings.update", "partnership_marquee_config", {
+    enabled: saved.enabled,
+    speedSeconds: saved.speedSeconds,
+    direction: saved.direction,
+  })
+  revalidatePartnershipPaths()
+  return { ok: true as const, settings: saved }
 }
 
 export async function createPartnershipItemAction(input: {

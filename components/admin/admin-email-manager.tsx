@@ -115,12 +115,18 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
 
   function handleMasterToggle(tpl: NormalizedEmailTemplate, nextValue: boolean) {
     startTransition(async () => {
-      const res = await toggleEmailTemplateAction(tpl.id, nextValue)
+      const res = await toggleEmailTemplateAction(tpl.id, nextValue, tpl.purposeKey)
       if (res.ok) {
+        const updatedTpl = res.template
         setTemplates((prev) =>
-          prev.map((item) => (item.id === tpl.id ? { ...item, isEnabled: nextValue } : item))
+          prev.map((item) =>
+            item.id === tpl.id || item.purposeKey === tpl.purposeKey
+              ? updatedTpl ?? { ...item, isEnabled: nextValue }
+              : item
+          )
         )
-        if (activeTemplate?.id === tpl.id) {
+        if (activeTemplate?.id === tpl.id || activeTemplate?.purposeKey === tpl.purposeKey) {
+          if (updatedTpl) setSelectedId(updatedTpl.id)
           setIsEnabled(nextValue)
         }
         toast.success(`${tpl.label} email trigger ${nextValue ? "enabled" : "disabled"}.`)
@@ -138,6 +144,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
     startTransition(async () => {
       const res = await updateEmailTemplateAction({
         id: activeTemplate.id,
+        purposeKey: activeTemplate.purposeKey,
         label,
         description,
         isEnabled,
@@ -153,9 +160,13 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
       })
 
       if (res.ok && res.template) {
+        const saved = res.template
         setTemplates((prev) =>
-          prev.map((item) => (item.id === res.template!.id ? res.template! : item))
+          prev.map((item) =>
+            item.id === activeTemplate.id || item.purposeKey === saved.purposeKey ? saved : item
+          )
         )
+        setSelectedId(saved.id)
         toast.success(`"${label}" template saved successfully!`)
         router.refresh()
       } else {
@@ -261,10 +272,11 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   function executeDeleteCustom() {
     if (!pendingDeleteId) return
     const targetId = pendingDeleteId
+    const targetTpl = templates.find((t) => t.id === targetId)
     setPendingDeleteId(null)
 
     startTransition(async () => {
-      const res = await deleteEmailTemplateAction(targetId)
+      const res = await deleteEmailTemplateAction(targetId, targetTpl?.purposeKey)
       if (res.ok) {
         const remaining = templates.filter((t) => t.id !== targetId)
         setTemplates(remaining)
@@ -281,7 +293,11 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   function handleSendTest() {
     if (!activeTemplate) return
     startTransition(async () => {
-      const res = await sendTestEmailTemplateAction(activeTemplate.id, testEmailTo)
+      const res = await sendTestEmailTemplateAction(
+        activeTemplate.id,
+        testEmailTo,
+        activeTemplate.purposeKey
+      )
       if (res.ok) {
         toast.success(`Test email sent to ${testEmailTo}${res.provider ? ` via ${res.provider}` : ""}!`)
       } else {

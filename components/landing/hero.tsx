@@ -178,7 +178,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
 
             {/* Cyber Stats Cards */}
             <motion.dl variants={itemFadeUp} className="mt-10 grid max-w-lg grid-cols-3 gap-3 sm:gap-4">
-              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/25 bg-black/55 backdrop-blur-md transition-all hover:border-orange-500/45 shadow-lg shadow-black/40">
+              <div className="dc-surface dc-card-hover rounded-xl p-3.5 sm:p-4">
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Zap className="size-3.5 text-orange-400" aria-hidden />
                   {t("scrims_tonight", "Nightly")}
@@ -186,7 +186,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.scrimsTonight || 12}</dd>
               </div>
 
-              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/25 bg-black/55 backdrop-blur-md transition-all hover:border-orange-500/45 shadow-lg shadow-black/40">
+              <div className="dc-surface dc-card-hover rounded-xl p-3.5 sm:p-4">
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Users className="size-3.5 text-amber-400" aria-hidden />
                   {t("team_slots", "Teams")}
@@ -194,7 +194,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.totalTeams || 144}</dd>
               </div>
 
-              <div className="glass rounded-xl p-3.5 sm:p-4 border border-orange-500/25 bg-black/55 backdrop-blur-md transition-all hover:border-orange-500/45 shadow-lg shadow-black/40">
+              <div className="dc-surface dc-card-hover rounded-xl p-3.5 sm:p-4">
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Trophy className="size-3.5 text-amber-400" aria-hidden />
                   {t("scrim_format", "Format")}

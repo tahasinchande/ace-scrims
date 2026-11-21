@@ -7,17 +7,24 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Countdown } from "@/components/site/countdown"
 import { bdt, scrimStatus, scrimStartDate } from "@/lib/format"
-import { Clock, Users, Trophy, MapPin, Award } from "lucide-react"
+import { Clock, Users, Trophy, MapPin, Award, ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { getRandomScrimImage } from "@/lib/scrim-images"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
 
 const toneStyles: Record<string, string> = {
-  open: "bg-success/15 text-success border-success/30",
-  filling: "bg-warning/15 text-warning border-warning/30",
-  full: "bg-destructive/15 text-destructive border-destructive/30",
-  closed: "bg-muted text-muted-foreground border-border",
+  open: "bg-emerald-500/15 text-emerald-300 border-emerald-400/35",
+  filling: "bg-amber-500/15 text-amber-300 border-amber-400/35",
+  full: "bg-rose-500/15 text-rose-300 border-rose-400/35",
+  closed: "bg-zinc-500/15 text-zinc-300 border-white/15",
+}
+
+const toneDots: Record<string, string> = {
+  open: "bg-emerald-400",
+  filling: "bg-amber-400",
+  full: "bg-rose-400",
+  closed: "bg-zinc-400",
 }
 
 export type ScrimCardData = {
@@ -48,10 +55,12 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
     scrim.startTime,
   )
   const remaining = Math.max(0, scrim.maxTeams - scrim.confirmedTeams)
+  const fillPercent = Math.min(100, Math.round((scrim.confirmedTeams / Math.max(1, scrim.maxTeams)) * 100))
   const start = scrimStartDate(scrim.scrimDate, scrim.startTime)
-  const banner = scrim.bannerUrl && !scrim.bannerUrl.includes("map-") 
-    ? scrim.bannerUrl 
-    : getRandomScrimImage(scrim.slug || scrim.title)
+  const banner =
+    scrim.bannerUrl && !scrim.bannerUrl.includes("map-")
+      ? scrim.bannerUrl
+      : getRandomScrimImage(scrim.slug || scrim.title)
   const bookable = status.tone === "open" || status.tone === "filling"
   const prizeBreakdown = getScrimPrizeBreakdown(scrim)
 
@@ -85,95 +94,133 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 30, scale: 0.96 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.4, type: "spring", stiffness: 200 }}
-      whileHover={{ y: -4 }}
-      className="group glass relative overflow-hidden rounded-2xl border border-border/75 shadow-xl shadow-black/35 transition-all duration-300 hover:shadow-primary/15 hover:border-primary/50"
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="group dc-surface dc-card-hover relative flex flex-col overflow-hidden rounded-2xl"
     >
+      {/* Top-edge precision accent beam (DeepCharts signature sheen) */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent opacity-65 transition-opacity duration-300 group-hover:opacity-100"
+        aria-hidden
+      />
+
       <Link href={`/scrims/${scrim.slug}`} className="absolute inset-0 z-10" aria-label={`View ${scrim.title}`} />
 
-      <div className="relative h-44 overflow-hidden bg-muted/40">
+      {/* Banner Media Header */}
+      <div className="relative h-44 w-full overflow-hidden bg-[#0a0e18]">
         <Image
           src={banner || getRandomScrimImage(scrim.slug || scrim.title || "scrim")}
           alt={`${scrim.map} map`}
           fill
-          unoptimized
+          referrerPolicy="no-referrer"
           className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
           sizes="(max-width: 768px) 100vw, 33vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-black/25" />
-        <div className="absolute left-4 top-4 flex gap-2">
-          <Badge variant="outline" className={cn("border font-semibold shadow-sm backdrop-blur-md", toneStyles[status.tone])}>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f1b] via-[#0b0f1b]/45 to-black/25" />
+
+        {/* Status & Countdown Bar */}
+        <div className="absolute inset-x-3.5 top-3.5 flex items-center justify-between gap-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold tracking-wide backdrop-blur-md shadow-sm",
+              toneStyles[status.tone]
+            )}
+          >
+            <span className={cn("size-1.5 rounded-full", toneDots[status.tone])} aria-hidden />
             {translatedStatusLabel}
           </Badge>
-        </div>
-        <div className="absolute right-4 top-4">
-          <Badge variant="outline" className="glass border-border/80 font-mono text-xs tabular-nums shadow-sm">
+
+          <Badge
+            variant="outline"
+            className="rounded-lg border border-white/12 bg-[#080b14]/80 px-2.5 py-1 font-mono text-[11px] font-medium text-foreground/95 tabular-nums backdrop-blur-md shadow-sm"
+          >
             <Countdown targetIso={start.toISOString()} />
           </Badge>
         </div>
+
+        {/* Bottom-left Category / Mode Tag */}
+        {scrim.category && (
+          <div className="absolute bottom-3 left-3.5">
+            <span className="inline-flex items-center rounded-md border border-white/10 bg-[#080b14]/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 backdrop-blur-md">
+              {scrim.category}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col gap-4 p-5">
+      {/* Card Body */}
+      <div className="flex flex-1 flex-col justify-between gap-4 p-5">
+        {/* Title + Start Time + Entry Fee */}
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="font-display text-lg font-bold leading-tight tracking-wide text-balance group-hover:text-primary transition-colors">{scrim.title}</h3>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Clock className="size-3.5 shrink-0 text-primary/80" aria-hidden />
+          <div className="min-w-0">
+            <h3 className="font-display text-[1.2rem] font-bold leading-snug tracking-wide text-foreground transition-colors group-hover:text-primary text-balance">
+              {scrim.title}
+            </h3>
+            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-muted-foreground">
+              <Clock className="size-3.5 shrink-0 text-primary/85" aria-hidden />
               <span className="tabular-nums">
-                <span className="font-bold text-foreground">{timeDigits}</span>
+                <span className="font-semibold text-foreground/95">{timeDigits}</span>
                 {timePeriod}
               </span>
-              {" · "}
-              {matchesLabel}
+              <span className="text-white/25">·</span>
+              <span className="truncate">{matchesLabel}</span>
             </p>
           </div>
-          <div className="text-right shrink-0">
-            <p className="font-display text-xl font-bold text-primary tabular-nums">
+
+          <div className="shrink-0 rounded-xl border border-primary/20 bg-primary/[0.07] px-3 py-1.5 text-right">
+            <p className="font-display text-lg font-bold leading-none text-primary tabular-nums">
               {scrim.priceBdt === 0 ? "FREE" : bdt(scrim.priceBdt)}
             </p>
-            <p className="text-[11px] font-medium text-muted-foreground">
+            <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               {scrim.priceBdt === 0 ? "free entry" : t("price_label", "per team")}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
-            <Trophy className="mx-auto mb-1 size-4 text-primary" aria-hidden />
-            <p className="text-xs font-bold tabular-nums text-foreground">
-              {scrim.prizePoolBdt === 0 ? "Fun / Practice" : bdt(scrim.prizePoolBdt)}
+        {/* 3-Column DeepCharts Metric Grid */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="dc-metric-cell rounded-xl px-2.5 py-2.5 text-center">
+            <Trophy className="mx-auto mb-1 size-3.5 text-primary" aria-hidden />
+            <p className="text-[12px] font-bold tabular-nums text-foreground truncate">
+              {scrim.prizePoolBdt === 0 ? "Practice" : bdt(scrim.prizePoolBdt)}
             </p>
-            <p className="text-[10px] text-muted-foreground">{t("prize_label", "Prize Pool")}</p>
+            <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
+              {t("prize_label", "Prize Pool")}
+            </p>
           </div>
-          <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
-            <MapPin className="mx-auto mb-1 size-4 text-accent" aria-hidden />
-            <p className="text-xs font-bold uppercase tracking-wider text-accent truncate" title={scrim.mode}>
+
+          <div className="dc-metric-cell rounded-xl px-2.5 py-2.5 text-center">
+            <MapPin className="mx-auto mb-1 size-3.5 text-violet-400" aria-hidden />
+            <p className="text-[11px] font-bold uppercase tracking-wider text-violet-300 truncate" title={scrim.mode}>
               {scrim.mode || "BATTLE ROYALE"}
             </p>
-            <p className="text-[10px] text-muted-foreground truncate" title={scrim.category || scrim.map}>
+            <p className="mt-0.5 text-[10px] font-medium text-muted-foreground truncate" title={scrim.category || scrim.map}>
               {scrim.category || scrim.map}
             </p>
           </div>
-          <div className="rounded-lg border border-border/50 bg-secondary/50 px-2 py-2">
-            <Users className="mx-auto mb-1 size-4 text-info" aria-hidden />
-            <p className="text-xs font-bold tabular-nums text-foreground">
+
+          <div className="dc-metric-cell rounded-xl px-2.5 py-2.5 text-center">
+            <Users className="mx-auto mb-1 size-3.5 text-sky-400" aria-hidden />
+            <p className="text-[12px] font-bold tabular-nums text-foreground">
               {scrim.confirmedTeams}/{scrim.maxTeams}
             </p>
-            <p className="text-[10px] text-muted-foreground">{t("team_slots", "Teams")}</p>
+            <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
+              {t("team_slots", "Teams")}
+            </p>
           </div>
         </div>
 
         {/* Prize Distribution Breakdown */}
-        <div className="rounded-xl border border-border/60 bg-secondary/35 p-2.5">
-          <div className="flex items-center justify-between text-[11px] mb-1.5 font-semibold">
-            <span className="flex items-center gap-1 text-amber-400">
-              <Award className="size-3.5" />
+        <div className="dc-metric-cell rounded-xl p-3">
+          <div className="mb-2 flex items-center justify-between text-[11px] font-semibold">
+            <span className="flex items-center gap-1.5 text-amber-300">
+              <Award className="size-3.5 text-amber-400" aria-hidden />
               Prize Breakdown
             </span>
-            <span className="text-muted-foreground font-mono text-[10px] tabular-nums">
+            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
               Pool: {bdt(prizeBreakdown.totalPrizeBdt)}
             </span>
           </div>
@@ -182,14 +229,14 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
               <span
                 key={p.rank}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                  "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold tabular-nums",
                   p.rank === 1
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                    ? "border-amber-400/30 bg-amber-500/15 text-amber-200"
                     : p.rank === 2
-                    ? "bg-zinc-400/15 text-zinc-300 border border-zinc-400/25"
-                    : p.rank === 3
-                    ? "bg-amber-700/20 text-amber-400 border border-amber-700/30"
-                    : "bg-secondary text-muted-foreground border border-border/50"
+                      ? "border-zinc-400/25 bg-zinc-400/10 text-zinc-200"
+                      : p.rank === 3
+                        ? "border-orange-500/30 bg-orange-500/15 text-orange-200"
+                        : "border-white/10 bg-white/[0.04] text-muted-foreground"
                 )}
               >
                 <span className="opacity-75">{p.place}:</span>
@@ -199,53 +246,66 @@ export function ScrimCard({ scrim }: { scrim: ScrimCardData }) {
           </div>
         </div>
 
+        {/* Slot Availability Progress */}
         <div>
           <div className="mb-1.5 flex items-center justify-between text-xs tabular-nums">
-            <span className="font-bold text-accent">{remaining} {t("slots_left", "spots left")}</span>
-            <span className="text-muted-foreground font-mono text-[11px]">{Math.round((scrim.confirmedTeams / scrim.maxTeams) * 100)}%</span>
+            <span className="font-semibold text-foreground/90">
+              <span className="text-primary font-bold">{remaining}</span>{" "}
+              <span className="text-muted-foreground font-normal">{t("slots_left", "spots left")}</span>
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground">{fillPercent}% filled</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-md bg-secondary/90 border border-border/40" role="progressbar" aria-valuenow={scrim.confirmedTeams} aria-valuemin={0} aria-valuemax={scrim.maxTeams} aria-label="Slots filled">
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-white/[0.07] ring-1 ring-white/[0.05]"
+            role="progressbar"
+            aria-valuenow={scrim.confirmedTeams}
+            aria-valuemin={0}
+            aria-valuemax={scrim.maxTeams}
+            aria-label="Slots filled"
+          >
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, (scrim.confirmedTeams / scrim.maxTeams) * 100)}%` }}
+              animate={{ width: `${fillPercent}%` }}
               transition={{ duration: 0.6, ease: "easeOut" }}
               className={cn(
-                "h-full rounded-md",
-                status.tone === "full" ? "bg-destructive" : status.tone === "filling" ? "bg-warning" : "bg-primary",
+                "h-full rounded-full",
+                status.tone === "full"
+                  ? "bg-rose-500"
+                  : status.tone === "filling"
+                    ? "bg-amber-400"
+                    : "bg-gradient-to-r from-orange-500 to-amber-400"
               )}
             />
           </div>
         </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.96 }}
-          className="relative z-20"
-        >
+        {/* Action CTA */}
+        <div className="relative z-20 pt-0.5">
           {bookable ? (
             <Button
               asChild
-              className="h-10 w-full font-semibold transition-all duration-300 glow-primary button-shimmer"
+              className="h-10 w-full rounded-xl font-semibold tracking-wide transition-all duration-200 glow-primary button-shimmer"
               variant="default"
             >
-              <Link href={`/book/${scrim.slug}`}>
-                {t("book_now", "Book Spot")}
+              <Link href={`/book/${scrim.slug}`} className="inline-flex items-center justify-center gap-1.5">
+                <span>{t("book_now", "Book Spot")}</span>
+                <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
             </Button>
           ) : (
             <Button
               disabled
-              className="h-10 w-full font-semibold opacity-80 cursor-not-allowed"
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] font-semibold text-muted-foreground opacity-85 cursor-not-allowed"
               variant="secondary"
             >
               {scrim.status === "not_hosted"
                 ? t("status_registration_closed", "Registration Closed")
                 : status.tone === "full"
-                ? t("status_full", "Lobby Full")
-                : t("status_registration_closed", "Registration Closed")}
+                  ? t("status_full", "Lobby Full")
+                  : t("status_registration_closed", "Registration Closed")}
             </Button>
           )}
-        </motion.div>
+        </div>
       </div>
     </motion.article>
   )

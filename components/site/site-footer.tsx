@@ -165,6 +165,9 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             <Link href="/creators" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               Creator Program
             </Link>
+            <Link href="/partnerships" className="text-sm text-muted-foreground transition-colors hover:text-primary">
+              Partnerships
+            </Link>
             <Link href="/report" className="text-sm text-muted-foreground transition-colors hover:text-primary">
               Submit a Report
             </Link>

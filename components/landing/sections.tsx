@@ -111,17 +111,16 @@ export function Features() {
         {features.map((f, i) => (
           <motion.div
             key={f.title}
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.4, delay: i * 0.08 }}
-            whileHover={{ y: -4, borderColor: "rgba(249, 115, 22, 0.5)" }}
-            className="glass group relative rounded-2xl p-6 transition-all duration-300 border border-border/70 bg-card/55 hover:shadow-xl hover:shadow-orange-500/10 overflow-hidden"
+            transition={{ duration: 0.35, delay: i * 0.06 }}
+            className="dc-surface dc-card-hover group relative rounded-2xl p-6 overflow-hidden"
           >
-            {/* Subtle cyber scan line on hover */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            {/* Precision top hairline glow */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-45 group-hover:opacity-100 transition-opacity" />
 
-            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-orange-950/45 border border-orange-500/25 ${f.color} transition-transform group-hover:scale-105`}>
+            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.09] ${f.color} transition-transform group-hover:scale-105 group-hover:border-primary/35`}>
               <f.icon className="size-5" aria-hidden />
             </span>
             <h3 className="font-display text-lg font-bold tracking-wide text-foreground">{f.title}</h3>
@@ -199,13 +198,13 @@ export function HowItWorks() {
           {steps.map((s, i) => (
             <motion.li
               key={s.step}
-              initial={{ opacity: 0, y: 25 }}
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              whileHover={{ y: -4 }}
-              className="glass group relative rounded-2xl p-6 transition-all border border-border/75 bg-card/55 hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/10 cursor-pointer flex flex-col justify-between"
+              transition={{ duration: 0.35, delay: i * 0.08 }}
+              className="dc-surface dc-card-hover group relative rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
             >
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <Link
                 href={s.actionHref}
                 onClick={s.onClick}
@@ -213,10 +212,10 @@ export function HowItWorks() {
                 aria-label={`${s.title} — ${s.actionText}`}
               />
               <div>
-                <span className="absolute right-5 top-4 font-display text-4xl font-black text-orange-500/20 group-hover:text-orange-500/40 transition-colors tabular-nums" aria-hidden>
+                <span className="absolute right-5 top-4 font-display text-4xl font-black text-primary/20 group-hover:text-primary/40 transition-colors tabular-nums" aria-hidden>
                   {s.step}
                 </span>
-                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-orange-950/45 border border-orange-500/30 text-orange-400 shadow-sm group-hover:scale-105 group-hover:border-orange-500 transition-all">
+                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.09] text-orange-400 shadow-sm group-hover:scale-105 group-hover:border-primary/40 transition-all">
                   <s.icon className="size-5" aria-hidden />
                 </span>
                 <h3 className="font-display text-lg font-bold tracking-wide text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
@@ -225,7 +224,7 @@ export function HowItWorks() {
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs font-semibold text-orange-400 group-hover:text-orange-300">
+              <div className="mt-4 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-orange-400 group-hover:text-orange-300">
                 <span>{s.actionText}</span>
                 <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
               </div>
@@ -353,7 +352,7 @@ export function Faq() {
             >
               <AccordionItem
                 value={`item-${i}`}
-                className="glass rounded-xl border border-border/60 px-5 last:border-b hover:border-primary/40 transition-colors"
+                className="dc-surface rounded-xl px-5 last:border-b hover:border-primary/40 transition-colors"
               >
                 <AccordionTrigger className="text-left font-semibold hover:no-underline">{f.q}</AccordionTrigger>
                 <AccordionContent className="text-sm leading-relaxed text-muted-foreground flex flex-col gap-2">
@@ -394,11 +393,11 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
   return (
     <section id="contact" className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="contact-heading">
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
-        className="glass relative overflow-hidden rounded-3xl p-8 md:p-12 border border-orange-500/30 bg-black/60 shadow-2xl"
+        transition={{ duration: 0.45 }}
+        className="dc-surface relative overflow-hidden rounded-3xl p-8 md:p-12 border-primary/25 shadow-2xl"
       >
         <div className="absolute -right-20 -top-20 size-64 rounded-full bg-orange-600/15 blur-3xl" aria-hidden />
         <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-amber-500/10 blur-3xl" aria-hidden />

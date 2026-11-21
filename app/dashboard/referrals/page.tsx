@@ -5,8 +5,8 @@ import { DashboardReferralsView } from "@/components/dashboard/referrals-view"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Referrals — Dashboard",
-  description: "Share your referral code and track Ace Scrims referral rewards.",
+  title: "Referrals & Creator Wallet — Dashboard",
+  description: "Share your referral code, redeem a welcome code, and manage your Creator Wallet withdrawals.",
 }
 
 export default async function DashboardReferralsPage() {
@@ -19,6 +19,8 @@ export default async function DashboardReferralsPage() {
       settings={data.settings}
       referredByCode={data.referredByCode}
       referredByType={data.referredByType}
+      redemption={data.redemption}
+      creatorWallet={data.creatorWallet}
       referrals={data.referrals}
       stats={data.stats}
     />

@@ -11,6 +11,7 @@ export default async function AdminReferralsPage() {
       initialSettings={data.settings}
       applications={data.applications}
       referrals={data.referrals}
+      withdrawals={data.withdrawals}
       summary={data.summary}
     />
   )

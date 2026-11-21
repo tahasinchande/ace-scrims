@@ -388,7 +388,7 @@ export async function createBooking(
             userId: user.id,
             type: "scrim_registration",
             amountBdt: scrim.priceBdt,
-            balanceBefore: currentBalance,
+            balanceBefore: newBal + scrim.priceBdt,
             balanceAfter: newBal,
             description: `Scrim Registration: "${scrim.title}" (${scrim.startTime}) — Slot #${confirmedSlotNumber}`,
             referenceId: bookingId,

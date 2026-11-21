@@ -19,6 +19,7 @@ export const user = pgTable("user", {
   phone: text("phone"),
   role: text("role").notNull().default("user"), // user | moderator | admin
   balance: integer("balance").notNull().default(0),
+  creatorBalance: integer("creatorBalance").notNull().default(0),
   referralCode: text("referralCode").unique(),
   referredByCode: text("referredByCode"),
   referredByUserId: text("referredByUserId"),
@@ -495,6 +496,12 @@ export const referrals = pgTable("referrals", {
   creatorApplicationId: text("creatorApplicationId"),
   qualifyingScrimsCount: integer("qualifyingScrimsCount").notNull().default(0),
   requiredScrimsCount: integer("requiredScrimsCount").notNull().default(1),
+  qualifyingSpendBdt: integer("qualifyingSpendBdt").notNull().default(0),
+  requiredSpendBdt: integer("requiredSpendBdt").notNull().default(0),
+  rewardRecipient: text("rewardRecipient").notNull().default("referrer"), // referrer | referred_user
+  creatorSignupPaidBdt: integer("creatorSignupPaidBdt").notNull().default(0),
+  creatorSignupPaidAt: timestamp("creatorSignupPaidAt"),
+  creatorWalletTxId: text("creatorWalletTxId"),
   status: text("status").notNull().default("pending"), // pending | rewarded
   rewardAmountBdt: integer("rewardAmountBdt").notNull().default(0),
   rewardModeUsed: text("rewardModeUsed"), // fixed | random
@@ -532,6 +539,41 @@ export const partnershipItems = pgTable("partnership_items", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })
 
+export const creatorWalletTransactions = pgTable("creator_wallet_transactions", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  creatorApplicationId: text("creatorApplicationId"),
+  type: text("type").notNull(), // signup_payout | withdrawal | withdrawal_refund | adjustment
+  amountBdt: integer("amountBdt").notNull(),
+  balanceBefore: integer("balanceBefore").notNull().default(0),
+  balanceAfter: integer("balanceAfter").notNull().default(0),
+  description: text("description"),
+  referenceId: text("referenceId"),
+  status: text("status").notNull().default("completed"), // completed | pending | rejected
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+})
+
+export const creatorWithdrawals = pgTable("creator_withdrawals", {
+  id: text("id").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  creatorApplicationId: text("creatorApplicationId"),
+  amountBdt: integer("amountBdt").notNull(),
+  whatsapp: text("whatsapp").notNull(),
+  payoutMethod: text("payoutMethod").notNull(),
+  payoutAccount: text("payoutAccount"),
+  status: text("status").notNull().default("pending"), // pending | paid | rejected
+  adminNote: text("adminNote"),
+  processedBy: text("processedBy"),
+  processedAt: timestamp("processedAt"),
+  walletTxId: text("walletTxId"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+})
+
 export type ChatSession = typeof chatSessions.$inferSelect
 export type ChatModerationLog = typeof chatModerationLogs.$inferSelect
 export type EmailLog = typeof emailLogs.$inferSelect
@@ -539,3 +581,5 @@ export type CreatorApplication = typeof creatorApplications.$inferSelect
 export type Referral = typeof referrals.$inferSelect
 export type ReferralQualifyingBooking = typeof referralQualifyingBookings.$inferSelect
 export type PartnershipItem = typeof partnershipItems.$inferSelect
+export type CreatorWalletTransaction = typeof creatorWalletTransactions.$inferSelect
+export type CreatorWithdrawal = typeof creatorWithdrawals.$inferSelect

@@ -39,7 +39,7 @@ function isBuildTimeContext(): boolean {
 }
 
 const SCHEMA_VERSION_KEY = "schema_migration_version"
-const CURRENT_SCHEMA_VERSION = "v2026_11_20_referrals_partnerships"
+const CURRENT_SCHEMA_VERSION = "v2026_11_21_creator_wallet_marquee_v2"
 
 async function ensureSchema() {
   if (!connectionString || isBuildTimeContext()) return
@@ -567,7 +567,45 @@ async function ensureSchema() {
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
-        `CREATE INDEX IF NOT EXISTS "idx_partnership_items_active_sort" ON "partnership_items" ("isActive", "sortOrder", "createdAt")`
+        `CREATE INDEX IF NOT EXISTS "idx_partnership_items_active_sort" ON "partnership_items" ("isActive", "sortOrder", "createdAt")`,
+        `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "creatorBalance" integer NOT NULL DEFAULT 0`,
+        `ALTER TABLE "referrals" ADD COLUMN IF NOT EXISTS "qualifyingSpendBdt" integer NOT NULL DEFAULT 0`,
+        `ALTER TABLE "referrals" ADD COLUMN IF NOT EXISTS "requiredSpendBdt" integer NOT NULL DEFAULT 0`,
+        `ALTER TABLE "referrals" ADD COLUMN IF NOT EXISTS "rewardRecipient" text NOT NULL DEFAULT 'referrer'`,
+        `ALTER TABLE "referrals" ADD COLUMN IF NOT EXISTS "creatorSignupPaidBdt" integer NOT NULL DEFAULT 0`,
+        `ALTER TABLE "referrals" ADD COLUMN IF NOT EXISTS "creatorSignupPaidAt" timestamp`,
+        `ALTER TABLE "referrals" ADD COLUMN IF NOT EXISTS "creatorWalletTxId" text`,
+        `CREATE TABLE IF NOT EXISTS "creator_wallet_transactions" (
+          "id" text PRIMARY KEY,
+          "userId" text NOT NULL,
+          "creatorApplicationId" text,
+          "type" text NOT NULL,
+          "amountBdt" integer NOT NULL,
+          "balanceBefore" integer NOT NULL DEFAULT 0,
+          "balanceAfter" integer NOT NULL DEFAULT 0,
+          "description" text,
+          "referenceId" text,
+          "status" text NOT NULL DEFAULT 'completed',
+          "createdAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE INDEX IF NOT EXISTS "idx_creator_wallet_user_created" ON "creator_wallet_transactions" ("userId", "createdAt")`,
+        `CREATE TABLE IF NOT EXISTS "creator_withdrawals" (
+          "id" text PRIMARY KEY,
+          "userId" text NOT NULL,
+          "creatorApplicationId" text,
+          "amountBdt" integer NOT NULL,
+          "whatsapp" text NOT NULL,
+          "payoutMethod" text NOT NULL,
+          "payoutAccount" text,
+          "status" text NOT NULL DEFAULT 'pending',
+          "adminNote" text,
+          "processedBy" text,
+          "processedAt" timestamp,
+          "walletTxId" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        )`,
+        `CREATE INDEX IF NOT EXISTS "idx_creator_withdrawals_user_status" ON "creator_withdrawals" ("userId", "status", "createdAt")`
       ]
 
       // Execute DDL in compact multi-statement batches to minimize remote Neon round-trips

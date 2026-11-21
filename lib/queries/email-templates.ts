@@ -1,6 +1,5 @@
 import "server-only"
 
-import { randomUUID } from "crypto"
 import { db, ensureSchemaReady } from "@/lib/db"
 import { emailTemplates, settings, type EmailTemplate, type EmailTemplateMediaItem } from "@/lib/db/schema"
 import { and, asc, eq, isNull } from "drizzle-orm"
@@ -342,7 +341,7 @@ export function getCoreEmailDefaultEnabled(purposeKey: string): boolean {
   return found ? found.defaultEnabled : true
 }
 
-async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
+export async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
   await ensureSchemaReady()
   const existing = await db.select({ purposeKey: emailTemplates.purposeKey }).from(emailTemplates)
   const existingKeys = new Set(existing.map((r) => r.purposeKey))
@@ -353,7 +352,7 @@ async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
       .insert(emailTemplates)
       .values(
         missing.map((t) => ({
-          id: `tpl_${t.purposeKey}_${randomUUID().slice(0, 6)}`,
+          id: `tpl_${t.purposeKey}`,
           purposeKey: t.purposeKey,
           label: t.label,
           description: t.description,
@@ -402,6 +401,102 @@ async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
   }
 }
 
+export function extractPurposeKeyFromId(id?: string | null): string | null {
+  const clean = (id || "").trim()
+  if (!clean) return null
+  if (clean.startsWith("default_")) {
+    return clean.slice("default_".length) || null
+  }
+  if (clean.startsWith("tpl_")) {
+    const rest = clean.slice("tpl_".length)
+    // Match known core keys first (handles keys containing underscores like password_reset, id_pass, not_hosted, mvp_image)
+    for (const core of CORE_EMAIL_TEMPLATES) {
+      if (rest === core.purposeKey || rest.startsWith(`${core.purposeKey}_`)) {
+        return core.purposeKey
+      }
+    }
+    // Strip trailing 6-char random suffix if present
+    const stripped = rest.replace(/_[a-f0-9]{6}$/i, "")
+    return stripped || null
+  }
+  return null
+}
+
+export async function resolveOrEnsureEmailTemplate(
+  id: string,
+  purposeKey?: string | null
+): Promise<EmailTemplate | null> {
+  await ensureSchemaReady()
+
+  // 1. Direct lookup by ID
+  if (id) {
+    const byId = await db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.id, id))
+      .limit(1)
+    if (byId[0]) return byId[0]
+  }
+
+  // 2. Resolve by explicit or inferred purposeKey
+  const candidateKey = (purposeKey || "").trim() || extractPurposeKeyFromId(id)
+  if (candidateKey) {
+    let byKey = await db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.purposeKey, candidateKey))
+      .limit(1)
+    if (byKey[0]) return byKey[0]
+
+    // 3. If it's a core template that hasn't been persisted yet, seed/upsert it deterministically
+    const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === candidateKey)
+    if (coreSeed) {
+      await db
+        .insert(emailTemplates)
+        .values({
+          id: `tpl_${coreSeed.purposeKey}`,
+          purposeKey: coreSeed.purposeKey,
+          label: coreSeed.label,
+          description: coreSeed.description,
+          category: coreSeed.category,
+          isEnabled: coreSeed.defaultEnabled,
+          isCore: coreSeed.isCore,
+          format: coreSeed.format,
+          subject: coreSeed.subject,
+          preheader: coreSeed.preheader,
+          bodyHtml: coreSeed.bodyHtml,
+          bodyText: coreSeed.bodyText,
+          ctaText: coreSeed.ctaText,
+          ctaUrl: coreSeed.ctaUrl,
+          mediaItems: [],
+          variablesHint: coreSeed.variablesHint,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoNothing()
+
+      byKey = await db
+        .select()
+        .from(emailTemplates)
+        .where(eq(emailTemplates.purposeKey, candidateKey))
+        .limit(1)
+      if (byKey[0]) return byKey[0]
+    }
+  }
+
+  // 4. Last chance: ensure all core templates are seeded and re-check
+  await seedCoreEmailTemplatesIfMissing()
+  if (candidateKey) {
+    const recheck = await db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.purposeKey, candidateKey))
+      .limit(1)
+    if (recheck[0]) return recheck[0]
+  }
+  return null
+}
+
 export async function getAllEmailTemplates(): Promise<NormalizedEmailTemplate[]> {
   try {
     await seedCoreEmailTemplatesIfMissing()
@@ -420,7 +515,7 @@ export async function getAllEmailTemplates(): Promise<NormalizedEmailTemplate[]>
   } catch (err) {
     console.warn("[EmailTemplates] Fallback to default core templates:", err)
     return CORE_EMAIL_TEMPLATES.map((t) => ({
-      id: `default_${t.purposeKey}`,
+      id: `tpl_${t.purposeKey}`,
       purposeKey: t.purposeKey,
       label: t.label,
       description: t.description,
@@ -447,29 +542,12 @@ export async function getEmailTemplateByPurpose(
   purposeKey: string
 ): Promise<NormalizedEmailTemplate | null> {
   try {
-    await ensureSchemaReady()
-    let rows = await db
-      .select()
-      .from(emailTemplates)
-      .where(eq(emailTemplates.purposeKey, purposeKey))
-      .limit(1)
-
-    if (rows.length === 0) {
-      const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === purposeKey)
-      if (coreSeed) {
-        await seedCoreEmailTemplatesIfMissing()
-        rows = await db
-          .select()
-          .from(emailTemplates)
-          .where(eq(emailTemplates.purposeKey, purposeKey))
-          .limit(1)
-      }
-    }
-
-    if (rows.length === 0) return null
-    return normalizeEmailTemplate(rows[0])
+    const resolved = await resolveOrEnsureEmailTemplate("", purposeKey)
+    if (!resolved) return null
+    return normalizeEmailTemplate(resolved)
   } catch (err) {
     console.warn(`[EmailTemplates] Failed fetching template "${purposeKey}":`, err)
     return null
   }
 }
+

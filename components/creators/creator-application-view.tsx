@@ -20,6 +20,7 @@ import {
   Video,
   ArrowRight,
   Loader2,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,7 +30,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { submitCreatorApplicationAction } from "@/app/actions/referrals"
 import type { CreatorApplication } from "@/lib/db/schema"
-import type { ReferralProgramSettings } from "@/lib/referrals"
+import type { PublicReferralSettings } from "@/lib/referrals"
 
 const PLATFORMS = ["YouTube", "Facebook", "TikTok", "Instagram", "Twitch", "Other"] as const
 
@@ -38,11 +39,15 @@ export function CreatorApplicationView({
   userName,
   existingApplication,
   settings,
+  creatorBalance = 0,
+  creatorSignupCount = 0,
 }: {
   signedIn: boolean
   userName?: string | null
   existingApplication: CreatorApplication | null
-  settings: ReferralProgramSettings
+  settings: PublicReferralSettings
+  creatorBalance?: number
+  creatorSignupCount?: number
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -62,10 +67,10 @@ export function CreatorApplicationView({
   const [notes, setNotes] = useState(existingApplication?.notes ?? "")
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
-  const rewardLabel =
-    settings.creatorRewardMode === "random"
-      ? `৳${settings.creatorMinBdt} – ৳${settings.creatorMaxBdt}`
-      : `৳${settings.creatorFixedBdt}`
+  const declaredUserBonusLabel =
+    settings.creatorDeclaredMode === "random"
+      ? `৳${settings.creatorDeclaredMinBdt} – ৳${settings.creatorDeclaredMaxBdt}`
+      : `৳${settings.creatorDeclaredFixedBdt}`
 
   const origin =
     typeof window !== "undefined" ? window.location.origin : "https://www.acescrims.online"
@@ -108,7 +113,7 @@ export function CreatorApplicationView({
   return (
     <div className="mx-auto w-full max-w-5xl space-y-8">
       {/* Hero Banner */}
-      <section className="glass-strong relative overflow-hidden rounded-2xl border border-primary/25 p-6 sm:p-8">
+      <section className="dc-surface relative overflow-hidden rounded-2xl border border-primary/25 p-6 sm:p-8">
         <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3 max-w-2xl">
@@ -117,31 +122,38 @@ export function CreatorApplicationView({
               Ace Scrims Content Creator Program
             </Badge>
             <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Partner With Ace Scrims &amp; Earn Per Referred Player
+              Partner With Ace Scrims &amp; Grow Your Creator Wallet
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed sm:text-base">
               Streamers, YouTubers, TikTokers, and Free Fire esports creators can apply for an official
-              creator referral code. Once approved by our admin team, every new player who signs up using
-              your code and plays a paid scrim earns instant BDT credit directly into your Ace Scrims wallet.
+              creator referral code. Once approved, you earn{" "}
+              <strong className="text-foreground">৳{settings.creatorPerSignupPayoutBdt} per valid signup</strong>{" "}
+              directly into your separate withdrawable Creator Wallet, while players joining with your
+              code unlock an estimated <strong className="text-foreground">{declaredUserBonusLabel}</strong>{" "}
+              welcome bonus on their qualifying paid scrim.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:min-w-[260px]">
+          <div className="grid grid-cols-2 gap-3 sm:min-w-[280px]">
             <div className="rounded-xl border border-border/70 bg-background/60 p-3.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Creator Reward
+                Creator Earning
               </p>
-              <p className="mt-1 font-heading text-2xl font-bold text-primary">{rewardLabel}</p>
+              <p className="mt-1 font-heading text-2xl font-bold text-primary tabular-nums">
+                ৳{settings.creatorPerSignupPayoutBdt}
+              </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                {settings.creatorRewardMode === "random" ? "Randomized per player" : "Fixed per player"}
+                Per valid signup (Creator Wallet)
               </p>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/60 p-3.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Qualifying Trigger
+                Audience Bonus
               </p>
-              <p className="mt-1 font-heading text-2xl font-bold text-emerald-400">1st Paid</p>
+              <p className="mt-1 font-heading text-2xl font-bold text-emerald-400 tabular-nums">
+                {declaredUserBonusLabel}
+              </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Min ৳{settings.creatorMinEntryFeeBdt} paid scrim
+                Est. user bonus · min ৳{settings.creatorMinEntryFeeBdt} scrim
               </p>
             </div>
           </div>
@@ -155,28 +167,29 @@ export function CreatorApplicationView({
             <Video className="size-5 text-primary" />
             <h3 className="font-heading text-lg font-bold">Verified Creator Code</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Approved creators unlock a unique custom code &amp; shareable link tracked across both Email
-              and Google sign-ups.
+              Approved creators unlock a unique custom code &amp; shareable link tracked across Email,
+              Google sign-up, and the 6-hour post-signup redemption window.
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 space-y-2">
             <Wallet className="size-5 text-emerald-400" />
-            <h3 className="font-heading text-lg font-bold">Automatic BDT Payouts</h3>
+            <h3 className="font-heading text-lg font-bold">Separate Creator Wallet</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Rewards are credited automatically to your Ace Scrims wallet balance as soon as your referred
-              player confirms their first paid scrim slot.
+              Earn per valid signup into a dedicated Creator Wallet and submit withdrawal requests via
+              admin-approved payout methods starting at ৳{settings.creatorMinWithdrawalBdt}.
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 space-y-2">
             <ShieldCheck className="size-5 text-sky-400" />
-            <h3 className="font-heading text-lg font-bold">Strict Fair-Play Tracking</h3>
+            <h3 className="font-heading text-lg font-bold">Community Welcome Bonus</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Codes lock permanently at sign-up with self-referral and duplicate-payout blocks so creator
-              stats stay accurate and trustworthy.
+              New players who register or redeem your creator code receive an estimated{" "}
+              {declaredUserBonusLabel} bonus after completing {settings.creatorQualifyingScrims}{" "}
+              qualifying paid scrim{settings.creatorQualifyingScrims > 1 ? "s" : ""}.
             </p>
           </CardContent>
         </Card>
@@ -239,43 +252,64 @@ export function CreatorApplicationView({
             )}
 
             {creatorCode && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-emerald-500/30 bg-background/80 p-4 space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Your Exclusive Creator Code
-                  </p>
-                  <div className="flex items-center justify-between gap-2">
-                    <code className="font-mono text-xl font-bold tracking-wider text-emerald-400">
-                      {creatorCode}
-                    </code>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyValue("code", creatorCode)}
-                    >
-                      {copiedKey === "code" ? <Check className="size-4" /> : <Copy className="size-4" />}
-                      <span className="ml-1.5">Copy</span>
-                    </Button>
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-emerald-500/30 bg-background/80 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Total Code Signups
+                    </p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-emerald-400 tabular-nums">
+                      {creatorSignupCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-primary/30 bg-background/80 p-3.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Creator Wallet Balance
+                    </p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-primary tabular-nums">
+                      ৳{creatorBalance}
+                    </p>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-primary/30 bg-background/80 p-4 space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Creator Invite Link
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Input value={creatorLink} readOnly className="h-9 font-mono text-xs" />
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => copyValue("link", creatorLink)}
-                    >
-                      {copiedKey === "link" ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    </Button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-emerald-500/30 bg-background/80 p-4 space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Your Exclusive Creator Code
+                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="font-mono text-xl font-bold tracking-wider text-emerald-400">
+                        {creatorCode}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyValue("code", creatorCode)}
+                      >
+                        {copiedKey === "code" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                        <span className="ml-1.5">Copy</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-primary/30 bg-background/80 p-4 space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Creator Invite Link
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Input value={creatorLink} readOnly className="h-9 font-mono text-xs" />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => copyValue("link", creatorLink)}
+                      >
+                        {copiedKey === "link" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
 
             {existingApplication.status === "approved" && (
@@ -283,7 +317,7 @@ export function CreatorApplicationView({
                 <Button asChild size="sm">
                   <Link href="/dashboard/referrals">
                     <Users className="mr-1.5 size-4" />
-                    Open Referral Dashboard
+                    Open Creator Wallet &amp; Withdrawals
                     <ArrowRight className="ml-1.5 size-4" />
                   </Link>
                 </Button>
@@ -295,7 +329,7 @@ export function CreatorApplicationView({
 
       {/* Application Form */}
       {canApply && (
-        <Card className="glass-strong border-border/80">
+        <Card className="dc-surface border-border/80">
           <CardHeader>
             <CardTitle className="font-heading text-2xl">
               {existingApplication?.status === "rejected"
@@ -303,16 +337,38 @@ export function CreatorApplicationView({
                 : "Apply as a Content Creator"}
             </CardTitle>
             <CardDescription>
-              Submit your primary channel/profile link and proof of active gaming or esports content. Only
-              admin-approved creators receive an official Creator Referral Code.
+              Submit your primary channel/profile link and genuine proof of active gaming or esports
+              content. Only admin-approved creators receive an official Creator Referral Code.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-5">
+            {/* PERMANENT BAN WARNING FOR FRAUDULENT APPLICATIONS */}
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-red-500/50 bg-red-500/10 p-4 text-sm"
+            >
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-red-400" />
+              <div className="space-y-1">
+                <p className="font-display text-sm font-bold uppercase tracking-wider text-red-300">
+                  Zero-Tolerance Warning: Permanent Ban Policy
+                </p>
+                <p className="text-xs leading-relaxed text-red-200/90">
+                  Submitting fake, impersonated, stolen, or fraudulent creator channels, follower
+                  counts, or proof links will result in an immediate{" "}
+                  <strong className="font-bold text-white underline decoration-red-400">
+                    PERMANENT BAN
+                  </strong>{" "}
+                  of your Ace Scrims account and forfeiture of all pending balances. Only apply with
+                  authentic channels you personally own and manage.
+                </p>
+              </div>
+            </div>
+
             {!signedIn ? (
               <div className="rounded-xl border border-primary/25 bg-primary/5 p-6 text-center space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Sign in or create an Ace Scrims account first so we can link your creator referral code
-                  and wallet payouts directly to your profile.
+                  and Creator Wallet payouts directly to your profile.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <Button asChild>
@@ -457,7 +513,7 @@ export function CreatorApplicationView({
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                   <p className="text-xs text-muted-foreground">
-                    Applications are manually reviewed by Ace Scrims administrators.
+                    Applications are manually verified. Fraudulent submissions result in a permanent ban.
                   </p>
                   <Button type="submit" disabled={pending} className="glow-primary font-semibold">
                     {pending ? (

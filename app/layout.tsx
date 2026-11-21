@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/react'
 import type { Metadata } from 'next'
-import { Rajdhani, Plus_Jakarta_Sans } from 'next/font/google'
+import { Rajdhani, DM_Sans } from 'next/font/google'
 import { LanguageProvider } from '@/lib/language'
 import { ViewModeProvider } from '@/lib/view-mode'
 import { LiveChatWidget } from '@/components/site/live-chat'
@@ -14,7 +14,7 @@ const heading = Rajdhani({
   variable: '--font-heading',
 })
 
-const body = Plus_Jakarta_Sans({
+const body = DM_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-body',

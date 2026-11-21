@@ -5,6 +5,7 @@ import { and, desc, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   creatorApplications,
+  creatorWalletTransactions,
   referralQualifyingBookings,
   referrals,
   settings,
@@ -15,13 +16,27 @@ import { notifyUser } from "@/lib/notify"
 
 export type ReferralRewardMode = "fixed" | "random"
 
+export const REFERRAL_REDEEM_WINDOW_HOURS = 6
+export const REFERRAL_REDEEM_WINDOW_MS = REFERRAL_REDEEM_WINDOW_HOURS * 60 * 60 * 1000
+
 export type ReferralProgramSettings = {
   creatorEnabled: boolean
+  // Internal actual reward credited to the REFERRED USER after qualifying paid scrim(s)
   creatorRewardMode: ReferralRewardMode
   creatorFixedBdt: number
   creatorMinBdt: number
   creatorMaxBdt: number
+  creatorQualifyingScrims: number
   creatorMinEntryFeeBdt: number
+  // Publicly declared / estimated bonus shown to users (never reveals actual internal payout)
+  creatorDeclaredMode: ReferralRewardMode
+  creatorDeclaredFixedBdt: number
+  creatorDeclaredMinBdt: number
+  creatorDeclaredMaxBdt: number
+  // Creator's own separate wallet payout per valid signup using their code
+  creatorPerSignupPayoutBdt: number
+  creatorMinWithdrawalBdt: number
+  // Normal user-to-user referral config
   userEnabled: boolean
   userRewardMode: ReferralRewardMode
   userFixedBdt: number
@@ -29,7 +44,13 @@ export type ReferralProgramSettings = {
   userMaxBdt: number
   userQualifyingScrims: number
   userMinEntryFeeBdt: number
+  userMinTotalSpendBdt: number
 }
+
+export type PublicReferralSettings = Omit<
+  ReferralProgramSettings,
+  "creatorRewardMode" | "creatorFixedBdt" | "creatorMinBdt" | "creatorMaxBdt"
+>
 
 export const REFERRAL_SETTINGS_KEY = "referral_program_config"
 export const REFERRAL_COOKIE_NAME = "ace_ref_code"
@@ -40,7 +61,14 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralProgramSettings = {
   creatorFixedBdt: 15,
   creatorMinBdt: 10,
   creatorMaxBdt: 25,
+  creatorQualifyingScrims: 1,
   creatorMinEntryFeeBdt: 1,
+  creatorDeclaredMode: "random",
+  creatorDeclaredFixedBdt: 25,
+  creatorDeclaredMinBdt: 10,
+  creatorDeclaredMaxBdt: 50,
+  creatorPerSignupPayoutBdt: 5,
+  creatorMinWithdrawalBdt: 100,
   userEnabled: true,
   userRewardMode: "fixed",
   userFixedBdt: 10,
@@ -48,6 +76,24 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralProgramSettings = {
   userMaxBdt: 20,
   userQualifyingScrims: 2,
   userMinEntryFeeBdt: 1,
+  userMinTotalSpendBdt: 0,
+}
+
+export function toPublicReferralSettings(
+  cfg: ReferralProgramSettings
+): PublicReferralSettings {
+  const {
+    creatorRewardMode: _m,
+    creatorFixedBdt: _f,
+    creatorMinBdt: _min,
+    creatorMaxBdt: _max,
+    ...publicFields
+  } = cfg
+  void _m
+  void _f
+  void _min
+  void _max
+  return publicFields
 }
 
 export function normalizeReferralCode(raw: string | null | undefined): string {
@@ -74,6 +120,16 @@ export function sanitizeReferralSettings(
     creatorMinBdt,
     clampInt(merged.creatorMaxBdt, 1, 10000, DEFAULT_REFERRAL_SETTINGS.creatorMaxBdt)
   )
+  const creatorDeclaredMinBdt = clampInt(
+    merged.creatorDeclaredMinBdt,
+    1,
+    10000,
+    DEFAULT_REFERRAL_SETTINGS.creatorDeclaredMinBdt
+  )
+  const creatorDeclaredMaxBdt = Math.max(
+    creatorDeclaredMinBdt,
+    clampInt(merged.creatorDeclaredMaxBdt, 1, 10000, DEFAULT_REFERRAL_SETTINGS.creatorDeclaredMaxBdt)
+  )
   const userMinBdt = clampInt(merged.userMinBdt, 1, 10000, DEFAULT_REFERRAL_SETTINGS.userMinBdt)
   const userMaxBdt = Math.max(
     userMinBdt,
@@ -86,11 +142,38 @@ export function sanitizeReferralSettings(
     creatorFixedBdt: clampInt(merged.creatorFixedBdt, 1, 10000, DEFAULT_REFERRAL_SETTINGS.creatorFixedBdt),
     creatorMinBdt,
     creatorMaxBdt,
+    creatorQualifyingScrims: clampInt(
+      merged.creatorQualifyingScrims,
+      1,
+      50,
+      DEFAULT_REFERRAL_SETTINGS.creatorQualifyingScrims
+    ),
     creatorMinEntryFeeBdt: clampInt(
       merged.creatorMinEntryFeeBdt,
       1,
       5000,
       DEFAULT_REFERRAL_SETTINGS.creatorMinEntryFeeBdt
+    ),
+    creatorDeclaredMode: merged.creatorDeclaredMode === "fixed" ? "fixed" : "random",
+    creatorDeclaredFixedBdt: clampInt(
+      merged.creatorDeclaredFixedBdt,
+      1,
+      10000,
+      DEFAULT_REFERRAL_SETTINGS.creatorDeclaredFixedBdt
+    ),
+    creatorDeclaredMinBdt,
+    creatorDeclaredMaxBdt,
+    creatorPerSignupPayoutBdt: clampInt(
+      merged.creatorPerSignupPayoutBdt,
+      0,
+      5000,
+      DEFAULT_REFERRAL_SETTINGS.creatorPerSignupPayoutBdt
+    ),
+    creatorMinWithdrawalBdt: clampInt(
+      merged.creatorMinWithdrawalBdt,
+      10,
+      50000,
+      DEFAULT_REFERRAL_SETTINGS.creatorMinWithdrawalBdt
     ),
     userEnabled: Boolean(merged.userEnabled),
     userRewardMode: merged.userRewardMode === "random" ? "random" : "fixed",
@@ -108,6 +191,12 @@ export function sanitizeReferralSettings(
       1,
       5000,
       DEFAULT_REFERRAL_SETTINGS.userMinEntryFeeBdt
+    ),
+    userMinTotalSpendBdt: clampInt(
+      merged.userMinTotalSpendBdt,
+      0,
+      50000,
+      DEFAULT_REFERRAL_SETTINGS.userMinTotalSpendBdt
     ),
   }
 }
@@ -215,7 +304,6 @@ export async function ensureUserReferralCode(
           .returning({ referralCode: user.referralCode })
         if (updated[0]?.referralCode) return updated[0].referralCode
 
-        // Race: another request already assigned it
         const reread = await db
           .select({ referralCode: user.referralCode })
           .from(user)
@@ -369,9 +457,126 @@ export async function validateReferralCode(
 }
 
 /**
- * Attributes a referral ONLY during brand-new user creation.
- * Always permanently locks `referralLockedAt` after registration completes so a referral
- * code can NEVER be added or edited retroactively.
+ * Atomically credits a Content Creator's separate `creatorBalance` wallet for a valid signup
+ * attributed to their creator referral code. Idempotent per `referralId`.
+ */
+export async function creditCreatorSignupPayout(
+  referralId: string
+): Promise<{ paid: boolean; amountBdt?: number }> {
+  try {
+    const config = await getReferralSettings()
+    const perSignupBdt = Math.max(0, Number(config.creatorPerSignupPayoutBdt || 0))
+    if (perSignupBdt <= 0) return { paid: false }
+
+    let paidInfo: { creatorUserId: string; code: string; amount: number } | null = null
+
+    await db.transaction(async (tx) => {
+      const refRes = await tx.execute(
+        sql`SELECT "id", "referrerUserId", "referredUserId", "referralCode", "referralType", "creatorApplicationId", "creatorSignupPaidAt"
+            FROM "referrals"
+            WHERE "id" = ${referralId}
+            LIMIT 1
+            FOR UPDATE`
+      )
+      const refRow = (refRes.rows?.[0] ?? null) as
+        | {
+            id: string
+            referrerUserId: string
+            referredUserId: string
+            referralCode: string
+            referralType: string
+            creatorApplicationId: string | null
+            creatorSignupPaidAt: Date | null
+          }
+        | null
+
+      if (!refRow) return
+      if (refRow.referralType !== "creator") return
+      if (refRow.creatorSignupPaidAt) return // Already paid once (idempotent)
+      if (refRow.referrerUserId === refRow.referredUserId) return
+
+      await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${refRow.referrerUserId} FOR UPDATE`)
+      const creatorRows = await tx
+        .select({
+          id: user.id,
+          creatorBalance: user.creatorBalance,
+          banned: user.banned,
+          isTrashed: user.isTrashed,
+        })
+        .from(user)
+        .where(eq(user.id, refRow.referrerUserId))
+        .limit(1)
+
+      const creator = creatorRows[0]
+      if (!creator || creator.banned || creator.isTrashed) return
+
+      const balanceBefore = Number(creator.creatorBalance ?? 0)
+      const balanceAfter = balanceBefore + perSignupBdt
+      const txId = randomUUID()
+      const now = new Date()
+
+      await tx
+        .update(user)
+        .set({
+          creatorBalance: balanceAfter,
+          updatedAt: now,
+        })
+        .where(eq(user.id, creator.id))
+
+      await tx.insert(creatorWalletTransactions).values({
+        id: txId,
+        userId: creator.id,
+        creatorApplicationId: refRow.creatorApplicationId,
+        type: "signup_payout",
+        amountBdt: perSignupBdt,
+        balanceBefore,
+        balanceAfter,
+        description: `Creator Signup Payout (${refRow.referralCode})`,
+        referenceId: refRow.id,
+        status: "completed",
+      })
+
+      await tx
+        .update(referrals)
+        .set({
+          creatorSignupPaidBdt: perSignupBdt,
+          creatorSignupPaidAt: now,
+          creatorWalletTxId: txId,
+          updatedAt: now,
+        })
+        .where(eq(referrals.id, refRow.id))
+
+      paidInfo = {
+        creatorUserId: creator.id,
+        code: refRow.referralCode,
+        amount: perSignupBdt,
+      }
+    })
+
+    const paid = paidInfo as { creatorUserId: string; code: string; amount: number } | null
+    if (paid) {
+      await notifyUser(
+        paid.creatorUserId,
+        "wallet",
+        `Creator Signup Earning: +৳${paid.amount}`,
+        `A new player signed up using your creator code (${paid.code}). ৳${paid.amount} has been added to your Creator Wallet.`,
+        "/dashboard/referrals"
+      )
+      return { paid: true, amountBdt: paid.amount }
+    }
+
+    return { paid: false }
+  } catch (err) {
+    console.warn("[Referrals] creditCreatorSignupPayout error:", err)
+    return { paid: false }
+  }
+}
+
+/**
+ * Attributes a referral during brand-new user creation.
+ * - If a valid code is supplied during sign-up, attributes immediately & locks `referralLockedAt` permanently.
+ * - If NO code is supplied during sign-up (e.g., Google/Gmail OAuth), leaves `referralLockedAt` NULL
+ *   so the user may redeem a referral code ONCE within the first 6 hours after sign-up.
  */
 export async function attributeReferralOnSignup(params: {
   newUserId: string
@@ -380,15 +585,22 @@ export async function attributeReferralOnSignup(params: {
   const { newUserId, rawCode } = params
   const normalized = normalizeReferralCode(rawCode)
 
+  // If no code was provided at signup, keep the 6-hour post-signup redemption window open
+  if (!normalized) {
+    return { attributed: false }
+  }
+
   try {
     const config = await getReferralSettings()
-    const validation = normalized
-      ? await validateReferralCode(normalized, newUserId)
-      : { valid: false as const, reason: "No code provided" }
+    const validation = await validateReferralCode(normalized, newUserId)
+    if (!validation.valid || validation.referrerUserId === newUserId) {
+      return { attributed: false }
+    }
 
     let attributed = false
     let referralType: "creator" | "user" | undefined
     let appliedCode: string | undefined
+    let createdReferralId: string | null = null
 
     await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${newUserId} FOR UPDATE`)
@@ -405,11 +617,7 @@ export async function attributeReferralOnSignup(params: {
 
       const current = uRows[0]
       if (!current) return
-
-      // Strict anti-abuse: never allow attributing after lock or if already attributed
-      if (current.referralLockedAt || current.referredByUserId) {
-        return
-      }
+      if (current.referralLockedAt || current.referredByUserId) return
 
       const existingRef = await tx
         .select({ id: referrals.id })
@@ -426,54 +634,202 @@ export async function attributeReferralOnSignup(params: {
       }
 
       const now = new Date()
+      const requiredScrimsCount =
+        validation.type === "creator"
+          ? Math.max(1, config.creatorQualifyingScrims)
+          : Math.max(1, config.userQualifyingScrims)
+      const requiredSpendBdt =
+        validation.type === "creator" ? 0 : Math.max(0, config.userMinTotalSpendBdt)
+      const rewardRecipient = validation.type === "creator" ? "referred_user" : "referrer"
 
-      if (validation.valid && validation.referrerUserId !== newUserId) {
-        const requiredScrimsCount =
-          validation.type === "creator" ? 1 : Math.max(1, config.userQualifyingScrims)
+      const refId = randomUUID()
+      await tx.insert(referrals).values({
+        id: refId,
+        referrerUserId: validation.referrerUserId,
+        referredUserId: newUserId,
+        referralCode: validation.code,
+        referralType: validation.type,
+        creatorApplicationId: validation.creatorApplicationId,
+        qualifyingScrimsCount: 0,
+        requiredScrimsCount,
+        qualifyingSpendBdt: 0,
+        requiredSpendBdt,
+        rewardRecipient,
+        status: "pending",
+        rewardAmountBdt: 0,
+      })
 
-        await tx.insert(referrals).values({
-          id: randomUUID(),
-          referrerUserId: validation.referrerUserId,
-          referredUserId: newUserId,
-          referralCode: validation.code,
+      await tx
+        .update(user)
+        .set({
+          referredByCode: validation.code,
+          referredByUserId: validation.referrerUserId,
           referralType: validation.type,
-          creatorApplicationId: validation.creatorApplicationId,
-          qualifyingScrimsCount: 0,
-          requiredScrimsCount,
-          status: "pending",
-          rewardAmountBdt: 0,
+          referralLockedAt: now,
+          updatedAt: now,
         })
+        .where(eq(user.id, newUserId))
 
-        await tx
-          .update(user)
-          .set({
-            referredByCode: validation.code,
-            referredByUserId: validation.referrerUserId,
-            referralType: validation.type,
-            referralLockedAt: now,
-            updatedAt: now,
-          })
-          .where(eq(user.id, newUserId))
-
-        attributed = true
-        referralType = validation.type
-        appliedCode = validation.code
-      } else {
-        // Lock referral eligibility immediately upon signup even when no code was used
-        await tx
-          .update(user)
-          .set({
-            referralLockedAt: now,
-            updatedAt: now,
-          })
-          .where(eq(user.id, newUserId))
-      }
+      attributed = true
+      referralType = validation.type
+      appliedCode = validation.code
+      createdReferralId = refId
     })
+
+    if (attributed && referralType === "creator" && createdReferralId) {
+      await creditCreatorSignupPayout(createdReferralId)
+    }
 
     return { attributed, referralType, code: appliedCode }
   } catch (err) {
     console.warn("[Referrals] attributeReferralOnSignup error:", err)
     return { attributed: false }
+  }
+}
+
+/**
+ * Post-signup one-time referral redemption for users who have not yet redeemed a code.
+ * Strictly enforces:
+ * - Lifetime limit: ONCE EVER per account (never again after redeeming).
+ * - Time window: ONLY within the first 6 hours after account creation (`user.createdAt`).
+ * - Blocks self-referrals, banned accounts, and race conditions via `SELECT ... FOR UPDATE`.
+ */
+export async function redeemReferralCodeWithinWindow(params: {
+  userId: string
+  rawCode: string
+}): Promise<
+  | {
+      ok: true
+      code: string
+      referralType: "creator" | "user"
+      referrerName: string
+    }
+  | {
+      ok: false
+      error: string
+    }
+> {
+  const { userId, rawCode } = params
+  const normalized = normalizeReferralCode(rawCode)
+  if (!normalized || normalized.length < 4) {
+    return { ok: false, error: "Please enter a valid referral code (at least 4 characters)." }
+  }
+
+  const config = await getReferralSettings()
+  const validation = await validateReferralCode(normalized, userId)
+  if (!validation.valid) {
+    return { ok: false, error: validation.reason }
+  }
+  if (validation.referrerUserId === userId) {
+    return { ok: false, error: "You cannot redeem your own referral code." }
+  }
+
+  let createdReferralId: string | null = null
+  let txError: string | null = null
+
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${userId} FOR UPDATE`)
+
+    const uRows = await tx
+      .select({
+        id: user.id,
+        createdAt: user.createdAt,
+        referredByUserId: user.referredByUserId,
+        referredByCode: user.referredByCode,
+        referralLockedAt: user.referralLockedAt,
+        banned: user.banned,
+        isTrashed: user.isTrashed,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+
+    const current = uRows[0]
+    if (!current || current.banned || current.isTrashed) {
+      txError = "Your account is not eligible to redeem a referral code."
+      return
+    }
+
+    if (current.referredByUserId || current.referredByCode || current.referralLockedAt) {
+      txError = "You have already used your one-time referral code redemption."
+      return
+    }
+
+    const existingRef = await tx
+      .select({ id: referrals.id })
+      .from(referrals)
+      .where(eq(referrals.referredUserId, userId))
+      .limit(1)
+
+    if (existingRef.length > 0) {
+      await tx
+        .update(user)
+        .set({ referralLockedAt: new Date(), updatedAt: new Date() })
+        .where(eq(user.id, userId))
+      txError = "You have already redeemed a referral code on this account."
+      return
+    }
+
+    const createdMs = new Date(current.createdAt).getTime()
+    const elapsedMs = Date.now() - createdMs
+    if (!Number.isFinite(createdMs) || elapsedMs > REFERRAL_REDEEM_WINDOW_MS) {
+      txError = `Referral code redemption is only available within the first ${REFERRAL_REDEEM_WINDOW_HOURS} hours after sign-up.`
+      return
+    }
+
+    const now = new Date()
+    const requiredScrimsCount =
+      validation.type === "creator"
+        ? Math.max(1, config.creatorQualifyingScrims)
+        : Math.max(1, config.userQualifyingScrims)
+    const requiredSpendBdt =
+      validation.type === "creator" ? 0 : Math.max(0, config.userMinTotalSpendBdt)
+    const rewardRecipient = validation.type === "creator" ? "referred_user" : "referrer"
+
+    const refId = randomUUID()
+    await tx.insert(referrals).values({
+      id: refId,
+      referrerUserId: validation.referrerUserId,
+      referredUserId: userId,
+      referralCode: validation.code,
+      referralType: validation.type,
+      creatorApplicationId: validation.creatorApplicationId,
+      qualifyingScrimsCount: 0,
+      requiredScrimsCount,
+      qualifyingSpendBdt: 0,
+      requiredSpendBdt,
+      rewardRecipient,
+      status: "pending",
+      rewardAmountBdt: 0,
+    })
+
+    await tx
+      .update(user)
+      .set({
+        referredByCode: validation.code,
+        referredByUserId: validation.referrerUserId,
+        referralType: validation.type,
+        referralLockedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(user.id, userId))
+
+    createdReferralId = refId
+  })
+
+  if (txError) {
+    return { ok: false, error: txError }
+  }
+
+  if (validation.type === "creator" && createdReferralId) {
+    await creditCreatorSignupPayout(createdReferralId)
+  }
+
+  return {
+    ok: true,
+    code: validation.code,
+    referralType: validation.type,
+    referrerName: validation.referrerName,
   }
 }
 
@@ -495,15 +851,23 @@ function computeRewardAmount(
 /**
  * Evaluates and atomically credits a referral reward when a referred player completes a
  * confirmed PAID scrim booking (`amountBdt > 0`).
+ *
+ * - For CONTENT CREATOR codes (`referralType === "creator"`):
+ *   The REFERRED USER receives the referral bonus directly in their player wallet once
+ *   qualifying paid scrims are completed. (The creator earns per-signup payouts into their
+ *   separate Creator Wallet upon signup/redemption.)
+ * - For NORMAL USER codes (`referralType === "user"`):
+ *   The REFERRER receives the referral reward once the referred player meets BOTH the
+ *   required paid scrims count AND minimum total spend (if configured).
  * - Idempotent per `bookingId` via unique constraint on `referral_qualifying_bookings`.
- * - Locked via `SELECT ... FOR UPDATE` on the `referrals` row to eliminate duplicate payouts.
+ * - Locked via `SELECT ... FOR UPDATE` to eliminate duplicate payouts.
  */
 export async function evaluateReferralRewardForPaidBooking(params: {
   userId: string
   bookingId: string
   scrimId: string
   amountBdt: number
-}): Promise<{ credited: boolean; rewardAmountBdt?: number; referrerUserId?: string }> {
+}): Promise<{ credited: boolean; rewardAmountBdt?: number; recipientUserId?: string }> {
   const { userId, bookingId, scrimId, amountBdt } = params
 
   // Free/giveaway scrims (0 BDT) NEVER qualify for referral rewards
@@ -515,7 +879,7 @@ export async function evaluateReferralRewardForPaidBooking(params: {
     const config = await getReferralSettings()
 
     let payoutResult: {
-      referrerId: string
+      recipientUserId: string
       amount: number
       type: "creator" | "user"
       code: string
@@ -523,7 +887,7 @@ export async function evaluateReferralRewardForPaidBooking(params: {
 
     await db.transaction(async (tx) => {
       const refRows = await tx.execute(
-        sql`SELECT "id", "referrerUserId", "referredUserId", "referralCode", "referralType", "qualifyingScrimsCount", "requiredScrimsCount", "status"
+        sql`SELECT "id", "referrerUserId", "referredUserId", "referralCode", "referralType", "qualifyingScrimsCount", "requiredScrimsCount", "qualifyingSpendBdt", "requiredSpendBdt", "status"
             FROM "referrals"
             WHERE "referredUserId" = ${userId}
             LIMIT 1
@@ -539,6 +903,8 @@ export async function evaluateReferralRewardForPaidBooking(params: {
             referralType: string
             qualifyingScrimsCount: number
             requiredScrimsCount: number
+            qualifyingSpendBdt: number
+            requiredSpendBdt: number
             status: string
           }
         | null
@@ -554,13 +920,16 @@ export async function evaluateReferralRewardForPaidBooking(params: {
       const minFee = isCreator ? config.creatorMinEntryFeeBdt : config.userMinEntryFeeBdt
       if (amountBdt < minFee) return
 
-      // Ensure referrer account is active
-      const referrerAccount = await tx
+      // Creator code reward goes to the REFERRED USER; normal user code reward goes to the REFERRER
+      const recipientUserId = isCreator ? refRow.referredUserId : refRow.referrerUserId
+
+      // Ensure recipient account is active
+      const recipientAccount = await tx
         .select({ id: user.id, balance: user.balance, banned: user.banned, isTrashed: user.isTrashed })
         .from(user)
-        .where(eq(user.id, refRow.referrerUserId))
+        .where(eq(user.id, recipientUserId))
         .limit(1)
-      if (!referrerAccount[0] || referrerAccount[0].banned || referrerAccount[0].isTrashed) {
+      if (!recipientAccount[0] || recipientAccount[0].banned || recipientAccount[0].isTrashed) {
         return
       }
 
@@ -582,22 +951,27 @@ export async function evaluateReferralRewardForPaidBooking(params: {
       }
 
       const nextCount = Number(refRow.qualifyingScrimsCount || 0) + 1
+      const nextSpend = Number(refRow.qualifyingSpendBdt || 0) + Math.round(amountBdt)
       const requiredCount = isCreator
-        ? 1
+        ? Math.max(1, Number(refRow.requiredScrimsCount || config.creatorQualifyingScrims || 1))
         : Math.max(1, Number(refRow.requiredScrimsCount || config.userQualifyingScrims || 1))
+      const requiredSpend = isCreator
+        ? 0
+        : Math.max(0, Number(refRow.requiredSpendBdt || config.userMinTotalSpendBdt || 0))
 
-      if (nextCount < requiredCount) {
+      if (nextCount < requiredCount || nextSpend < requiredSpend) {
         await tx
           .update(referrals)
           .set({
             qualifyingScrimsCount: nextCount,
+            qualifyingSpendBdt: nextSpend,
             updatedAt: new Date(),
           })
           .where(eq(referrals.id, refRow.id))
         return
       }
 
-      // Threshold reached -> compute reward & atomically credit referrer wallet
+      // Threshold reached -> compute reward & atomically credit recipient's player wallet
       const modeUsed = isCreator ? config.creatorRewardMode : config.userRewardMode
       const rewardBdt = isCreator
         ? computeRewardAmount(
@@ -613,11 +987,11 @@ export async function evaluateReferralRewardForPaidBooking(params: {
             config.userMaxBdt
           )
 
-      await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${refRow.referrerUserId} FOR UPDATE`)
+      await tx.execute(sql`SELECT "id" FROM "user" WHERE "id" = ${recipientUserId} FOR UPDATE`)
       const freshBalRows = await tx
         .select({ balance: user.balance })
         .from(user)
-        .where(eq(user.id, refRow.referrerUserId))
+        .where(eq(user.id, recipientUserId))
         .limit(1)
       const balanceBefore = Number(freshBalRows[0]?.balance ?? 0)
       const balanceAfter = balanceBefore + rewardBdt
@@ -629,17 +1003,17 @@ export async function evaluateReferralRewardForPaidBooking(params: {
           balance: balanceAfter,
           updatedAt: new Date(),
         })
-        .where(eq(user.id, refRow.referrerUserId))
+        .where(eq(user.id, recipientUserId))
 
       await tx.insert(walletTransactions).values({
         id: walletTxId,
-        userId: refRow.referrerUserId,
-        type: "referral_reward",
+        userId: recipientUserId,
+        type: isCreator ? "creator_referral_bonus" : "referral_reward",
         amountBdt: rewardBdt,
         balanceBefore,
         balanceAfter,
         description: isCreator
-          ? `Creator Referral Reward (Code ${refRow.referralCode}) — Paid scrim completed`
+          ? `Creator Code Welcome Bonus (${refRow.referralCode}) — Qualifying paid scrim completed`
           : `User Referral Reward (Code ${refRow.referralCode}) — ${requiredCount} qualifying paid scrim${requiredCount > 1 ? "s" : ""} completed`,
         referenceId: refRow.id,
         status: "completed",
@@ -649,6 +1023,8 @@ export async function evaluateReferralRewardForPaidBooking(params: {
         .update(referrals)
         .set({
           qualifyingScrimsCount: nextCount,
+          qualifyingSpendBdt: nextSpend,
+          rewardRecipient: isCreator ? "referred_user" : "referrer",
           status: "rewarded",
           rewardAmountBdt: rewardBdt,
           rewardModeUsed: modeUsed,
@@ -659,7 +1035,7 @@ export async function evaluateReferralRewardForPaidBooking(params: {
         .where(eq(referrals.id, refRow.id))
 
       payoutResult = {
-        referrerId: refRow.referrerUserId,
+        recipientUserId,
         amount: rewardBdt,
         type: isCreator ? "creator" : "user",
         code: refRow.referralCode,
@@ -667,27 +1043,35 @@ export async function evaluateReferralRewardForPaidBooking(params: {
     })
 
     const credited = payoutResult as {
-      referrerId: string
+      recipientUserId: string
       amount: number
       type: "creator" | "user"
       code: string
     } | null
 
     if (credited && credited.amount > 0) {
-      await notifyUser(
-        credited.referrerId,
-        "wallet",
-        credited.type === "creator"
-          ? `Creator Referral Reward: +৳${credited.amount}`
-          : `Referral Reward Earned: +৳${credited.amount}`,
-        `A player registered with your code (${credited.code}) completed their qualifying paid scrim. ৳${credited.amount} has been credited to your wallet balance.`,
-        "/dashboard/referrals"
-      )
+      if (credited.type === "creator") {
+        await notifyUser(
+          credited.recipientUserId,
+          "wallet",
+          `Creator Referral Bonus Unlocked: +৳${credited.amount}`,
+          `You unlocked a ৳${credited.amount} welcome bonus for joining with creator code ${credited.code} and completing your qualifying paid scrim! Credited to your wallet.`,
+          "/dashboard/wallet"
+        )
+      } else {
+        await notifyUser(
+          credited.recipientUserId,
+          "wallet",
+          `Referral Reward Earned: +৳${credited.amount}`,
+          `A player registered with your code (${credited.code}) completed their qualifying paid scrims. ৳${credited.amount} has been credited to your wallet balance.`,
+          "/dashboard/referrals"
+        )
+      }
 
       return {
         credited: true,
         rewardAmountBdt: credited.amount,
-        referrerUserId: credited.referrerId,
+        recipientUserId: credited.recipientUserId,
       }
     }
 

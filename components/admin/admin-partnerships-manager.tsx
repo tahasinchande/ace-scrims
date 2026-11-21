@@ -16,6 +16,8 @@ import {
   EyeOff,
   ExternalLink,
   X,
+  SlidersHorizontal,
+  Save,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,8 +32,10 @@ import {
   togglePartnershipItemAction,
   reorderPartnershipItemAction,
   deletePartnershipItemAction,
+  updatePartnershipMarqueeSettingsAction,
 } from "@/app/actions/partnerships"
 import type { PartnershipItem } from "@/lib/db/schema"
+import type { PartnershipMarqueeSettings } from "@/lib/queries/partnerships"
 
 const EMPTY_FORM = {
   partnerName: "",
@@ -43,12 +47,22 @@ const EMPTY_FORM = {
   isActive: true,
 }
 
-export function AdminPartnershipsManager({ initialItems }: { initialItems: PartnershipItem[] }) {
+export function AdminPartnershipsManager({
+  initialItems,
+  initialMarqueeSettings,
+}: {
+  initialItems: PartnershipItem[]
+  initialMarqueeSettings: PartnershipMarqueeSettings
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [savingMarquee, startSaveMarquee] = useTransition()
   const [uploading, setUploading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [marqueeConfig, setMarqueeConfig] = useState<PartnershipMarqueeSettings>(
+    initialMarqueeSettings
+  )
 
   const activePreviewItems = initialItems.filter((item) => item.isActive)
 
@@ -68,6 +82,20 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
   function resetForm() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+  }
+
+  function handleSaveMarqueeSettings(e: React.FormEvent) {
+    e.preventDefault()
+    startSaveMarquee(async () => {
+      const res = await updatePartnershipMarqueeSettingsAction(marqueeConfig)
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      setMarqueeConfig(res.settings)
+      toast.success("Infinite marquee settings saved!")
+      router.refresh()
+    })
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -96,7 +124,7 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
         toast.error(res.error)
         return
       }
-      toast.success(editingId ? "Partnership updated!" : "Partnership added to ticker!")
+      toast.success(editingId ? "Partnership updated!" : "Partnership added to marquee!")
       resetForm()
       router.refresh()
     })
@@ -109,7 +137,7 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
         toast.error("Could not update status.")
         return
       }
-      toast.success(item.isActive ? "Hidden from ticker" : "Visible on ticker")
+      toast.success(item.isActive ? "Hidden from marquee" : "Visible on marquee")
       router.refresh()
     })
   }
@@ -142,32 +170,158 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
     <div className="space-y-8">
       <div>
         <h1 className="font-heading text-3xl font-bold tracking-tight">
-          Partnerships &amp; Collaboration Ticker
+          Partnerships &amp; Infinite Marquee Manager
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage sponsors, brand collaborations, and transparent partner logos displayed in the
-          horizontal scrolling announcement bar across Ace Scrims.
+          Manage official partners, logos, links, display order, active status, and continuous
+          non-pausing marquee settings displayed above &ldquo;How It Works&rdquo; on the Homepage
+          and on the Partnerships page.
         </p>
       </div>
 
       {/* Live Preview */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Live Public Ticker Preview</CardTitle>
+          <CardTitle className="text-base">Live Infinite Marquee Preview</CardTitle>
           <CardDescription>
             {activePreviewItems.length > 0
-              ? `Showing ${activePreviewItems.length} active item${activePreviewItems.length > 1 ? "s" : ""} (hover to pause scrolling).`
-              : "No active partnership items yet. The public ticker stays hidden until you add an active item."}
+              ? `Showing ${activePreviewItems.length} active partner${activePreviewItems.length > 1 ? "s" : ""} in continuous non-pausing motion (${marqueeConfig.speedSeconds}s loop, ${marqueeConfig.direction}).`
+              : "No active partnership items yet. Add an active partner below to display the marquee."}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0 pb-4">
           {activePreviewItems.length > 0 ? (
-            <PartnershipTicker items={activePreviewItems} />
+            <PartnershipTicker
+              items={activePreviewItems}
+              marqueeSettings={{ ...marqueeConfig, enabled: true }}
+              compact
+            />
           ) : (
             <div className="mx-6 rounded-xl border border-dashed border-border/70 py-6 text-center text-xs text-muted-foreground">
-              Add an active partnership below to preview the marquee bar.
+              Add an active partnership below to preview the continuous infinite marquee.
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Marquee Behavior & Display Settings */}
+      <Card className="border-border/80">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <SlidersHorizontal className="size-5 text-primary" />
+                Infinite Marquee Settings
+              </CardTitle>
+              <CardDescription>
+                Customize marquee speed, scroll direction, section heading, and visibility. Scrolling
+                runs continuously and never pauses on hover.
+              </CardDescription>
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold">
+              <input
+                type="checkbox"
+                checked={marqueeConfig.enabled}
+                onChange={(e) =>
+                  setMarqueeConfig((c) => ({ ...c, enabled: e.target.checked }))
+                }
+                className="size-4 accent-primary"
+              />
+              {marqueeConfig.enabled ? "Marquee Active" : "Marquee Hidden"}
+            </label>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSaveMarqueeSettings} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="marqueeHeading">Section Heading *</Label>
+                <Input
+                  id="marqueeHeading"
+                  value={marqueeConfig.heading}
+                  onChange={(e) =>
+                    setMarqueeConfig((c) => ({ ...c, heading: e.target.value }))
+                  }
+                  maxLength={80}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="marqueeSubheading">Section Subheading</Label>
+                <Input
+                  id="marqueeSubheading"
+                  value={marqueeConfig.subheading}
+                  onChange={(e) =>
+                    setMarqueeConfig((c) => ({ ...c, subheading: e.target.value }))
+                  }
+                  maxLength={180}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="marqueeSpeed">Cycle Duration (Seconds: 10–90)</Label>
+                <Input
+                  id="marqueeSpeed"
+                  type="number"
+                  min={10}
+                  max={90}
+                  value={marqueeConfig.speedSeconds}
+                  onChange={(e) =>
+                    setMarqueeConfig((c) => ({
+                      ...c,
+                      speedSeconds: Math.min(90, Math.max(10, Number(e.target.value) || 30)),
+                    }))
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Lower = faster glide, Higher = slower glide.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="marqueeDirection">Scroll Direction</Label>
+                <select
+                  id="marqueeDirection"
+                  value={marqueeConfig.direction}
+                  onChange={(e) =>
+                    setMarqueeConfig((c) => ({
+                      ...c,
+                      direction: e.target.value === "right" ? "right" : "left",
+                    }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="left">Right → Left (Classic)</option>
+                  <option value="right">Left → Right (Reverse)</option>
+                </select>
+              </div>
+              <div className="flex items-end pb-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={marqueeConfig.showBadges}
+                    onChange={(e) =>
+                      setMarqueeConfig((c) => ({ ...c, showBadges: e.target.checked }))
+                    }
+                    className="size-4 accent-primary"
+                  />
+                  Show partner badge labels
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={savingMarquee} size="sm" className="font-semibold">
+                {savingMarquee ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 size-4" />
+                )}
+                Save Marquee Settings
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -269,7 +423,7 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
                 <span>{uploading ? "Uploading..." : "Upload Logo"}</span>
                 <input
                   type="file"
-                  accept="image/png,image/webp,image/jpeg,image/svg+xml"
+                  accept="image/png,image/webp,image/jpeg"
                   onChange={handleLogoUpload}
                   className="hidden"
                   disabled={uploading}
@@ -303,7 +457,7 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
                   onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
                   className="size-4 accent-primary"
                 />
-                Show immediately in public scrolling ticker
+                Show immediately in public marquee &amp; Partnerships page
               </label>
               <Button type="submit" disabled={pending || uploading} className="glow-primary font-semibold">
                 {pending ? (
@@ -325,7 +479,7 @@ export function AdminPartnershipsManager({ initialItems }: { initialItems: Partn
         <CardHeader>
           <CardTitle className="text-lg">Configured Partnerships ({initialItems.length})</CardTitle>
           <CardDescription>
-            Reorder items with up/down arrows, toggle visibility, or edit details anytime.
+            Reorder items with up/down arrows, toggle active visibility, or edit details anytime.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
