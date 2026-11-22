@@ -10,7 +10,7 @@ import type { EmailTemplateMediaItem } from "@/lib/db/schema"
 
 export type EmailSendResult = {
   success: boolean
-  provider?: "resend" | "sendgrid" | "smtp" | "console"
+  provider?: "resend" | "sendgrid" | "smtp" | "console" | "blocked_by_toggle"
   messageId?: string
   error?: string
 }
@@ -648,6 +648,20 @@ export async function sendEmail({
   const sendGridKey = getSendGridApiKey()
   const smtp = getSmtpTransporter()
 
+  // Defensive guard: if a non-test purposeKey is explicitly disabled in Admin Email Management, never dispatch
+  if (purposeKey && !purposeKey.startsWith("test:")) {
+    const allowed = await isEmailTemplateEnabled(purposeKey)
+    if (!allowed) {
+      await recordEmailLog({
+        to,
+        purposeKey,
+        subject,
+        status: "blocked_by_toggle",
+      })
+      return { success: true, provider: "blocked_by_toggle" }
+    }
+  }
+
   const finish = async (res: EmailSendResult): Promise<EmailSendResult> => {
     await recordEmailLog({
       to,
@@ -787,133 +801,133 @@ export async function sendEmail({
  * Sends the Email Verification message.
  */
 export async function sendVerificationEmail(to: string, url: string, userName?: string): Promise<boolean> {
-  const cleanUrl = resolveCleanUrl(url)
-  const rawName = userName?.trim() || "Player"
-  const name = escapeHtml(rawName)
+  try {
+    const cleanUrl = resolveCleanUrl(url)
+    const rawName = userName?.trim() || "Player"
+    const name = escapeHtml(rawName)
 
-  const tpl = await getEmailTemplateByPurpose("verify")
-  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("verify")
-  if (!enabled) {
-    console.log(`[Email Template] "verify" template is disabled by admin. Skipping email to ${to}.`)
-    await recordEmailLog({
-      to,
-      purposeKey: "verify",
-      subject: tpl?.subject || "Verify your email — ACE SCRIMS",
-      status: "blocked_by_toggle",
+    const tpl = await getEmailTemplateByPurpose("verify")
+    const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("verify")
+    if (!enabled) {
+      console.log(`[Email Template] "verify" template is disabled by admin. Skipping email to ${to}.`)
+      await recordEmailLog({
+        to,
+        purposeKey: "verify",
+        subject: tpl?.subject || "Verify your email — ACE SCRIMS",
+        status: "blocked_by_toggle",
+      })
+      return true
+    }
+
+    if (tpl) {
+      const rendered = renderEmailFromTemplate(
+        tpl,
+        { userName: rawName, verifyUrl: cleanUrl },
+        { useAuthShell: true, defaultTitle: "Verify your email address", defaultCtaUrl: cleanUrl }
+      )
+      const result = await sendEmail({ to, ...rendered, purposeKey: "verify" })
+      if (!result.success) {
+        console.error(`[Email Verification Failed] Could not deliver email to ${to}. Error: ${result.error}`)
+      }
+      return result.success
+    }
+
+    const contentHtml = `
+      <h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">
+        Hey ${name},
+      </h2>
+      <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
+        Welcome aboard! Please click the button below to verify your email address and activate your account. You'll be fully geared up to explore our platform.
+      </p>
+    `
+
+    const html = authEmailShell({
+      title: "Verify your email address",
+      preheader: "Confirm your email address for ACE SCRIMS account access.",
+      contentHtml,
+      ctaText: "VERIFY EMAIL & EXPLORE SCRIMS",
+      ctaUrl: cleanUrl,
     })
-    return true
-  }
 
-  console.log("====================================================================")
-  console.log(`[EMAIL VERIFICATION LINK FOR ${to}]`)
-  console.log(`URL: ${cleanUrl}`)
-  console.log("====================================================================")
+    const result = await sendEmail({
+      to,
+      subject: "Verify your email — ACE SCRIMS",
+      html,
+      text: `Hey ${rawName}, welcome aboard! Please verify your email by opening this link: ${cleanUrl}`,
+      purposeKey: "verify",
+    })
 
-  if (tpl) {
-    const rendered = renderEmailFromTemplate(
-      tpl,
-      { userName: rawName, verifyUrl: cleanUrl },
-      { useAuthShell: true, defaultTitle: "Verify your email address", defaultCtaUrl: cleanUrl }
-    )
-    const result = await sendEmail({ to, ...rendered, purposeKey: "verify" })
     if (!result.success) {
       console.error(`[Email Verification Failed] Could not deliver email to ${to}. Error: ${result.error}`)
     }
+
     return result.success
+  } catch (err) {
+    console.error(`[Email Verification Exception] Failed to process verification email for ${to}:`, err)
+    return false
   }
-
-  const contentHtml = `
-    <h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">
-      Hey ${name},
-    </h2>
-    <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
-      Welcome aboard! Please click the button below to verify your email address and activate your account. You'll be fully geared up to explore our platform.
-    </p>
-  `
-
-  const html = authEmailShell({
-    title: "Verify your email address",
-    preheader: "Confirm your email address for ACE SCRIMS account access.",
-    contentHtml,
-    ctaText: "VERIFY EMAIL & EXPLORE SCRIMS",
-    ctaUrl: cleanUrl,
-  })
-
-  const result = await sendEmail({
-    to,
-    subject: "Verify your email — ACE SCRIMS",
-    html,
-    text: `Hey ${rawName}, welcome aboard! Please verify your email by opening this link: ${cleanUrl}`,
-    purposeKey: "verify",
-  })
-
-  if (!result.success) {
-    console.error(`[Email Verification Failed] Could not deliver email to ${to}. Error: ${result.error}`)
-  }
-
-  return result.success
 }
 
 /**
  * Sends the Password Reset message.
  */
 export async function sendPasswordResetEmail(to: string, url: string): Promise<boolean> {
-  const cleanUrl = resolveCleanUrl(url)
+  try {
+    const cleanUrl = resolveCleanUrl(url)
 
-  const tpl = await getEmailTemplateByPurpose("password_reset")
-  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("password_reset")
-  if (!enabled) {
-    console.log(`[Email Template] "password_reset" template is disabled by admin. Skipping email to ${to}.`)
-    await recordEmailLog({
-      to,
-      purposeKey: "password_reset",
-      subject: tpl?.subject || "Reset your password — ACE SCRIMS",
-      status: "blocked_by_toggle",
+    const tpl = await getEmailTemplateByPurpose("password_reset")
+    const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("password_reset")
+    if (!enabled) {
+      console.log(`[Email Template] "password_reset" template is disabled by admin. Skipping email to ${to}.`)
+      await recordEmailLog({
+        to,
+        purposeKey: "password_reset",
+        subject: tpl?.subject || "Reset your password — ACE SCRIMS",
+        status: "blocked_by_toggle",
+      })
+      return true
+    }
+
+    if (tpl) {
+      const rendered = renderEmailFromTemplate(
+        tpl,
+        { resetUrl: cleanUrl },
+        { useAuthShell: true, defaultTitle: "Reset your password", defaultCtaUrl: cleanUrl }
+      )
+      const result = await sendEmail({ to, ...rendered, purposeKey: "password_reset" })
+      if (!result.success) {
+        console.error(`[Password Reset Failed] Could not deliver email to ${to}. Error: ${result.error}`)
+      }
+      return result.success
+    }
+
+    const title = "Reset your password"
+    const body = "We received a request to reset the password for your ACE SCRIMS account. Click the button below to choose a new password."
+    const html = authEmailShell({
+      title,
+      preheader: "Instructions to reset your ACE SCRIMS password.",
+      contentHtml: `<p style="margin:0 0 16px 0;">${body}</p>`,
+      ctaText: "Reset Password",
+      ctaUrl: cleanUrl,
     })
-    return true
-  }
 
-  console.log("====================================================================")
-  console.log(`[PASSWORD RESET LINK FOR ${to}]`)
-  console.log(`URL: ${cleanUrl}`)
-  console.log("====================================================================")
+    const result = await sendEmail({
+      to,
+      subject: "Reset your password — ACE SCRIMS",
+      html,
+      text: `Reset your ACE SCRIMS password by opening this link: ${cleanUrl}`,
+      purposeKey: "password_reset",
+    })
 
-  if (tpl) {
-    const rendered = renderEmailFromTemplate(
-      tpl,
-      { resetUrl: cleanUrl },
-      { useAuthShell: true, defaultTitle: "Reset your password", defaultCtaUrl: cleanUrl }
-    )
-    const result = await sendEmail({ to, ...rendered, purposeKey: "password_reset" })
     if (!result.success) {
       console.error(`[Password Reset Failed] Could not deliver email to ${to}. Error: ${result.error}`)
     }
+
     return result.success
+  } catch (err) {
+    console.error(`[Password Reset Exception] Failed to process password reset email for ${to}:`, err)
+    return false
   }
-
-  const title = "Reset your password"
-  const body = "We received a request to reset the password for your ACE SCRIMS account. Click the button below to choose a new password."
-  const html = authEmailShell({
-    title,
-    preheader: "Instructions to reset your ACE SCRIMS password.",
-    contentHtml: `<p style="margin:0 0 16px 0;">${body}</p>`,
-    ctaText: "Reset Password",
-    ctaUrl: cleanUrl,
-  })
-
-  const result = await sendEmail({
-    to,
-    subject: "Reset your password — ACE SCRIMS",
-    html,
-    text: `Reset your ACE SCRIMS password by opening this link: ${cleanUrl}`,
-    purposeKey: "password_reset",
-  })
-
-  if (!result.success) {
-    console.error(`[Password Reset Failed] Could not deliver email to ${to}. Error: ${result.error}`)
-  }
-
-  return result.success
 }
 
 /**
@@ -936,72 +950,77 @@ export async function sendBookingConfirmationEmail({
   slotNumber: number
   amountBdt: number
 }): Promise<boolean> {
-  const tpl = await getEmailTemplateByPurpose("register")
-  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("register")
-  if (!enabled) {
-    console.log(`[Email Template] "register" template is disabled by admin. Skipping email to ${to}.`)
-    await recordEmailLog({
-      to,
-      purposeKey: "register",
-      subject: tpl?.subject || `Booking Confirmed: ${scrimTitle} — ACE SCRIMS`,
-      status: "blocked_by_toggle",
+  try {
+    const tpl = await getEmailTemplateByPurpose("register")
+    const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("register")
+    if (!enabled) {
+      console.log(`[Email Template] "register" template is disabled by admin. Skipping email to ${to}.`)
+      await recordEmailLog({
+        to,
+        purposeKey: "register",
+        subject: tpl?.subject || `Booking Confirmed: ${scrimTitle} — ACE SCRIMS`,
+        status: "blocked_by_toggle",
+      })
+      return true
+    }
+
+    const appUrl = getProductionAppUrl()
+    const dashboardUrl = `${appUrl}/dashboard/scrims`
+
+    if (tpl) {
+      const rendered = renderEmailFromTemplate(
+        tpl,
+        {
+          recipientName: recipientName || "Captain",
+          teamName,
+          scrimTitle,
+          startTime,
+          slotNumber,
+          amountBdt,
+          dashboardUrl,
+        },
+        { defaultTitle: `Booking Confirmed — Slot #${slotNumber}`, defaultCtaUrl: dashboardUrl }
+      )
+      const result = await sendEmail({ to, ...rendered, purposeKey: "register" })
+      return result.success
+    }
+
+    const safeRecipient = escapeHtml(recipientName || "Captain")
+    const safeTeamName = escapeHtml(teamName)
+    const safeScrimTitle = escapeHtml(scrimTitle)
+    const safeStartTime = escapeHtml(startTime)
+
+    const contentHtml = `
+      <p style="margin:0 0 18px 0;color:#ffffff;font-size:16px;">
+        Hello ${safeRecipient},
+      </p>
+      <p style="margin:0 0 20px 0;">
+        Your squad booking has been confirmed for <strong>${safeScrimTitle}</strong>. Your payment of <strong>BDT ${amountBdt}</strong> was verified automatically.
+      </p>
+      <p style="margin:0;color:#94a3b8;font-size:13px;">Squad: <strong>${safeTeamName}</strong> · Slot: <strong>#${slotNumber}</strong> · Kickoff: <strong>${safeStartTime}</strong></p>
+    `
+
+    const html = emailShell({
+      title: `Booking Confirmed — Slot #${slotNumber}`,
+      preheader: `Your slot #${slotNumber} for ${safeScrimTitle} (${safeStartTime}) is confirmed.`,
+      contentHtml,
+      ctaText: "Open Player Dashboard",
+      ctaUrl: dashboardUrl,
     })
-    return true
-  }
 
-  const appUrl = getProductionAppUrl()
-  const dashboardUrl = `${appUrl}/dashboard/scrims`
+    const result = await sendEmail({
+      to,
+      subject: `Booking Confirmed: ${scrimTitle} (Slot #${slotNumber}) — ACE SCRIMS`,
+      html,
+      text: `Your squad ${teamName} is confirmed for ${scrimTitle} in Slot #${slotNumber}. Match start: ${startTime}. View details in your dashboard: ${dashboardUrl}`,
+      purposeKey: "register",
+    })
 
-  if (tpl) {
-    const rendered = renderEmailFromTemplate(
-      tpl,
-      {
-        recipientName: recipientName || "Captain",
-        teamName,
-        scrimTitle,
-        startTime,
-        slotNumber,
-        amountBdt,
-        dashboardUrl,
-      },
-      { defaultTitle: `Booking Confirmed — Slot #${slotNumber}`, defaultCtaUrl: dashboardUrl }
-    )
-    const result = await sendEmail({ to, ...rendered, purposeKey: "register" })
     return result.success
+  } catch (err) {
+    console.error(`[Booking Confirmation Email Exception] Failed for ${to}:`, err)
+    return false
   }
-
-  const safeRecipient = escapeHtml(recipientName || "Captain")
-  const safeTeamName = escapeHtml(teamName)
-  const safeScrimTitle = escapeHtml(scrimTitle)
-  const safeStartTime = escapeHtml(startTime)
-
-  const contentHtml = `
-    <p style="margin:0 0 18px 0;color:#ffffff;font-size:16px;">
-      Hello ${safeRecipient},
-    </p>
-    <p style="margin:0 0 20px 0;">
-      Your squad booking has been confirmed for <strong>${safeScrimTitle}</strong>. Your payment of <strong>BDT ${amountBdt}</strong> was verified automatically.
-    </p>
-    <p style="margin:0;color:#94a3b8;font-size:13px;">Squad: <strong>${safeTeamName}</strong> · Slot: <strong>#${slotNumber}</strong> · Kickoff: <strong>${safeStartTime}</strong></p>
-  `
-
-  const html = emailShell({
-    title: `Booking Confirmed — Slot #${slotNumber}`,
-    preheader: `Your slot #${slotNumber} for ${safeScrimTitle} (${safeStartTime}) is confirmed.`,
-    contentHtml,
-    ctaText: "Open Player Dashboard",
-    ctaUrl: dashboardUrl,
-  })
-
-  const result = await sendEmail({
-    to,
-    subject: `Booking Confirmed: ${scrimTitle} (Slot #${slotNumber}) — ACE SCRIMS`,
-    html,
-    text: `Your squad ${teamName} is confirmed for ${scrimTitle} in Slot #${slotNumber}. Match start: ${startTime}. View details in your dashboard: ${dashboardUrl}`,
-    purposeKey: "register",
-  })
-
-  return result.success
 }
 
 /**
@@ -1028,78 +1047,83 @@ export async function sendRoomCredentialsEmail({
   roomPassword: string
   isUpdated?: boolean
 }): Promise<boolean> {
-  const tpl = await getEmailTemplateByPurpose("id_pass")
-  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("id_pass")
-  if (!enabled) {
-    console.log(`[Email Template] "id_pass" template is disabled by admin. Skipping email to ${to}.`)
-    await recordEmailLog({
-      to,
-      purposeKey: "id_pass",
-      subject: tpl?.subject || `Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
-      status: "blocked_by_toggle",
+  try {
+    const tpl = await getEmailTemplateByPurpose("id_pass")
+    const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("id_pass")
+    if (!enabled) {
+      console.log(`[Email Template] "id_pass" template is disabled by admin. Skipping email to ${to}.`)
+      await recordEmailLog({
+        to,
+        purposeKey: "id_pass",
+        subject: tpl?.subject || `Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
+        status: "blocked_by_toggle",
+      })
+      return true
+    }
+
+    const appUrl = getProductionAppUrl()
+    const dashboardUrl = `${appUrl}/dashboard/scrims`
+    const slotText = slotNumber ? `Slot #${slotNumber} (${teamName})` : `Squad: ${teamName}`
+    const updateNotice = isUpdated
+      ? "UPDATE NOTICE: Room credentials were updated by the match admin."
+      : "Room credentials are now live."
+
+    if (tpl) {
+      const rendered = renderEmailFromTemplate(
+        tpl,
+        {
+          recipientName: recipientName || "Captain",
+          teamName,
+          scrimTitle,
+          startTime,
+          slotNumber: slotNumber ?? "-",
+          slotText,
+          roomId,
+          roomPassword,
+          updateNotice,
+          dashboardUrl,
+        },
+        {
+          defaultTitle: isUpdated ? `Room Credentials Updated: ${scrimTitle}` : `Room Credentials Released: ${scrimTitle}`,
+          defaultCtaUrl: dashboardUrl,
+        }
+      )
+      const subject = isUpdated && !rendered.subject.toUpperCase().includes("UPDATE")
+        ? `UPDATED ${rendered.subject}`
+        : rendered.subject
+      const result = await sendEmail({ to, ...rendered, subject, purposeKey: "id_pass" })
+      return result.success
+    }
+
+    const safeRoomId = escapeHtml(roomId)
+    const safeRoomPass = escapeHtml(roomPassword)
+    const safeScrimTitle = escapeHtml(scrimTitle)
+    const safeRecipient = escapeHtml(recipientName || "Captain")
+    const safeStartTime = escapeHtml(startTime)
+
+    const title = isUpdated ? `Room Credentials Updated: ${safeScrimTitle}` : `Room Credentials Released: ${safeScrimTitle}`
+    const contentHtml = `<p style="margin:0 0 16px 0;">Hello ${safeRecipient}, Room ID: <strong>${safeRoomId}</strong> | Password: <strong>${safeRoomPass}</strong> (${safeStartTime})</p>`
+    const html = emailShell({
+      title,
+      preheader: `Room ID: ${safeRoomId} | Password: ${safeRoomPass}`,
+      contentHtml,
+      ctaText: "Go to Dashboard",
+      ctaUrl: dashboardUrl,
     })
-    return true
-  }
 
-  const appUrl = getProductionAppUrl()
-  const dashboardUrl = `${appUrl}/dashboard/scrims`
-  const slotText = slotNumber ? `Slot #${slotNumber} (${teamName})` : `Squad: ${teamName}`
-  const updateNotice = isUpdated
-    ? "UPDATE NOTICE: Room credentials were updated by the match admin."
-    : "Room credentials are now live."
+    const result = await sendEmail({
+      to,
+      subject: `${isUpdated ? "UPDATED " : ""}Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
+      html,
+      text: `${title}. Room ID: ${roomId} | Password: ${roomPassword}. Start time: ${startTime}. View in dashboard: ${dashboardUrl}`,
+      purposeKey: "id_pass",
+    })
 
-  if (tpl) {
-    const rendered = renderEmailFromTemplate(
-      tpl,
-      {
-        recipientName: recipientName || "Captain",
-        teamName,
-        scrimTitle,
-        startTime,
-        slotNumber: slotNumber ?? "-",
-        slotText,
-        roomId,
-        roomPassword,
-        updateNotice,
-        dashboardUrl,
-      },
-      {
-        defaultTitle: isUpdated ? `Room Credentials Updated: ${scrimTitle}` : `Room Credentials Released: ${scrimTitle}`,
-        defaultCtaUrl: dashboardUrl,
-      }
-    )
-    const subject = isUpdated && !rendered.subject.toUpperCase().includes("UPDATE")
-      ? `UPDATED ${rendered.subject}`
-      : rendered.subject
-    const result = await sendEmail({ to, ...rendered, subject, purposeKey: "id_pass" })
     return result.success
+  } catch (err) {
+    console.error(`[Room Credentials Email Exception] Failed for ${to}:`, err)
+    return false
   }
-
-  const safeRoomId = escapeHtml(roomId)
-  const safeRoomPass = escapeHtml(roomPassword)
-  const safeScrimTitle = escapeHtml(scrimTitle)
-  const safeRecipient = escapeHtml(recipientName || "Captain")
-  const safeStartTime = escapeHtml(startTime)
-
-  const title = isUpdated ? `Room Credentials Updated: ${safeScrimTitle}` : `Room Credentials Released: ${safeScrimTitle}`
-  const contentHtml = `<p style="margin:0 0 16px 0;">Hello ${safeRecipient}, Room ID: <strong>${safeRoomId}</strong> | Password: <strong>${safeRoomPass}</strong> (${safeStartTime})</p>`
-  const html = emailShell({
-    title,
-    preheader: `Room ID: ${safeRoomId} | Password: ${safeRoomPass}`,
-    contentHtml,
-    ctaText: "Go to Dashboard",
-    ctaUrl: dashboardUrl,
-  })
-
-  const result = await sendEmail({
-    to,
-    subject: `${isUpdated ? "UPDATED " : ""}Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
-    html,
-    text: `${title}. Room ID: ${roomId} | Password: ${roomPassword}. Start time: ${startTime}. View in dashboard: ${dashboardUrl}`,
-    purposeKey: "id_pass",
-  })
-
-  return result.success
 }
 
 /**
@@ -1122,73 +1146,78 @@ export async function sendScrimNotHostedEmail({
   startTime: string
   amountBdt: number
 }): Promise<boolean> {
-  const tpl = await getEmailTemplateByPurpose("not_hosted")
-  const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("not_hosted")
-  if (!enabled) {
-    console.log(`[Email Template] "not_hosted" template is disabled by admin. Skipping email to ${to}.`)
-    await recordEmailLog({
-      to,
-      purposeKey: "not_hosted",
-      subject: tpl?.subject || `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
-      status: "blocked_by_toggle",
+  try {
+    const tpl = await getEmailTemplateByPurpose("not_hosted")
+    const enabled = tpl ? tpl.isEnabled : getCoreEmailDefaultEnabled("not_hosted")
+    if (!enabled) {
+      console.log(`[Email Template] "not_hosted" template is disabled by admin. Skipping email to ${to}.`)
+      await recordEmailLog({
+        to,
+        purposeKey: "not_hosted",
+        subject: tpl?.subject || `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
+        status: "blocked_by_toggle",
+      })
+      return true
+    }
+
+    const appUrl = getProductionAppUrl()
+    const dashboardUrl = `${appUrl}/dashboard`
+
+    if (tpl) {
+      const rendered = renderEmailFromTemplate(
+        tpl,
+        {
+          recipientName: recipientName || "Captain",
+          teamName,
+          scrimTitle,
+          scrimDate,
+          startTime,
+          amountBdt,
+          dashboardUrl,
+        },
+        { defaultTitle: `Scrim Not Hosted: ${scrimTitle}`, defaultCtaUrl: dashboardUrl }
+      )
+      const result = await sendEmail({ to, ...rendered, purposeKey: "not_hosted" })
+      return result.success
+    }
+
+    const safeRecipient = escapeHtml(recipientName || "Captain")
+    const safeTeamName = escapeHtml(teamName)
+    const safeScrimTitle = escapeHtml(scrimTitle)
+    const safeScrimDate = escapeHtml(scrimDate)
+    const safeStartTime = escapeHtml(startTime)
+
+    const contentHtml = `
+      <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
+        Hello <strong>${safeRecipient}</strong>,
+      </p>
+      <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
+        We regret to inform you that <strong>${safeScrimTitle}</strong> (${safeScrimDate} at ${safeStartTime}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.
+      </p>
+      <p style="margin:0;color:#10b981;font-size:14px;font-weight:700;">Squad: ${safeTeamName} · Full Refund: ৳${amountBdt} BDT</p>
+    `
+
+    const html = emailShell({
+      title: `Scrim Not Hosted: ${safeScrimTitle}`,
+      preheader: `${safeScrimTitle} has been marked as Not Hosted. Your entry fee will be refunded.`,
+      contentHtml,
+      ctaText: "Go to Dashboard",
+      ctaUrl: dashboardUrl,
     })
-    return true
-  }
 
-  const appUrl = getProductionAppUrl()
-  const dashboardUrl = `${appUrl}/dashboard`
+    const result = await sendEmail({
+      to,
+      subject: `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
+      html,
+      text: `Hello ${recipientName}, ${scrimTitle} (${scrimDate} at ${startTime}) was not hosted. Your squad ${teamName} will be refunded ৳${amountBdt}. View status: ${dashboardUrl}`,
+      purposeKey: "not_hosted",
+    })
 
-  if (tpl) {
-    const rendered = renderEmailFromTemplate(
-      tpl,
-      {
-        recipientName: recipientName || "Captain",
-        teamName,
-        scrimTitle,
-        scrimDate,
-        startTime,
-        amountBdt,
-        dashboardUrl,
-      },
-      { defaultTitle: `Scrim Not Hosted: ${scrimTitle}`, defaultCtaUrl: dashboardUrl }
-    )
-    const result = await sendEmail({ to, ...rendered, purposeKey: "not_hosted" })
     return result.success
+  } catch (err) {
+    console.error(`[Scrim Not Hosted Email Exception] Failed for ${to}:`, err)
+    return false
   }
-
-  const safeRecipient = escapeHtml(recipientName || "Captain")
-  const safeTeamName = escapeHtml(teamName)
-  const safeScrimTitle = escapeHtml(scrimTitle)
-  const safeScrimDate = escapeHtml(scrimDate)
-  const safeStartTime = escapeHtml(startTime)
-
-  const contentHtml = `
-    <p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">
-      Hello <strong>${safeRecipient}</strong>,
-    </p>
-    <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">
-      We regret to inform you that <strong>${safeScrimTitle}</strong> (${safeScrimDate} at ${safeStartTime}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.
-    </p>
-    <p style="margin:0;color:#10b981;font-size:14px;font-weight:700;">Squad: ${safeTeamName} · Full Refund: ৳${amountBdt} BDT</p>
-  `
-
-  const html = emailShell({
-    title: `Scrim Not Hosted: ${safeScrimTitle}`,
-    preheader: `${safeScrimTitle} has been marked as Not Hosted. Your entry fee will be refunded.`,
-    contentHtml,
-    ctaText: "Go to Dashboard",
-    ctaUrl: dashboardUrl,
-  })
-
-  const result = await sendEmail({
-    to,
-    subject: `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
-    html,
-    text: `Hello ${recipientName}, ${scrimTitle} (${scrimDate} at ${startTime}) was not hosted. Your squad ${teamName} will be refunded ৳${amountBdt}. View status: ${dashboardUrl}`,
-    purposeKey: "not_hosted",
-  })
-
-  return result.success
 }
 
 /**

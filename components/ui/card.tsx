@@ -12,7 +12,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl bg-[linear-gradient(180deg,rgba(16,21,35,0.92)_0%,rgba(8,11,20,0.96)_100%)] backdrop-blur-md py-(--card-spacing) text-sm text-card-foreground ring-1 ring-white/[0.085] shadow-[0_18px_42px_-18px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-200 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl bg-[radial-gradient(120%_90%_at_12%_0%,rgba(79,98,168,0.13)_0%,transparent_55%),linear-gradient(160deg,rgba(20,27,46,0.92)_0%,rgba(10,14,26,0.96)_55%,rgba(6,9,17,0.99)_100%)] backdrop-blur-md py-(--card-spacing) text-sm text-card-foreground ring-1 ring-white/[0.085] shadow-[0_20px_48px_-20px_rgba(0,0,0,0.84),inset_0_1px_0_rgba(255,255,255,0.09)] transition-all duration-200 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
         className
       )}
       {...props}
@@ -38,7 +38,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "font-display text-base leading-snug font-bold tracking-wide group-data-[size=sm]/card:text-sm",
+        "font-display text-base leading-snug font-semibold tracking-tight group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props}

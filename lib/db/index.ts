@@ -39,7 +39,7 @@ function isBuildTimeContext(): boolean {
 }
 
 const SCHEMA_VERSION_KEY = "schema_migration_version"
-const CURRENT_SCHEMA_VERSION = "v2026_11_21_creator_wallet_marquee_v2"
+const CURRENT_SCHEMA_VERSION = "v2026_11_22_email_templates_hardening_v3"
 
 async function ensureSchema() {
   if (!connectionString || isBuildTimeContext()) return
@@ -423,6 +423,21 @@ async function ensureSchema() {
         `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "updatedBy" text`,
         `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
         `ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
+        `DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'email_templates'
+              AND is_nullable = 'NO'
+              AND column_default IS NULL
+              AND column_name NOT IN ('id', 'purposeKey', 'label', 'category', 'isEnabled', 'isCore', 'format', 'subject', 'bodyHtml', 'bodyText', 'mediaItems', 'createdAt', 'updatedAt')
+          LOOP
+            EXECUTE format('ALTER TABLE "email_templates" ALTER COLUMN %I DROP NOT NULL', r.column_name);
+          END LOOP;
+        END $$`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "uq_email_templates_purpose_key" ON "email_templates" ("purposeKey")`,
         `CREATE TABLE IF NOT EXISTS "chat_sessions" (
           "userId" text PRIMARY KEY,
@@ -719,4 +734,73 @@ export async function ensureNotHostedTable() {
     console.warn("[Database] ensureNotHostedTable error:", err)
   }
 }
+
+let emailSchemaEnsured = false
+
+export async function ensureEmailTemplatesSchema(): Promise<void> {
+  if (emailSchemaEnsured || !connectionString || isBuildTimeContext()) return
+  try {
+    const client = await pool.connect()
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS "email_templates" (
+          "id" text PRIMARY KEY,
+          "purposeKey" text NOT NULL UNIQUE,
+          "label" text NOT NULL,
+          "description" text,
+          "category" text NOT NULL DEFAULT 'system',
+          "isEnabled" boolean NOT NULL DEFAULT true,
+          "isCore" boolean NOT NULL DEFAULT false,
+          "format" text NOT NULL DEFAULT 'html',
+          "subject" text NOT NULL,
+          "preheader" text,
+          "bodyHtml" text NOT NULL,
+          "bodyText" text NOT NULL,
+          "ctaText" text,
+          "ctaUrl" text,
+          "mediaItems" jsonb NOT NULL DEFAULT '[]'::jsonb,
+          "variablesHint" jsonb,
+          "updatedBy" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW(),
+          "updatedAt" timestamp NOT NULL DEFAULT NOW()
+        );
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "purposeKey" text;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "label" text NOT NULL DEFAULT '';
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "description" text;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "category" text NOT NULL DEFAULT 'system';
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "isEnabled" boolean NOT NULL DEFAULT true;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "isCore" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "format" text NOT NULL DEFAULT 'html';
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "subject" text NOT NULL DEFAULT '';
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "preheader" text;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "bodyHtml" text NOT NULL DEFAULT '';
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "bodyText" text NOT NULL DEFAULT '';
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "ctaText" text;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "ctaUrl" text;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "mediaItems" jsonb NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "variablesHint" jsonb;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "updatedBy" text;
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW();
+        ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW();
+        CREATE UNIQUE INDEX IF NOT EXISTS "uq_email_templates_purpose_key" ON "email_templates" ("purposeKey");
+        CREATE TABLE IF NOT EXISTS "email_logs" (
+          "id" text PRIMARY KEY,
+          "recipientEmail" text NOT NULL,
+          "purposeKey" text,
+          "subject" text NOT NULL,
+          "status" text NOT NULL DEFAULT 'sent',
+          "provider" text,
+          "error" text,
+          "createdAt" timestamp NOT NULL DEFAULT NOW()
+        );
+      `)
+      emailSchemaEnsured = true
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    console.warn("[Database] ensureEmailTemplatesSchema error:", err)
+  }
+}
+
 

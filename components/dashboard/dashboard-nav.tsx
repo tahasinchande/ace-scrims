@@ -67,21 +67,21 @@ export function DashboardNav({
   const avatarUrl = user.image ? resolveImageUrl(user.image) : null
 
   return (
-    <aside className="w-full shrink-0 lg:w-60">
-      <div className="glass rounded-2xl p-4 border border-border/80 shadow-lg">
-        <div className="mb-4 flex items-center gap-3 border-b border-border/60 px-1 pb-4">
-          <div className="size-10 shrink-0 rounded-full overflow-hidden border border-border/80 bg-secondary/80 flex items-center justify-center">
+    <aside className="w-full shrink-0 lg:w-62">
+      <div className="dc-surface lg:sticky lg:top-20 rounded-2xl p-4">
+        <div className="mb-4 flex items-center gap-3 border-b border-white/[0.07] px-1 pb-4">
+          <div className="size-10 shrink-0 rounded-xl overflow-hidden border border-white/[0.1] bg-white/[0.04] flex items-center justify-center">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarUrl} alt={user.name} className="size-full object-cover" />
             ) : (
-              <span className="font-display text-xs font-bold text-foreground">
+              <span className="font-display text-xs font-semibold text-foreground">
                 {getUserInitials(user.name)}
               </span>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-sm font-bold text-foreground">{user.name}</p>
+            <p className="truncate font-display text-sm font-semibold tracking-tight text-foreground">{user.name}</p>
             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
           </div>
         </div>
@@ -95,21 +95,21 @@ export function DashboardNav({
                     href={link.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium transition-colors w-full",
+                      "flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs sm:text-sm font-semibold transition-all w-full",
                       active
-                        ? "bg-primary/15 text-primary font-semibold shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                        ? "border-primary/25 bg-primary/14 text-primary shadow-xs"
+                        : "border-transparent text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
                     )}
                   >
-                    <link.icon className="size-4 shrink-0 text-primary/80" aria-hidden />
+                    <link.icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground/85")} aria-hidden />
                     <span className="truncate">{link.label}</span>
                     {link.href === "/dashboard/notifications" && unread > 0 && (
-                      <span className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                      <span className="ml-auto shrink-0 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground tabular-nums">
                         {unread}
                       </span>
                     )}
                     {link.href === "/dashboard/image-requests" && pendingImageRequestsCount > 0 && (
-                      <span className="ml-auto shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black animate-pulse">
+                      <span className="ml-auto shrink-0 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950 tabular-nums">
                         {pendingImageRequestsCount}
                       </span>
                     )}
@@ -121,7 +121,7 @@ export function DashboardNav({
               <li className="w-full lg:flex-none">
                 <Link
                   href={user.role === "admin" ? "/admin" : "/admin/scrims"}
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium text-accent transition-colors hover:bg-secondary w-full"
+                  className="flex items-center gap-2.5 rounded-xl border border-transparent px-3 py-2 text-xs sm:text-sm font-semibold text-indigo-300 transition-all hover:bg-white/[0.05] hover:text-indigo-200 w-full"
                 >
                   <Shield className="size-4 shrink-0" aria-hidden />
                   <span className="truncate">{user.role === "admin" ? "Admin Panel" : "Mod Panel"}</span>
@@ -132,7 +132,7 @@ export function DashboardNav({
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive text-left"
+                className="flex w-full items-center gap-2.5 rounded-xl border border-transparent px-3 py-2 text-xs sm:text-sm font-semibold text-muted-foreground transition-all hover:bg-destructive/12 hover:text-destructive text-left cursor-pointer"
               >
                 <LogOut className="size-4 shrink-0" aria-hidden />
                 <span className="truncate">Sign Out</span>

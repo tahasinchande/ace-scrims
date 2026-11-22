@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useRef } from "react"
+import { useState, useTransition, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -34,11 +34,19 @@ import type { EmailTemplateMediaItem } from "@/lib/db/schema"
 import type { NormalizedEmailTemplate } from "@/lib/queries/email-templates"
 import {
   updateEmailTemplateAction,
-  toggleEmailTemplateAction,
   createCustomEmailTemplateAction,
   deleteEmailTemplateAction,
   sendTestEmailTemplateAction,
 } from "@/app/actions/email-templates"
+
+function escapePreviewHtml(input: string): string {
+  return String(input ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
 
 type Props = {
   initialTemplates: NormalizedEmailTemplate[]
@@ -51,6 +59,16 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   const [selectedId, setSelectedId] = useState<string>(initialTemplates[0]?.id || "")
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor")
   const [isPending, startTransition] = useTransition()
+  const [togglingKey, setTogglingKey] = useState<string | null>(null)
+
+  const initialTemplatesFingerprint = initialTemplates
+    .map((t) => `${t.id}:${t.purposeKey}:${t.isEnabled ? 1 : 0}`)
+    .join("|")
+
+  useEffect(() => {
+    setTemplates(initialTemplates)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTemplatesFingerprint])
 
   // Currently edited draft state
   const activeTemplate = templates.find((t) => t.id === selectedId) || templates[0] || null
@@ -113,28 +131,87 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
     loadDraft(tpl)
   }
 
-  function handleMasterToggle(tpl: NormalizedEmailTemplate, nextValue: boolean) {
-    startTransition(async () => {
-      const res = await toggleEmailTemplateAction(tpl.id, nextValue, tpl.purposeKey)
-      if (res.ok) {
-        const updatedTpl = res.template
-        setTemplates((prev) =>
-          prev.map((item) =>
-            item.id === tpl.id || item.purposeKey === tpl.purposeKey
-              ? updatedTpl ?? { ...item, isEnabled: nextValue }
-              : item
-          )
-        )
-        if (activeTemplate?.id === tpl.id || activeTemplate?.purposeKey === tpl.purposeKey) {
-          if (updatedTpl) setSelectedId(updatedTpl.id)
-          setIsEnabled(nextValue)
-        }
-        toast.success(`${tpl.label} email trigger ${nextValue ? "enabled" : "disabled"}.`)
-        router.refresh()
-      } else {
-        toast.error(res.error || "Failed to toggle template status")
+  async function handleMasterToggle(tpl: NormalizedEmailTemplate, nextValue: boolean) {
+    const lockKey = tpl.purposeKey || tpl.id
+    if (togglingKey === lockKey) return
+
+    const previousValue = tpl.isEnabled
+    const isCurrentlySelected =
+      activeTemplate?.id === tpl.id || activeTemplate?.purposeKey === tpl.purposeKey
+
+    // Optimistic UI update
+    setTogglingKey(lockKey)
+    setTemplates((prev) =>
+      prev.map((item) =>
+        item.id === tpl.id || item.purposeKey === tpl.purposeKey
+          ? { ...item, isEnabled: nextValue }
+          : item
+      )
+    )
+    if (isCurrentlySelected) {
+      setIsEnabled(nextValue)
+    }
+
+    try {
+      const response = await fetch("/api/admin/email-templates/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({
+          id: tpl.id,
+          purposeKey: tpl.purposeKey,
+          isEnabled: nextValue,
+        }),
+      })
+
+      const data = await response.json().catch(() => ({ ok: false, error: "Invalid server response" }))
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || `Failed to toggle template (${response.status})`)
       }
-    })
+
+      const persistedEnabled =
+        typeof data.isEnabled === "boolean" ? data.isEnabled : nextValue
+      const persistedTpl: NormalizedEmailTemplate | null = data.template
+        ? {
+            ...data.template,
+            createdAt: new Date(data.template.createdAt || Date.now()),
+            updatedAt: new Date(data.template.updatedAt || Date.now()),
+          }
+        : null
+
+      setTemplates((prev) =>
+        prev.map((item) =>
+          item.id === tpl.id || item.purposeKey === tpl.purposeKey
+            ? persistedTpl ?? { ...item, isEnabled: persistedEnabled }
+            : item
+        )
+      )
+
+      if (isCurrentlySelected) {
+        if (persistedTpl) setSelectedId(persistedTpl.id)
+        setIsEnabled(persistedEnabled)
+      }
+
+      toast.success(`${tpl.label} email trigger ${persistedEnabled ? "enabled" : "disabled"}.`)
+      router.refresh()
+    } catch (err) {
+      // Roll back optimistic state cleanly
+      setTemplates((prev) =>
+        prev.map((item) =>
+          item.id === tpl.id || item.purposeKey === tpl.purposeKey
+            ? { ...item, isEnabled: previousValue }
+            : item
+        )
+      )
+      if (isCurrentlySelected) {
+        setIsEnabled(previousValue)
+      }
+      toast.error(err instanceof Error ? err.message : "Failed to toggle template status")
+    } finally {
+      setTogglingKey((current) => (current === lockKey ? null : current))
+    }
   }
 
   function handleSaveTemplate(e: React.FormEvent) {
@@ -142,35 +219,40 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
     if (!activeTemplate) return
 
     startTransition(async () => {
-      const res = await updateEmailTemplateAction({
-        id: activeTemplate.id,
-        purposeKey: activeTemplate.purposeKey,
-        label,
-        description,
-        isEnabled,
-        format,
-        subject,
-        preheader,
-        bodyHtml,
-        bodyText,
-        ctaText,
-        ctaUrl,
-        mediaItems,
-        variablesHint: activeTemplate.variablesHint,
-      })
+      try {
+        const res = await updateEmailTemplateAction({
+          id: activeTemplate.id,
+          purposeKey: activeTemplate.purposeKey,
+          label,
+          description,
+          isEnabled,
+          format,
+          subject,
+          preheader,
+          bodyHtml,
+          bodyText,
+          ctaText,
+          ctaUrl,
+          mediaItems,
+          variablesHint: activeTemplate.variablesHint,
+        })
 
-      if (res.ok && res.template) {
-        const saved = res.template
-        setTemplates((prev) =>
-          prev.map((item) =>
-            item.id === activeTemplate.id || item.purposeKey === saved.purposeKey ? saved : item
+        if (res.ok && res.template) {
+          const saved = res.template
+          setTemplates((prev) =>
+            prev.map((item) =>
+              item.id === activeTemplate.id || item.purposeKey === saved.purposeKey ? saved : item
+            )
           )
-        )
-        setSelectedId(saved.id)
-        toast.success(`"${label}" template saved successfully!`)
-        router.refresh()
-      } else {
-        toast.error(res.error || "Failed to save email template")
+          setSelectedId(saved.id)
+          setIsEnabled(saved.isEnabled)
+          toast.success(`"${label}" template saved successfully!`)
+          router.refresh()
+        } else {
+          toast.error(res.error || "Failed to save email template")
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to save email template")
       }
     })
   }
@@ -246,25 +328,29 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   function handleCreateCustom(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
-      const res = await createCustomEmailTemplateAction({
-        label: newLabel,
-        description: newDescription,
-        format: newFormat,
-        subject: newSubject,
-        bodyHtml: newBodyHtml,
-        bodyText: newFormat === "text" ? newBodyHtml : "",
-      })
-      if (res.ok && res.template) {
-        setTemplates((prev) => [...prev, res.template!])
-        loadDraft(res.template)
-        setShowCreateModal(false)
-        setNewLabel("")
-        setNewDescription("")
-        setNewSubject("")
-        setNewBodyHtml("")
-        toast.success(`Custom email purpose "${res.template.label}" created!`)
-      } else {
-        toast.error(res.error || "Failed to create email purpose")
+      try {
+        const res = await createCustomEmailTemplateAction({
+          label: newLabel,
+          description: newDescription,
+          format: newFormat,
+          subject: newSubject,
+          bodyHtml: newBodyHtml,
+          bodyText: newFormat === "text" ? newBodyHtml : "",
+        })
+        if (res.ok && res.template) {
+          setTemplates((prev) => [...prev, res.template!])
+          loadDraft(res.template)
+          setShowCreateModal(false)
+          setNewLabel("")
+          setNewDescription("")
+          setNewSubject("")
+          setNewBodyHtml("")
+          toast.success(`Custom email purpose "${res.template.label}" created!`)
+        } else {
+          toast.error(res.error || "Failed to create email purpose")
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to create email purpose")
       }
     })
   }
@@ -276,16 +362,20 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
     setPendingDeleteId(null)
 
     startTransition(async () => {
-      const res = await deleteEmailTemplateAction(targetId, targetTpl?.purposeKey)
-      if (res.ok) {
-        const remaining = templates.filter((t) => t.id !== targetId)
-        setTemplates(remaining)
-        if (remaining[0]) {
-          loadDraft(remaining[0])
+      try {
+        const res = await deleteEmailTemplateAction(targetId, targetTpl?.purposeKey)
+        if (res.ok) {
+          const remaining = templates.filter((t) => t.id !== targetId)
+          setTemplates(remaining)
+          if (remaining[0]) {
+            loadDraft(remaining[0])
+          }
+          toast.success("Custom email purpose deleted.")
+        } else {
+          toast.error(res.error || "Could not delete template")
         }
-        toast.success("Custom email purpose deleted.")
-      } else {
-        toast.error(res.error || "Could not delete template")
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not delete template")
       }
     })
   }
@@ -293,15 +383,19 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   function handleSendTest() {
     if (!activeTemplate) return
     startTransition(async () => {
-      const res = await sendTestEmailTemplateAction(
-        activeTemplate.id,
-        testEmailTo,
-        activeTemplate.purposeKey
-      )
-      if (res.ok) {
-        toast.success(`Test email sent to ${testEmailTo}${res.provider ? ` via ${res.provider}` : ""}!`)
-      } else {
-        toast.error(res.error || "Failed to send test email")
+      try {
+        const res = await sendTestEmailTemplateAction(
+          activeTemplate.id,
+          testEmailTo,
+          activeTemplate.purposeKey
+        )
+        if (res.ok) {
+          toast.success(`Test email sent to ${testEmailTo}${res.provider ? ` via ${res.provider}` : ""}!`)
+        } else {
+          toast.error(res.error || "Failed to send test email")
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to send test email")
       }
     })
   }
@@ -310,27 +404,27 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   const previewDoc = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;background:#05060a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<body style="margin:0;padding:24px;background:#05060a;color:#e2e8f0;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:560px;margin:0 auto;background:#0c0e17;border:1px solid #1e2235;border-radius:12px;overflow:hidden;">
     <div style="height:4px;background:linear-gradient(90deg,#ea580c,#f97316,#ea580c);"></div>
     <div style="padding:28px;">
-      <div style="margin-bottom:18px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#f97316;text-transform:uppercase;">ACE SCRIMS · ${label}</div>
-      <h2 style="margin:0 0 14px 0;color:#ffffff;font-size:18px;">${subject.replace(/</g, "&lt;")}</h2>
+      <div style="margin-bottom:18px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#f97316;text-transform:uppercase;">ACE SCRIMS · ${escapePreviewHtml(label)}</div>
+      <h2 style="margin:0 0 14px 0;color:#ffffff;font-size:18px;">${escapePreviewHtml(subject)}</h2>
       ${
         format === "text"
-          ? `<pre style="white-space:pre-wrap;font-family:inherit;color:#cbd5e1;font-size:14px;line-height:1.6;">${bodyText.replace(/</g, "&lt;")}</pre>`
+          ? `<pre style="white-space:pre-wrap;font-family:inherit;color:#cbd5e1;font-size:14px;line-height:1.6;">${escapePreviewHtml(bodyText)}</pre>`
           : `<div style="color:#cbd5e1;font-size:14px;line-height:1.65;">${bodyHtml}</div>`
       }
       ${mediaItems
         .map((m) =>
           m.type === "image"
-            ? `<div style="margin-top:16px;"><img src="${resolveImageUrl(m.url)}" alt="" style="max-width:100%;border-radius:8px;border:1px solid #1e2235;" /></div>`
-            : `<div style="margin-top:14px;padding:10px 14px;background:#121524;border:1px solid #1e2235;border-radius:8px;font-size:13px;color:#f97316;">[${m.type.toUpperCase()}] ${m.name || m.url}</div>`
+            ? `<div style="margin-top:16px;"><img src="${escapePreviewHtml(resolveImageUrl(m.url))}" alt="" style="max-width:100%;border-radius:8px;border:1px solid #1e2235;" /></div>`
+            : `<div style="margin-top:14px;padding:10px 14px;background:#121524;border:1px solid #1e2235;border-radius:8px;font-size:13px;color:#f97316;">[${escapePreviewHtml(m.type.toUpperCase())}] ${escapePreviewHtml(m.name || m.url)}</div>`
         )
         .join("")}
       ${
         ctaText && ctaUrl
-          ? `<div style="margin-top:24px;text-align:center;"><span style="display:inline-block;background:#ea580c;color:#fff;font-weight:800;font-size:13px;padding:12px 26px;border-radius:8px;text-transform:uppercase;">${ctaText.replace(/</g, "&lt;")}</span></div>`
+          ? `<div style="margin-top:24px;text-align:center;"><span style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;font-size:13px;padding:12px 26px;border-radius:8px;text-transform:uppercase;">${escapePreviewHtml(ctaText)}</span></div>`
           : ""
       }
     </div>
@@ -409,17 +503,22 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
 
                     <button
                       type="button"
-                      disabled={isPending}
+                      disabled={togglingKey === (tpl.purposeKey || tpl.id)}
                       onClick={() => handleMasterToggle(tpl, !tpl.isEnabled)}
                       aria-label={`Toggle ${tpl.label} emails`}
+                      aria-pressed={tpl.isEnabled}
                       className={cn(
-                        "shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1 whitespace-nowrap",
+                        "shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer disabled:opacity-60",
                         tpl.isEnabled
-                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
-                          : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:text-zinc-200"
+                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                          : "border-white/10 bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:border-white/20"
                       )}
                     >
-                      <Power className="size-3" />
+                      {togglingKey === (tpl.purposeKey || tpl.id) ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Power className="size-3" />
+                      )}
                       {tpl.isEnabled ? "ON" : "OFF"}
                     </button>
                   </div>
@@ -434,13 +533,13 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
           {activeTemplate ? (
             <form
               onSubmit={handleSaveTemplate}
-              className="glass rounded-2xl border border-border/70 p-5 sm:p-6 flex flex-col gap-5"
+              className="dc-surface rounded-2xl p-5 sm:p-6 flex flex-col gap-5"
             >
               {/* Header */}
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/50 pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <h2 className="font-display text-xl font-bold uppercase tracking-wide text-foreground">
+                    <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
                       {activeTemplate.label} Template
                     </h2>
                     <span className="text-xs font-mono text-muted-foreground">
@@ -448,7 +547,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                     </span>
                     <span
                       className={cn(
-                        "text-[11px] font-bold uppercase tracking-wider flex items-center gap-1",
+                        "text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1",
                         isEnabled ? "text-emerald-400" : "text-amber-400"
                       )}
                     >
@@ -472,17 +571,21 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                   <Button
                     type="button"
                     size="sm"
-                    disabled={isPending}
+                    disabled={togglingKey === (activeTemplate.purposeKey || activeTemplate.id)}
                     variant={isEnabled ? "outline" : "default"}
                     onClick={() => handleMasterToggle(activeTemplate, !isEnabled)}
                     className={cn(
                       "gap-1.5 text-xs whitespace-nowrap",
                       isEnabled
-                        ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                        ? "border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/12"
                         : ""
                     )}
                   >
-                    <Power className="size-3.5" />
+                    {togglingKey === (activeTemplate.purposeKey || activeTemplate.id) ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Power className="size-3.5" />
+                    )}
                     Master Toggle: {isEnabled ? "ON" : "OFF"}
                   </Button>
 

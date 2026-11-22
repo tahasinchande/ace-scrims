@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/react'
 import type { Metadata } from 'next'
-import { Rajdhani, DM_Sans } from 'next/font/google'
+import { Manrope } from 'next/font/google'
 import { LanguageProvider } from '@/lib/language'
 import { ViewModeProvider } from '@/lib/view-mode'
 import { LiveChatWidget } from '@/components/site/live-chat'
@@ -8,16 +8,11 @@ import { GlobalCyberBackground } from '@/components/site/global-cyber-background
 import { Toaster } from 'sonner'
 import './globals.css'
 
-const heading = Rajdhani({
+const manrope = Manrope({
   subsets: ['latin'],
   weight: ['500', '600', '700'],
-  variable: '--font-heading',
-})
-
-const body = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-body',
+  variable: '--font-manrope',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -56,8 +51,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`dark bg-[#030407] overflow-x-hidden max-w-full w-full ${heading.variable} ${body.variable}`}>
-      <body className="antialiased font-sans relative min-h-screen bg-transparent text-foreground overflow-x-hidden max-w-full w-full">
+    <html lang="en" className={`dark bg-[#030407] overflow-x-hidden max-w-full w-full ${manrope.variable}`}>
+      <body className="antialiased font-sans font-semibold relative min-h-screen bg-transparent text-foreground overflow-x-hidden max-w-full w-full">
         <LanguageProvider>
           <ViewModeProvider>
             <GlobalCyberBackground />

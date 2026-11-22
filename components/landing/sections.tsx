@@ -44,13 +44,13 @@ export function SectionHeading({
       transition={{ duration: 0.5 }}
       className="mx-auto mb-12 max-w-2xl text-center relative"
     >
-      <div className="inline-flex items-center gap-2 mb-3">
-        <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500" />
-        <p className="font-display text-xs font-bold uppercase tracking-[0.25em] text-orange-400">{eyebrow}</p>
-        <span className="h-px w-6 bg-gradient-to-l from-transparent to-orange-500" />
+      <div className="inline-flex items-center gap-2.5 mb-3">
+        <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500/80" />
+        <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-orange-400">{eyebrow}</p>
+        <span className="h-px w-6 bg-gradient-to-l from-transparent to-orange-500/80" />
       </div>
-      <h2 className="font-display text-3xl font-black tracking-tight text-balance md:text-4xl text-foreground">{title}</h2>
-      {subtitle && <p className="mt-4 text-muted-foreground leading-relaxed text-pretty">{subtitle}</p>}
+      <h2 className="font-display text-3xl font-semibold tracking-[-0.03em] text-balance md:text-4xl text-foreground">{title}</h2>
+      {subtitle && <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">{subtitle}</p>}
     </motion.div>
   )
 }
@@ -107,7 +107,7 @@ export function Features() {
         title={t("features_title", "Built for serious squads")}
         subtitle={t("features_subtitle", "Everything a competitive Free Fire team needs — automated, transparent and fast.")}
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 relative z-10">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 relative z-10">
         {features.map((f, i) => (
           <motion.div
             key={f.title}
@@ -118,12 +118,12 @@ export function Features() {
             className="dc-surface dc-card-hover group relative rounded-2xl p-6 overflow-hidden"
           >
             {/* Precision top hairline glow */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-45 group-hover:opacity-100 transition-opacity" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent opacity-45 group-hover:opacity-100 transition-opacity" />
 
-            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.09] ${f.color} transition-transform group-hover:scale-105 group-hover:border-primary/35`}>
+            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] ${f.color} transition-transform group-hover:scale-105 group-hover:border-primary/35`}>
               <f.icon className="size-5" aria-hidden />
             </span>
-            <h3 className="font-display text-lg font-bold tracking-wide text-foreground">{f.title}</h3>
+            <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">{f.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
           </motion.div>
         ))}
@@ -187,14 +187,14 @@ export function HowItWorks() {
   ]
 
   return (
-    <section id="how-it-works" className="border-y border-border/50 bg-card/30 py-20" aria-labelledby="how-heading">
+    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#060913]/45 py-20" aria-labelledby="how-heading">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <SectionHeading
           eyebrow={t("how_eyebrow", "How It Works")}
           title={t("how_title", "From booking to booyah in 4 steps")}
           subtitle={t("how_subtitle", "The entire flow is automatic. Book, pay, play — no admins to chase.")}
         />
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s, i) => (
             <motion.li
               key={s.step}
@@ -204,7 +204,7 @@ export function HowItWorks() {
               transition={{ duration: 0.35, delay: i * 0.08 }}
               className="dc-surface dc-card-hover group relative rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
             >
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <Link
                 href={s.actionHref}
                 onClick={s.onClick}
@@ -212,19 +212,19 @@ export function HowItWorks() {
                 aria-label={`${s.title} — ${s.actionText}`}
               />
               <div>
-                <span className="absolute right-5 top-4 font-display text-4xl font-black text-primary/20 group-hover:text-primary/40 transition-colors tabular-nums" aria-hidden>
+                <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-primary/20 group-hover:text-primary/40 transition-colors tabular-nums" aria-hidden>
                   {s.step}
                 </span>
-                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.09] text-orange-400 shadow-sm group-hover:scale-105 group-hover:border-primary/40 transition-all">
+                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-orange-400 shadow-sm group-hover:scale-105 group-hover:border-primary/40 transition-all">
                   <s.icon className="size-5" aria-hidden />
                 </span>
-                <h3 className="font-display text-lg font-bold tracking-wide text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+                <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
                   {s.title}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-orange-400 group-hover:text-orange-300">
+              <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-orange-400 group-hover:text-orange-300">
                 <span>{s.actionText}</span>
                 <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
               </div>
@@ -233,7 +233,7 @@ export function HowItWorks() {
         </ol>
 
         <div className="mt-10 text-center">
-          <Button asChild size="lg" variant="outline" className="glass gap-2 border-orange-500/40 font-semibold hover:border-orange-500 hover:bg-orange-500/10 text-foreground">
+          <Button asChild size="lg" variant="outline" className="glass gap-2 rounded-xl border-white/[0.12] font-semibold hover:border-orange-500/50 hover:bg-white/[0.06] text-foreground">
             <Link href="/tutorial">
               <KeyRound className="size-4 text-orange-400" />
               {t("watch_tutorial", "Watch Video Tutorial / কীভাবে বুক করবেন দেখুন")}
@@ -256,7 +256,7 @@ export function WhyChooseUs() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
-          className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-orange-500/30 bg-black/60 group"
+          className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-white/[0.1] bg-[#070a14] group"
         >
           <Image
             src="/images/sakura_warrior_1786871705952.jpg"
@@ -266,17 +266,17 @@ export function WhyChooseUs() {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
             priority
           />
-          {/* Cyberpunk Vignette & Lighting Accents */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020306]/90 via-[#020306]/20 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#020306]/50 pointer-events-none" />
+          {/* Vignette & Lighting Accents */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050811]/92 via-[#050811]/20 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#050811]/55 pointer-events-none" />
           
-          {/* Bottom Card Floating Cyber Tag */}
-          <div className="absolute bottom-4 left-4 right-4 p-4 rounded-2xl glass border border-orange-500/35 bg-black/75 backdrop-blur-md flex items-center justify-between">
+          {/* Bottom Floating Tag */}
+          <div className="dc-surface absolute bottom-4 left-4 right-4 p-4 rounded-2xl flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-widest font-bold text-orange-400">Elite Battleground</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-orange-400">Elite Battleground</p>
               <p className="text-sm font-semibold text-white">Daily High-Tier Scrims</p>
             </div>
-            <span className="flex size-8 items-center justify-center rounded-lg bg-orange-500/15 border border-orange-500/35 text-orange-400">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400">
               <ShieldCheck className="size-4" aria-hidden />
             </span>
           </div>
@@ -288,10 +288,10 @@ export function WhyChooseUs() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="order-1 lg:order-2"
         >
-          <p className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-primary">
+          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-primary">
             {t("features_eyebrow", "Why Choose Us")}
           </p>
-          <h2 className="font-display text-3xl font-black tracking-tight text-balance md:text-4xl">
+          <h2 className="font-display text-3xl font-semibold tracking-[-0.03em] text-balance md:text-4xl">
             {t("features_title", "The lobby where grinders become champions")}
           </h2>
           <ul className="mt-8 flex flex-col gap-5">
@@ -309,11 +309,11 @@ export function WhyChooseUs() {
                 transition={{ delay: 0.1 * i, duration: 0.3 }}
                 className="flex gap-4"
               >
-                <span className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/12 text-primary">
                   <ShieldCheck className="size-3.5" aria-hidden />
                 </span>
                 <div>
-                  <h3 className="font-semibold">{title}</h3>
+                  <h3 className="font-semibold text-foreground">{title}</h3>
                   <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
                 </div>
               </motion.li>
@@ -338,7 +338,7 @@ export function Faq() {
   ]
 
   return (
-    <section id="faq" className="border-t border-border/50 bg-card/30 py-20" aria-labelledby="faq-heading">
+    <section id="faq" className="border-t border-white/[0.06] bg-[#060913]/45 py-20" aria-labelledby="faq-heading">
       <div className="mx-auto max-w-3xl px-4 md:px-6">
         <SectionHeading eyebrow={t("faq_eyebrow", "FAQ")} title={t("faq_title", "Questions, answered")} />
         <Accordion multiple={false} className="flex flex-col gap-3">
@@ -352,14 +352,14 @@ export function Faq() {
             >
               <AccordionItem
                 value={`item-${i}`}
-                className="dc-surface rounded-xl px-5 last:border-b hover:border-primary/40 transition-colors"
+                className="dc-surface rounded-2xl px-5 last:border-b hover:border-primary/35 transition-colors"
               >
-                <AccordionTrigger className="text-left font-semibold hover:no-underline">{f.q}</AccordionTrigger>
+                <AccordionTrigger className="text-left font-semibold tracking-tight hover:no-underline">{f.q}</AccordionTrigger>
                 <AccordionContent className="text-sm leading-relaxed text-muted-foreground flex flex-col gap-2">
                   <p>{f.a}</p>
                   {i === 0 && (
                     <div className="pt-1">
-                      <Button asChild size="sm" variant="outline" className="text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10">
+                      <Button asChild size="sm" variant="outline" className="rounded-xl text-xs gap-1.5 border-primary/35 text-primary hover:bg-primary/10">
                         <Link href="/tutorial">
                           <KeyRound className="size-3.5" />
                           {t("watch_tutorial", "Watch Tutorial / কীভাবে বুক করবেন দেখুন")}
@@ -397,20 +397,20 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.45 }}
-        className="dc-surface relative overflow-hidden rounded-3xl p-8 md:p-12 border-primary/25 shadow-2xl"
+        className="dc-surface relative overflow-hidden rounded-3xl p-8 md:p-12 border-white/[0.1] shadow-2xl"
       >
-        <div className="absolute -right-20 -top-20 size-64 rounded-full bg-orange-600/15 blur-3xl" aria-hidden />
-        <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-amber-500/10 blur-3xl" aria-hidden />
+        <div className="absolute -right-20 -top-20 size-64 rounded-full bg-orange-600/12 blur-3xl" aria-hidden />
+        <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-indigo-500/10 blur-3xl" aria-hidden />
         <div className="relative grid items-center gap-8 md:grid-cols-2">
           <div>
-            <div className="inline-flex items-center gap-2 mb-3">
-              <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500" />
-              <p className="font-display text-xs font-bold uppercase tracking-[0.25em] text-orange-400">{t("contact_eyebrow", "Support")}</p>
+            <div className="inline-flex items-center gap-2.5 mb-3">
+              <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500/80" />
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-orange-400">{t("contact_eyebrow", "Support")}</p>
             </div>
-            <h2 className="font-display text-3xl font-black tracking-tight text-balance text-foreground">
+            <h2 className="font-display text-3xl font-semibold tracking-[-0.03em] text-balance text-foreground">
               {t("contact_title", "Need Help? Talk to Ace Support")}
             </h2>
-            <p className="mt-4 leading-relaxed text-muted-foreground text-pretty">
+            <p className="mt-3.5 text-sm sm:text-base leading-relaxed text-muted-foreground text-pretty">
               {t("contact_subtitle", "Connect with our team directly via Live Support or WhatsApp.")}
             </p>
           </div>
@@ -424,8 +424,8 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
             </motion.div>
 
             {/* 2. WhatsApp Support */}
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button asChild size="lg" className="h-12 w-full justify-start gap-3 font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <Button asChild size="lg" className="h-12 w-full justify-start gap-3 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
                 <a href={`https://wa.me/${cleanWaNumber || "8801831510108"}`} target="_blank" rel="noopener noreferrer">
                   <WhatsAppIcon className="size-5 text-white" />
                   <span>WhatsApp Support</span>

@@ -35,10 +35,10 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
 
   return (
-    <footer className="border-t border-border/60 bg-[#05070c]/85 backdrop-blur-md">
-      <div className="mx-auto max-w-6xl px-4 py-12 md:px-6">
+    <footer className="border-t border-white/[0.07] bg-[#050811]/90 backdrop-blur-xl">
+      <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
         <div className="grid gap-10 md:grid-cols-4">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3.5">
             <Link href="/" className="flex items-center gap-2" aria-label="Ace Scrims home">
               <AceScrimsBrandLogo size="md" />
             </Link>
@@ -46,13 +46,13 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
               {t("brand_desc", "Bangladesh's premium Free Fire scrim platform. Daily competitive squad scrim lobbies.")}
             </p>
 
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-1 flex flex-wrap gap-2">
               {discord && (
                 <a
                   href={discord}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#5865F2] transition-colors hover:border-[#5865F2] hover:bg-[#5865F2]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#5865F2] transition-all hover:border-[#5865F2]/60 hover:bg-[#5865F2]/12"
                   aria-label="Join our Discord"
                   title="Discord Community"
                 >
@@ -64,7 +64,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={whatsappChannel}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#25D366] transition-colors hover:border-[#25D366] hover:bg-[#25D366]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#25D366] transition-all hover:border-[#25D366]/60 hover:bg-[#25D366]/12"
                   aria-label="Join WhatsApp Channel"
                   title="WhatsApp Channel"
                 >
@@ -76,7 +76,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={facebook}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#1877F2] transition-colors hover:border-[#1877F2] hover:bg-[#1877F2]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#1877F2] transition-all hover:border-[#1877F2]/60 hover:bg-[#1877F2]/12"
                   aria-label="Follow us on Facebook"
                   title="Facebook Page"
                 >
@@ -88,7 +88,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={tiktok}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#EE1D52] transition-colors hover:border-[#EE1D52] hover:bg-[#EE1D52]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#EE1D52] transition-all hover:border-[#EE1D52]/60 hover:bg-[#EE1D52]/12"
                   aria-label="Follow us on TikTok"
                   title="TikTok"
                 >
@@ -100,7 +100,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={supportKori}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#FF813F] transition-colors hover:border-[#FF813F] hover:bg-[#FF813F]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#FF813F] transition-all hover:border-[#FF813F]/60 hover:bg-[#FF813F]/12"
                   aria-label="Support on SupportKori"
                   title="SupportKori (Buy Me A Coffee)"
                 >
@@ -112,7 +112,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={youtube}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#FF0000] transition-colors hover:border-[#FF0000] hover:bg-[#FF0000]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#FF0000] transition-all hover:border-[#FF0000]/60 hover:bg-[#FF0000]/12"
                   aria-label="Subscribe on YouTube"
                   title="YouTube Channel"
                 >
@@ -124,7 +124,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={telegram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#229ED9] transition-colors hover:border-[#229ED9] hover:bg-[#229ED9]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#229ED9] transition-all hover:border-[#229ED9]/60 hover:bg-[#229ED9]/12"
                   aria-label="Join Telegram"
                   title="Telegram Channel"
                 >
@@ -136,7 +136,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                   href={instagram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-[#E4405F] transition-colors hover:border-[#E4405F] hover:bg-[#E4405F]/10"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-[#E4405F] transition-all hover:border-[#E4405F]/60 hover:bg-[#E4405F]/12"
                   aria-label="Follow on Instagram"
                   title="Instagram"
                 >
@@ -146,8 +146,8 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             </div>
           </div>
 
-          <nav className="flex flex-col gap-2" aria-label="Platform">
-            <h3 className="mb-1 font-display text-sm font-bold uppercase tracking-wider text-foreground">
+          <nav className="flex flex-col gap-2.5" aria-label="Platform">
+            <h3 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-zinc-200">
               {t("platform", "Platform")}
             </h3>
             <Link href="/scrims" className="text-sm text-muted-foreground transition-colors hover:text-primary">
@@ -173,8 +173,8 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             </Link>
           </nav>
 
-          <nav className="flex flex-col gap-2" aria-label="Legal">
-            <h3 className="mb-1 font-display text-sm font-bold uppercase tracking-wider text-foreground">
+          <nav className="flex flex-col gap-2.5" aria-label="Legal">
+            <h3 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-zinc-200">
               {t("legal", "Legal & Policy")}
             </h3>
             <Link href="/terms" className="text-sm text-muted-foreground transition-colors hover:text-primary">
@@ -191,8 +191,8 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
             </Link>
           </nav>
 
-          <div className="flex flex-col gap-2">
-            <h3 className="mb-1 font-display text-sm font-bold uppercase tracking-wider text-foreground">
+          <div className="flex flex-col gap-2.5">
+            <h3 className="mb-1 font-display text-xs font-semibold uppercase tracking-[0.16em] text-zinc-200">
               {t("direct_support", "Direct Support")}
             </h3>
             <div className="flex flex-col gap-2 mt-1">
@@ -204,7 +204,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                 href={`https://wa.me/${cleanWaNumber || "8801831510108"}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:underline px-1 py-1"
+                className="flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors px-1 py-1"
               >
                 <WhatsAppIcon className="size-4 text-emerald-400" />
                 <span>WhatsApp Support</span>
@@ -213,7 +213,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/40 pt-6 text-xs text-muted-foreground sm:flex-row">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-6 text-xs text-muted-foreground sm:flex-row">
           <p>© {new Date().getFullYear()} Ace Scrims. All rights reserved.</p>
           <p>Built for Bangladesh Free Fire competitive esports community.</p>
         </div>

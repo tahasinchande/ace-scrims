@@ -13,6 +13,7 @@ import {
   normalizeMediaItems,
   normalizeVariablesHint,
   resolveOrEnsureEmailTemplate,
+  toggleEmailTemplateByIdOrKey,
   type NormalizedEmailTemplate,
 } from "@/lib/queries/email-templates"
 import { sendEmail, renderEmailFromTemplate, getProductionAppUrl } from "@/lib/email"
@@ -152,43 +153,29 @@ export async function toggleEmailTemplateAction(
 ): Promise<{ ok: boolean; isEnabled?: boolean; template?: NormalizedEmailTemplate; error?: string }> {
   try {
     const admin = await requireAdmin()
-    await ensureSchemaReady()
+    const updated = await toggleEmailTemplateByIdOrKey({
+      id,
+      purposeKey,
+      isEnabled: Boolean(nextEnabled),
+      actorId: admin.id,
+    })
 
-    const resolved = await resolveOrEnsureEmailTemplate(id, purposeKey)
-    if (!resolved) {
+    if (!updated) {
       return { ok: false, error: "Email template not found." }
     }
 
-    const rows = await db
-      .update(emailTemplates)
-      .set({
-        isEnabled: nextEnabled,
-        updatedBy: admin.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(emailTemplates.id, resolved.id))
-      .returning()
-
-    if (rows.length === 0) {
-      return { ok: false, error: "Email template not found." }
-    }
-
-    const updated = rows[0]
     await logActivity(admin.id, admin.role, "toggle_email_template", updated.purposeKey, {
-      isEnabled: nextEnabled,
+      isEnabled: updated.isEnabled,
     })
 
     revalidatePath("/admin/email")
     return {
       ok: true,
-      isEnabled: nextEnabled,
-      template: {
-        ...updated,
-        mediaItems: normalizeMediaItems(updated.mediaItems),
-        variablesHint: normalizeVariablesHint(updated.variablesHint),
-      },
+      isEnabled: updated.isEnabled,
+      template: updated,
     }
   } catch (err) {
+    console.error("[toggleEmailTemplateAction Error]:", err)
     return { ok: false, error: err instanceof Error ? err.message : "Failed to toggle template" }
   }
 }

@@ -1,6 +1,6 @@
 import "server-only"
 
-import { db, ensureSchemaReady } from "@/lib/db"
+import { db, ensureSchemaReady, ensureEmailTemplatesSchema } from "@/lib/db"
 import { emailTemplates, settings, type EmailTemplate, type EmailTemplateMediaItem } from "@/lib/db/schema"
 import { and, asc, eq, isNull } from "drizzle-orm"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
@@ -343,6 +343,7 @@ export function getCoreEmailDefaultEnabled(purposeKey: string): boolean {
 
 export async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
   await ensureSchemaReady()
+  await ensureEmailTemplatesSchema()
   const existing = await db.select({ purposeKey: emailTemplates.purposeKey }).from(emailTemplates)
   const existingKeys = new Set(existing.map((r) => r.purposeKey))
 
@@ -427,6 +428,7 @@ export async function resolveOrEnsureEmailTemplate(
   purposeKey?: string | null
 ): Promise<EmailTemplate | null> {
   await ensureSchemaReady()
+  await ensureEmailTemplatesSchema()
 
   // 1. Direct lookup by ID
   if (id) {
@@ -550,4 +552,123 @@ export async function getEmailTemplateByPurpose(
     return null
   }
 }
+
+export type SerializedEmailTemplate = Omit<NormalizedEmailTemplate, "createdAt" | "updatedAt"> & {
+  createdAt: string
+  updatedAt: string
+}
+
+export function serializeEmailTemplate(tpl: NormalizedEmailTemplate): SerializedEmailTemplate {
+  return {
+    ...tpl,
+    createdAt: tpl.createdAt instanceof Date ? tpl.createdAt.toISOString() : String(tpl.createdAt ?? new Date().toISOString()),
+    updatedAt: tpl.updatedAt instanceof Date ? tpl.updatedAt.toISOString() : String(tpl.updatedAt ?? new Date().toISOString()),
+  }
+}
+
+export async function toggleEmailTemplateByIdOrKey(params: {
+  id?: string | null
+  purposeKey?: string | null
+  isEnabled: boolean
+  actorId: string
+}): Promise<NormalizedEmailTemplate | null> {
+  await ensureSchemaReady()
+  await ensureEmailTemplatesSchema()
+
+  const cleanId = (params.id || "").trim()
+  const candidateKey = (params.purposeKey || "").trim() || extractPurposeKeyFromId(cleanId)
+  const now = new Date()
+
+  // 1. Try direct update by ID first
+  if (cleanId) {
+    const updatedById = await db
+      .update(emailTemplates)
+      .set({
+        isEnabled: params.isEnabled,
+        updatedBy: params.actorId,
+        updatedAt: now,
+      })
+      .where(eq(emailTemplates.id, cleanId))
+      .returning()
+
+    if (updatedById[0]) {
+      return normalizeEmailTemplate(updatedById[0])
+    }
+  }
+
+  // 2. Try direct update by purposeKey
+  if (candidateKey) {
+    const updatedByKey = await db
+      .update(emailTemplates)
+      .set({
+        isEnabled: params.isEnabled,
+        updatedBy: params.actorId,
+        updatedAt: now,
+      })
+      .where(eq(emailTemplates.purposeKey, candidateKey))
+      .returning()
+
+    if (updatedByKey[0]) {
+      return normalizeEmailTemplate(updatedByKey[0])
+    }
+
+    // 3. Deterministic atomic upsert if it's a core template missing from DB
+    const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === candidateKey)
+    if (coreSeed) {
+      const upserted = await db
+        .insert(emailTemplates)
+        .values({
+          id: `tpl_${coreSeed.purposeKey}`,
+          purposeKey: coreSeed.purposeKey,
+          label: coreSeed.label,
+          description: coreSeed.description,
+          category: coreSeed.category,
+          isEnabled: params.isEnabled,
+          isCore: coreSeed.isCore,
+          format: coreSeed.format,
+          subject: coreSeed.subject,
+          preheader: coreSeed.preheader,
+          bodyHtml: coreSeed.bodyHtml,
+          bodyText: coreSeed.bodyText,
+          ctaText: coreSeed.ctaText,
+          ctaUrl: coreSeed.ctaUrl,
+          mediaItems: [],
+          variablesHint: coreSeed.variablesHint,
+          updatedBy: params.actorId,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: emailTemplates.purposeKey,
+          set: {
+            isEnabled: params.isEnabled,
+            updatedBy: params.actorId,
+            updatedAt: now,
+          },
+        })
+        .returning()
+
+      if (upserted[0]) {
+        return normalizeEmailTemplate(upserted[0])
+      }
+    }
+  }
+
+  // 4. Final fallback: resolve/seed then update
+  const resolved = await resolveOrEnsureEmailTemplate(cleanId, candidateKey)
+  if (!resolved) return null
+
+  const finalRows = await db
+    .update(emailTemplates)
+    .set({
+      isEnabled: params.isEnabled,
+      updatedBy: params.actorId,
+      updatedAt: now,
+    })
+    .where(eq(emailTemplates.id, resolved.id))
+    .returning()
+
+  return finalRows[0] ? normalizeEmailTemplate(finalRows[0]) : null
+}
+
 

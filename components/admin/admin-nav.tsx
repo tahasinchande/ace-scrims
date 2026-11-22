@@ -78,20 +78,20 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
   const links = role === "admin" ? adminLinks : moderatorLinks
 
   return (
-    <aside className="w-full shrink-0 md:w-56">
-      <div className="glass sticky top-4 flex flex-col gap-4 rounded-2xl p-4">
-        <div className="flex items-center gap-3 border-b border-border pb-3">
+    <aside className="w-full shrink-0 md:w-60">
+      <div className="dc-surface sticky top-20 flex flex-col gap-4 rounded-2xl p-4">
+        <div className="flex items-center gap-3 border-b border-white/[0.07] pb-3.5">
           {logoUrl ? (
-            <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background/50 p-1">
+            <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.04] p-1">
               <img src={logoUrl} alt="Ace Scrims" className="h-full w-full object-contain" />
             </div>
           ) : (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/14 text-primary">
               <ShieldCheck className="size-5" />
             </span>
           )}
           <div className="min-w-0">
-            <p className="truncate font-display text-sm font-bold uppercase">{name}</p>
+            <p className="truncate font-display text-sm font-semibold tracking-tight text-foreground">{name}</p>
             <p className="text-xs capitalize text-muted-foreground">{role}</p>
           </div>
         </div>
@@ -114,16 +114,16 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors border border-transparent",
+                  "flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition-all border border-transparent",
                   active
                     ? isRoom1Link
-                      ? "bg-blue-500/15 text-blue-300 border-blue-500/30 shadow-sm"
-                      : "bg-primary/15 text-primary border-primary/25 shadow-sm"
-                    : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
+                      ? "bg-blue-500/14 text-blue-300 border-blue-500/30 shadow-xs"
+                      : "bg-primary/14 text-primary border-primary/25 shadow-xs"
+                    : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
                 )}
               >
-                <Icon className="size-4" />
-                {link.label}
+                <Icon className="size-4 shrink-0" />
+                <span className="truncate">{link.label}</span>
               </Link>
             )
           })}
@@ -131,7 +131,7 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
 
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-2 border-t border-white/[0.07] pt-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
           Back to dashboard
