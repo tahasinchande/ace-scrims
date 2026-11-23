@@ -6,7 +6,7 @@ import { ExternalLink } from "lucide-react"
 import { AdminPaymentsView } from "@/components/admin/admin-payments-view"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Payments — Ace Scrims Admin" }
+export const metadata = { title: "Payments — RushX Organization Admin" }
 
 export default async function AdminPaymentsPage() {
   const user = await getSessionUser()

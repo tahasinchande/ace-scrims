@@ -10,7 +10,7 @@ import { DashboardNav } from "@/components/dashboard/dashboard-nav"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Dashboard — Ace Scrims",
+  title: "Dashboard — RushX Organization",
   description: "Manage your scrim bookings, results and notifications.",
 }
 

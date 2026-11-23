@@ -7,8 +7,8 @@ import { Megaphone } from "lucide-react"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Notices & Announcements — Ace Scrims",
-  description: "Official updates, tournament schedules, rules, and notices from Ace Scrims Administration.",
+  title: "Notices & Announcements — RushX Organization",
+  description: "Official updates, tournament schedules, rules, and notices from RushX Organization Administration.",
 }
 
 export default async function DashboardNoticesPage() {

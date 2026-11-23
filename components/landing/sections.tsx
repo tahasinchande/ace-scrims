@@ -49,7 +49,7 @@ export function SectionHeading({
         <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-orange-400">{eyebrow}</p>
         <span className="h-px w-6 bg-gradient-to-l from-transparent to-orange-500/80" />
       </div>
-      <h2 className="font-display text-3xl font-semibold tracking-[-0.03em] text-balance md:text-4xl text-foreground">{title}</h2>
+      <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">{title}</h2>
       {subtitle && <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">{subtitle}</p>}
     </motion.div>
   )
@@ -103,7 +103,7 @@ export function Features() {
       <div className="pointer-events-none absolute -left-40 top-1/2 -translate-y-1/2 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl" />
 
       <SectionHeading
-        eyebrow={t("features_eyebrow", "Why Ace Scrims")}
+        eyebrow={t("features_eyebrow", "Why RushX Organization")}
         title={t("features_title", "Built for serious squads")}
         subtitle={t("features_subtitle", "Everything a competitive Free Fire team needs — automated, transparent and fast.")}
       />
@@ -187,7 +187,7 @@ export function HowItWorks() {
   ]
 
   return (
-    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#060913]/45 py-20" aria-labelledby="how-heading">
+    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#060913]/28 backdrop-blur-[2px] py-20" aria-labelledby="how-heading">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <SectionHeading
           eyebrow={t("how_eyebrow", "How It Works")}
@@ -291,7 +291,7 @@ export function WhyChooseUs() {
           <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-primary">
             {t("features_eyebrow", "Why Choose Us")}
           </p>
-          <h2 className="font-display text-3xl font-semibold tracking-[-0.03em] text-balance md:text-4xl">
+          <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
             {t("features_title", "The lobby where grinders become champions")}
           </h2>
           <ul className="mt-8 flex flex-col gap-5">
@@ -334,11 +334,11 @@ export function Faq() {
     { q: t("faq3_q", "What happens if the lobby is full?"), a: t("faq3_a", "Each scrim is capped at 12 teams. Once full, booking closes automatically. Check the other 11 nightly time slots.") },
     { q: t("faq4_q", "How are prizes paid out?"), a: t("faq4_a", "Winners are published on the Results page with kills and screenshots. Prizes are sent to the leader's digital payout wallet within 6 hours.") },
     { q: t("faq5_q", "Can I get a refund?"), a: t("faq5_a", "If a scrim is cancelled by us, you get a full automatic refund. See our Refund Policy for details.") },
-    { q: t("faq6_q", "Are emulator players allowed?"), a: t("faq6_a", "No. Ace Scrims is mobile-only. Emulator players are banned without refund per our fair play rules.") },
+    { q: t("faq6_q", "Are emulator players allowed?"), a: t("faq6_a", "No. RushX Organization is mobile-only. Emulator players are banned without refund per our fair play rules.") },
   ]
 
   return (
-    <section id="faq" className="border-t border-white/[0.06] bg-[#060913]/45 py-20" aria-labelledby="faq-heading">
+    <section id="faq" className="border-t border-white/[0.06] bg-[#060913]/28 backdrop-blur-[2px] py-20" aria-labelledby="faq-heading">
       <div className="mx-auto max-w-3xl px-4 md:px-6">
         <SectionHeading eyebrow={t("faq_eyebrow", "FAQ")} title={t("faq_title", "Questions, answered")} />
         <Accordion multiple={false} className="flex flex-col gap-3">
@@ -407,8 +407,8 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
               <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500/80" />
               <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-orange-400">{t("contact_eyebrow", "Support")}</p>
             </div>
-            <h2 className="font-display text-3xl font-semibold tracking-[-0.03em] text-balance text-foreground">
-              {t("contact_title", "Need Help? Talk to Ace Support")}
+            <h2 className="font-display text-3xl font-bold tracking-tight text-balance text-foreground">
+              {t("contact_title", "Need Help? Talk to RushX Support")}
             </h2>
             <p className="mt-3.5 text-sm sm:text-base leading-relaxed text-muted-foreground text-pretty">
               {t("contact_subtitle", "Connect with our team directly via Live Support or WhatsApp.")}

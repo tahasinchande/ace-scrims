@@ -36,6 +36,7 @@ import {
 } from "@/app/actions/partnerships"
 import type { PartnershipItem } from "@/lib/db/schema"
 import type { PartnershipMarqueeSettings } from "@/lib/queries/partnerships"
+import { VERIFIED_PARTNER_LOGOS, resolveVerifiedPartnerLogo } from "@/lib/partner-logos"
 
 const EMPTY_FORM = {
   partnerName: "",
@@ -261,22 +262,44 @@ export function AdminPartnershipsManager({
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="marqueeSpeed">Cycle Duration (Seconds: 10–90)</Label>
+                <Label htmlFor="marqueeSpeed">Cycle Duration (Seconds: 1–300)</Label>
                 <Input
                   id="marqueeSpeed"
                   type="number"
-                  min={10}
-                  max={90}
+                  min={1}
+                  max={300}
+                  step="any"
                   value={marqueeConfig.speedSeconds}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const parsed = Number(e.target.value)
                     setMarqueeConfig((c) => ({
                       ...c,
-                      speedSeconds: Math.min(90, Math.max(10, Number(e.target.value) || 30)),
+                      speedSeconds: Number.isFinite(parsed)
+                        ? Math.min(300, Math.max(1, parsed))
+                        : 1,
                     }))
-                  }
+                  }}
                 />
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {[1, 5, 12, 24, 45].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() =>
+                        setMarqueeConfig((c) => ({ ...c, speedSeconds: preset }))
+                      }
+                      className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer ${
+                        marqueeConfig.speedSeconds === preset
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-border bg-secondary/40 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {preset}s
+                    </button>
+                  ))}
+                </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Lower = faster glide, Higher = slower glide.
+                  Supports any speed from 1s (ultra-fast) to 300s (slow glide) with live preview.
                 </p>
               </div>
               <div className="space-y-2">
@@ -398,7 +421,7 @@ export function AdminPartnershipsManager({
                   id="tagline"
                   value={form.tagline}
                   onChange={(e) => setForm((f) => ({ ...f, tagline: e.target.value }))}
-                  placeholder="Use code ACE10"
+                  placeholder="Use code RUSHX10"
                   maxLength={120}
                 />
               </div>
@@ -406,12 +429,12 @@ export function AdminPartnershipsManager({
 
             <div className="grid gap-4 sm:grid-cols-[1fr_auto] items-end">
               <div className="space-y-2">
-                <Label htmlFor="logoUrl">Transparent Partner Logo URL (PNG / WebP)</Label>
+                <Label htmlFor="logoUrl">Partner Logo URL (SVG / PNG / WebP)</Label>
                 <Input
                   id="logoUrl"
                   value={form.logoUrl}
                   onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
-                  placeholder="https://... or upload transparent logo"
+                  placeholder="https://... or pick a verified brand logo below"
                 />
               </div>
               <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-secondary/40 px-4 h-10 text-xs font-semibold hover:bg-secondary/70 transition">
@@ -423,12 +446,45 @@ export function AdminPartnershipsManager({
                 <span>{uploading ? "Uploading..." : "Upload Logo"}</span>
                 <input
                   type="file"
-                  accept="image/png,image/webp,image/jpeg"
+                  accept="image/png,image/webp,image/jpeg,image/svg+xml"
                   onChange={handleLogoUpload}
                   className="hidden"
                   disabled={uploading}
                 />
               </label>
+            </div>
+
+            {/* Verified Partner Brand Logo Presets */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Quick-Pick Verified Partner Logos
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {VERIFIED_PARTNER_LOGOS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        logoUrl: preset.url,
+                        partnerName: f.partnerName || preset.name,
+                      }))
+                    }
+                    className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-colors cursor-pointer ${
+                      form.logoUrl === preset.url
+                        ? "border-primary bg-primary/15 text-foreground"
+                        : "border-border/70 bg-secondary/30 text-muted-foreground hover:border-border hover:text-foreground"
+                    }`}
+                  >
+                    <img
+                      src={preset.url}
+                      alt={preset.name}
+                      className="h-4 w-auto max-w-[76px] object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
 
             {form.logoUrl && (
@@ -494,17 +550,20 @@ export function AdminPartnershipsManager({
                 className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/80 bg-secondary/15 p-3.5"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {item.logoUrl ? (
-                    <img
-                      src={item.logoUrl}
-                      alt={item.partnerName}
-                      className="h-8 w-12 shrink-0 rounded bg-black/40 p-1 object-contain"
-                    />
-                  ) : (
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Handshake className="size-4" />
-                    </div>
-                  )}
+                  {(() => {
+                    const resolvedLogo = resolveVerifiedPartnerLogo(item.partnerName, item.logoUrl)
+                    return resolvedLogo ? (
+                      <img
+                        src={resolvedLogo}
+                        alt={item.partnerName}
+                        className="h-8 w-16 shrink-0 rounded bg-black/40 p-1 object-contain"
+                      />
+                    ) : (
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Handshake className="size-4" />
+                      </div>
+                    )
+                  })()}
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-heading text-base font-bold">{item.partnerName}</span>

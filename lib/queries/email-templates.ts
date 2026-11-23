@@ -34,6 +34,105 @@ export const CORE_EMAIL_PURPOSE_ORDER = [
   "notice",
 ] as const
 
+/**
+ * Maps legacy or duplicate purposeKey aliases to their single canonical purposeKey
+ * so redundant templates created for the same purpose are consolidated automatically.
+ */
+export const CORE_EMAIL_ALIAS_MAP: Record<string, (typeof CORE_EMAIL_PURPOSE_ORDER)[number]> = {
+  verify: "verify",
+  verification: "verify",
+  email_verification: "verify",
+  verify_email: "verify",
+  account_verification: "verify",
+
+  password_reset: "password_reset",
+  reset_password: "password_reset",
+  forgot_password: "password_reset",
+  password_recovery: "password_reset",
+
+  welcome: "welcome",
+  welcome_email: "welcome",
+  signup_welcome: "welcome",
+  welcome_after_signup: "welcome",
+  onboarding: "welcome",
+
+  register: "register",
+  booking: "register",
+  booking_confirmation: "register",
+  slot_booking: "register",
+  slot_confirmed: "register",
+  after_booking: "register",
+  after_booking_a_slot: "register",
+
+  id_pass: "id_pass",
+  room_credentials: "id_pass",
+  room_id_pass: "id_pass",
+  room_id_password: "id_pass",
+  room_details: "id_pass",
+
+  not_hosted: "not_hosted",
+  scrim_not_hosted: "not_hosted",
+  scrim_cancelled: "not_hosted",
+  not_hosted_refund: "not_hosted",
+  match_cancelled: "not_hosted",
+
+  result: "result",
+  results: "result",
+  match_result: "result",
+  match_results: "result",
+  result_published: "result",
+  results_published: "result",
+
+  mvp_image: "mvp_image",
+  mvp: "mvp_image",
+  mvp_image_request: "mvp_image",
+  mvp_request: "mvp_image",
+  mvp_banner: "mvp_image",
+
+  notice: "notice",
+  admin_notice: "notice",
+  notice_by_admin: "notice",
+  announcement: "notice",
+  notice_broadcast: "notice",
+}
+
+export function resolveCanonicalEmailPurposeKey(rawKey?: string | null, label?: string | null): string {
+  const normalizedKey = (rawKey || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^default_/, "")
+    .replace(/^tpl_/, "")
+    .replace(/_[a-f0-9]{6}$/i, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+
+  if (normalizedKey && CORE_EMAIL_ALIAS_MAP[normalizedKey]) {
+    return CORE_EMAIL_ALIAS_MAP[normalizedKey]
+  }
+
+  const normalizedLabel = (label || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+
+  if (normalizedLabel && CORE_EMAIL_ALIAS_MAP[normalizedLabel]) {
+    return CORE_EMAIL_ALIAS_MAP[normalizedLabel]
+  }
+
+  if (normalizedLabel.includes("verif")) return "verify"
+  if (normalizedLabel.includes("password") && normalizedLabel.includes("reset")) return "password_reset"
+  if (normalizedLabel.includes("welcome")) return "welcome"
+  if (normalizedLabel.includes("booking") || normalizedLabel.includes("slot")) return "register"
+  if (normalizedLabel.includes("room_id") || normalizedLabel.includes("room_cred")) return "id_pass"
+  if (normalizedLabel.includes("not_hosted")) return "not_hosted"
+  if (normalizedLabel.includes("result")) return "result"
+  if (normalizedLabel.includes("mvp")) return "mvp_image"
+  if (normalizedLabel.includes("notice")) return "notice"
+
+  return normalizedKey || normalizedLabel
+}
+
 export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   {
     purposeKey: "verify",
@@ -43,11 +142,11 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Verify your email — ACE SCRIMS",
-    preheader: "Confirm your email address for ACE SCRIMS account access.",
+    subject: "Verify your email — RushX Organization",
+    preheader: "Confirm your email address for RushX Organization account access.",
     bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">Hey {{userName}},</h2>
 <p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
-  Welcome aboard! Please click the button below to verify your email address and activate your account on ACE SCRIMS.
+  Welcome aboard! Please click the button below to verify your email address and activate your account on RushX Organization.
 </p>
 <div style="background:#121524;border:1px solid #1f2438;border-radius:10px;padding:16px 20px;margin:16px 0;">
   <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">WHAT'S WAITING FOR YOU:</p>
@@ -55,7 +154,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Friday Special Blast &amp; Champion Rush:</strong> Weekend peak events with bigger prize pools.</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Post-Match Rewards:</strong> MVP Face Banners, Top 3 Podium Cards, and real-time Standings.</p>
 </div>`,
-    bodyText: `Hey {{userName}}, welcome aboard! Please verify your email address by opening this link: {{verifyUrl}}`,
+    bodyText: `Hey {{userName}}, welcome aboard! Please verify your email address for RushX Organization by opening this link: {{verifyUrl}}`,
     ctaText: "VERIFY EMAIL & EXPLORE SCRIMS",
     ctaUrl: "{{verifyUrl}}",
     variablesHint: ["userName", "verifyUrl"],
@@ -68,11 +167,11 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Reset your password — ACE SCRIMS",
-    preheader: "Instructions to reset your ACE SCRIMS password.",
-    bodyHtml: `<p style="margin:0 0 16px 0;color:#cbd5e1;font-size:14px;line-height:1.65;">We received a request to reset the password for your ACE SCRIMS account. Click the button below to choose a new password.</p>
+    subject: "Reset your password — RushX Organization",
+    preheader: "Instructions to reset your RushX Organization password.",
+    bodyHtml: `<p style="margin:0 0 16px 0;color:#cbd5e1;font-size:14px;line-height:1.65;">We received a request to reset the password for your RushX Organization account. Click the button below to choose a new password.</p>
 <p style="margin:0;color:#64748b;font-size:13px;">If you did not request a password reset, you can safely ignore this email.</p>`,
-    bodyText: `Reset your ACE SCRIMS password by opening this link: {{resetUrl}}`,
+    bodyText: `Reset your RushX Organization password by opening this link: {{resetUrl}}`,
     ctaText: "Reset Password",
     ctaUrl: "{{resetUrl}}",
     variablesHint: ["resetUrl"],
@@ -85,18 +184,18 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Welcome aboard, {{userName}} — ACE SCRIMS",
-    preheader: "Welcome aboard {{userName}}! Your ACE SCRIMS account is active.",
+    subject: "Welcome aboard, {{userName}} — RushX Organization",
+    preheader: "Welcome aboard {{userName}}! Your RushX Organization account is active.",
     bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#ffffff;">Hey {{userName}},</h2>
 <p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
-  Welcome aboard! {{methodLabel}} You are fully geared up to register your squad and compete on ACE SCRIMS.
+  Welcome aboard! {{methodLabel}} You are fully geared up to register your squad and compete with RushX Organization.
 </p>
 <div style="background:#121524;border:1px solid #1f2438;border-radius:10px;padding:16px 20px;margin:16px 0;">
   <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">COMPETITIVE FEATURES:</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Instant Slot Locking:</strong> Register squads in seconds and get automatic slot assignment.</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Live Room Delivery:</strong> Room ID &amp; Password delivered directly in your dashboard and inbox.</p>
 </div>`,
-    bodyText: `Hey {{userName}}, welcome to ACE SCRIMS! {{methodLabel}} Explore upcoming lobbies at {{scrimsUrl}}`,
+    bodyText: `Hey {{userName}}, welcome to RushX Organization! {{methodLabel}} Explore upcoming lobbies at {{scrimsUrl}}`,
     ctaText: "Explore Scrims & Lobbies",
     ctaUrl: "{{scrimsUrl}}",
     variablesHint: ["userName", "methodLabel", "scrimsUrl"],
@@ -109,7 +208,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Booking Confirmed: {{scrimTitle}} (Slot #{{slotNumber}}) — ACE SCRIMS",
+    subject: "Booking Confirmed: {{scrimTitle}} (Slot #{{slotNumber}}) — RushX Organization",
     preheader: "Your slot #{{slotNumber}} for {{scrimTitle}} ({{startTime}}) is confirmed.",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:16px;">Hello {{recipientName}},</p>
 <p style="margin:0 0 20px 0;">Your squad booking has been confirmed for <strong>{{scrimTitle}}</strong>. Entry fee of <strong>BDT {{amountBdt}}</strong> has been processed.</p>
@@ -135,7 +234,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Room ID & Password: {{scrimTitle}} — ACE SCRIMS",
+    subject: "Room ID & Password: {{scrimTitle}} — RushX Organization",
     preheader: "Room ID: {{roomId}} | Password: {{roomPassword}} for {{scrimTitle}}",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:16px;">Hello {{recipientName}},</p>
 <p style="margin:0 0 16px 0;color:#cbd5e1;">{{updateNotice}} Room details for <strong>{{scrimTitle}}</strong> are now ready.</p>
@@ -172,7 +271,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Scrim Match Not Hosted: {{scrimTitle}} — ACE SCRIMS",
+    subject: "Scrim Match Not Hosted: {{scrimTitle}} — RushX Organization",
     preheader: "{{scrimTitle}} has been marked as Not Hosted. Your entry fee will be refunded.",
     bodyHtml: `<p style="margin:0 0 16px 0;font-size:15px;color:#ffffff;line-height:1.6;">Hello <strong>{{recipientName}}</strong>,</p>
 <p style="margin:0 0 20px 0;line-height:1.65;color:#94a3b8;">We regret to inform you that <strong>{{scrimTitle}}</strong> ({{scrimDate}} at {{startTime}}) did not meet the required minimum team slots and has been marked as <strong>Not Hosted</strong>.</p>
@@ -197,7 +296,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Match Results Published: {{scrimTitle}} — ACE SCRIMS",
+    subject: "Match Results Published: {{scrimTitle}} — RushX Organization",
     preheader: "Official results published for {{scrimTitle}}. Winner: {{winningTeam}} with {{kills}} kills.",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
 <p style="margin:0 0 18px 0;color:#94a3b8;">The official match results for <strong>{{scrimTitle}}</strong> have just been verified and published.</p>
@@ -234,10 +333,10 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "Action Required: Upload MVP Image for {{teamName}} — ACE SCRIMS",
-    preheader: "Ace Scrims management has requested an MVP photo for {{teamName}} ({{scrimTitle}}).",
+    subject: "Action Required: Upload MVP Image for {{teamName}} — RushX Organization",
+    preheader: "RushX Organization management has requested an MVP photo for {{teamName}} ({{scrimTitle}}).",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
-<p style="margin:0 0 18px 0;color:#94a3b8;">Congratulations! Ace Scrims management has requested an image asset for <strong>{{targetPlayerLabel}}</strong> from <em>{{scrimTitle}}</em> ({{scrimDate}}) for the official Face Banners showcase.</p>
+<p style="margin:0 0 18px 0;color:#94a3b8;">Congratulations! RushX Organization management has requested an image asset for <strong>{{targetPlayerLabel}}</strong> from <em>{{scrimTitle}}</em> ({{scrimDate}}) for the official Face Banners showcase.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:20px;">
   <tr><td style="padding:18px 20px;">
     <p style="margin:5px 0;color:#ffffff;font-size:14px;"><strong style="color:#94a3b8;">SQUAD:</strong> {{teamName}}</p>
@@ -247,7 +346,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     <p style="margin:5px 0;color:#cbd5e1;font-size:13px;"><strong style="color:#94a3b8;">GUIDELINES:</strong> Waist-up photo, clean framing, ideally with background removed.</p>
   </td></tr>
 </table>`,
-    bodyText: `Hello {{recipientName}}, Ace Scrims management requested an MVP photo ({{requestType}}) for {{teamName}} ({{scrimTitle}}). Upload via your dashboard: {{dashboardUrl}}`,
+    bodyText: `Hello {{recipientName}}, RushX Organization management requested an MVP photo ({{requestType}}) for {{teamName}} ({{scrimTitle}}). Upload via your dashboard: {{dashboardUrl}}`,
     ctaText: "Upload MVP Image Now",
     ctaUrl: "{{dashboardUrl}}",
     variablesHint: [
@@ -269,7 +368,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     isCore: true,
     category: "system",
     format: "html",
-    subject: "[{{priorityLabel}}] {{title}} — ACE SCRIMS",
+    subject: "[{{priorityLabel}}] {{title}} — RushX Organization",
     preheader: "{{category}} — {{title}}",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
 <div style="margin-bottom:14px;">
@@ -334,16 +433,122 @@ function normalizeEmailTemplate(row: EmailTemplate): NormalizedEmailTemplate {
   }
 }
 
+function rebrandEmailText(input: string): string {
+  if (!input) return input
+  return input
+    .replace(/\bACE SCRIMS BANGLADESH\b/gi, "RushX Organization")
+    .replace(/\bACE\s+SCRIMS\b/gi, "RushX Organization")
+}
+
 const EMAIL_DEFAULTS_SYNC_KEY = "email_defaults_v2_applied"
+const EMAIL_RUSHX_REBRAND_SYNC_KEY = "email_rushx_rebrand_v1_applied"
 
 export function getCoreEmailDefaultEnabled(purposeKey: string): boolean {
-  const found = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === purposeKey)
+  const canonical = resolveCanonicalEmailPurposeKey(purposeKey)
+  const found = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === canonical)
   return found ? found.defaultEnabled : true
+}
+
+/**
+ * Removes duplicate or legacy-alias email templates created for the same purpose,
+ * keeping one canonical template per distinct purpose while preserving admin customizations.
+ */
+export async function consolidateDuplicateEmailTemplates(): Promise<void> {
+  const rows = await db.select().from(emailTemplates).orderBy(asc(emailTemplates.createdAt))
+  if (rows.length === 0) return
+
+  const grouped = new Map<string, EmailTemplate[]>()
+  for (const row of rows) {
+    const canonicalKey = resolveCanonicalEmailPurposeKey(row.purposeKey, row.label)
+    const bucketKey = canonicalKey || row.id
+    const list = grouped.get(bucketKey) ?? []
+    list.push(row)
+    grouped.set(bucketKey, list)
+  }
+
+  for (const [canonicalKey, group] of grouped.entries()) {
+    const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === canonicalKey)
+
+    if (group.length === 1) {
+      const only = group[0]
+      // Rename legacy alias key (e.g. "booking_confirmation") to canonical key ("register")
+      if (coreSeed && only.purposeKey !== coreSeed.purposeKey) {
+        await db
+          .update(emailTemplates)
+          .set({
+            purposeKey: coreSeed.purposeKey,
+            isCore: true,
+            category: "system",
+            updatedAt: new Date(),
+          })
+          .where(eq(emailTemplates.id, only.id))
+      }
+      continue
+    }
+
+    // Multiple rows exist for the same purpose — pick the primary row to keep
+    const sorted = [...group].sort((a, b) => {
+      const aExact = a.purposeKey === canonicalKey ? 1 : 0
+      const bExact = b.purposeKey === canonicalKey ? 1 : 0
+      if (aExact !== bExact) return bExact - aExact
+      const aCore = a.isCore ? 1 : 0
+      const bCore = b.isCore ? 1 : 0
+      if (aCore !== bCore) return bCore - aCore
+      const aEdited = a.updatedBy ? 1 : 0
+      const bEdited = b.updatedBy ? 1 : 0
+      if (aEdited !== bEdited) return bEdited - aEdited
+      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+    })
+
+    const primary = sorted[0]
+    const duplicates = sorted.slice(1)
+
+    // If a duplicate was edited by an admin more recently while the primary was untouched, carry its edits over
+    const editedDuplicate = duplicates.find((d) => Boolean(d.updatedBy))
+    if (!primary.updatedBy && editedDuplicate) {
+      await db
+        .update(emailTemplates)
+        .set({
+          isEnabled: editedDuplicate.isEnabled,
+          format: editedDuplicate.format,
+          subject: rebrandEmailText(editedDuplicate.subject),
+          preheader: editedDuplicate.preheader ? rebrandEmailText(editedDuplicate.preheader) : primary.preheader,
+          bodyHtml: rebrandEmailText(editedDuplicate.bodyHtml),
+          bodyText: rebrandEmailText(editedDuplicate.bodyText),
+          ctaText: editedDuplicate.ctaText ?? primary.ctaText,
+          ctaUrl: editedDuplicate.ctaUrl ?? primary.ctaUrl,
+          mediaItems: editedDuplicate.mediaItems ?? primary.mediaItems,
+          updatedBy: editedDuplicate.updatedBy,
+          updatedAt: new Date(),
+        })
+        .where(eq(emailTemplates.id, primary.id))
+    }
+
+    for (const dup of duplicates) {
+      await db.delete(emailTemplates).where(eq(emailTemplates.id, dup.id))
+    }
+
+    if (coreSeed && primary.purposeKey !== coreSeed.purposeKey) {
+      await db
+        .update(emailTemplates)
+        .set({
+          purposeKey: coreSeed.purposeKey,
+          isCore: true,
+          category: "system",
+          updatedAt: new Date(),
+        })
+        .where(eq(emailTemplates.id, primary.id))
+    }
+  }
 }
 
 export async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
   await ensureSchemaReady()
   await ensureEmailTemplatesSchema()
+
+  // 1. Consolidate any legacy or duplicate templates before seeding missing core ones
+  await consolidateDuplicateEmailTemplates()
+
   const existing = await db.select({ purposeKey: emailTemplates.purposeKey }).from(emailTemplates)
   const existingKeys = new Set(existing.map((r) => r.purposeKey))
 
@@ -376,7 +581,7 @@ export async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
       .onConflictDoNothing()
   }
 
-  // One-time idempotent sync so untouched pre-seeded welcome/register rows honor default-OFF & crisp labels
+  // 2. One-time idempotent sync for default-OFF triggers
   const syncMarker = await db
     .select({ value: settings.value })
     .from(settings)
@@ -400,25 +605,61 @@ export async function seedCoreEmailTemplatesIfMissing(): Promise<void> {
       .values({ key: EMAIL_DEFAULTS_SYNC_KEY, value: "true", updatedAt: new Date() })
       .onConflictDoNothing()
   }
+
+  // 3. One-time idempotent rebrand of stored email template copy to RushX Organization
+  const rebrandMarker = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, EMAIL_RUSHX_REBRAND_SYNC_KEY))
+    .limit(1)
+
+  if (rebrandMarker.length === 0) {
+    const allRows = await db.select().from(emailTemplates)
+    for (const row of allRows) {
+      const nextSubject = rebrandEmailText(row.subject)
+      const nextPreheader = row.preheader ? rebrandEmailText(row.preheader) : row.preheader
+      const nextBodyHtml = rebrandEmailText(row.bodyHtml)
+      const nextBodyText = rebrandEmailText(row.bodyText)
+      if (
+        nextSubject !== row.subject ||
+        nextPreheader !== row.preheader ||
+        nextBodyHtml !== row.bodyHtml ||
+        nextBodyText !== row.bodyText
+      ) {
+        await db
+          .update(emailTemplates)
+          .set({
+            subject: nextSubject,
+            preheader: nextPreheader,
+            bodyHtml: nextBodyHtml,
+            bodyText: nextBodyText,
+            updatedAt: new Date(),
+          })
+          .where(eq(emailTemplates.id, row.id))
+      }
+    }
+    await db
+      .insert(settings)
+      .values({ key: EMAIL_RUSHX_REBRAND_SYNC_KEY, value: "true", updatedAt: new Date() })
+      .onConflictDoNothing()
+  }
 }
 
 export function extractPurposeKeyFromId(id?: string | null): string | null {
   const clean = (id || "").trim()
   if (!clean) return null
   if (clean.startsWith("default_")) {
-    return clean.slice("default_".length) || null
+    return resolveCanonicalEmailPurposeKey(clean.slice("default_".length)) || null
   }
   if (clean.startsWith("tpl_")) {
     const rest = clean.slice("tpl_".length)
-    // Match known core keys first (handles keys containing underscores like password_reset, id_pass, not_hosted, mvp_image)
     for (const core of CORE_EMAIL_TEMPLATES) {
       if (rest === core.purposeKey || rest.startsWith(`${core.purposeKey}_`)) {
         return core.purposeKey
       }
     }
-    // Strip trailing 6-char random suffix if present
     const stripped = rest.replace(/_[a-f0-9]{6}$/i, "")
-    return stripped || null
+    return resolveCanonicalEmailPurposeKey(stripped) || stripped || null
   }
   return null
 }
@@ -430,7 +671,6 @@ export async function resolveOrEnsureEmailTemplate(
   await ensureSchemaReady()
   await ensureEmailTemplatesSchema()
 
-  // 1. Direct lookup by ID
   if (id) {
     const byId = await db
       .select()
@@ -440,8 +680,8 @@ export async function resolveOrEnsureEmailTemplate(
     if (byId[0]) return byId[0]
   }
 
-  // 2. Resolve by explicit or inferred purposeKey
-  const candidateKey = (purposeKey || "").trim() || extractPurposeKeyFromId(id)
+  const rawCandidate = (purposeKey || "").trim() || extractPurposeKeyFromId(id)
+  const candidateKey = rawCandidate ? resolveCanonicalEmailPurposeKey(rawCandidate) : null
   if (candidateKey) {
     let byKey = await db
       .select()
@@ -450,7 +690,6 @@ export async function resolveOrEnsureEmailTemplate(
       .limit(1)
     if (byKey[0]) return byKey[0]
 
-    // 3. If it's a core template that hasn't been persisted yet, seed/upsert it deterministically
     const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === candidateKey)
     if (coreSeed) {
       await db
@@ -486,7 +725,6 @@ export async function resolveOrEnsureEmailTemplate(
     }
   }
 
-  // 4. Last chance: ensure all core templates are seeded and re-check
   await seedCoreEmailTemplatesIfMissing()
   if (candidateKey) {
     const recheck = await db
@@ -506,14 +744,23 @@ export async function getAllEmailTemplates(): Promise<NormalizedEmailTemplate[]>
     const orderMap = new Map<string, number>(
       CORE_EMAIL_PURPOSE_ORDER.map((key, idx) => [key, idx])
     )
-    return rows
-      .map(normalizeEmailTemplate)
-      .sort((a, b) => {
-        const idxA = orderMap.has(a.purposeKey) ? orderMap.get(a.purposeKey)! : 999
-        const idxB = orderMap.has(b.purposeKey) ? orderMap.get(b.purposeKey)! : 999
-        if (idxA !== idxB) return idxA - idxB
-        return a.label.localeCompare(b.label)
-      })
+
+    // Defensive deduplication in memory as well
+    const seenKeys = new Set<string>()
+    const uniqueNormalized: NormalizedEmailTemplate[] = []
+    for (const row of rows) {
+      const canonical = resolveCanonicalEmailPurposeKey(row.purposeKey, row.label)
+      if (seenKeys.has(canonical)) continue
+      seenKeys.add(canonical)
+      uniqueNormalized.push(normalizeEmailTemplate(row))
+    }
+
+    return uniqueNormalized.sort((a, b) => {
+      const idxA = orderMap.has(a.purposeKey) ? orderMap.get(a.purposeKey)! : 999
+      const idxB = orderMap.has(b.purposeKey) ? orderMap.get(b.purposeKey)! : 999
+      if (idxA !== idxB) return idxA - idxB
+      return a.label.localeCompare(b.label)
+    })
   } catch (err) {
     console.warn("[EmailTemplates] Fallback to default core templates:", err)
     return CORE_EMAIL_TEMPLATES.map((t) => ({
@@ -576,10 +823,10 @@ export async function toggleEmailTemplateByIdOrKey(params: {
   await ensureEmailTemplatesSchema()
 
   const cleanId = (params.id || "").trim()
-  const candidateKey = (params.purposeKey || "").trim() || extractPurposeKeyFromId(cleanId)
+  const rawCandidate = (params.purposeKey || "").trim() || extractPurposeKeyFromId(cleanId)
+  const candidateKey = rawCandidate ? resolveCanonicalEmailPurposeKey(rawCandidate) : null
   const now = new Date()
 
-  // 1. Try direct update by ID first
   if (cleanId) {
     const updatedById = await db
       .update(emailTemplates)
@@ -596,7 +843,6 @@ export async function toggleEmailTemplateByIdOrKey(params: {
     }
   }
 
-  // 2. Try direct update by purposeKey
   if (candidateKey) {
     const updatedByKey = await db
       .update(emailTemplates)
@@ -612,7 +858,6 @@ export async function toggleEmailTemplateByIdOrKey(params: {
       return normalizeEmailTemplate(updatedByKey[0])
     }
 
-    // 3. Deterministic atomic upsert if it's a core template missing from DB
     const coreSeed = CORE_EMAIL_TEMPLATES.find((t) => t.purposeKey === candidateKey)
     if (coreSeed) {
       const upserted = await db
@@ -654,7 +899,6 @@ export async function toggleEmailTemplateByIdOrKey(params: {
     }
   }
 
-  // 4. Final fallback: resolve/seed then update
   const resolved = await resolveOrEnsureEmailTemplate(cleanId, candidateKey)
   if (!resolved) return null
 
@@ -670,5 +914,3 @@ export async function toggleEmailTemplateByIdOrKey(params: {
 
   return finalRows[0] ? normalizeEmailTemplate(finalRows[0]) : null
 }
-
-

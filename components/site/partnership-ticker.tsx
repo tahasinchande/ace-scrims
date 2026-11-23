@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Handshake, ArrowUpRight } from "lucide-react"
 import type { PartnershipItem } from "@/lib/db/schema"
 import type { PartnershipMarqueeSettings } from "@/lib/queries/partnerships"
+import { resolveVerifiedPartnerLogo } from "@/lib/partner-logos"
 
 function deduplicatePartners(items: PartnershipItem[]): PartnershipItem[] {
   const seenIds = new Set<string>()
@@ -23,41 +24,51 @@ function deduplicatePartners(items: PartnershipItem[]): PartnershipItem[] {
   return unique
 }
 
-function MarqueeTrackGroup({
+function MarqueeTrackHalf({
   items,
+  repeatCount,
   showBadges,
   duplicate,
 }: {
   items: PartnershipItem[]
+  repeatCount: number
   showBadges: boolean
   duplicate?: boolean
 }) {
+  const tiled: Array<{ item: PartnershipItem; passIndex: number; idx: number }> = []
+  for (let pass = 0; pass < repeatCount; pass++) {
+    items.forEach((item, idx) => {
+      tiled.push({ item, passIndex: pass, idx })
+    })
+  }
+
   return (
     <div
-      className="flex min-w-full shrink-0 items-center justify-around gap-12 sm:gap-16 lg:gap-20 pr-12 sm:pr-16 lg:pr-20"
+      className="flex shrink-0 flex-nowrap items-center gap-7 sm:gap-9 pr-7 sm:pr-9"
       aria-hidden={duplicate ? "true" : undefined}
     >
-      {items.map((item, idx) => {
+      {tiled.map(({ item, passIndex, idx }) => {
+        const resolvedLogo = resolveVerifiedPartnerLogo(item.partnerName, item.logoUrl)
         const content = (
-          <div className="group inline-flex items-center gap-3.5 py-2 transition-opacity duration-200 hover:opacity-100 opacity-90">
-            {item.logoUrl ? (
+          <div className="group inline-flex items-center gap-3 py-1.5 opacity-90 transition-opacity duration-200 hover:opacity-100">
+            {resolvedLogo ? (
               <img
-                src={item.logoUrl}
+                src={resolvedLogo}
                 alt={item.partnerName}
-                className="h-9 w-auto max-w-[110px] sm:h-10 object-contain shrink-0 transition-transform duration-300 group-hover:scale-105"
+                className="h-8 sm:h-9 w-auto max-w-[120px] object-contain shrink-0 transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
             ) : (
-              <Handshake className="size-6 shrink-0 text-primary/90" aria-hidden />
+              <Handshake className="size-5 shrink-0 text-primary/90" aria-hidden />
             )}
 
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <span className="font-display text-base sm:text-lg font-semibold tracking-tight text-foreground/95 transition-colors group-hover:text-primary">
+            <div className="flex flex-col min-w-0 leading-tight">
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="font-display text-base sm:text-lg font-bold tracking-tight text-foreground/95 transition-colors group-hover:text-primary">
                   {item.partnerName}
                 </span>
                 {showBadges && item.badgeText && (
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary/85 whitespace-nowrap">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary/85 whitespace-nowrap">
                     · {item.badgeText}
                   </span>
                 )}
@@ -67,21 +78,24 @@ function MarqueeTrackGroup({
               </div>
 
               {(item.headline || item.tagline) && (
-                <span className="text-xs font-semibold text-muted-foreground/85 whitespace-nowrap max-w-[260px] truncate">
+                <span className="text-[11px] font-medium text-muted-foreground/85 whitespace-nowrap max-w-[220px] truncate">
                   {item.headline || item.tagline}
                 </span>
               )}
             </div>
 
             <span
-              className="ml-6 sm:ml-10 h-4 w-px bg-white/[0.1] shrink-0"
+              className="ml-3 sm:ml-4 h-3.5 w-px bg-white/[0.12] shrink-0"
               aria-hidden
             />
           </div>
         )
 
-        const key = `${duplicate ? "dup" : "main"}-${item.id}-${idx}`
-        if (!item.linkUrl) {
+        const key = `${duplicate ? "half2" : "half1"}-p${passIndex}-${item.id}-${idx}`
+        const rawLink = (item.linkUrl || "").trim()
+        const isSafeExternal = /^https?:\/\//i.test(rawLink)
+        const isSafeInternal = rawLink.startsWith("/") && !rawLink.startsWith("//")
+        if (!isSafeExternal && !isSafeInternal) {
           return (
             <div key={key} className="shrink-0">
               {content}
@@ -89,15 +103,14 @@ function MarqueeTrackGroup({
           )
         }
 
-        const isExternal = /^https?:\/\//i.test(item.linkUrl)
-        if (isExternal) {
+        if (isSafeExternal) {
           return (
             <a
               key={key}
-              href={item.linkUrl}
+              href={rawLink}
               target="_blank"
               rel="noopener noreferrer"
-              tabIndex={duplicate ? -1 : undefined}
+              tabIndex={duplicate || passIndex > 0 ? -1 : undefined}
               className="shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 rounded-md"
             >
               {content}
@@ -108,8 +121,8 @@ function MarqueeTrackGroup({
         return (
           <Link
             key={key}
-            href={item.linkUrl}
-            tabIndex={duplicate ? -1 : undefined}
+            href={rawLink}
+            tabIndex={duplicate || passIndex > 0 ? -1 : undefined}
             className="shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 rounded-md"
           >
             {content}
@@ -138,28 +151,34 @@ export function PartnershipTicker({
   const heading = marqueeSettings?.heading || "Official Partners & Collaborations"
   const subheading =
     marqueeSettings?.subheading ??
-    "Trusted esports communities, brands, and creators powering Ace Scrims."
-  const speedSeconds = Math.min(90, Math.max(12, Number(marqueeSettings?.speedSeconds || 30)))
+    "Trusted esports communities, brands, and creators powering RushX Organization."
+  const rawSpeed = Number(marqueeSettings?.speedSeconds)
+  const speedSeconds = Number.isFinite(rawSpeed)
+    ? Math.min(300, Math.max(1, rawSpeed))
+    : 24
   const direction = marqueeSettings?.direction === "right" ? "right" : "left"
   const showBadges = marqueeSettings?.showBadges !== false
+
+  // Ensure each half-track cleanly exceeds viewport width so the 0 -> -50% loop has zero gap or jump
+  const repeatCount = Math.max(1, Math.ceil(8 / uniqueItems.length))
 
   return (
     <section
       aria-label={heading}
       className={`relative z-10 w-full overflow-hidden ${
         compact
-          ? "py-6"
-          : "py-14 sm:py-16 border-y border-white/[0.06] bg-gradient-to-b from-[#060912]/70 via-[#080c17]/60 to-[#050810]/70 backdrop-blur-md"
+          ? "py-4"
+          : "py-12 sm:py-14 border-y border-white/[0.06] bg-[#060912]/45 backdrop-blur-md"
       }`}
     >
       {!compact && (
-        <div className="mx-auto max-w-6xl px-4 md:px-6 mb-9 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mx-auto max-w-6xl px-4 md:px-6 mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
               <span className="inline-block h-px w-6 bg-primary/80" aria-hidden />
               <span>Partnerships</span>
             </div>
-            <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               {heading}
             </h2>
             {subheading && (
@@ -177,16 +196,21 @@ export function PartnershipTicker({
         </div>
       )}
 
-      {/* Seamless borderless infinite marquee — deduplicated per pass, never pauses on hover or focus */}
-      <div className="partnership-marquee-wrap relative w-full overflow-hidden py-2">
+      {/* Compact, borderless, pixel-seamless infinite marquee — never pauses on hover or focus */}
+      <div className="partnership-marquee-wrap relative w-full overflow-hidden py-1.5">
         <div
           className={`partnership-marquee-track flex items-center ${
             direction === "right" ? "partnership-marquee-reverse" : ""
           }`}
           style={{ ["--marquee-duration" as string]: `${speedSeconds}s` }}
         >
-          <MarqueeTrackGroup items={uniqueItems} showBadges={showBadges} />
-          <MarqueeTrackGroup items={uniqueItems} showBadges={showBadges} duplicate />
+          <MarqueeTrackHalf items={uniqueItems} repeatCount={repeatCount} showBadges={showBadges} />
+          <MarqueeTrackHalf
+            items={uniqueItems}
+            repeatCount={repeatCount}
+            showBadges={showBadges}
+            duplicate
+          />
         </div>
       </div>
     </section>

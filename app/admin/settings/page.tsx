@@ -7,7 +7,7 @@ import { PayoutMethodsManager } from "@/components/admin/payout-methods-manager"
 import { getAllPayoutMethods } from "@/lib/queries/payout-methods"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Settings — Ace Scrims Admin" }
+export const metadata = { title: "Settings — RushX Organization Admin" }
 
 export default async function AdminSettingsPage() {
   const user = await getSessionUser()

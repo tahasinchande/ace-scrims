@@ -5,7 +5,7 @@ import { bdt, formatDate } from "@/lib/format"
 import { Trophy } from "lucide-react"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "My Results — Ace Scrims" }
+export const metadata = { title: "My Results — RushX Organization" }
 
 export default async function MyResultsPage() {
   const user = await requireUser()

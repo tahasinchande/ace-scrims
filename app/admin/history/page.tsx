@@ -6,7 +6,7 @@ import { AdminHistoryView } from "@/components/admin/admin-history-view"
 import { Calendar, History } from "lucide-react"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Archive / Match History — Ace Scrims Admin" }
+export const metadata = { title: "Archive / Match History — RushX Organization Admin" }
 
 export default async function AdminHistoryPage({
   searchParams,

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,57 +17,67 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/lib/language"
 import { useViewMode } from "@/lib/view-mode"
+import { BRAND } from "@/lib/brand"
 
 export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: number; totalPrize: number } }) {
   const { t } = useLanguage()
   const { mode, setMode } = useViewMode()
+  const prefersReducedMotion = useReducedMotion()
 
-  // Animation variants
   const container = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: prefersReducedMotion ? 1 : 0 },
     show: {
       opacity: 1,
-      transition: {
-        staggerChildren: mode === "3d" ? 0.1 : 0.05,
-        delayChildren: 0.05,
-      },
+      transition: prefersReducedMotion
+        ? { duration: 0 }
+        : {
+            staggerChildren: mode === "3d" ? 0.09 : 0.06,
+            delayChildren: 0.04,
+          },
     },
   }
 
   const itemFadeUp = {
-    hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+    hidden: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: prefersReducedMotion
+        ? { duration: 0 }
+        : { duration: 0.42, ease: [0.22, 1, 0.36, 1] as const },
+    },
   }
 
   return (
     <section className="relative min-h-[90svh] w-full max-w-full overflow-x-clip overflow-hidden bg-transparent">
-      {/* 3D Mode specific laser sweepers and kinetic glow */}
+      {/* 3D Mode specific laser sweepers and subtle glass framing */}
       {mode === "3d" && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden w-full max-w-full">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#030407]/60 via-transparent to-transparent z-[1]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#030407]/70 via-transparent to-transparent z-[1]" />
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent z-[2]" />
-          <motion.div
-            animate={{
-              x: ["-100%", "200%"],
-            }}
-            transition={{
-              duration: 7,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            className="absolute top-1/3 left-0 w-1/3 h-[2px] bg-gradient-to-r from-transparent via-orange-500 to-transparent blur-sm z-[2]"
-          />
-          <div className="absolute -left-20 top-1/4 size-96 rounded-full bg-orange-600/20 blur-[100px] z-[1]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#030407]/52 via-transparent to-transparent z-[1]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#030407]/45 via-transparent to-transparent z-[1]" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent z-[2]" />
+          {!prefersReducedMotion && (
+            <motion.div
+              animate={{
+                x: ["-100%", "200%"],
+              }}
+              transition={{
+                duration: 7,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              className="absolute top-1/3 left-0 w-1/3 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent blur-sm z-[2]"
+            />
+          )}
         </div>
       )}
 
-      {/* 2D Static Mode subtle ambient glows */}
+      {/* 2D Ambient Mode — transparent overlay so the full-page sequential color-shifting canvas shines through */}
       {mode === "2d" && (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-b from-orange-950/10 via-transparent to-transparent z-[1]" />
+        <div className="pointer-events-none absolute inset-0 overflow-hidden bg-gradient-to-b from-black/10 via-transparent to-transparent z-[1]" />
       )}
 
-      <div className="relative z-10 mx-auto flex min-h-[86svh] max-w-6xl items-center px-4 py-16 md:px-6 w-full overflow-hidden">
+      <div className="relative z-10 mx-auto flex min-h-[88svh] max-w-6xl items-center px-4 py-16 md:px-6 w-full overflow-hidden">
         <div className="w-full max-w-full">
           {/* Headline & Action CTAs */}
           <motion.div
@@ -77,43 +87,46 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
             className="flex max-w-3xl flex-col justify-center w-full"
           >
             {/* Top Status & 2D / 3D Selection Toggle */}
-            <motion.div variants={itemFadeUp} className="flex flex-wrap items-center gap-2.5 mb-7">
-              <Badge variant="outline" className="glass gap-2 rounded-lg border-orange-500/30 bg-orange-950/35 px-3 py-1.5 text-xs font-semibold text-orange-300 shadow-lg shadow-orange-500/10 tabular-nums">
+            <motion.div variants={itemFadeUp} className="flex flex-wrap items-center gap-2.5 mb-6">
+              <Badge
+                variant="outline"
+                className="glass gap-2 rounded-md border-orange-500/40 bg-orange-950/40 px-3 py-1.5 text-orange-300 shadow-lg shadow-orange-500/10 tabular-nums"
+              >
                 <Flame className="size-3.5 text-amber-400" aria-hidden />
                 {stats.scrimsTonight ?? 0} {t("scrims_tonight", "Scrims Live Tonight")}
               </Badge>
 
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-300">
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-emerald-500/35 bg-emerald-950/35 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
                 <ShieldCheck className="size-3.5 text-emerald-400" />
                 Anti-Cheat Active
               </span>
 
               {/* 2D / 3D Mode Selector Switch */}
               <div
-                className="inline-flex items-center rounded-xl border border-white/[0.1] bg-[#070a14]/75 p-0.5 backdrop-blur-xl shadow-md"
+                className="inline-flex items-center rounded-lg border border-white/[0.12] bg-black/55 p-0.5 backdrop-blur-md shadow-md"
                 role="group"
                 aria-label="View Mode Selector"
               >
                 <button
                   type="button"
                   onClick={() => setMode("2d")}
-                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                     mode === "2d"
-                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-zinc-950 shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200"
+                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-black shadow-sm"
+                      : "text-zinc-300 hover:text-white"
                   }`}
-                  title="Switch to 2D Static Mode"
+                  title="Switch to 2D Ambient Mode"
                 >
                   <Layers className="size-3" />
-                  2D Static
+                  2D Ambient
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode("3d")}
-                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                     mode === "3d"
-                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-zinc-950 shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200"
+                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-black shadow-sm"
+                      : "text-zinc-300 hover:text-white"
                   }`}
                   title="Switch to 3D Cyber Mode"
                 >
@@ -123,27 +136,45 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
               </div>
             </motion.div>
 
-            {/* Titles */}
-            <motion.h1 variants={itemFadeUp} className="font-display text-4xl font-semibold leading-[1.03] tracking-[-0.035em] sm:text-6xl md:text-7xl">
-              <span className="bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent font-semibold block drop-shadow-sm">
-                {t("hero_title", "ACE SCRIMS")}
+            {/* Primary H1: Transparent RushX ORGANIZATION Brand Artwork */}
+            <motion.h1
+              variants={itemFadeUp}
+              className="font-display text-4xl font-black leading-none tracking-tight sm:text-6xl md:text-7xl"
+            >
+              <span className="sr-only">{t("hero_title", BRAND.name)}</span>
+              <span className="relative block max-w-[330px] sm:max-w-[520px] md:max-w-[640px] -ml-0.5">
+                <img
+                  src={BRAND.assets.fullWordmark}
+                  alt={BRAND.name}
+                  className="block w-full h-auto max-h-[80px] sm:max-h-[112px] md:max-h-[132px] object-contain object-left drop-shadow-[0_4px_24px_rgba(255,255,255,0.2)] select-none"
+                />
               </span>
             </motion.h1>
 
-            <motion.h2 variants={itemFadeUp} className="mt-3 font-display text-2xl font-semibold leading-[1.12] tracking-[-0.03em] text-foreground sm:text-4xl md:text-5xl">
+            {/* Preserved Previous Headline Structure & Typography (Rajdhani Extrabold) */}
+            <motion.h2
+              variants={itemFadeUp}
+              className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+            >
               {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
             </motion.h2>
 
-            <motion.p variants={itemFadeUp} className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-300/85 text-pretty md:text-lg">
-              {t("hero_subtitle", "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pool. Your squad vs the best.")}
+            <motion.p
+              variants={itemFadeUp}
+              className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-200/85 text-pretty md:text-lg"
+            >
+              {t(
+                "hero_subtitle",
+                "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pool. Your squad vs the best."
+              )}
             </motion.p>
 
             {/* Action Buttons */}
-            <motion.div variants={itemFadeUp} className="mt-8 flex flex-wrap items-center gap-3.5">
+            <motion.div variants={itemFadeUp} className="mt-8 flex flex-wrap items-center gap-4">
               <Button
                 asChild
                 size="lg"
-                className="h-12 rounded-xl px-7 font-semibold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-zinc-950 shadow-lg shadow-orange-500/20 transition-all duration-200"
+                className="h-12 px-8 font-display font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black shadow-lg shadow-orange-500/25 transition-all duration-200"
               >
                 <Link
                   href="#schedule"
@@ -164,42 +195,49 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                 asChild
                 size="lg"
                 variant="outline"
-                className="glass h-12 rounded-xl border-white/[0.12] px-7 font-semibold text-foreground hover:border-orange-500/45 hover:bg-white/[0.06] transition-all duration-200"
+                className="glass h-12 border-white/[0.16] px-8 font-semibold hover:border-orange-500/60 hover:bg-orange-500/10 text-foreground transition-all duration-200"
               >
                 <Link href="/results">{t("view_results", "View Results")}</Link>
               </Button>
 
               {/* Quick 2D / 3D toggle indicator info */}
-              <span className="text-xs text-zinc-400 hidden sm:inline-flex items-center gap-1.5 pl-1">
+              <span className="text-xs text-zinc-300/85 hidden sm:inline-flex items-center gap-1.5 pl-1">
                 <Sparkles className="size-3.5 text-orange-400" />
-                Mode: <strong className="font-semibold text-zinc-200">{mode === "2d" ? "2D Static" : "3D Cyber Experience"}</strong>
+                Mode:{" "}
+                <strong className="font-semibold text-foreground">
+                  {mode === "2d" ? "2D Dynamic Ambient" : "3D Cyber Experience"}
+                </strong>
               </span>
             </motion.div>
 
             {/* Institutional Gradient Stats Cards */}
             <motion.dl variants={itemFadeUp} className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4">
-              <div className="dc-surface dc-card-hover rounded-2xl p-4 sm:p-4.5">
-                <dt className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400">
+              <div className="dc-surface dc-card-hover rounded-xl p-3.5 sm:p-4">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Zap className="size-3.5 text-orange-400" aria-hidden />
                   {t("scrims_tonight", "Nightly")}
                 </dt>
-                <dd className="mt-1.5 font-display text-xl sm:text-2xl font-semibold tracking-tight text-foreground tabular-nums">{stats.scrimsTonight || 12}</dd>
+                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground tabular-nums">
+                  {stats.scrimsTonight || 12}
+                </dd>
               </div>
 
-              <div className="dc-surface dc-card-hover rounded-2xl p-4 sm:p-4.5">
-                <dt className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400">
+              <div className="dc-surface dc-card-hover rounded-xl p-3.5 sm:p-4">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Users className="size-3.5 text-amber-400" aria-hidden />
                   {t("team_slots", "Teams")}
                 </dt>
-                <dd className="mt-1.5 font-display text-xl sm:text-2xl font-semibold tracking-tight text-foreground tabular-nums">{stats.totalTeams || 144}</dd>
+                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-foreground tabular-nums">
+                  {stats.totalTeams || 144}
+                </dd>
               </div>
 
-              <div className="dc-surface dc-card-hover rounded-2xl p-4 sm:p-4.5">
-                <dt className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400">
+              <div className="dc-surface dc-card-hover rounded-xl p-3.5 sm:p-4">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-orange-300/90">
                   <Trophy className="size-3.5 text-amber-400" aria-hidden />
                   {t("scrim_format", "Format")}
                 </dt>
-                <dd className="mt-1.5 font-display text-sm sm:text-base font-semibold tracking-tight text-amber-300 leading-snug">
+                <dd className="mt-1 font-display text-sm sm:text-base font-bold text-amber-400 leading-tight">
                   {t("matches_per_scrim", "3 matches per scrim")}
                 </dd>
               </div>

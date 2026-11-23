@@ -6,7 +6,7 @@ import { eq, desc, and } from "drizzle-orm"
 import { AdminReports } from "@/components/admin/admin-reports"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Reports — Ace Scrims Admin" }
+export const metadata = { title: "Reports — RushX Organization Admin" }
 
 export default async function AdminReportsPage() {
   const sessionUser = await getSessionUser()

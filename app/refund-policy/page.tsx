@@ -8,13 +8,13 @@ export default function RefundPolicyPage() {
     <LegalPage title="Refund Policy" updated="July 14, 2026">
       <h2>Overview</h2>
       <p>
-        Ace Scrims sells entry slots for scheduled Free Fire scrim matches. Because slots are limited and reserved
+        RushX Organization sells entry slots for scheduled Free Fire scrim matches. Because slots are limited and reserved
         immediately upon successful payment, refunds are governed by the rules below.
       </p>
 
       <h2>When You Are Eligible for a Refund</h2>
       <ul>
-        <li>The scrim is cancelled by Ace Scrims for any reason.</li>
+        <li>The scrim is cancelled by RushX Organization for any reason.</li>
         <li>The match could not start due to a fault on our side (e.g. room was never published).</li>
         <li>You were charged twice for the same slot &mdash; the duplicate charge is refunded in full.</li>
         <li>Payment succeeded but no slot was available; your payment is refunded in full.</li>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 48" fill="none">
+  <path d="M18 35L26 11h17l-2.2 6.2H31l-1.5 4.4h9.2l-2.1 6h-9.2L24.8 35H18Z" fill="#FFFFFF"/>
+  <path d="M46.5 35l8-24h16.2l-2.1 6.2h-9.4l-1.5 4.4h8.6l-2 6h-8.6L53.2 35h-6.7Z" fill="#FFFFFF"/>
+  <path d="M71.5 11h9.2l-6.4 24h-7.8l5-24Z" fill="#FFAA00"/>
+  <path d="M77.5 8l4.5 7.5-4.5 7.5-2.6-7.5L77.5 8Z" fill="#FF6B00"/>
+  <text x="88" y="23" fill="#E4E4E7" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="800" letter-spacing="1.6">GARENA</text>
+  <text x="88" y="36" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="900" letter-spacing="0.8">FREE FIRE</text>
+</svg>

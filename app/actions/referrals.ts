@@ -87,7 +87,7 @@ export async function submitCreatorApplicationAction(input: {
   if (existing && existing.status === "approved") {
     return {
       ok: false as const,
-      error: "You are already an approved Ace Scrims Content Creator.",
+      error: "You are already an approved RushX Organization Content Creator.",
     }
   }
   if (existing && existing.status === "pending") {
@@ -545,7 +545,7 @@ export async function reviewCreatorApplicationAction(input: {
       app.userId,
       "announcement",
       "Content Creator Application Approved!",
-      `Welcome to the Ace Scrims Creator Program! Your exclusive creator referral code is ${finalCode}. Share your referral link to earn Creator Wallet payouts per signup while giving your community a signup bonus.`,
+      `Welcome to the RushX Organization Creator Program! Your exclusive creator referral code is ${finalCode}. Share your referral link to earn Creator Wallet payouts per signup while giving your community a signup bonus.`,
       "/dashboard/referrals"
     )
 

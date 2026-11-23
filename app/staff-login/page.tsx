@@ -80,7 +80,7 @@ export default function StaffLoginPage() {
 
       if (role !== "admin" && role !== "moderator") {
         await authClient.signOut()
-        setError("Access Denied: This account is not registered as Ace Scrims Staff.")
+        setError("Access Denied: This account is not registered as RushX Organization Staff.")
         setLoading(false)
         return
       }
@@ -119,7 +119,7 @@ export default function StaffLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="staff@gmail.com or staff@acescrims.com"
+              placeholder="staff@gmail.com or staff@acescrims.online"
               required
               autoComplete="email"
             />

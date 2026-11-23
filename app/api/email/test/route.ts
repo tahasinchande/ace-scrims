@@ -38,11 +38,11 @@ export async function GET(req: NextRequest) {
       providers: {
         resend: {
           configured: hasResend,
-          from: process.env.EMAIL_FROM || process.env.RESEND_FROM || "ACE SCRIMS <noreply@mail.acescrims.online>",
+          from: process.env.EMAIL_FROM || process.env.RESEND_FROM || "RushX Organization <noreply@mail.acescrims.online>",
         },
         sendgrid: {
           configured: hasSendGrid,
-          from: process.env.EMAIL_FROM || process.env.SENDGRID_FROM || "ACE SCRIMS <noreply@mail.acescrims.online>",
+          from: process.env.EMAIL_FROM || process.env.SENDGRID_FROM || "RushX Organization <noreply@mail.acescrims.online>",
         },
         smtp: {
           configured: hasSmtp,
@@ -57,9 +57,9 @@ export async function GET(req: NextRequest) {
       const safeUrl = escapeHtml(getProductionAppUrl())
       const testResult = await sendEmail({
         to: targetEmail,
-        subject: "Test Email from ACE SCRIMS",
-        html: `<h1>Email Configuration Test</h1><p>Your email service on ACE SCRIMS is working successfully!</p><p>Sent to: <strong>${safeEmail}</strong></p><p>Base URL: ${safeUrl}</p>`,
-        text: `Your email service on ACE SCRIMS is working successfully! Base URL: ${getProductionAppUrl()}`,
+        subject: "Test Email from RushX Organization",
+        html: `<h1>Email Configuration Test</h1><p>Your email service on RushX Organization is working successfully!</p><p>Sent to: <strong>${safeEmail}</strong></p><p>Base URL: ${safeUrl}</p>`,
+        text: `Your email service on RushX Organization is working successfully! Base URL: ${getProductionAppUrl()}`,
       })
 
       return NextResponse.json({

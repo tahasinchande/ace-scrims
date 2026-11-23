@@ -6,8 +6,8 @@ import { WalletView } from "@/components/dashboard/wallet-view"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Wallet & Balance — Ace Scrims",
-  description: "Manage your Ace Scrims account balance, deposit funds, and view transaction history.",
+  title: "Wallet & Balance — RushX Organization",
+  description: "Manage your RushX Organization account balance, deposit funds, and view transaction history.",
 }
 
 export default async function DashboardWalletPage() {

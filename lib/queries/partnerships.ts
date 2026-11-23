@@ -3,6 +3,7 @@ import "server-only"
 import { asc, eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { partnershipItems, settings, type PartnershipItem } from "@/lib/db/schema"
+import { resolveVerifiedPartnerLogo } from "@/lib/partner-logos"
 
 export type PartnershipMarqueeSettings = {
   enabled: boolean
@@ -18,8 +19,8 @@ export const PARTNERSHIP_MARQUEE_SETTINGS_KEY = "partnership_marquee_config"
 export const DEFAULT_PARTNERSHIP_MARQUEE_SETTINGS: PartnershipMarqueeSettings = {
   enabled: true,
   heading: "Official Partners & Collaborations",
-  subheading: "Trusted esports communities, brands, and creators powering Ace Scrims.",
-  speedSeconds: 30,
+  subheading: "Trusted esports communities, brands, and creators powering RushX Organization.",
+  speedSeconds: 24,
   direction: "left",
   showBadges: true,
 }
@@ -30,22 +31,31 @@ export function sanitizePartnershipMarqueeSettings(
   const merged = { ...DEFAULT_PARTNERSHIP_MARQUEE_SETTINGS, ...(partial ?? {}) }
   const speedRaw = Number(merged.speedSeconds)
   const speedSeconds = Number.isFinite(speedRaw)
-    ? Math.min(90, Math.max(10, Math.round(speedRaw)))
+    ? Math.min(300, Math.max(1, Math.round(speedRaw * 10) / 10))
     : DEFAULT_PARTNERSHIP_MARQUEE_SETTINGS.speedSeconds
+
+  const rawSubheading =
+    typeof merged.subheading === "string"
+      ? merged.subheading.trim().replace(/Ace Scrims/gi, "RushX Organization").slice(0, 180)
+      : DEFAULT_PARTNERSHIP_MARQUEE_SETTINGS.subheading
 
   return {
     enabled: Boolean(merged.enabled),
     heading:
       typeof merged.heading === "string" && merged.heading.trim()
-        ? merged.heading.trim().slice(0, 80)
+        ? merged.heading.trim().replace(/Ace Scrims/gi, "RushX Organization").slice(0, 80)
         : DEFAULT_PARTNERSHIP_MARQUEE_SETTINGS.heading,
-    subheading:
-      typeof merged.subheading === "string"
-        ? merged.subheading.trim().slice(0, 180)
-        : DEFAULT_PARTNERSHIP_MARQUEE_SETTINGS.subheading,
+    subheading: rawSubheading,
     speedSeconds,
     direction: merged.direction === "right" ? "right" : "left",
     showBadges: Boolean(merged.showBadges),
+  }
+}
+
+function normalizePartnerItem(item: PartnershipItem): PartnershipItem {
+  return {
+    ...item,
+    logoUrl: resolveVerifiedPartnerLogo(item.partnerName, item.logoUrl),
   }
 }
 
@@ -88,11 +98,12 @@ export async function savePartnershipMarqueeSettings(
 
 export async function getActivePartnershipItems(): Promise<PartnershipItem[]> {
   try {
-    return await db
+    const rows = await db
       .select()
       .from(partnershipItems)
       .where(eq(partnershipItems.isActive, true))
       .orderBy(asc(partnershipItems.sortOrder), asc(partnershipItems.createdAt))
+    return rows.map(normalizePartnerItem)
   } catch (err) {
     console.warn("[Partnerships] Failed to fetch active partnership items:", err)
     return []
@@ -101,10 +112,11 @@ export async function getActivePartnershipItems(): Promise<PartnershipItem[]> {
 
 export async function getAllPartnershipItems(): Promise<PartnershipItem[]> {
   try {
-    return await db
+    const rows = await db
       .select()
       .from(partnershipItems)
       .orderBy(asc(partnershipItems.sortOrder), asc(partnershipItems.createdAt))
+    return rows.map(normalizePartnerItem)
   } catch (err) {
     console.warn("[Partnerships] Failed to fetch all partnership items:", err)
     return []

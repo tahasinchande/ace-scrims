@@ -252,7 +252,7 @@ export function NoticesFeed({ initialNotices }: { initialNotices: Notice[] }) {
                   <div className="flex items-center justify-between border-t border-border/50 pt-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5 font-medium text-foreground/80">
                       <Shield className="size-3.5 text-primary" />
-                      {notice.authorName || "Ace Scrims Administration"}
+                      {notice.authorName || "RushX Organization Administration"}
                     </span>
                     <span className="text-[11px] text-muted-foreground/75 font-mono">
                       Official Broadcast

@@ -31,7 +31,7 @@ const FALLBACK_PAYOUT_METHODS: PayoutMethod[] = [
   { id: "pm-nagad", name: "Nagad", code: "Nagad", label: "Nagad Personal", description: null, accentColor: "#F7941D", requiresAccountNumber: true, isActive: true, sortOrder: 2, createdAt: new Date(0), updatedAt: new Date(0) },
   { id: "pm-rocket", name: "Rocket", code: "Rocket", label: "Rocket Personal", description: null, accentColor: "#8C3494", requiresAccountNumber: true, isActive: true, sortOrder: 3, createdAt: new Date(0), updatedAt: new Date(0) },
   { id: "pm-tap", name: "Tap", code: "Tap", label: "Tap Personal", description: null, accentColor: "#00A19D", requiresAccountNumber: true, isActive: true, sortOrder: 4, createdAt: new Date(0), updatedAt: new Date(0) },
-  { id: "pm-balance", name: "Balance", code: "Balance", label: "Ace Scrims Wallet", description: null, accentColor: "#10B981", requiresAccountNumber: false, isActive: true, sortOrder: 5, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-balance", name: "Balance", code: "Balance", label: "RushX Wallet", description: null, accentColor: "#10B981", requiresAccountNumber: false, isActive: true, sortOrder: 5, createdAt: new Date(0), updatedAt: new Date(0) },
 ]
 
 export function InfoSetupForm({
@@ -99,7 +99,7 @@ export function InfoSetupForm({
       availableMethods.find((m) => m.code === paymentMethod) || availableMethods[0]
     const finalPaymentNumber =
       activeMethodObj && !activeMethodObj.requiresAccountNumber
-        ? "Ace Scrims Account Balance"
+        ? "RushX Organization Account Balance"
         : paymentNumber
 
     startTransition(async () => {
@@ -325,7 +325,7 @@ export function InfoSetupForm({
                       onClick={() => {
                         setPaymentMethod(prov.code)
                         if (!prov.requiresAccountNumber && !paymentNumber) {
-                          setPaymentNumber("Ace Scrims Account Balance")
+                          setPaymentNumber("RushX Organization Account Balance")
                         }
                       }}
                       style={
@@ -363,7 +363,7 @@ export function InfoSetupForm({
               <Input
                 id="paymentNumber"
                 type={!requiresAccountNumber ? "text" : "tel"}
-                value={!requiresAccountNumber ? "Ace Scrims Wallet Balance (Auto-credited to this account)" : paymentNumber}
+                value={!requiresAccountNumber ? "RushX Organization Wallet Balance (Auto-credited to this account)" : paymentNumber}
                 onChange={(e) => setPaymentNumber(e.target.value)}
                 disabled={!requiresAccountNumber}
                 placeholder={
@@ -379,7 +379,7 @@ export function InfoSetupForm({
                 </span>
                 {!requiresAccountNumber ? (
                   <p className="leading-relaxed">
-                    When your team ranks in winning positions or secures the Champion title, your prize money will be deposited <strong>directly and instantly into your Ace Scrims account balance</strong>, allowing for seamless 1-click entry into future scrims!
+                    When your team ranks in winning positions or secures the Champion title, your prize money will be deposited <strong>directly and instantly into your RushX Organization account balance</strong>, allowing for seamless 1-click entry into future scrims!
                   </p>
                 ) : (
                   <p className="leading-relaxed">

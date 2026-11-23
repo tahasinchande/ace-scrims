@@ -13,7 +13,7 @@ export const revalidate = 0
 export const fetchCache = "force-no-store"
 
 export const metadata = {
-  title: "Credit Management — Ace Scrims Admin",
+  title: "Credit Management — RushX Organization Admin",
   description: "Manage registered user credits, deposit funds, or disburse tournament prize payouts.",
 }
 

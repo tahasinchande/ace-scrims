@@ -5,7 +5,7 @@ import { AdminNoticesManager } from "@/components/admin/admin-notices-manager"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Notices Management — Ace Scrims Admin",
+  title: "Notices Management — RushX Organization Admin",
   description: "Publish and manage official platform announcements, rules, schedules, and media notices.",
 }
 

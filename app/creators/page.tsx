@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Content Creator Program",
   description:
-    "Apply to the Ace Scrims Content Creator Referral Program, get an approved creator code, earn Creator Wallet payouts per signup, and give your community a welcome bonus.",
+    "Apply to the RushX Organization Content Creator Referral Program, get an approved creator code, earn Creator Wallet payouts per signup, and give your community a welcome bonus.",
 }
 
 export default async function CreatorsPage() {

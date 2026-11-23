@@ -12,6 +12,7 @@ import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import {
   normalizeMediaItems,
   normalizeVariablesHint,
+  resolveCanonicalEmailPurposeKey,
   resolveOrEnsureEmailTemplate,
   toggleEmailTemplateByIdOrKey,
   type NormalizedEmailTemplate,
@@ -193,19 +194,23 @@ export async function createCustomEmailTemplateAction(
     }
 
     const data = parsed.data
-    const key = slugifyPurposeKey(data.purposeKey || data.label)
+    const rawKey = slugifyPurposeKey(data.purposeKey || data.label)
+    const key = resolveCanonicalEmailPurposeKey(rawKey, data.label) || rawKey
     if (!key) {
       return { ok: false, error: "Could not derive a valid purpose key from name." }
     }
 
     const existing = await db
-      .select({ id: emailTemplates.id })
+      .select({ id: emailTemplates.id, label: emailTemplates.label })
       .from(emailTemplates)
       .where(eq(emailTemplates.purposeKey, key))
       .limit(1)
 
     if (existing.length > 0) {
-      return { ok: false, error: `An email purpose with key "${key}" already exists.` }
+      return {
+        ok: false,
+        error: `A template for "${existing[0].label}" (${key}) already exists. Edit the existing template instead of creating a duplicate.`,
+      }
     }
 
     const trimmedCtaUrl = data.ctaUrl?.trim() || null
@@ -214,13 +219,13 @@ export async function createCustomEmailTemplateAction(
     }
 
     const newId = `tpl_${key}_${randomUUID().slice(0, 6)}`
-    const safeDesc = escapeHtml(data.description?.trim() || "This is a custom operational email from ACE SCRIMS.")
+    const safeDesc = escapeHtml(data.description?.trim() || "This is a custom operational email from RushX Organization.")
     const bodyHtml =
       data.bodyHtml.trim() ||
       `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p><p style="margin:0;color:#94a3b8;line-height:1.65;">${safeDesc}</p>`
     const bodyText =
       data.bodyText.trim() ||
-      `Hello {{recipientName}},\n\n${data.description || "This is a custom operational email from ACE SCRIMS."}`
+      `Hello {{recipientName}},\n\n${data.description || "This is a custom operational email from RushX Organization."}`
 
     const [created] = await db
       .insert(emailTemplates)
@@ -333,16 +338,16 @@ export async function sendTestEmailTemplateAction(
       slotText: "Slot #4 (Team Apex BD)",
       amountBdt: 35,
       roomId: "4829104",
-      roomPassword: "ACE77",
+      roomPassword: "RUSHX77",
       updateNotice: "TEST PREVIEW: Room credentials are live.",
-      winningTeam: "Team Apex BD",
+      winningTeam: "Team RushX BD",
       winnerStatus: "(Your Team)",
       category: "Top 3 Prize Pool",
       kills: 14,
       prizeBdt: 200,
       placement: 1,
-      mvpPlayerName: "ACE_SNIPER",
-      targetPlayerLabel: "ACE_SNIPER (Team Apex BD)",
+      mvpPlayerName: "RUSHX_SNIPER",
+      targetPlayerLabel: "RUSHX_SNIPER (Team RushX BD)",
       scrimDate: "Today",
       requestType: "MVP Face Banner Image",
       title: "Sample Official Tournament Notice",

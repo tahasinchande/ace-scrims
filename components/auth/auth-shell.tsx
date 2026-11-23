@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "motion/react"
-import { AceScrimsBrandLogo } from "@/components/site/brand-logo"
+import { RushXBrandLogo } from "@/components/site/brand-logo"
 
 export function AuthShell({
   title,
@@ -47,8 +47,8 @@ export function AuthShell({
           transition={{ duration: 0.4, type: "spring", stiffness: 220, damping: 20 }}
           className="glass rounded-2xl border border-border/80 p-8 shadow-2xl backdrop-blur-xl"
         >
-          <Link href="/" className="mb-8 flex items-center justify-center group" aria-label="Ace Scrims home">
-            <AceScrimsBrandLogo size="lg" />
+          <Link href="/" className="mb-8 flex items-center justify-center group" aria-label="RushX Organization home">
+            <RushXBrandLogo variant="wordmark" size="lg" />
           </Link>
           <h1 className="text-center font-display text-2xl font-bold text-balance">{title}</h1>
           <p className="mb-8 mt-2 text-center text-sm text-muted-foreground text-pretty">{subtitle}</p>

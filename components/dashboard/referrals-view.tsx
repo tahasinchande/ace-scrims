@@ -177,7 +177,7 @@ export function DashboardReferralsView({
             Referrals &amp; Creator Hub
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Invite squads to Ace Scrims, track qualifying requirements, and manage your Content Creator Wallet.
+            Invite squads to RushX Organization, track qualifying requirements, and manage your Content Creator Wallet.
           </p>
         </div>
         <div className="flex items-center gap-2">

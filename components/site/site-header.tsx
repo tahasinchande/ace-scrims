@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { useSession } from "@/lib/auth-client"
 import { useViewMode } from "@/lib/view-mode"
-import { AceScrimsBrandLogo } from "@/components/site/brand-logo"
+import { RushXBrandLogo } from "@/components/site/brand-logo"
 
 export type HeaderSettings = {
   supportWhatsapp?: string
@@ -80,11 +80,11 @@ export function SiteHeader({
   const activeLogoUrl = liveSettings?.logoUrl || initialSettings?.logoUrl
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-[#050811]/82 backdrop-blur-2xl shadow-[0_12px_32px_-16px_rgba(0,0,0,0.85)]">
+    <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-[#050811]/72 backdrop-blur-2xl shadow-[0_12px_32px_-16px_rgba(0,0,0,0.85)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        {/* Brand Logo (Left) */}
-        <Link href="/" className="flex shrink-0 items-center gap-2 group transition-opacity hover:opacity-90" aria-label="Ace Scrims Home">
-          <AceScrimsBrandLogo size="md" logoUrl={activeLogoUrl} />
+        {/* Brand Logo (Left — RushX wordmark ONLY) */}
+        <Link href="/" className="flex shrink-0 items-center gap-2 group transition-opacity hover:opacity-90" aria-label="RushX Organization Home">
+          <RushXBrandLogo size="md" variant="wordmark" logoUrl={activeLogoUrl} />
         </Link>
 
         {/* Central Navigation Links */}
@@ -245,7 +245,7 @@ export function SiteHeader({
                   ? "bg-white/[0.1] text-orange-300 shadow-xs"
                   : "text-zinc-400 hover:text-zinc-200"
               )}
-              title="2D Static Mode"
+              title="2D Dynamic Ambient Mode"
             >
               <Layers className="size-3" />
               2D
@@ -300,7 +300,7 @@ export function SiteHeader({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="dc-surface w-56 rounded-2xl p-1.5 text-zinc-200">
                   <div className="px-2.5 py-2 border-b border-white/[0.07]">
-                    <span className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Ace Scrims Wallet</span>
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">RushX Wallet</span>
                     <div className="mt-1 flex items-center justify-between">
                       <span className="text-xs text-zinc-300">Live Balance:</span>
                       <UserBalanceWidget initialBalance={initialBalance} compact />
@@ -375,7 +375,7 @@ export function SiteHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="dc-surface w-56 rounded-2xl p-1.5 text-zinc-200">
               <div className="px-2.5 py-2 border-b border-white/[0.07]">
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Ace Scrims Wallet</span>
+                <span className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">RushX Wallet</span>
                 <div className="mt-1 flex items-center justify-between">
                   <span className="text-xs text-zinc-300">Live Balance:</span>
                   <UserBalanceWidget initialBalance={initialBalance} compact isGuest={!currentUser} />

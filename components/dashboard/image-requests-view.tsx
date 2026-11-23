@@ -269,7 +269,7 @@ export function ImageRequestsView({ requests }: { requests: ImageRequest[] }) {
               No Image Requests Found
             </h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-              When your team claims victory or an MVP award in Ace Scrims, administrators send an official MVP Image Request directly to your account.
+              When your team claims victory or an MVP award in RushX Organization, administrators send an official MVP Image Request directly to your account.
             </p>
           </div>
 

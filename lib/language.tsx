@@ -29,7 +29,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Hero
     hero_eyebrow: "Daily Esports Lobbies · 7 PM to 12 AM",
-    hero_title: "ACE SCRIMS",
+    hero_title: "RUSHX ORGANIZATION",
     hero_h2: "DOMINATE THE LOBBY EVERY NIGHT",
     hero_subtitle: "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pool. Your squad vs the best.",
     browse_scrims: "Browse Scrims",
@@ -86,7 +86,7 @@ const translations: Record<Language, Record<string, string>> = {
     step4_body: "Drop in, top the lobby, and get your prize. Results and payouts published the same night.",
 
     // Features
-    features_eyebrow: "Why Ace Scrims",
+    features_eyebrow: "Why RushX Organization",
     features_title: "Built for serious squads",
     features_subtitle: "Everything a competitive Free Fire team needs — automated, transparent and fast.",
     feat1_title: "Instant Auto Payment",
@@ -116,7 +116,7 @@ const translations: Record<Language, Record<string, string>> = {
     faq5_q: "Can I get a refund?",
     faq5_a: "If a scrim is cancelled by us, you get a full automatic refund. See our Refund Policy for details.",
     faq6_q: "Are emulator players allowed?",
-    faq6_a: "No. Ace Scrims is mobile-only. Emulator players are banned without refund per our fair play rules.",
+    faq6_a: "No. RushX Organization is mobile-only. Emulator players are banned without refund per our fair play rules.",
 
     // Contact
     contact_eyebrow: "Contact",
@@ -183,7 +183,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Auth
     welcome_back: "Welcome back",
     signin_sub: "Sign in to book scrims and manage your squad.",
-    join_ace_scrims: "Join Ace Scrims",
+    join_ace_scrims: "Join RushX Organization",
     signup_sub: "Create an account to register your squad and win cash prizes.",
     email: "Email",
     password: "Password",
@@ -194,7 +194,7 @@ const translations: Record<Language, Record<string, string>> = {
     or: "or",
     continue_google: "Continue with Google",
     already_have_account: "Already have an account?",
-    new_to_ace_scrims: "New to Ace Scrims?",
+    new_to_ace_scrims: "New to RushX Organization?",
 
     // Footer & Legal
     platform: "Platform",
@@ -205,7 +205,7 @@ const translations: Record<Language, Record<string, string>> = {
     refund_policy: "Refund Policy",
     nav_copyright: "Copyright",
     copyright_notice: "Copyright Notice",
-    rights_reserved: "Ace Scrims. All rights reserved. Not affiliated with Garena.",
+    rights_reserved: "RushX Organization. All rights reserved. Not affiliated with Garena.",
 
     // Admin Sidebar & Shared Admin
     admin_nav_overview: "Overview",
@@ -231,9 +231,9 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Live Chat & AI Support
     chat_live_support: "Live Support",
-    chat_title: "Ace Support",
+    chat_title: "RushX Support",
     chat_official_badge: "Official",
-    chat_mode_ai: "ACE AI Support",
+    chat_mode_ai: "RushX AI Support",
     chat_mode_human: "Human Support Agent",
     chat_status_ai: "AI Assistant Active · Instant Answers",
     chat_status_human: "Connected to Human Support · Live Queue",
@@ -241,10 +241,10 @@ const translations: Record<Language, Record<string, string>> = {
     chat_talk_to_human: "Talk to Human Agent",
     chat_escalating: "Connecting...",
     chat_escalated_badge: "Human Agent Requested",
-    chat_welcome_title: "Welcome to Ace Support",
+    chat_welcome_title: "Welcome to RushX Support",
     chat_welcome_sub: "Ask our AI assistant about scrim slots, rules, payouts, or tap Talk to Human Agent anytime.",
     chat_signin_title: "Sign In Required",
-    chat_signin_sub: "Please sign in to chat with ACE AI or our tournament moderators and share match proofs.",
+    chat_signin_sub: "Please sign in to chat with RushX AI or our tournament moderators and share match proofs.",
     chat_banned_title: "Account Permanently Suspended",
     chat_banned_sub: "Your account was permanently banned due to a violation of our live chat safety policy (abusive or explicit content).",
     chat_composer_placeholder: "Ask a question or write a message...",
@@ -294,8 +294,8 @@ const translations: Record<Language, Record<string, string>> = {
     payout_empty: "No payout methods configured.",
     payout_number_label: "Prize Pool Payment Number",
     payout_method_label: "Prize Pool Payout Method",
-    payout_wallet_auto_note: "Prizes credited directly to your Ace Scrims Account Balance.",
-    payout_disclaimer_template: "Disclaimer: To collect your prize pool, use a valid personal digital wallet or Ace Scrims Account Balance. Incorrect numbers may delay payout.",
+    payout_wallet_auto_note: "Prizes credited directly to your RushX Organization Account Balance.",
+    payout_disclaimer_template: "Disclaimer: To collect your prize pool, use a valid personal digital wallet or RushX Organization Account Balance. Incorrect numbers may delay payout.",
     settings_title: "Site Settings",
     settings_sub: "Manage community links, payout methods, schedules, and maintenance toggles.",
     settings_save: "Save Settings",
@@ -392,7 +392,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Hero
     hero_eyebrow: "দৈনিক ইস্পোর্টস লবি · সন্ধ্যা ৭টা থেকে রাত ১২টা",
-    hero_title: "ACE SCRIMS",
+    hero_title: "RUSHX ORGANIZATION",
     hero_h2: "বাংলাদেশের সেরা স্ক্রিম টুর্নামেন্ট খেলুন",
     hero_subtitle: "বাংলাদেশের সেরা প্রতিযোগিতামূলক ফ্রি ফায়ার স্ক্রিমস। প্রতি রাতে লাইভ লবি, তাৎক্ষণিক বুকিং, অটোমেটিক বিকাশ/নগদ পেমেন্ট এবং প্রাইজ মানি। আপনার স্কোয়াড নামান সেরা টিমের বিরুদ্ধে।",
     browse_scrims: "স্ক্রিমস দেখুন",
@@ -479,7 +479,7 @@ const translations: Record<Language, Record<string, string>> = {
     faq5_q: "পেমেন্ট রিফান্ড পাব কি?",
     faq5_a: "আমাদের পক্ষ থেকে কোনো ম্যাচ ক্যানসেল হলে সম্পূর্ণ টাকা অটোমেটিক রিফান্ড পাবেন। বিস্তারিত আমাদের রিফান্ড পলিসিতে দেখুন।",
     faq6_q: "ইমুলেটর প্লেয়ার কি খেলতে পারবে?",
-    faq6_a: "না। Ace Scrims শুধুমাত্র মোবাইল প্লেয়ারদের জন্য। ইমুলেটর ব্যবহারকারী ধরা পড়লে রিফান্ড ছাড়াই ব্যান করা হয়।",
+    faq6_a: "না। RushX Organization শুধুমাত্র মোবাইল প্লেয়ারদের জন্য। ইমুলেটর ব্যবহারকারী ধরা পড়লে রিফান্ড ছাড়াই ব্যান করা হয়।",
 
     // Contact
     contact_eyebrow: "যোগাযোগ",
@@ -568,7 +568,7 @@ const translations: Record<Language, Record<string, string>> = {
     refund_policy: "রিফান্ড পলিসি",
     nav_copyright: "কপিরাইট",
     copyright_notice: "কপিরাইট নোটিশ",
-    rights_reserved: "Ace Scrims. সর্বস্বত্ব সংরক্ষিত। এটি গ্যারেনার সাথে সম্পর্কিত নয়।",
+    rights_reserved: "RushX Organization. সর্বস্বত্ব সংরক্ষিত। এটি গ্যারেনার সাথে সম্পর্কিত নয়।",
 
     // Admin Sidebar & Shared Admin
     admin_nav_overview: "ওভারভিউ",
@@ -594,9 +594,9 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Live Chat & AI Support
     chat_live_support: "লাইভ সাপোর্ট",
-    chat_title: "Ace সাপোর্ট",
+    chat_title: "RushX সাপোর্ট",
     chat_official_badge: "অফিশিয়াল",
-    chat_mode_ai: "ACE AI সাপোর্ট",
+    chat_mode_ai: "RushX AI সাপোর্ট",
     chat_mode_human: "হিউম্যান সাপোর্ট এজেন্ট",
     chat_status_ai: "AI অ্যাসিস্ট্যান্ট সক্রিয় · তাৎক্ষণিক উত্তর",
     chat_status_human: "হিউম্যান এজেন্টের সাথে সংযুক্ত · লাইভ কিউ",
@@ -604,10 +604,10 @@ const translations: Record<Language, Record<string, string>> = {
     chat_talk_to_human: "হিউম্যান এজেন্টের সাথে কথা বলুন",
     chat_escalating: "সংযুক্ত হচ্ছে...",
     chat_escalated_badge: "হিউম্যান এজেন্ট অনুরোধ করা হয়েছে",
-    chat_welcome_title: "Ace সাপোর্টে স্বাগতম",
+    chat_welcome_title: "RushX সাপোর্টে স্বাগতম",
     chat_welcome_sub: "স্ক্রিম স্লট, নিয়ম বা প্রাইজ মানি সম্পর্কে আমাদের AI-কে জিজ্ঞাসা করুন অথবা যেকোনো সময় হিউম্যান এজেন্ট বেছে নিন।",
     chat_signin_title: "সাইন ইন প্রয়োজন",
-    chat_signin_sub: "ACE AI বা আমাদের মডারেটরদের সাথে চ্যাট করতে এবং ম্যাচ প্রুফ পাঠাতে অনুগ্রহ করে সাইন ইন করুন।",
+    chat_signin_sub: "RushX AI বা আমাদের মডারেটরদের সাথে চ্যাট করতে এবং ম্যাচ প্রুফ পাঠাতে অনুগ্রহ করে সাইন ইন করুন।",
     chat_banned_title: "অ্যাকাউন্ট স্থায়ীভাবে ব্যান করা হয়েছে",
     chat_banned_sub: "লাইভ চ্যাটের নিরাপত্তা নীতিমালা ভঙ্গ করার কারণে (অশ্লীল বা অপমানজনক ভাষা) আপনার অ্যাকাউন্টটি স্থায়ীভাবে ব্যান করা হয়েছে।",
     chat_composer_placeholder: "যেকোনো প্রশ্ন বা মেসেজ লিখুন...",
@@ -657,8 +657,8 @@ const translations: Record<Language, Record<string, string>> = {
     payout_empty: "কোনো পেআউট মাধ্যম সেট করা নেই।",
     payout_number_label: "প্রাইজ মানি পেমেন্ট নম্বর",
     payout_method_label: "প্রাইজ পুল পেমেন্ট মাধ্যম",
-    payout_wallet_auto_note: "প্রাইজ মানি সরাসরি আপনার Ace Scrims অ্যাকাউন্ট ব্যালেন্সে যোগ হবে।",
-    payout_disclaimer_template: "সতর্কতা: প্রাইজ মানি সংগ্রহের জন্য আপনার সঠিক পার্সোনাল ডিজিটাল ওয়ালেট নম্বর বা Ace Scrims অ্যাকাউন্ট ব্যালেন্স ব্যবহার করুন। ভুল নম্বরের কারণে পেমেন্ট বিলম্বিত হতে পারে।",
+    payout_wallet_auto_note: "প্রাইজ মানি সরাসরি আপনার RushX Organization অ্যাকাউন্ট ব্যালেন্সে যোগ হবে।",
+    payout_disclaimer_template: "সতর্কতা: প্রাইজ মানি সংগ্রহের জন্য আপনার সঠিক পার্সোনাল ডিজিটাল ওয়ালেট নম্বর বা RushX Organization অ্যাকাউন্ট ব্যালেন্স ব্যবহার করুন। ভুল নম্বরের কারণে পেমেন্ট বিলম্বিত হতে পারে।",
     settings_title: "সাইট সেটিংস",
     settings_sub: "কমিউনিটি লিংক, পেআউট মাধ্যম, সিডিউল এবং মেইনটেনেন্স সেটিংস পরিচালনা করুন।",
     settings_save: "সেটিংস সংরক্ষণ করুন",

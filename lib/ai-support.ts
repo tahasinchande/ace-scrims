@@ -221,7 +221,7 @@ Message: """${text}"""`,
 }
 
 /**
- * Collects strictly PUBLIC database context for ACE AI Support.
+ * Collects strictly PUBLIC database context for RushX AI Support.
  * NEVER exposes Room IDs, Room Passwords, private user PII, emails, phone numbers, or payment records.
  */
 export async function buildPublicPlatformContext(): Promise<string> {
@@ -292,7 +292,7 @@ export async function buildPublicPlatformContext(): Promise<string> {
     const payoutNames = payoutList.map((p) => p.name).join(", ") || "bKash, Nagad, Rocket, Balance"
 
     return [
-      `Platform: ACE SCRIMS (www.acescrims.online) — Mobile-only Free Fire esports scrims platform in Bangladesh.`,
+      `Platform: RushX Organization (www.acescrims.online) — Mobile-only Free Fire esports scrims platform in Bangladesh.`,
       `Bangladesh Active Date: ${activeDate}`,
       `Maintenance Mode: ${siteSettings?.maintenanceMode ? "ENABLED" : "OFF"}`,
       `Active Prize Payout Methods: ${payoutNames}`,
@@ -309,7 +309,7 @@ export async function buildPublicPlatformContext(): Promise<string> {
     ].join("\n")
   } catch (err) {
     console.warn("[AI Support] Failed building public context:", err)
-    return "Platform: ACE SCRIMS (www.acescrims.online) — Free Fire competitive scrims platform in Bangladesh."
+    return "Platform: RushX Organization (www.acescrims.online) — Free Fire competitive scrims platform in Bangladesh."
   }
 }
 
@@ -336,7 +336,7 @@ export async function generateAiSupportReply(params: {
           role: "user",
           parts: [
             {
-              text: `You are ACE AI Support, the official virtual assistant for ACE SCRIMS (www.acescrims.online), a competitive Free Fire esports scrims platform in Bangladesh.
+              text: `You are RushX AI Support, the official virtual assistant for RushX Organization (www.acescrims.online), a competitive Free Fire esports scrims platform in Bangladesh.
 
 STRICT PRIVACY & ACCURACY RULES:
 1. ONLY use the PUBLIC platform information below or general platform navigation guidance (/scrims, /results, /notices, /tutorials, /report, /dashboard, /dashboard/wallet, /dashboard/info-setup).

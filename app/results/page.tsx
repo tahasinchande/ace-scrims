@@ -9,9 +9,9 @@ import { ResultsView } from "@/components/results/results-view"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Results & Leaderboard — Ace Scrims",
+  title: "Results & Leaderboard — RushX Organization",
   description:
-    "12 Scrim match results, winning teams, kill counts, and the team leaderboard for Ace Scrims Free Fire lobbies.",
+    "12 Scrim match results, winning teams, kill counts, and the team leaderboard for RushX Organization Free Fire lobbies.",
 }
 
 export default async function ResultsPage() {

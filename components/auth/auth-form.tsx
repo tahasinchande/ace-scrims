@@ -471,7 +471,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </>
         ) : (
           <>
-            New to Ace Scrims?{" "}
+            New to RushX Organization?{" "}
             <Link href="/sign-up" className="text-primary hover:underline font-semibold">
               Create account
             </Link>

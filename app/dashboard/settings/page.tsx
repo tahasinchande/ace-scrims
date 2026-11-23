@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/session"
 import { SettingsForm } from "@/components/dashboard/settings-form"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Settings — Ace Scrims" }
+export const metadata = { title: "Settings — RushX Organization" }
 
 export default async function SettingsPage() {
   const user = await requireUser()

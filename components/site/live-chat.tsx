@@ -430,20 +430,24 @@ export function LiveChatWidget() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 bg-[#242526] px-4 py-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-[#18191A] border border-primary/40 p-1.5">
+              <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.04] border border-primary/40 p-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icon.svg" alt="Ace Scrims" className="size-6 object-contain" />
+                <img
+                  src="/images/brand/rushx-symbol.png"
+                  alt="RushX Organization"
+                  className="size-7 object-contain"
+                />
                 <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border-2 border-[#242526]" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h3 className="font-display font-bold text-sm tracking-tight text-zinc-100">
-                    {t("chat_title", "Ace Support")}
+                    {t("chat_title", "RushX Support")}
                   </h3>
                   <span className="rounded-md bg-[#0084FF]/20 border border-[#0084FF]/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#4DA6FF]">
                     {chatMode === "human"
                       ? t("chat_mode_human", "Human Support Agent")
-                      : t("chat_mode_ai", "ACE AI Support")}
+                      : t("chat_mode_ai", "RushX AI Support")}
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-400 truncate">

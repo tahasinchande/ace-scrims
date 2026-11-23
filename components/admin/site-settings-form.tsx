@@ -264,7 +264,7 @@ export function SiteSettingsForm({
           </h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Customizable link for the SupportKori tab displayed on the downside of the website. Visitors can donate and support Ace Scrims.
+          Customizable link for the SupportKori tab displayed on the downside of the website. Visitors can donate and support RushX Organization.
         </p>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="support-kori-url">SupportKori Custom Page Link</Label>

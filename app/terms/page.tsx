@@ -4,7 +4,7 @@ import { LegalPage } from "@/components/site/legal-page"
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Terms & Conditions",
-  description: "Rules and terms for booking and playing Ace Scrims Free Fire scrims.",
+  description: "Rules and terms for booking and playing RushX Organization Free Fire scrims.",
 }
 
 export default function TermsPage() {
@@ -43,7 +43,7 @@ export default function TermsPage() {
       </p>
       <h2>6. Changes</h2>
       <p>
-        Ace Scrims may modify schedules, prize pools, or these terms. Material changes are announced via the
+        RushX Organization may modify schedules, prize pools, or these terms. Material changes are announced via the
         site banner and notifications. Continued use of the platform constitutes acceptance.
       </p>
     </LegalPage>

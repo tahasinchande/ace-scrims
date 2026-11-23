@@ -3,7 +3,7 @@ import { AuthShell } from "@/components/auth/auth-shell"
 import { ResetPasswordForm } from "@/components/auth/reset-password-form"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Reset Password — Ace Scrims" }
+export const metadata = { title: "Reset Password — RushX Organization" }
 
 export default function ResetPasswordPage() {
   return (

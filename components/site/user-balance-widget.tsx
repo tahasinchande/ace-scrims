@@ -82,7 +82,7 @@ export function UserBalanceWidget({
   return (
     <Link
       href={targetHref}
-      title="Ace Scrims Wallet — Click to manage funds & load balance"
+      title="RushX Wallet — Click to manage funds & load balance"
       className={cn(
         "group relative inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-500/30 bg-zinc-900/90 px-3 py-1 text-xs transition-all hover:border-emerald-500/60 hover:bg-zinc-850 hover:shadow-sm hover:shadow-emerald-500/10",
         className

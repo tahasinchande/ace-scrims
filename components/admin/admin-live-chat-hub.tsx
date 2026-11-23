@@ -410,7 +410,7 @@ export function AdminLiveChatHub({
     try {
       const res = await handBackToAi(targetUserId)
       if (res.ok) {
-        toast.success(lang === "bn" ? "চ্যাটটি ACE AI অ্যাসিস্ট্যান্টের কাছে ফেরত দেওয়া হয়েছে" : "Chat handed back to ACE AI Assistant")
+        toast.success(lang === "bn" ? "চ্যাটটি RushX AI অ্যাসিস্ট্যান্টের কাছে ফেরত দেওয়া হয়েছে" : "Chat handed back to RushX AI Assistant")
         setActiveTab("ai")
         await Promise.all([fetchThread(targetUserId, true), refreshHub()])
       } else {
@@ -747,7 +747,7 @@ export function AdminLiveChatHub({
                         <div className="flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <p className={cn("text-xs truncate", c.unread ? "font-bold text-white" : "font-semibold text-zinc-200")}>
-                              {c.userName || "Ace Scrims Player"}
+                              {c.userName || "RushX Organization Player"}
                             </p>
                             {c.banned && (
                               <span className="rounded bg-rose-500/20 px-1 py-0.2 text-[9px] font-bold text-rose-300">

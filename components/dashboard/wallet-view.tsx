@@ -159,7 +159,7 @@ export function WalletView({
               </span>
             </div>
             <p className="font-sans leading-relaxed text-amber-100/90 text-xs sm:text-[13px]">
-              User balance can <strong>ONLY</strong> be used to register for scrims and participate in Ace Scrims platform tournaments and events. <strong>Balance funds cannot be cashed out or withdrawn to external accounts</strong> (such as bKash, Nagad, Rocket, or bank accounts).
+              User balance can <strong>ONLY</strong> be used to register for scrims and participate in RushX Organization platform tournaments and events. <strong>Balance funds cannot be cashed out or withdrawn to external accounts</strong> (such as bKash, Nagad, Rocket, or bank accounts).
             </p>
             <p className="text-[11px] text-amber-300/80 leading-relaxed font-sans">
               (বিশেষ ঘোষণা: আপনার একাউন্ট ব্যালেন্স শুধুমাত্র স্ক্রিম রেজিস্ট্রেশন এবং টুর্নামেন্ট এন্ট্রির জন্য ব্যবহারযোগ্য। এই ব্যালেন্স কোনো বহিরাগত বিকাশ, নগদ বা ব্যাংক একাউন্টে ক্যাশআউট বা উত্তোলন করা যাবে না।)

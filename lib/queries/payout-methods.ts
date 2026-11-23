@@ -61,7 +61,7 @@ export const DEFAULT_PAYOUT_METHODS: PayoutMethod[] = [
     id: "pm-balance",
     name: "Balance",
     code: "Balance",
-    label: "Ace Scrims Wallet",
+    label: "RushX Wallet",
     description: "Instant wallet credit for 1-click scrim booking",
     accentColor: "#10B981",
     requiresAccountNumber: false,

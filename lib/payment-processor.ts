@@ -311,8 +311,8 @@ export async function processPayment(
     if (dupRows.length > 0 || currentConfirmedCount >= maxCap) {
       await refundToWalletInTx(
         dupRows.length > 0
-          ? "Duplicate squad registration detected after payment — refunded to your Ace Scrims wallet."
-          : "Lobby filled up before payment completed — amount refunded automatically to your Ace Scrims wallet."
+          ? "Duplicate squad registration detected after payment — refunded to your RushX Organization wallet."
+          : "Lobby filled up before payment completed — amount refunded automatically to your RushX Organization wallet."
       )
       return
     }
@@ -339,7 +339,7 @@ export async function processPayment(
       if (isUniqueViolationError(confirmErr)) {
         await tx.execute(sql`ROLLBACK TO SAVEPOINT confirm_booking_sp`)
         await refundToWalletInTx(
-          "Duplicate squad registration or slot conflict detected after payment — refunded to your Ace Scrims wallet."
+          "Duplicate squad registration or slot conflict detected after payment — refunded to your RushX Organization wallet."
         )
         return
       }

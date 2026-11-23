@@ -23,7 +23,7 @@ export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string 
             <div className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
                 <h3 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
-                  Support Ace Scrims on SupportKori
+                  Support RushX Organization on SupportKori
                 </h3>
                 <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300">
                   <Heart className="size-3 fill-amber-400 text-amber-400" /> Buy Us A Coffee

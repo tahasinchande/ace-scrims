@@ -43,10 +43,10 @@ async function recordEmailLog(entry: {
   }
 }
 
-const DEFAULT_SENDER = "ACE SCRIMS <noreply@mail.acescrims.online>"
+const DEFAULT_SENDER = "RushX Organization <noreply@mail.acescrims.online>"
 
 /**
- * Resolves the primary Sender / "From" address.
+ * Resolves the primary Sender / "From" address while ensuring RushX Organization display branding.
  */
 function getFromAddress(fallback = DEFAULT_SENDER): string {
   const from =
@@ -66,7 +66,14 @@ function getFromAddress(fallback = DEFAULT_SENDER): string {
     return DEFAULT_SENDER
   }
 
-  return from.trim()
+  const trimmed = from.trim()
+  // Normalize legacy "ACE SCRIMS <email>" display name to "RushX Organization <email>" without changing the email address
+  const parsed = parseEmailAddress(trimmed)
+  if (parsed.name && /ace\s*scrims/i.test(parsed.name)) {
+    return `RushX Organization <${parsed.email}>`
+  }
+
+  return trimmed
 }
 
 /**
@@ -145,12 +152,18 @@ function getSendGridApiKey(): string | null {
 
 function getSmtpFromAddress(fallbackSender: string): string {
   const explicitSmtpFrom = process.env.SMTP_FROM?.trim()
-  if (explicitSmtpFrom) return explicitSmtpFrom
+  if (explicitSmtpFrom) {
+    const parsed = parseEmailAddress(explicitSmtpFrom)
+    if (parsed.name && /ace\s*scrims/i.test(parsed.name)) {
+      return `RushX Organization <${parsed.email}>`
+    }
+    return explicitSmtpFrom
+  }
   const gmailUser = process.env.GMAIL_USER?.trim()
-  if (gmailUser) return `ACE SCRIMS <${gmailUser}>`
+  if (gmailUser) return `RushX Organization <${gmailUser}>`
   const smtpUser = (process.env.SMTP_USER || process.env.SMTP_USERNAME)?.trim()
   if (smtpUser && smtpUser.includes("@") && !process.env.EMAIL_FROM?.trim()) {
-    return `ACE SCRIMS <${smtpUser}>`
+    return `RushX Organization <${smtpUser}>`
   }
   return fallbackSender
 }
@@ -271,7 +284,7 @@ function authEmailShell({
                   <tr>
                     <td>
                       <span style="display:inline-block;background:rgba(234,88,12,0.14);color:#f97316;font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;padding:5px 12px;border-radius:6px;border:1px solid rgba(249,115,22,0.35);">
-                        ACE SCRIMS
+                        RUSHX ORGANIZATION
                       </span>
                     </td>
                     <td align="right">
@@ -334,7 +347,7 @@ function authEmailShell({
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin-top:20px;">
             <tr>
               <td align="center" style="color:#475569;font-size:11px;line-height:1.6;">
-                <p style="margin:0;font-weight:600;letter-spacing:0.5px;color:#64748b;">ACE SCRIMS BANGLADESH</p>
+                <p style="margin:0;font-weight:600;letter-spacing:0.5px;color:#64748b;">RUSHX ORGANIZATION</p>
                 <p style="margin:4px 0 0 0;">Automated Free Fire esports platform. Mobile devices only.</p>
               </td>
             </tr>
@@ -395,7 +408,7 @@ function emailShell({
                     <td>
                       <div style="display:flex;align-items:center;">
                         <span style="display:inline-block;background:rgba(234,88,12,0.14);color:#f97316;font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;padding:5px 12px;border-radius:6px;border:1px solid rgba(249,115,22,0.35);">
-                          ACE SCRIMS
+                          RUSHX ORGANIZATION
                         </span>
                       </div>
                     </td>
@@ -459,9 +472,9 @@ function emailShell({
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin-top:24px;">
             <tr>
               <td align="center" style="color:#475569;font-size:11px;line-height:1.6;">
-                <p style="margin:0;font-weight:600;letter-spacing:0.5px;color:#64748b;">ACE SCRIMS BANGLADESH</p>
+                <p style="margin:0;font-weight:600;letter-spacing:0.5px;color:#64748b;">RUSHX ORGANIZATION</p>
                 <p style="margin:4px 0 0 0;">Automated Free Fire esports platform. Mobile devices only.</p>
-                <p style="margin:6px 0 0 0;">This is an automated operational notification. You received this because you have an account or active booking on Ace Scrims.</p>
+                <p style="margin:6px 0 0 0;">This is an automated operational notification. You received this because you have an account or active booking with RushX Organization.</p>
               </td>
             </tr>
           </table>
@@ -608,7 +621,7 @@ export function renderEmailFromTemplate(
 
   const shellFn = options?.useAuthShell ? authEmailShell : emailShell
   const html = shellFn({
-    title: escapeHtml(options?.defaultTitle || subject.replace(/\s+—\s+ACE SCRIMS$/i, "")),
+    title: escapeHtml(options?.defaultTitle || subject.replace(/\s+—\s+(?:ACE SCRIMS|RushX Organization)$/i, "")),
     preheader,
     contentHtml,
     ctaText: ctaText || undefined,
@@ -702,10 +715,10 @@ export async function sendEmail({
         console.warn(`[Email Service] Resend error with sender "${sender}":`, response.error)
 
         // Fallback: If custom sender failed on Resend (e.g. unverified domain), try onboarding@resend.dev
-        if (sender !== "ACE SCRIMS <onboarding@resend.dev>" && sender !== "onboarding@resend.dev") {
+        if (sender !== "RushX Organization <onboarding@resend.dev>" && sender !== "onboarding@resend.dev") {
           console.log(`[Email Service] Retrying Resend with fallback onboarding@resend.dev...`)
           const fallbackRes = await resend.emails.send({
-            from: "ACE SCRIMS <onboarding@resend.dev>",
+            from: "RushX Organization <onboarding@resend.dev>",
             to,
             subject,
             html,
@@ -813,7 +826,7 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
       await recordEmailLog({
         to,
         purposeKey: "verify",
-        subject: tpl?.subject || "Verify your email — ACE SCRIMS",
+        subject: tpl?.subject || "Verify your email — RushX Organization",
         status: "blocked_by_toggle",
       })
       return true
@@ -837,13 +850,13 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
         Hey ${name},
       </h2>
       <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
-        Welcome aboard! Please click the button below to verify your email address and activate your account. You'll be fully geared up to explore our platform.
+        Welcome aboard! Please click the button below to verify your email address and activate your RushX Organization account. You'll be fully geared up to explore our platform.
       </p>
     `
 
     const html = authEmailShell({
       title: "Verify your email address",
-      preheader: "Confirm your email address for ACE SCRIMS account access.",
+      preheader: "Confirm your email address for RushX Organization account access.",
       contentHtml,
       ctaText: "VERIFY EMAIL & EXPLORE SCRIMS",
       ctaUrl: cleanUrl,
@@ -851,9 +864,9 @@ export async function sendVerificationEmail(to: string, url: string, userName?: 
 
     const result = await sendEmail({
       to,
-      subject: "Verify your email — ACE SCRIMS",
+      subject: "Verify your email — RushX Organization",
       html,
-      text: `Hey ${rawName}, welcome aboard! Please verify your email by opening this link: ${cleanUrl}`,
+      text: `Hey ${rawName}, welcome aboard! Please verify your RushX Organization email by opening this link: ${cleanUrl}`,
       purposeKey: "verify",
     })
 
@@ -882,7 +895,7 @@ export async function sendPasswordResetEmail(to: string, url: string): Promise<b
       await recordEmailLog({
         to,
         purposeKey: "password_reset",
-        subject: tpl?.subject || "Reset your password — ACE SCRIMS",
+        subject: tpl?.subject || "Reset your password — RushX Organization",
         status: "blocked_by_toggle",
       })
       return true
@@ -902,10 +915,10 @@ export async function sendPasswordResetEmail(to: string, url: string): Promise<b
     }
 
     const title = "Reset your password"
-    const body = "We received a request to reset the password for your ACE SCRIMS account. Click the button below to choose a new password."
+    const body = "We received a request to reset the password for your RushX Organization account. Click the button below to choose a new password."
     const html = authEmailShell({
       title,
-      preheader: "Instructions to reset your ACE SCRIMS password.",
+      preheader: "Instructions to reset your RushX Organization password.",
       contentHtml: `<p style="margin:0 0 16px 0;">${body}</p>`,
       ctaText: "Reset Password",
       ctaUrl: cleanUrl,
@@ -913,9 +926,9 @@ export async function sendPasswordResetEmail(to: string, url: string): Promise<b
 
     const result = await sendEmail({
       to,
-      subject: "Reset your password — ACE SCRIMS",
+      subject: "Reset your password — RushX Organization",
       html,
-      text: `Reset your ACE SCRIMS password by opening this link: ${cleanUrl}`,
+      text: `Reset your RushX Organization password by opening this link: ${cleanUrl}`,
       purposeKey: "password_reset",
     })
 
@@ -958,7 +971,7 @@ export async function sendBookingConfirmationEmail({
       await recordEmailLog({
         to,
         purposeKey: "register",
-        subject: tpl?.subject || `Booking Confirmed: ${scrimTitle} — ACE SCRIMS`,
+        subject: tpl?.subject || `Booking Confirmed: ${scrimTitle} — RushX Organization`,
         status: "blocked_by_toggle",
       })
       return true
@@ -1010,7 +1023,7 @@ export async function sendBookingConfirmationEmail({
 
     const result = await sendEmail({
       to,
-      subject: `Booking Confirmed: ${scrimTitle} (Slot #${slotNumber}) — ACE SCRIMS`,
+      subject: `Booking Confirmed: ${scrimTitle} (Slot #${slotNumber}) — RushX Organization`,
       html,
       text: `Your squad ${teamName} is confirmed for ${scrimTitle} in Slot #${slotNumber}. Match start: ${startTime}. View details in your dashboard: ${dashboardUrl}`,
       purposeKey: "register",
@@ -1055,7 +1068,7 @@ export async function sendRoomCredentialsEmail({
       await recordEmailLog({
         to,
         purposeKey: "id_pass",
-        subject: tpl?.subject || `Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
+        subject: tpl?.subject || `Room ID & Password: ${scrimTitle} — RushX Organization`,
         status: "blocked_by_toggle",
       })
       return true
@@ -1113,7 +1126,7 @@ export async function sendRoomCredentialsEmail({
 
     const result = await sendEmail({
       to,
-      subject: `${isUpdated ? "UPDATED " : ""}Room ID & Password: ${scrimTitle} — ACE SCRIMS`,
+      subject: `${isUpdated ? "UPDATED " : ""}Room ID & Password: ${scrimTitle} — RushX Organization`,
       html,
       text: `${title}. Room ID: ${roomId} | Password: ${roomPassword}. Start time: ${startTime}. View in dashboard: ${dashboardUrl}`,
       purposeKey: "id_pass",
@@ -1154,7 +1167,7 @@ export async function sendScrimNotHostedEmail({
       await recordEmailLog({
         to,
         purposeKey: "not_hosted",
-        subject: tpl?.subject || `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
+        subject: tpl?.subject || `Scrim Match Not Hosted: ${scrimTitle} — RushX Organization`,
         status: "blocked_by_toggle",
       })
       return true
@@ -1207,7 +1220,7 @@ export async function sendScrimNotHostedEmail({
 
     const result = await sendEmail({
       to,
-      subject: `Scrim Match Not Hosted: ${scrimTitle} — ACE SCRIMS`,
+      subject: `Scrim Match Not Hosted: ${scrimTitle} — RushX Organization`,
       html,
       text: `Hello ${recipientName}, ${scrimTitle} (${scrimDate} at ${startTime}) was not hosted. Your squad ${teamName} will be refunded ৳${amountBdt}. View status: ${dashboardUrl}`,
       purposeKey: "not_hosted",
@@ -1251,7 +1264,7 @@ export async function sendMatchResultPublishedEmail({
     await recordEmailLog({
       to,
       purposeKey: "result",
-      subject: tpl?.subject || `Match Results Published: ${scrimTitle} — ACE SCRIMS`,
+      subject: tpl?.subject || `Match Results Published: ${scrimTitle} — RushX Organization`,
       status: "blocked_by_toggle",
     })
     return true
@@ -1305,7 +1318,7 @@ export async function sendMatchResultPublishedEmail({
   try {
     const result = await sendEmail({
       to,
-      subject: `Match Results Published: ${scrimTitle} — ACE SCRIMS`,
+      subject: `Match Results Published: ${scrimTitle} — RushX Organization`,
       html,
       text: `Hello ${recipientName}, official match results for ${scrimTitle} are published. Winner: ${winningTeam} (${kills} kills). Prize: ৳${prizeBdt} BDT. View results: ${resultsUrl}`,
       purposeKey: "result",
@@ -1344,7 +1357,7 @@ export async function sendMvpImageRequestEmail({
     await recordEmailLog({
       to,
       purposeKey: "mvp_image",
-      subject: tpl?.subject || `Action Required: Upload MVP Image for ${teamName} — ACE SCRIMS`,
+      subject: tpl?.subject || `Action Required: Upload MVP Image for ${teamName} — RushX Organization`,
       status: "blocked_by_toggle",
     })
     return true
@@ -1384,7 +1397,7 @@ export async function sendMvpImageRequestEmail({
 
   const html = emailShell({
     title: `MVP Image Requested: ${safeTeamName}`,
-    preheader: `Ace Scrims management has requested an MVP photo for ${safeTeamName}.`,
+    preheader: `RushX Organization management has requested an MVP photo for ${safeTeamName}.`,
     contentHtml: `<p>Hello <strong>${safeRecipient}</strong>, please upload your waist-up MVP image for <strong>${safeTeamName}</strong> (${safeScrimTitle}).</p>`,
     ctaText: "Upload MVP Image Now",
     ctaUrl: dashboardUrl,
@@ -1393,9 +1406,9 @@ export async function sendMvpImageRequestEmail({
   try {
     const result = await sendEmail({
       to,
-      subject: `Action Required: Upload MVP Image for ${teamName} — ACE SCRIMS`,
+      subject: `Action Required: Upload MVP Image for ${teamName} — RushX Organization`,
       html,
-      text: `Hello ${recipientName}, Ace Scrims management has requested an MVP photo for ${teamName} (${scrimTitle}). Upload at: ${dashboardUrl}`,
+      text: `Hello ${recipientName}, RushX Organization management has requested an MVP photo for ${teamName} (${scrimTitle}). Upload at: ${dashboardUrl}`,
       purposeKey: "mvp_image",
     })
     return result.success
@@ -1474,7 +1487,7 @@ export async function sendNoticeBroadcastEmail({
     await recordEmailLog({
       to,
       purposeKey: "notice",
-      subject: tpl?.subject || `[NOTICE] ${title} — ACE SCRIMS`,
+      subject: tpl?.subject || `[NOTICE] ${title} — RushX Organization`,
       status: "blocked_by_toggle",
     })
     return true
@@ -1549,7 +1562,7 @@ export async function sendNoticeBroadcastEmail({
   try {
     const result = await sendEmail({
       to,
-      subject: `[${priorityLabel}] ${title} — ACE SCRIMS`,
+      subject: `[${priorityLabel}] ${title} — RushX Organization`,
       html,
       text: `${priorityLabel} (${category}): ${title}\n\n${content}\n\nView notice in your dashboard: ${noticesUrl}`,
       purposeKey: "notice",
@@ -1582,7 +1595,7 @@ export async function sendWelcomeEmail({
     await recordEmailLog({
       to,
       purposeKey: "welcome",
-      subject: tpl?.subject || "Welcome aboard — ACE SCRIMS",
+      subject: tpl?.subject || "Welcome aboard — RushX Organization",
       status: "blocked_by_toggle",
     })
     return true
@@ -1606,7 +1619,7 @@ export async function sendWelcomeEmail({
         methodLabel,
         scrimsUrl,
       },
-      { defaultTitle: "Welcome to ACE SCRIMS", defaultCtaUrl: scrimsUrl }
+      { defaultTitle: "Welcome to RushX Organization", defaultCtaUrl: scrimsUrl }
     )
     try {
       const result = await sendEmail({ to, ...rendered, purposeKey: "welcome" })
@@ -1625,13 +1638,13 @@ export async function sendWelcomeEmail({
       Hey ${safeName},
     </h2>
     <p style="margin:0 0 24px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
-      Welcome aboard! ${methodLabel} You're fully geared up to register your squad and compete on ACE SCRIMS.
+      Welcome aboard! ${methodLabel} You're fully geared up to register your squad and compete with RushX Organization.
     </p>
   `
 
   const html = emailShell({
-    title: "Welcome to ACE SCRIMS",
-    preheader: `Welcome aboard ${safeName}! Your ACE SCRIMS account is active.`,
+    title: "Welcome to RushX Organization",
+    preheader: `Welcome aboard ${safeName}! Your RushX Organization account is active.`,
     contentHtml,
     ctaText: "Explore Scrims & Lobbies",
     ctaUrl: scrimsUrl,
@@ -1640,9 +1653,9 @@ export async function sendWelcomeEmail({
   try {
     const result = await sendEmail({
       to,
-      subject: `Welcome aboard, ${rawName} — ACE SCRIMS`,
+      subject: `Welcome aboard, ${rawName} — RushX Organization`,
       html,
-      text: `Hey ${rawName}, welcome to ACE SCRIMS! ${methodLabel} Explore upcoming lobbies at ${scrimsUrl}`,
+      text: `Hey ${rawName}, welcome to RushX Organization! ${methodLabel} Explore upcoming lobbies at ${scrimsUrl}`,
       purposeKey: "welcome",
     })
     if (!result.success) {

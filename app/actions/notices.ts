@@ -89,7 +89,7 @@ export async function createNoticeAction(
       isPinned: data.isPinned,
       isPublished: true,
       authorId: admin.id,
-      authorName: admin.name || "Ace Scrims Administration",
+      authorName: admin.name || "RushX Organization Administration",
       createdAt: new Date(),
       updatedAt: new Date(),
     })

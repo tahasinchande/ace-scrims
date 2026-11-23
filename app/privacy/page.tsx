@@ -4,7 +4,7 @@ import { LegalPage } from "@/components/site/legal-page"
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Ace Scrims collects, uses, and protects your personal information.",
+  description: "How RushX Organization collects, uses, and protects your personal information.",
 }
 
 export default function PrivacyPage() {
@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <LegalPage title="Privacy Policy" updated="July 14, 2026">
       <h2>1. Information We Collect</h2>
       <p>
-        When you create an account or book a scrim slot on Ace Scrims, we collect the information you provide:
+        When you create an account or book a scrim slot on RushX Organization, we collect the information you provide:
         your name, email address, phone number, Free Fire team details, and optional
         contact details.
       </p>

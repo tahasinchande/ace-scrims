@@ -6,7 +6,7 @@ import { InfoSetupForm } from "@/components/dashboard/info-setup-form"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
-  title: "Info Setup — Ace Scrims",
+  title: "Info Setup — RushX Organization",
   description: "Set up your permanent squad details and prize payout account to auto-fill every scrim booking.",
 }
 

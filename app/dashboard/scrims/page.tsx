@@ -8,7 +8,7 @@ import { Swords } from "lucide-react"
 import { SlotSyncBroadcaster } from "@/components/site/slot-sync-broadcaster"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "My Scrims — Ace Scrims" }
+export const metadata = { title: "My Scrims — RushX Organization" }
 
 export default async function MyScrimsPage({
   searchParams,

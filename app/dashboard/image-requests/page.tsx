@@ -6,7 +6,7 @@ import { ImageRequestsView } from "@/components/dashboard/image-requests-view"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Image Requests — Ace Scrims",
+  title: "Image Requests — RushX Organization",
   description: "Upload your team MVP photos and track requested banners.",
 }
 

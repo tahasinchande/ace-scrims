@@ -23,9 +23,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params
   const scrim = await getScrimBySlug(slug)
-  if (!scrim) return { title: "Scrim Not Found — Ace Scrims" }
+  if (!scrim) return { title: "Scrim Not Found — RushX Organization" }
   return {
-    title: `${scrim.title} — Ace Scrims`,
+    title: `${scrim.title} — RushX Organization`,
     description: scrim.description ?? `Free Fire scrim at ${scrim.startTime}, ${bdt(scrim.priceBdt)} entry.`,
   }
 }

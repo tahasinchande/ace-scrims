@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { RushXBrandLogo } from "@/components/site/brand-logo"
 import {
   LayoutDashboard,
   Swords,
@@ -13,7 +14,6 @@ import {
   Settings,
   ScrollText,
   ArrowLeft,
-  ShieldCheck,
   AlertTriangle,
   Video,
   MessageSquare,
@@ -81,15 +81,9 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
     <aside className="w-full shrink-0 md:w-60">
       <div className="dc-surface sticky top-20 flex flex-col gap-4 rounded-2xl p-4">
         <div className="flex items-center gap-3 border-b border-white/[0.07] pb-3.5">
-          {logoUrl ? (
-            <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.04] p-1">
-              <img src={logoUrl} alt="Ace Scrims" className="h-full w-full object-contain" />
-            </div>
-          ) : (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/14 text-primary">
-              <ShieldCheck className="size-5" />
-            </span>
-          )}
+          <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.04] p-1">
+            <RushXBrandLogo variant="symbol" size="sm" logoUrl={logoUrl} />
+          </div>
           <div className="min-w-0">
             <p className="truncate font-display text-sm font-semibold tracking-tight text-foreground">{name}</p>
             <p className="text-xs capitalize text-muted-foreground">{role}</p>

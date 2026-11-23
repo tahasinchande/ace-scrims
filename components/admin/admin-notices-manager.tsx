@@ -585,7 +585,7 @@ export function AdminNoticesManager({ initialNotices }: { initialNotices: Notice
                   </p>
 
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>Published by: {notice.authorName || "Ace Scrims Admin"}</span>
+                    <span>Published by: {notice.authorName || "RushX Organization Admin"}</span>
                   </div>
                 </div>
 

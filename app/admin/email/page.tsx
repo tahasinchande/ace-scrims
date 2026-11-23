@@ -4,7 +4,7 @@ import { getAllEmailTemplates } from "@/lib/queries/email-templates"
 import { AdminEmailManager } from "@/components/admin/admin-email-manager"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Email Management — Ace Scrims Admin" }
+export const metadata = { title: "Email Management — RushX Organization Admin" }
 
 export default async function AdminEmailPage() {
   const user = await getSessionUser()

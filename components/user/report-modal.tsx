@@ -329,7 +329,7 @@ export function ReportFormView({
             Submit a Report or Feature Request
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Report hackers, prize/slot issues, technical bugs, or suggest new features directly to Ace Scrims administrators.
+            Report hackers, prize/slot issues, technical bugs, or suggest new features directly to RushX Organization administrators.
           </p>
         </header>
       )}
@@ -558,7 +558,7 @@ export function ReportFormView({
                   name="description"
                   required
                   rows={4}
-                  placeholder="Describe the new feature, improvement, or workflow you would love to see on Ace Scrims..."
+                  placeholder="Describe the new feature, improvement, or workflow you would love to see on RushX Organization..."
                 />
               </div>
 

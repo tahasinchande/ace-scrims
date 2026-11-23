@@ -4,7 +4,7 @@ import { AdminResults } from "@/components/admin/admin-results"
 import { getSessionUser } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Manage Results — Ace Scrims" }
+export const metadata = { title: "Manage Results — RushX Organization" }
 
 export default async function AdminResultsPage() {
   const [user, results, scrims, historicalDates] = await Promise.all([

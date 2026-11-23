@@ -9,7 +9,7 @@ import {
 import { AdminIcebergManager, type AdminIcebergScrim } from "@/components/admin/admin-iceberg-manager"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Iceberg Slot Automation — Ace Scrims Admin" }
+export const metadata = { title: "Iceberg Slot Automation — RushX Organization Admin" }
 
 export default async function AdminIcebergPage() {
   await requireAdmin()

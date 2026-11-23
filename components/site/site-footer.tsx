@@ -5,7 +5,7 @@ import { MessageCircle, HelpCircle } from "lucide-react"
 import { FacebookIcon, DiscordIcon, WhatsAppIcon, YouTubeIcon, TelegramIcon, InstagramIcon, TikTokIcon, SupportKoriIcon } from "@/components/site/brand-icons"
 import { useLanguage } from "@/lib/language"
 import { Button } from "@/components/ui/button"
-import { AceScrimsBrandLogo } from "@/components/site/brand-logo"
+import { RushXBrandLogo } from "@/components/site/brand-logo"
 import { LiveSupportButton } from "@/components/site/live-support-button"
 
 export type FooterSettings = {
@@ -35,12 +35,12 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
 
   return (
-    <footer className="border-t border-white/[0.07] bg-[#050811]/90 backdrop-blur-xl">
+    <footer className="border-t border-white/[0.07] bg-[#050811]/72 backdrop-blur-xl">
       <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="flex flex-col gap-3.5">
-            <Link href="/" className="flex items-center gap-2" aria-label="Ace Scrims home">
-              <AceScrimsBrandLogo size="md" />
+            <Link href="/" className="flex items-center gap-2" aria-label="RushX Organization home">
+              <RushXBrandLogo size="sm" variant="full" />
             </Link>
             <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
               {t("brand_desc", "Bangladesh's premium Free Fire scrim platform. Daily competitive squad scrim lobbies.")}
@@ -214,7 +214,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-6 text-xs text-muted-foreground sm:flex-row">
-          <p>© {new Date().getFullYear()} Ace Scrims. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} RushX Organization. All rights reserved.</p>
           <p>Built for Bangladesh Free Fire competitive esports community.</p>
         </div>
       </div>

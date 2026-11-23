@@ -129,7 +129,7 @@ export function BookingCard({
                 <div className="flex flex-col gap-0.5">
                   <span className="flex items-center gap-1.5 font-display text-xs font-bold uppercase tracking-wider text-primary">
                     <MessageCircle className="size-4" />
-                    Main Ace Scrims WhatsApp Channel
+                    Main RushX Organization WhatsApp Channel
                   </span>
                   <p className="text-xs text-muted-foreground">
                     General announcements, daily lobby updates, and tournament schedules.

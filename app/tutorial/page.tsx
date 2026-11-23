@@ -10,7 +10,7 @@ import { getPublicSiteSettings } from "@/lib/queries/settings"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
-  title: "Tutorial — How to Join Free Fire Scrims | Ace Scrims",
+  title: "Tutorial — How to Join Free Fire Scrims | RushX Organization",
   description: "Step-by-step tutorial and video guides on how to register your squad, make instant payments via automated gateway, receive room ID/pass on WhatsApp, and claim prizes.",
 }
 

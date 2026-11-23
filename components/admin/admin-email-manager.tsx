@@ -404,11 +404,11 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   const previewDoc = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;background:#05060a;color:#e2e8f0;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<body style="margin:0;padding:24px;background:#05060a;color:#e2e8f0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:560px;margin:0 auto;background:#0c0e17;border:1px solid #1e2235;border-radius:12px;overflow:hidden;">
     <div style="height:4px;background:linear-gradient(90deg,#ea580c,#f97316,#ea580c);"></div>
     <div style="padding:28px;">
-      <div style="margin-bottom:18px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#f97316;text-transform:uppercase;">ACE SCRIMS · ${escapePreviewHtml(label)}</div>
+      <div style="margin-bottom:18px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#f97316;text-transform:uppercase;">RUSHX ORGANIZATION · ${escapePreviewHtml(label)}</div>
       <h2 style="margin:0 0 14px 0;color:#ffffff;font-size:18px;">${escapePreviewHtml(subject)}</h2>
       ${
         format === "text"
@@ -755,7 +755,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                     {format === "html" && (
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="tpl-body-html" className="text-[11px] text-muted-foreground">
-                          HTML Template Body (rendered inside Ace Scrims dark email shell)
+                          HTML Template Body (rendered inside RushX Organization dark email shell)
                         </Label>
                         <Textarea
                           id="tpl-body-html"

@@ -1,67 +1,20 @@
-import { ImageResponse } from "next/og"
+import { readFile } from "node:fs/promises"
+import path from "node:path"
 
+export const runtime = "nodejs"
 export const size = {
-  width: 32,
-  height: 32,
+  width: 64,
+  height: 64,
 }
 export const contentType = "image/png"
 
-export default function Icon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: "8px",
-          background: "#090A0F",
-          border: "1px solid rgba(249, 115, 22, 0.5)",
-        }}
-      >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 40 40"
-          fill="none"
-        >
-          <defs>
-            <linearGradient id="iconAceGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#f97316" />
-              <stop offset="60%" stopColor="#fb923c" />
-              <stop offset="100%" stopColor="#fde047" />
-            </linearGradient>
-            <linearGradient id="iconAceGradSub" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ea580c" />
-              <stop offset="100%" stopColor="#c2410c" />
-            </linearGradient>
-          </defs>
-
-          {/* Left Dynamic Wing */}
-          <path
-            d="M6 32 L20 6 L26 18 L16 32 Z"
-            fill="url(#iconAceGrad)"
-          />
-
-          {/* Right Dynamic Wing */}
-          <path
-            d="M20 6 L34 32 L24 32 L17 18 Z"
-            fill="url(#iconAceGradSub)"
-          />
-
-          {/* Central Diamond Core */}
-          <path
-            d="M20 12 L24 20 L20 28 L16 20 Z"
-            fill="#ffffff"
-            opacity="0.98"
-          />
-        </svg>
-      </div>
-    ),
-    {
-      ...size,
-    }
-  )
+export default async function Icon() {
+  const iconPath = path.join(process.cwd(), "public", "images", "brand", "rushx-favicon-64.png")
+  const buffer = await readFile(iconPath)
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  })
 }

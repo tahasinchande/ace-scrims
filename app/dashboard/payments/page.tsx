@@ -15,7 +15,7 @@ import { bdt, timeAgo } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { Receipt } from "lucide-react"
 
-export const metadata = { title: "Payment History — Ace Scrims" }
+export const metadata = { title: "Payment History — RushX Organization" }
 
 const statusStyles: Record<string, string> = {
   completed: "bg-success/15 text-success border-success/30",

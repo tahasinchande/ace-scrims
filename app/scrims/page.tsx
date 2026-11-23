@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PartnershipTickerBar } from "@/components/site/partnership-ticker-bar"
 
 export const metadata: Metadata = {
-  title: "Daily Scrims — Ace Scrims",
+  title: "Daily Scrims — RushX Organization",
   description:
     "Browse today's Free Fire scrim lobbies. 12 daily slots from 7 PM to 12 AM, ৳35 entry, 12 teams max per lobby.",
 }

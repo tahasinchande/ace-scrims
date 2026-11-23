@@ -3,7 +3,7 @@ import { getUserReports } from "@/lib/queries/dashboard"
 import { UserReportsList, UserReportItem } from "@/components/dashboard/user-reports-list"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "My Reports — Ace Scrims" }
+export const metadata = { title: "My Reports — RushX Organization" }
 
 export default async function MyReportsPage() {
   const user = await requireUser()

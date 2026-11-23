@@ -104,7 +104,7 @@ function VerifyEmailContent() {
             Verify Your Email Address
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Please verify your email address to access bookings, slot purchases, dashboards, and reporting on Ace Scrims.
+            Please verify your email address to access bookings, slot purchases, dashboards, and reporting on RushX Organization.
           </p>
 
           {userEmail ? (

@@ -172,7 +172,7 @@ export function GlobalCyberBackground() {
     // ─────────────────────────────────────────────────────────────────────────
     // 4. INFINITE CYBER CIRCUIT FLOOR GRID MATRIX & INSTANCED NEON PADS
     // ─────────────────────────────────────────────────────────────────────────
-    const gridHelper = new THREE.GridHelper(120, 80, 0xff5500, 0x141e2e)
+    const gridHelper = new THREE.GridHelper(120, 80, 0x9ca3af, 0x262f42)
     gridHelper.position.y = 0.08
     if (gridHelper.material instanceof THREE.Material) {
       trackDisposable(gridHelper.material)
@@ -501,6 +501,24 @@ export function GlobalCyberBackground() {
     const rotationEuler = new THREE.Euler()
     const rotQuat = new THREE.Quaternion()
     const cubeScaleVec = new THREE.Vector3()
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    // Unified sequential single-hue stops (matches 2D 36s cycle: Violet -> Crimson -> Amber -> Emerald -> Cyan -> Sapphire -> Violet)
+    const hueStops = [0.74, 0.94, 1.08, 1.44, 1.55, 1.63, 1.74]
+    const cycleSeconds = 36
+    const getSequentialHue = (t: number) => {
+      if (prefersReducedMotion) return 0.74
+      const phase = ((t % cycleSeconds) / cycleSeconds) * (hueStops.length - 1)
+      const segIndex = Math.floor(phase)
+      const localT = phase - segIndex
+      // Dwell steadily in one unified color mood before gliding smoothly into the next
+      const transitionT = localT < 0.42 ? 0 : (localT - 0.42) / 0.58
+      const eased = transitionT * transitionT * (3 - 2 * transitionT)
+      const rawHue = hueStops[segIndex] + (hueStops[segIndex + 1] - hueStops[segIndex]) * eased
+      return ((rawHue % 1) + 1) % 1
+    }
 
     const renderLoop = () => {
       frameId = requestAnimationFrame(renderLoop)
@@ -553,21 +571,63 @@ export function GlobalCyberBackground() {
       }
       instancedSatelliteCubes.instanceMatrix.needsUpdate = true
 
+      // True sequential single-hue color shifting across the entire 3D scene (preserves all geometry, camera & motion)
+      const activeHue = getSequentialHue(elapsed)
+
+      // Subtle deep-obsidian atmospheric tint matched to the active hue
+      if (scene.background instanceof THREE.Color) {
+        scene.background.setHSL(activeHue, 0.34, 0.028)
+      }
+      if (scene.fog instanceof THREE.FogExp2) {
+        scene.fog.color.setHSL(activeHue, 0.34, 0.028)
+      }
+      ambientLight.color.setHSL(activeHue, 0.38, 0.14)
+
+      // All key/fill/core lights share the exact same activeHue, varying only saturation & lightness for depth
+      dirKey.color.setHSL(activeHue, 0.9, 0.54)
+      dirFill.color.setHSL(activeHue, 0.55, 0.26)
+      coreLight1.color.setHSL(activeHue, 0.95, 0.52)
+      coreLight2.color.setHSL(activeHue, 0.9, 0.56)
+      coreLight3.color.setHSL(activeHue, 0.92, 0.48)
+      coreLight4.color.setHSL(activeHue, 0.88, 0.6)
+
+      towerOrangeGlowMat.color.setHSL(activeHue, 0.95, 0.52)
+      towerHotGlowMat.color.setHSL(activeHue, 0.92, 0.72)
+      wallUniforms.uColorDark.value.setHSL(activeHue, 0.92, 0.36)
+      wallUniforms.uColorMid.value.setHSL(activeHue, 0.96, 0.54)
+      wallUniforms.uColorCore.value.setHSL(activeHue, 0.88, 0.84)
+      particleMat.color.setHSL(activeHue, 0.88, 0.7)
+
+      if (gridHelper.material instanceof THREE.LineBasicMaterial) {
+        gridHelper.material.color.setHSL(activeHue, 0.68, 0.54)
+      }
+
+      for (let k = 0; k < totalSatelliteCubes; k++) {
+        if (satelliteMeta[k].isGlow) {
+          const cubeLightness = 0.46 + (k % 4) * 0.055
+          colorDummy.setHSL(activeHue, 0.94, cubeLightness)
+          instancedSatelliteCubes.setColorAt(k, colorDummy)
+        }
+      }
+      if (instancedSatelliteCubes.instanceColor) {
+        instancedSatelliteCubes.instanceColor.needsUpdate = true
+      }
+
       // Dynamic light pulsations
       coreLight1.intensity = 8.0 + Math.sin(elapsed * 3.2) * 3.0
       coreLight2.intensity = 5.5 + Math.cos(elapsed * 2.7) * 2.0
       coreLight3.intensity = 5.0 + Math.sin(elapsed * 2.3) * 1.8
       coreLight4.intensity = 4.5 + Math.cos(elapsed * 2.0) * 1.6
 
-      // Pulsing Floor Pads via Instanced Color Update
+      // Pulsing Floor Pads via Instanced Color Update (unified single activeHue, varying lightness only)
       for (let i = 0; i < tileCount; i++) {
-        const pulse = 0.3 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.55
-        colorDummy.setRGB(pulse, pulse * 0.4, 0.0)
+        const pulse = 0.28 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
+        colorDummy.setHSL(activeHue, 0.92, Math.max(0.14, Math.min(0.68, pulse)))
         instancedFloorTiles.setColorAt(i, colorDummy)
       }
       if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true
 
-      // Upward drifting fire embers
+      // Upward drifting cyber embers
       const positions = particleGeo.attributes.position.array as Float32Array
       for (let i = 0; i < particleCount; i++) {
         positions[i * 3 + 1] += 0.04
@@ -651,16 +711,21 @@ export function GlobalCyberBackground() {
     return (
       <div
         aria-hidden="true"
-        className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-[#030407]"
+        className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden"
       >
-        {/* Subtle static cyber grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff06_1px,transparent_1px),linear-gradient(to_bottom,#ffffff06_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
-        {/* Static ambient radial energy glows */}
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 size-[600px] rounded-full bg-orange-600/10 blur-[140px]" />
-        <div className="absolute top-1/3 -left-32 size-[500px] rounded-full bg-amber-500/5 blur-[120px]" />
-        <div className="absolute bottom-10 -right-32 size-[500px] rounded-full bg-orange-500/5 blur-[130px]" />
-        {/* Static horizon glow accent */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent" />
+        {/* Full-viewport sequential single-hue color-shifting atmosphere (covers entire page top-to-bottom, zero solid black lower block) */}
+        <div className="rushx-ambient-canvas absolute inset-0 w-full h-full">
+          <div className="rushx-ambient-glow absolute inset-0 w-full h-full" />
+        </div>
+
+        {/* Crisp subtle tactical grid overlay across the full page */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.032)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.032)_1px,transparent_1px)] bg-[size:52px_52px] opacity-55" />
+
+        {/* Subtle radial edge vignette for readability (never covers lower page in opaque black) */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_28%,rgba(4,6,13,0.44)_100%)]" />
+
+        {/* Neutral top horizon hairline */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
       </div>
     )
   }
@@ -674,10 +739,10 @@ export function GlobalCyberBackground() {
       <div ref={containerRef} className="absolute inset-0 w-full h-full" />
 
       {/* Soft Ambient Cyber Vignette (Translucent edge-only softening) */}
-      <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#020306]/60 pointer-events-none" />
+      <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#020306]/55 pointer-events-none" />
 
-      {/* Top Cyber Horizon Glow Line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent pointer-events-none" />
+      {/* Neutral Top Cyber Horizon Line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
     </div>
   )
 }

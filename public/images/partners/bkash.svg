@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 48" fill="none">
+  <g transform="translate(8,6)">
+    <path d="M18 4L28 19L16 25L18 4Z" fill="#E2136E"/>
+    <path d="M28 19L37 15L29 29L16 25L28 19Z" fill="#C90F61"/>
+    <path d="M18 4L5 12L16 25L18 4Z" fill="#F03285"/>
+    <path d="M16 25L29 29L14 35L16 25Z" fill="#9E0B4B"/>
+  </g>
+  <text x="52" y="31" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="-0.4">bKash</text>
+</svg>

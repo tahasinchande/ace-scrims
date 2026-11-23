@@ -7,7 +7,7 @@ import { BanknoteIcon, CalendarCheck, Users, Ticket, Wallet, Swords, KeyRound } 
 import { AdminOverviewRecentPayments } from "@/components/admin/admin-overview-recent-payments"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Admin Overview — Ace Scrims" }
+export const metadata = { title: "Admin Overview — RushX Organization" }
 
 export default async function AdminOverviewPage() {
   const user = await getSessionUser()

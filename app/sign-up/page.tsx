@@ -4,7 +4,7 @@ import { AuthShell } from "@/components/auth/auth-shell"
 import { AuthForm } from "@/components/auth/auth-form"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Create Account — Ace Scrims" }
+export const metadata = { title: "Create Account — RushX Organization" }
 
 export default async function SignUpPage() {
   const user = await getSessionUser()

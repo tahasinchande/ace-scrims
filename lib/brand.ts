@@ -1,0 +1,22 @@
+export const BRAND = {
+  name: "RushX Organization",
+  shortName: "RushX",
+  tagline: "Bangladesh's Premier Free Fire Competitive Scrims Platform",
+  domain: "www.acescrims.online",
+  url: "https://www.acescrims.online",
+  emailAddress: "noreply@mail.acescrims.online",
+  emailSender: "RushX Organization <noreply@mail.acescrims.online>",
+  supportLabel: "RushX Support",
+  aiSupportLabel: "RushX AI Support",
+  assets: {
+    symbol: "/images/brand/rushx-symbol.png",
+    symbolDark: "/images/brand/rushx-symbol-dark.png",
+    wordmark: "/images/brand/rushx-wordmark-white.png",
+    wordmarkDark: "/images/brand/rushx-wordmark-dark.png",
+    fullWordmark: "/images/brand/rushx-full-white.png",
+    fullWordmarkDark: "/images/brand/rushx-full-dark.png",
+    favicon64: "/images/brand/rushx-favicon-64.png",
+    favicon192: "/images/brand/rushx-favicon-192.png",
+    appleIcon180: "/images/brand/rushx-apple-icon-180.png",
+  },
+} as const

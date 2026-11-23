@@ -148,7 +148,7 @@ export async function createCharge(input: CreateChargeInput): Promise<CreateChar
     return { ok: false, error: "Payment amount must be a positive number." }
   }
 
-  const safeFullName = (input.fullName || "Ace Scrims Player").trim().slice(0, 80) || "Ace Scrims Player"
+  const safeFullName = (input.fullName || "RushX Organization Player").trim().slice(0, 80) || "RushX Organization Player"
   const safeEmail = (input.email || "").trim()
   if (!safeEmail || !safeEmail.includes("@")) {
     return { ok: false, error: "A valid account email address is required for checkout." }

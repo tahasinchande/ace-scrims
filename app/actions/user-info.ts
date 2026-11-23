@@ -89,7 +89,7 @@ export async function saveUserDefaultInfo(
     const canonicalMethod = matchedMethod.code
     const normalizedPaymentNumber = matchedMethod.requiresAccountNumber
       ? data.paymentNumber
-      : data.paymentNumber || "Ace Scrims Account Balance"
+      : data.paymentNumber || "RushX Organization Account Balance"
 
     const existing = await db
       .select({ id: userDefaultInfo.id })

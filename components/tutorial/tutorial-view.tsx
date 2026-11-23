@@ -56,7 +56,7 @@ export function TutorialView({ tutorials = [] }: { tutorials?: Tutorial[] }) {
           {isBn ? "সহজ নির্দেশিকা" : "Easy Guide"}
         </span>
         <h1 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight sm:text-5xl">
-          {isBn ? "কীভাবে Ace Scrims এ অংশ নেবেন" : "How to Join Ace Scrims"}
+          {isBn ? "কীভাবে RushX Organization এ অংশ নেবেন" : "How to Join RushX Organization"}
         </h1>
         <p className="mt-3 text-base text-muted-foreground sm:text-lg">
           {isBn

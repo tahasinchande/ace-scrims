@@ -10,7 +10,7 @@ import {
 import { AdminTrash } from "@/components/admin/admin-trash"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Trash & Soft-Deleted Items — Ace Scrims" }
+export const metadata = { title: "Trash & Soft-Deleted Items — RushX Organization" }
 
 export default async function AdminTrashPage() {
   const [user, trashScrims, trashResults, trashReports, trashImageRequests, trashUsers, trashPayments] =

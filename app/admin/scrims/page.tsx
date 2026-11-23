@@ -7,7 +7,7 @@ import { getSessionUser } from "@/lib/session"
 import { KeyRound, Snowflake } from "lucide-react"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Manage Scrims — Ace Scrims Admin" }
+export const metadata = { title: "Manage Scrims — RushX Organization Admin" }
 
 export default async function AdminScrimsPage({
   searchParams,

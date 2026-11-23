@@ -11,7 +11,7 @@ import { ScrimRules } from "@/components/scrims/scrim-rules"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
-  title: "Book Your Spot — Ace Scrims",
+  title: "Book Your Spot — RushX Organization",
   description: "Reserve your squad's slot in a Free Fire scrim lobby.",
 }
 

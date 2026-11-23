@@ -119,10 +119,10 @@ export function CreatorApplicationView({
           <div className="space-y-3 max-w-2xl">
             <Badge className="bg-primary/15 text-primary border-primary/30 uppercase tracking-wider text-[11px] font-bold">
               <Sparkles className="mr-1.5 size-3.5" />
-              Ace Scrims Content Creator Program
+              RushX Organization Content Creator Program
             </Badge>
             <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Partner With Ace Scrims &amp; Grow Your Creator Wallet
+              Partner With RushX Organization &amp; Grow Your Creator Wallet
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed sm:text-base">
               Streamers, YouTubers, TikTokers, and Free Fire esports creators can apply for an official
@@ -219,7 +219,7 @@ export function CreatorApplicationView({
                 <div>
                   <CardTitle className="text-lg">
                     {existingApplication.status === "approved"
-                      ? "Official Ace Scrims Creator — Approved"
+                      ? "Official RushX Organization Creator — Approved"
                       : existingApplication.status === "pending"
                         ? "Creator Application Under Review"
                         : "Previous Application Not Approved"}
@@ -358,7 +358,7 @@ export function CreatorApplicationView({
                   <strong className="font-bold text-white underline decoration-red-400">
                     PERMANENT BAN
                   </strong>{" "}
-                  of your Ace Scrims account and forfeiture of all pending balances. Only apply with
+                  of your RushX Organization account and forfeiture of all pending balances. Only apply with
                   authentic channels you personally own and manage.
                 </p>
               </div>
@@ -367,7 +367,7 @@ export function CreatorApplicationView({
             {!signedIn ? (
               <div className="rounded-xl border border-primary/25 bg-primary/5 p-6 text-center space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Sign in or create an Ace Scrims account first so we can link your creator referral code
+                  Sign in or create a RushX Organization account first so we can link your creator referral code
                   and Creator Wallet payouts directly to your profile.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
@@ -388,7 +388,7 @@ export function CreatorApplicationView({
                       id="creatorName"
                       value={creatorName}
                       onChange={(e) => setCreatorName(e.target.value)}
-                      placeholder="e.g. AceFF Gaming"
+                      placeholder="e.g. RushX FF Gaming"
                       required
                       maxLength={80}
                     />
@@ -505,7 +505,7 @@ export function CreatorApplicationView({
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Tell us about your Free Fire content, upload/live schedule, and how you plan to promote Ace Scrims..."
+                    placeholder="Tell us about your Free Fire content, upload/live schedule, and how you plan to promote RushX Organization..."
                     rows={4}
                     maxLength={1200}
                   />

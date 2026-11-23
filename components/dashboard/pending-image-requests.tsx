@@ -140,7 +140,7 @@ export function ImageRequestCard({ request }: { request: ImageRequest }) {
           Photos Submitted for {teamName} {playerName ? `(${playerName})` : ""}
         </p>
         <p className="max-w-md text-xs text-muted-foreground">
-          Thank you! Our design team is currently processing your photo for the official Ace Scrims Face Banners showcase.
+          Thank you! Our design team is currently processing your photo for the official RushX Organization Face Banners showcase.
         </p>
       </div>
     )

@@ -2,7 +2,7 @@ import { AuthShell } from "@/components/auth/auth-shell"
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Forgot Password — Ace Scrims" }
+export const metadata = { title: "Forgot Password — RushX Organization" }
 
 export default function ForgotPasswordPage() {
   return (

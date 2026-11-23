@@ -19,7 +19,7 @@ const FALLBACK_PAYOUT_METHODS: PayoutMethod[] = [
   { id: "pm-nagad", name: "Nagad", code: "Nagad", label: "Nagad Personal", description: null, accentColor: "#F7941D", requiresAccountNumber: true, isActive: true, sortOrder: 2, createdAt: new Date(0), updatedAt: new Date(0) },
   { id: "pm-rocket", name: "Rocket", code: "Rocket", label: "Rocket Personal", description: null, accentColor: "#8C3494", requiresAccountNumber: true, isActive: true, sortOrder: 3, createdAt: new Date(0), updatedAt: new Date(0) },
   { id: "pm-tap", name: "Tap", code: "Tap", label: "Tap Personal", description: null, accentColor: "#00A19D", requiresAccountNumber: true, isActive: true, sortOrder: 4, createdAt: new Date(0), updatedAt: new Date(0) },
-  { id: "pm-balance", name: "Balance", code: "Balance", label: "Ace Scrims Wallet", description: null, accentColor: "#10B981", requiresAccountNumber: false, isActive: true, sortOrder: 5, createdAt: new Date(0), updatedAt: new Date(0) },
+  { id: "pm-balance", name: "Balance", code: "Balance", label: "RushX Wallet", description: null, accentColor: "#10B981", requiresAccountNumber: false, isActive: true, sortOrder: 5, createdAt: new Date(0), updatedAt: new Date(0) },
 ]
 
 type WizardScrim = {
@@ -103,9 +103,10 @@ export function BookingWizard({
   )
   const [paymentNumber, setPaymentNumber] = useState<string>(() => {
     if (matchedInitialMethod && !matchedInitialMethod.requiresAccountNumber) {
-      return defaultInfo?.paymentNumber || "Ace Scrims Account Balance"
+      return defaultInfo?.paymentNumber || "RushX Organization Account Balance"
     }
-    return defaultInfo?.paymentNumber === "Ace Scrims Account Balance"
+    return defaultInfo?.paymentNumber === "RushX Organization Account Balance" ||
+      defaultInfo?.paymentNumber === "Ace Scrims Account Balance"
       ? ""
       : defaultInfo?.paymentNumber || ""
   })
@@ -455,10 +456,14 @@ export function BookingWizard({
                         onClick={() => {
                           setPaymentMethod(provider.code)
                           if (!provider.requiresAccountNumber) {
-                            setPaymentNumber("Ace Scrims Account Balance")
-                          } else if (paymentNumber === "Ace Scrims Account Balance") {
+                            setPaymentNumber("RushX Organization Account Balance")
+                          } else if (
+                            paymentNumber === "RushX Organization Account Balance" ||
+                            paymentNumber === "Ace Scrims Account Balance"
+                          ) {
                             setPaymentNumber(
                               defaultInfo?.paymentNumber &&
+                                defaultInfo.paymentNumber !== "RushX Organization Account Balance" &&
                                 defaultInfo.paymentNumber !== "Ace Scrims Account Balance"
                                 ? defaultInfo.paymentNumber
                                 : ""
@@ -503,12 +508,12 @@ export function BookingWizard({
                   type={!requiresAccountNumber ? "text" : "tel"}
                   placeholder={
                     !requiresAccountNumber
-                      ? "Ace Scrims Account Balance (Auto-credited)"
+                      ? "RushX Organization Account Balance (Auto-credited)"
                       : `01XXXXXXXXX (${selectedMethodObj?.name || paymentMethod} Personal Account)`
                   }
                   value={
                     !requiresAccountNumber
-                      ? "Ace Scrims Account Balance"
+                      ? "RushX Organization Account Balance"
                       : paymentNumber
                   }
                   onChange={(e) => setPaymentNumber(e.target.value)}
@@ -526,10 +531,10 @@ export function BookingWizard({
                   {!requiresAccountNumber ? (
                     <>
                       <p className="leading-relaxed">
-                        Tournament winning prize pool will be deposited <strong>directly into your Ace Scrims account balance</strong> upon match result publication.
+                        Tournament winning prize pool will be deposited <strong>directly into your RushX Organization account balance</strong> upon match result publication.
                       </p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        (আপনার টুর্নামেন্ট প্রাইজপুল সরাসরি আপনার Ace Scrims ব্যালেন্সে জমা করা হবে।)
+                        (আপনার টুর্নামেন্ট প্রাইজপুল সরাসরি আপনার RushX Organization ব্যালেন্সে জমা করা হবে।)
                       </p>
                     </>
                   ) : (

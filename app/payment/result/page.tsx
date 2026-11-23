@@ -9,7 +9,7 @@ import { CheckCircle2, XCircle, Clock3, CircleAlert } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
-  title: "Payment Status — Ace Scrims",
+  title: "Payment Status — RushX Organization",
 }
 
 const STATES = {

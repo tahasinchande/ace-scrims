@@ -179,7 +179,7 @@ export function AdminHistoryView({
     }
 
     const lines: string[] = [
-      `=== ACE SCRIMS ROSTER ARCHIVE (${selectedDate}) ===`,
+      `=== RUSHX ORGANIZATION ROSTER ARCHIVE (${selectedDate}) ===`,
       scrimFilter !== "all" ? `LOBBY: ${scrimFilter}` : "ALL LOBBIES",
       `TOTAL TEAMS: ${filteredBookings.length}`,
       "---------------------------------------------",

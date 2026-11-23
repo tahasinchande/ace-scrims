@@ -233,7 +233,7 @@ export async function sendChatMessage(
           ok: false,
           banned: true,
           error:
-            "Account permanently banned: Abusive language or 18+/NSFW content is strictly prohibited on Ace Scrims.",
+            "Account permanently banned: Abusive language or 18+/NSFW content is strictly prohibited on RushX Organization.",
         }
       }
     }
@@ -274,7 +274,7 @@ export async function sendChatMessage(
 
     let aiUnavailable = false
 
-    // 2. If user sent a message in AI mode, generate ACE AI Support reply grounded in public DB data
+    // 2. If user sent a message in AI mode, generate RushX AI Support reply grounded in public DB data
     if (!isStaff && sessionMode === "ai") {
       const recentRows = await db
         .select({
@@ -305,7 +305,7 @@ export async function sendChatMessage(
           id: randomUUID(),
           userId: conversationUserId,
           senderId: "ace-ai-assistant",
-          senderName: "ACE AI Support",
+          senderName: "RushX AI Support",
           senderRole: "ai",
           message: aiRes.reply,
           readByStaff: true,
@@ -329,7 +329,7 @@ export async function sendChatMessage(
           id: randomUUID(),
           userId: conversationUserId,
           senderId: "ace-ai-assistant",
-          senderName: "ACE AI Support",
+          senderName: "RushX AI Support",
           senderRole: "ai",
           message:
             "Our AI assistant is temporarily busy. Please tap 'Talk to Human Agent' at the top of this chat to connect directly with our tournament staff.",
@@ -374,7 +374,7 @@ export async function escalateToHumanAgent() {
       id: randomUUID(),
       userId: sessionUser.id,
       senderId: "ace-system",
-      senderName: "ACE Support System",
+      senderName: "RushX Support System",
       senderRole: "system",
       message:
         "You have requested a Human Support Agent. Your conversation is now prioritized in our live staff queue.",
@@ -411,7 +411,7 @@ export async function takeOverChat(targetUserId: string) {
       id: randomUUID(),
       userId: targetUserId,
       senderId: "ace-system",
-      senderName: "ACE Support System",
+      senderName: "RushX Support System",
       senderRole: "system",
       message: `Human support agent (${staff.name || "Staff"}) joined the conversation.`,
       readByStaff: true,
@@ -447,9 +447,9 @@ export async function handBackToAi(targetUserId: string) {
       id: randomUUID(),
       userId: targetUserId,
       senderId: "ace-system",
-      senderName: "ACE Support System",
+      senderName: "RushX Support System",
       senderRole: "system",
-      message: "Support ticket handed back to ACE AI Assistant. You can request a human agent again anytime.",
+      message: "Support ticket handed back to RushX AI Assistant. You can request a human agent again anytime.",
       readByStaff: true,
       readByUser: false,
       createdAt: new Date(),

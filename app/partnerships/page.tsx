@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Official Partnerships & Collaborations",
   description:
-    "Explore Ace Scrims official esports partners, community collaborators, and brand sponsors powering daily competitive Free Fire scrims.",
+    "Explore RushX Organization official esports partners, community collaborators, and brand sponsors powering daily competitive Free Fire scrims.",
 }
 
 export default async function PartnershipsPage() {
@@ -40,14 +40,14 @@ export default async function PartnershipsPage() {
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
               <span className="inline-block h-px w-6 bg-primary/80" aria-hidden />
-              <span>Ace Scrims Ecosystem</span>
+              <span>RushX Organization Ecosystem</span>
             </div>
-            <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground sm:text-5xl">
+            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
               {marqueeSettings.heading}
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
               {marqueeSettings.subheading ||
-                "Official esports communities, brands, and creators collaborating with Ace Scrims across Bangladesh."}
+                "Official esports communities, brands, and creators collaborating with RushX Organization across Bangladesh."}
             </p>
           </div>
         </section>
@@ -70,7 +70,7 @@ export default async function PartnershipsPage() {
                 Partnership Announcements Coming Soon
               </h2>
               <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                Interested in partnering with Ace Scrims for tournaments, sponsorships, or creator
+                Interested in partnering with RushX Organization for tournaments, sponsorships, or creator
                 collaborations? Reach out to our team.
               </p>
             </div>
@@ -153,8 +153,8 @@ export default async function PartnershipsPage() {
               <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                 <Sparkles className="size-3.5" /> Partner With Us
               </p>
-              <h3 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-                Want to collaborate with Ace Scrims?
+              <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                Want to collaborate with RushX Organization?
               </h3>
               <p className="text-sm text-muted-foreground">
                 Content creators can apply directly for an official referral code &amp; Creator Wallet.

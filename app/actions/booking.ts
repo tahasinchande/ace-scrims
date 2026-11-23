@@ -118,7 +118,7 @@ export async function createBooking(
 
   data.paymentMethod = matchedMethod.code
   if (!matchedMethod.requiresAccountNumber) {
-    data.paymentNumber = data.paymentNumber || "Ace Scrims Account Balance"
+    data.paymentNumber = data.paymentNumber || "RushX Organization Account Balance"
   } else if (!data.paymentNumber || data.paymentNumber.trim().length < 5) {
     return {
       ok: false,

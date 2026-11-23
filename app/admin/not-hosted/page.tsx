@@ -7,7 +7,7 @@ import { getActiveScrims } from "@/lib/queries/scrims"
 import { AdminNotHosted } from "@/components/admin/admin-not-hosted"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Not Hosted & Refunds — Ace Scrims Admin" }
+export const metadata = { title: "Not Hosted & Refunds — RushX Organization Admin" }
 
 export default async function AdminNotHostedPage() {
   const user = await getSessionUser()

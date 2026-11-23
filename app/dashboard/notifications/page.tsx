@@ -3,7 +3,7 @@ import { getUserNotifications } from "@/lib/queries/dashboard"
 import { NotificationsList } from "@/components/dashboard/notifications-list"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Notifications — Ace Scrims" }
+export const metadata = { title: "Notifications — RushX Organization" }
 
 export default async function NotificationsPage() {
   const user = await requireUser()

@@ -212,10 +212,10 @@ export default function MaintenancePage() {
             SYSTEM MAINTENANCE IN PROGRESS
           </p>
           <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wide text-balance text-foreground">
-            Upgrading Ace Scrims Infrastructure
+            Upgrading RushX Organization Infrastructure
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
-            Ace Scrims is currently carrying out routine system upgrades for tonight&apos;s 12 scrim matches. Registrations will reopen shortly!
+            RushX Organization is currently carrying out routine system upgrades for tonight&apos;s 12 scrim matches. Registrations will reopen shortly!
           </p>
           <p className="font-semibold text-orange-400 text-xs mt-1">
             সাইটটি বর্তমানে রক্ষণাবেক্ষণের অধীনে আছে। শীঘ্রই আজকের ১২টি স্ক্রিমের বুকিং চালু হবে।

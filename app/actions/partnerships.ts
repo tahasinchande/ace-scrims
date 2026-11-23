@@ -43,7 +43,7 @@ const marqueeSettingsSchema = z.object({
   enabled: z.boolean(),
   heading: z.string().trim().min(2, "Section heading is required").max(80),
   subheading: z.string().trim().max(180),
-  speedSeconds: z.coerce.number().int().min(10).max(90),
+  speedSeconds: z.coerce.number().min(1, "Duration must be at least 1 second").max(300, "Duration must be 300 seconds or less"),
   direction: z.enum(["left", "right"]),
   showBadges: z.boolean(),
 })

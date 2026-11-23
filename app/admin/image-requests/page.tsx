@@ -6,7 +6,7 @@ import { desc, eq, and } from "drizzle-orm"
 import { AdminImageRequestsView } from "@/components/admin/admin-image-requests-view"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Image Requests — Ace Scrims Admin" }
+export const metadata = { title: "Image Requests — RushX Organization Admin" }
 
 export default async function AdminImageRequestsPage({
   searchParams,

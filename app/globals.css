@@ -39,8 +39,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
-  --font-sans: var(--font-manrope), "Noto Sans Bengali", "SolaimanLipi", "Kalpurush", system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-manrope), "Noto Sans Bengali", "SolaimanLipi", "Kalpurush", system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-body), "Noto Sans Bengali", "SolaimanLipi", "Kalpurush", system-ui, sans-serif;
+  --font-display: var(--font-heading), "Noto Sans Bengali", "SolaimanLipi", "Kalpurush", system-ui, sans-serif;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -50,45 +50,45 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Ace Scrims — Institutional dark obsidian & luminous amber palette */
+/* RushX Organization — Dark obsidian esports theme with DeepCharts surface depth */
 :root,
 .dark {
   color-scheme: dark;
-  --background: oklch(0.115 0.014 266);
-  --foreground: oklch(0.965 0.005 268);
-  --card: oklch(0.158 0.017 266);
-  --card-foreground: oklch(0.965 0.005 268);
-  --popover: oklch(0.148 0.016 266);
-  --popover-foreground: oklch(0.965 0.005 268);
-  --primary: oklch(0.73 0.185 48);
-  --primary-foreground: oklch(0.125 0.012 270);
-  --secondary: oklch(0.205 0.02 266);
-  --secondary-foreground: oklch(0.965 0.005 268);
-  --muted: oklch(0.195 0.016 266);
-  --muted-foreground: oklch(0.715 0.014 266);
-  --accent: oklch(0.62 0.19 278);
+  --background: oklch(0.125 0.013 268);
+  --foreground: oklch(0.96 0.005 270);
+  --card: oklch(0.165 0.015 268);
+  --card-foreground: oklch(0.96 0.005 270);
+  --popover: oklch(0.155 0.014 268);
+  --popover-foreground: oklch(0.96 0.005 270);
+  --primary: oklch(0.72 0.19 45);
+  --primary-foreground: oklch(0.13 0.012 270);
+  --secondary: oklch(0.215 0.02 268);
+  --secondary-foreground: oklch(0.96 0.005 270);
+  --muted: oklch(0.205 0.016 268);
+  --muted-foreground: oklch(0.70 0.012 268);
+  --accent: oklch(0.58 0.2 285);
   --accent-foreground: oklch(0.98 0.005 270);
   --destructive: oklch(0.6 0.22 25);
-  --border: oklch(0.275 0.018 266);
-  --input: oklch(0.23 0.018 266);
-  --ring: oklch(0.73 0.185 48);
-  --success: oklch(0.73 0.165 156);
-  --warning: oklch(0.81 0.16 84);
-  --info: oklch(0.69 0.15 242);
-  --chart-1: oklch(0.73 0.185 48);
-  --chart-2: oklch(0.62 0.19 278);
-  --chart-3: oklch(0.69 0.15 242);
-  --chart-4: oklch(0.73 0.165 156);
-  --chart-5: oklch(0.81 0.16 84);
+  --border: oklch(0.285 0.02 268);
+  --input: oklch(0.24 0.018 270);
+  --ring: oklch(0.72 0.19 45);
+  --success: oklch(0.72 0.17 155);
+  --warning: oklch(0.8 0.16 85);
+  --info: oklch(0.68 0.15 240);
+  --chart-1: oklch(0.72 0.19 45);
+  --chart-2: oklch(0.58 0.2 285);
+  --chart-3: oklch(0.68 0.15 240);
+  --chart-4: oklch(0.72 0.17 155);
+  --chart-5: oklch(0.8 0.16 85);
   --radius: 0.75rem;
-  --sidebar: oklch(0.145 0.014 266);
-  --sidebar-foreground: oklch(0.965 0.005 268);
-  --sidebar-primary: oklch(0.73 0.185 48);
-  --sidebar-primary-foreground: oklch(0.125 0.012 270);
-  --sidebar-accent: oklch(0.205 0.016 266);
-  --sidebar-accent-foreground: oklch(0.965 0.005 268);
-  --sidebar-border: oklch(0.255 0.018 266);
-  --sidebar-ring: oklch(0.73 0.185 48);
+  --sidebar: oklch(0.15 0.013 270);
+  --sidebar-foreground: oklch(0.96 0.005 270);
+  --sidebar-primary: oklch(0.72 0.19 45);
+  --sidebar-primary-foreground: oklch(0.13 0.012 270);
+  --sidebar-accent: oklch(0.21 0.016 270);
+  --sidebar-accent-foreground: oklch(0.96 0.005 270);
+  --sidebar-border: oklch(0.26 0.018 270);
+  --sidebar-ring: oklch(0.72 0.19 45);
 }
 
 @layer base {
@@ -97,7 +97,7 @@
     box-sizing: border-box;
   }
   html {
-    background-color: #020306;
+    background-color: #04060d;
     overflow-x: hidden;
     max-width: 100vw;
     width: 100%;
@@ -110,23 +110,13 @@
     width: 100%;
     position: relative;
     font-family: var(--font-sans);
-    font-weight: 600;
-    font-size: 15px;
-    line-height: 1.62;
-    letter-spacing: -0.011em;
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
     @apply text-foreground;
   }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.025em;
-  }
-  p, a, span, li, label, button, input, select, textarea, td, th {
-    font-family: var(--font-sans);
-    font-weight: 600;
+  h1, h2, h3, h4 {
+    letter-spacing: -0.015em;
   }
   code, pre, kbd, .font-mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -140,14 +130,14 @@
   /* DeepCharts-inspired multi-stop obsidian-indigo gradient surface with refined hairline edge */
   .dc-surface {
     background:
-      radial-gradient(120% 90% at 15% 0%, rgba(79, 98, 168, 0.14) 0%, transparent 56%),
+      radial-gradient(120% 90% at 15% 0%, rgba(109, 94, 210, 0.14) 0%, transparent 56%),
       radial-gradient(95% 75% at 88% 100%, rgba(249, 115, 22, 0.075) 0%, transparent 58%),
-      linear-gradient(160deg, rgba(20, 27, 46, 0.90) 0%, rgba(11, 15, 27, 0.95) 54%, rgba(6, 9, 17, 0.985) 100%);
+      linear-gradient(160deg, rgba(18, 24, 42, 0.78) 0%, rgba(10, 14, 26, 0.86) 54%, rgba(6, 9, 17, 0.92) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.085);
     box-shadow:
-      0 20px 48px -20px rgba(0, 0, 0, 0.85),
+      0 20px 48px -20px rgba(0, 0, 0, 0.8),
       inset 0 1px 0 rgba(255, 255, 255, 0.09);
   }
 
@@ -162,7 +152,7 @@
     transform: translateY(-2px);
     border-color: color-mix(in oklch, var(--primary) 42%, rgba(255, 255, 255, 0.16));
     box-shadow:
-      0 26px 56px -20px rgba(0, 0, 0, 0.9),
+      0 26px 56px -20px rgba(0, 0, 0, 0.85),
       0 0 0 1px color-mix(in oklch, var(--primary) 16%, transparent),
       inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
@@ -173,7 +163,7 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
-  /* RandomQbit-inspired dynamic outer hover splash for Scrim Cards */
+  /* Dynamic outer hover splash for Scrim Cards */
   .scrim-splash-wrap {
     position: relative;
     --splash-x: 50%;
@@ -191,7 +181,7 @@
     transform: scale(0.97);
     transition: opacity 280ms cubic-bezier(0.22, 1, 0.36, 1), transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
     background:
-      radial-gradient(240px circle at var(--splash-x) var(--splash-y), rgba(249, 115, 22, 0.42) 0%, rgba(99, 102, 241, 0.24) 44%, transparent 74%);
+      radial-gradient(240px circle at var(--splash-x) var(--splash-y), rgba(249, 115, 22, 0.42) 0%, rgba(139, 92, 246, 0.28) 44%, transparent 74%);
   }
 
   .scrim-splash-ring {
@@ -203,7 +193,7 @@
     opacity: 0;
     transition: opacity 260ms ease;
     background:
-      radial-gradient(260px circle at var(--splash-x) var(--splash-y), rgba(251, 146, 60, 0.75) 0%, rgba(129, 140, 248, 0.42) 45%, rgba(255, 255, 255, 0.08) 72%, transparent 100%);
+      radial-gradient(260px circle at var(--splash-x) var(--splash-y), rgba(251, 146, 60, 0.75) 0%, rgba(167, 139, 250, 0.46) 45%, rgba(255, 255, 255, 0.08) 72%, transparent 100%);
   }
 
   .scrim-splash-wrap:hover .scrim-splash-aura {
@@ -215,23 +205,23 @@
     opacity: 1;
   }
 
-  /* Glassmorphism surface harmonized with DeepCharts gradient depth */
+  /* Glassmorphism surface */
   .glass {
     background:
-      radial-gradient(110% 80% at 10% 0%, rgba(76, 94, 158, 0.11) 0%, transparent 55%),
-      linear-gradient(165deg, rgba(17, 23, 39, 0.86) 0%, rgba(8, 11, 21, 0.94) 100%);
+      radial-gradient(110% 80% at 10% 0%, rgba(90, 94, 175, 0.12) 0%, transparent 55%),
+      linear-gradient(165deg, rgba(17, 23, 39, 0.76) 0%, rgba(8, 11, 21, 0.86) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow:
-      0 18px 40px -18px rgba(0, 0, 0, 0.78),
+      0 18px 40px -18px rgba(0, 0, 0, 0.75),
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .glass-strong {
     background:
-      radial-gradient(120% 85% at 15% 0%, rgba(88, 108, 178, 0.14) 0%, transparent 58%),
-      linear-gradient(165deg, rgba(20, 27, 45, 0.94) 0%, rgba(9, 12, 23, 0.98) 100%);
+      radial-gradient(120% 85% at 15% 0%, rgba(98, 108, 188, 0.14) 0%, transparent 58%),
+      linear-gradient(165deg, rgba(20, 27, 45, 0.90) 0%, rgba(9, 12, 23, 0.96) 100%);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.105);
@@ -240,7 +230,7 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
-  /* Subtle precision glow accents */
+  /* Neon glow accents */
   .glow-primary {
     box-shadow: 0 8px 24px -8px color-mix(in oklch, var(--primary) 52%, transparent);
   }
@@ -306,17 +296,81 @@
   }
 }
 
-/* Infinite Marquee — borderless, continuous, seamless, NEVER pauses on hover or focus */
+/* Full-page 2D sequential single-hue color-shifting atmosphere (GPU-composited, zero mixed colors) */
+.rushx-ambient-canvas {
+  background:
+    radial-gradient(92% 72% at 50% 8%, hsla(265, 86%, 54%, 0.34) 0%, hsla(265, 80%, 42%, 0.16) 44%, transparent 78%),
+    radial-gradient(88% 78% at 50% 94%, hsla(265, 84%, 48%, 0.28) 0%, hsla(265, 76%, 36%, 0.12) 48%, transparent 82%),
+    linear-gradient(180deg, hsl(265, 42%, 11%) 0%, hsl(265, 34%, 7%) 52%, hsl(265, 38%, 10%) 100%);
+  animation: rushx-sequential-hue 36s ease-in-out infinite;
+  will-change: filter;
+}
+
+/* Single monochrome breathing luminance layer (exact same hue as parent canvas for seamless depth) */
+.rushx-ambient-glow {
+  background:
+    radial-gradient(74% 62% at 50% 38%, hsla(265, 92%, 62%, 0.24) 0%, hsla(265, 84%, 46%, 0.1) 46%, transparent 78%);
+  animation: rushx-glow-breathe 14s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes rushx-sequential-hue {
+  0%, 7% {
+    filter: hue-rotate(0deg) saturate(1.08);
+  }
+  16.6%, 23.6% {
+    filter: hue-rotate(72deg) saturate(1.1);
+  }
+  33.3%, 40.3% {
+    filter: hue-rotate(122deg) saturate(1.12);
+  }
+  50%, 57% {
+    filter: hue-rotate(252deg) saturate(1.08);
+  }
+  66.6%, 73.6% {
+    filter: hue-rotate(292deg) saturate(1.1);
+  }
+  83.3%, 90.3% {
+    filter: hue-rotate(320deg) saturate(1.08);
+  }
+  100% {
+    filter: hue-rotate(360deg) saturate(1.08);
+  }
+}
+
+@keyframes rushx-glow-breathe {
+  0% {
+    transform: translate3d(0, -3%, 0) scale(0.98);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translate3d(0, 2%, 0) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 5%, 0) scale(1.01);
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rushx-ambient-canvas,
+  .rushx-ambient-glow {
+    animation: none !important;
+  }
+}
+
+/* Infinite Marquee — borderless, compact, continuous, seamless loop, NEVER pauses on hover */
 .partnership-marquee-wrap {
-  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
 }
 
 .partnership-marquee-track {
   display: flex;
+  flex-wrap: nowrap;
   width: max-content;
-  min-width: 200%;
-  animation: partnership-marquee var(--marquee-duration, 30s) linear infinite;
+  animation: partnership-marquee var(--marquee-duration, 24s) linear infinite;
   animation-play-state: running !important;
   will-change: transform;
 }

@@ -99,7 +99,7 @@ export function HistoricalScrimView({
     }
 
     const lines: string[] = [
-      `🏆 ACE SCRIMS — ${selectedScrim.title.toUpperCase()}`,
+      `🏆 RUSHX ORGANIZATION — ${selectedScrim.title.toUpperCase()}`,
       `📅 Match Date: ${selectedDate} | ⏰ Time: ${selectedScrim.startTime} | 🗺️ Map: ${selectedScrim.map}`,
       `💰 Entry: ${formatTaka(selectedScrim.priceBdt)} | Prize: ${formatTaka(selectedScrim.prizePoolBdt)}`,
       `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
@@ -113,7 +113,7 @@ export function HistoricalScrimView({
     })
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-    lines.push(`Official Ace Scrims • www.acescrims.online`)
+    lines.push(`Official RushX Organization • www.acescrims.online`)
 
     navigator.clipboard.writeText(lines.join("\n"))
     toast.success("Team roster copied to clipboard!")
