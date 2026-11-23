@@ -20,7 +20,7 @@ export default async function MyResultsPage() {
       </div>
 
       {withResults.length === 0 ? (
-        <div className="glass flex flex-col items-center gap-3 rounded-2xl py-16 text-center">
+        <div className="dc-surface flex flex-col items-center gap-3 rounded-2xl py-16 text-center">
           <Trophy className="size-10 text-muted-foreground" aria-hidden />
           <p className="font-display text-xl font-bold uppercase">No wins recorded yet</p>
           <p className="max-w-sm text-sm text-muted-foreground">
@@ -30,12 +30,10 @@ export default async function MyResultsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {withResults.map((b) => (
-            <article key={b.id} className="glass flex flex-col gap-3 rounded-2xl p-5">
+            <article key={b.id} className="dc-surface rushx-box-splash flex flex-col gap-3 rounded-2xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-primary/15">
-                    <Trophy className="size-5 text-primary" aria-hidden />
-                  </div>
+                  <Trophy className="size-5 shrink-0 text-amber-400" aria-hidden />
                   <div>
                     <p className="font-display font-bold">{b.scrim?.title ?? "Scrim"}</p>
                     <p className="text-xs text-muted-foreground">
@@ -47,18 +45,18 @@ export default async function MyResultsPage() {
                   Prize {b.result?.prizeStatus}
                 </Badge>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-secondary/60 px-2 py-2.5">
-                  <p className="font-display text-lg font-bold">#{b.result?.placement ?? 1}</p>
-                  <p className="text-[10px] text-muted-foreground">Placement</p>
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <div className="dc-metric-cell rounded-xl px-2 py-2.5">
+                  <p className="font-display text-lg font-bold tabular-nums">#{b.result?.placement ?? 1}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Placement</p>
                 </div>
-                <div className="rounded-lg bg-secondary/60 px-2 py-2.5">
-                  <p className="font-display text-lg font-bold">{b.result?.kills ?? 0}</p>
-                  <p className="text-[10px] text-muted-foreground">Kills</p>
+                <div className="dc-metric-cell rounded-xl px-2 py-2.5">
+                  <p className="font-display text-lg font-bold tabular-nums">{b.result?.kills ?? 0}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Kills</p>
                 </div>
-                <div className="rounded-lg bg-secondary/60 px-2 py-2.5">
-                  <p className="font-display text-lg font-bold text-primary">{bdt(b.result?.prizeBdt ?? 0)}</p>
-                  <p className="text-[10px] text-muted-foreground">Prize</p>
+                <div className="dc-metric-cell rounded-xl px-2 py-2.5">
+                  <p className="font-display text-lg font-bold text-emerald-400 tabular-nums">{bdt(b.result?.prizeBdt ?? 0)}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Prize</p>
                 </div>
               </div>
             </article>

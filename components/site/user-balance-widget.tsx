@@ -84,26 +84,22 @@ export function UserBalanceWidget({
       href={targetHref}
       title="RushX Wallet — Click to manage funds & load balance"
       className={cn(
-        "group relative inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-500/30 bg-zinc-900/90 px-3 py-1 text-xs transition-all hover:border-emerald-500/60 hover:bg-zinc-850 hover:shadow-sm hover:shadow-emerald-500/10",
+        "rushx-btn-splash group relative inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0d1428]/85 px-3 py-1 text-xs backdrop-blur-md transition-all hover:border-emerald-400/60 hover:bg-emerald-500/12 hover:shadow-sm hover:shadow-emerald-500/15",
         className
       )}
     >
-      <div className="flex size-5 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-400 group-hover:bg-emerald-500/25 transition-colors">
-        <Wallet className="size-3.5" />
-      </div>
+      <Wallet className="size-3.5 text-emerald-400 shrink-0" />
 
       <div className="flex flex-col items-start leading-tight">
-        <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-400 group-hover:text-zinc-300">
+        <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400 group-hover:text-slate-300">
           Balance
         </span>
-        <span className="font-mono text-xs font-bold text-emerald-400 group-hover:text-emerald-300">
+        <span className="font-mono text-xs font-bold text-emerald-400 group-hover:text-emerald-300 tabular-nums">
           ৳{loaded ? balance : "..."}
         </span>
       </div>
 
-      <div className="ml-1 flex items-center justify-center rounded bg-emerald-500/10 p-0.5 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
-        <Plus className="size-3" />
-      </div>
+      <Plus className="ml-0.5 size-3.5 text-emerald-400/80 transition-transform group-hover:scale-110 group-hover:text-emerald-300" />
     </Link>
   )
 }

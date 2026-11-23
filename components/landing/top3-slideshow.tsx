@@ -160,9 +160,9 @@ export function Top3BannerSlideshow({ items }: { items?: Top3BannerItem[] }) {
       {/* Main Slideshow Stage with Smooth Motion Transitions */}
       <div className="relative overflow-hidden rounded-3xl border border-primary/30 bg-black/80 shadow-2xl backdrop-blur-xl">
         {/* Animated Progress Bar at Top */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-zinc-800 z-30 overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-30 overflow-hidden">
           <motion.div
-            className="h-full bg-gradient-to-r from-orange-500 via-amber-400 to-rose-500"
+            className="h-full bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400"
             style={{ width: `${progress}%` }}
             transition={{ ease: "linear" }}
           />
@@ -203,8 +203,8 @@ export function Top3BannerSlideshow({ items }: { items?: Top3BannerItem[] }) {
               className="flex flex-col gap-2 max-w-xl"
             >
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/20 border border-orange-500/40 px-3 py-1 text-xs font-display font-bold uppercase tracking-wider text-orange-400 backdrop-blur-md">
-                  <Trophy className="size-3.5" />
+                <span className="inline-flex items-center gap-1.5 text-xs font-display font-bold uppercase tracking-[0.14em] text-violet-300">
+                  <Trophy className="size-3.5 text-cyan-300" />
                   {current.category || "Top 3 Face Banner"}
                 </span>
                 <span className="text-xs text-slate-300 font-semibold">
@@ -234,9 +234,9 @@ export function Top3BannerSlideshow({ items }: { items?: Top3BannerItem[] }) {
                 <p className="font-display text-lg sm:text-xl font-black text-white">{current.kills}</p>
               </div>
 
-              <div className="rounded-2xl border border-primary/40 bg-orange-950/40 p-3 sm:p-3.5 backdrop-blur-md text-center min-w-[95px] shadow-lg">
-                <p className="text-[10px] uppercase tracking-wider text-orange-400 font-bold">Prize</p>
-                <p className="font-display text-lg sm:text-xl font-black text-emerald-400">{bdt(current.prizeBdt)}</p>
+              <div className="rounded-2xl border border-violet-400/35 bg-violet-950/45 p-3 sm:p-3.5 backdrop-blur-md text-center min-w-[95px] shadow-lg">
+                <p className="text-[10px] uppercase tracking-wider text-violet-300 font-bold">Prize</p>
+                <p className="font-display text-lg sm:text-xl font-black text-emerald-400 tabular-nums">{bdt(current.prizeBdt)}</p>
               </div>
 
               <Button
@@ -260,7 +260,7 @@ export function Top3BannerSlideshow({ items }: { items?: Top3BannerItem[] }) {
                 if (diff !== 0) paginate(diff)
               }}
               className={`h-2 rounded-full transition-all duration-300 ${
-                currentIndex === idx ? "w-6 bg-gradient-to-r from-orange-500 to-amber-400" : "w-2 bg-white/40 hover:bg-white/70"
+                currentIndex === idx ? "w-6 bg-gradient-to-r from-violet-500 to-cyan-400" : "w-2 bg-white/40 hover:bg-white/70"
               }`}
               aria-label={`Go to slide ${idx + 1}`}
             />

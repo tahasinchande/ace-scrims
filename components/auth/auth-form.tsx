@@ -269,13 +269,15 @@ export function AuthForm({ mode }: { mode: Mode }) {
     <motion.form
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4.5"
     >
       {mode === "sign-up" && (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Full name</Label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="name" className="text-xs font-semibold text-slate-200">
+            Full name
+          </Label>
           <Input
             id="name"
             value={name}
@@ -283,11 +285,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
             placeholder="Your name"
             required
             autoComplete="name"
+            className="h-11 rounded-xl border-violet-300/18 bg-[#0b1024]/85 px-3.5 text-sm text-white placeholder:text-slate-500 focus-visible:border-violet-400/60"
           />
         </div>
       )}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="email" className="text-xs font-semibold text-slate-200">
+          Email
+        </Label>
         <Input
           id="email"
           type="email"
@@ -296,13 +301,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
           placeholder="you@example.com"
           required
           autoComplete="email"
+          className="h-11 rounded-xl border-violet-300/18 bg-[#0b1024]/85 px-3.5 text-sm text-white placeholder:text-slate-500 focus-visible:border-violet-400/60"
         />
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className="text-xs font-semibold text-slate-200">
+            Password
+          </Label>
           {mode === "sign-in" && (
-            <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+            <Link href="/forgot-password" className="text-xs font-medium text-violet-300 hover:text-violet-200 hover:underline">
               Forgot password?
             </Link>
           )}
@@ -317,12 +325,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
             required
             minLength={8}
             autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-            className="pr-10"
+            className="h-11 rounded-xl border-violet-300/18 bg-[#0b1024]/85 px-3.5 pr-10 text-sm text-white placeholder:text-slate-500 focus-visible:border-violet-400/60"
           />
           <button
             type="button"
             onClick={() => setShowPassword((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -331,13 +339,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
       </div>
 
       {mode === "sign-up" && (
-        <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-secondary/20 p-3.5">
+        <div className="dc-metric-cell flex flex-col gap-2 rounded-xl p-3.5">
           <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="referralCode" className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Gift className="size-3.5 text-primary" />
+            <Label htmlFor="referralCode" className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <Gift className="size-3.5 text-violet-300" />
               Referral Code (Optional)
             </Label>
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
               <Lock className="size-3" /> Sign-up only
             </span>
           </div>
@@ -348,10 +356,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
             placeholder="Enter Creator or Player referral code"
             maxLength={24}
             autoComplete="off"
-            className="font-mono uppercase tracking-wider bg-background/70"
+            className="h-10 rounded-lg border-violet-300/15 bg-[#080c1d]/90 font-mono uppercase tracking-wider text-white placeholder:text-slate-500"
           />
           {refCheck.status === "checking" && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-xs text-slate-400">
               <Loader2 className="size-3 animate-spin" /> Checking referral code...
             </p>
           )}
@@ -369,7 +377,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </p>
           )}
           {refCheck.status === "idle" && (
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
               Applies to both Email &amp; Password and Google sign-up. Referral codes lock permanently after registration.
             </p>
           )}
@@ -378,10 +386,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       {error && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1.5"
+          className="rounded-xl border border-rose-500/35 bg-rose-950/35 px-3.5 py-2.5 text-sm text-rose-200 space-y-1.5"
         >
           <p>{error}</p>
           {iframeTabUrl && (
@@ -398,81 +406,73 @@ export function AuthForm({ mode }: { mode: Mode }) {
       )}
       {info && (
         <motion.p
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm text-primary"
+          className="rounded-xl border border-violet-400/35 bg-violet-500/12 px-3.5 py-2.5 text-sm text-violet-200"
         >
           {info}
         </motion.p>
       )}
 
-      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-        <Button
-          type="submit"
-          disabled={loading || googleLoading}
-          className="h-11 w-full font-semibold glow-primary button-shimmer"
-        >
-          {loading && <Loader2 className="size-4 animate-spin mr-2" />}
-          {mode === "sign-up" ? "Create account" : "Sign in"}
-        </Button>
-      </motion.div>
+      <Button
+        type="submit"
+        disabled={loading || googleLoading}
+        className="h-11.5 w-full rounded-xl font-semibold text-sm glow-primary button-shimmer"
+      >
+        {loading && <Loader2 className="size-4 animate-spin mr-2" />}
+        {mode === "sign-up" ? "Create account" : "Sign in"}
+      </Button>
 
       <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
-        <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
-        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">or</span>
+        <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
       </div>
 
-      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={loading || googleLoading}
-          onClick={handleGoogle}
-          className="h-11 w-full gap-2 font-semibold bg-transparent hover:bg-secondary/50 border-border/80 transition-all"
-        >
-          {googleLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52Z"
-              />
-            </svg>
-          )}
-          Continue with Google
-        </Button>
-      </motion.div>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={loading || googleLoading}
+        onClick={handleGoogle}
+        className="h-11.5 w-full gap-2.5 rounded-xl font-semibold bg-white/[0.03] hover:bg-white/[0.08] border-violet-300/20 text-white transition-all"
+      >
+        {googleLoading ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52Z"
+            />
+          </svg>
+        )}
+        Continue with Google
+      </Button>
 
-      <p className="text-center text-xs text-muted-foreground leading-relaxed bg-muted/30 p-2.5 rounded-lg border border-border/50">
-        Tip: You can enter any <strong>@gmail.com</strong> address in the Email field above with a password to sign up or sign in instantly.
-      </p>
-
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-slate-400 pt-1">
         {mode === "sign-up" ? (
           <>
             Already have an account?{" "}
-            <Link href="/sign-in" className="text-primary hover:underline font-semibold">
+            <Link href="/sign-in" className="text-violet-300 hover:text-violet-200 hover:underline font-semibold">
               Sign in
             </Link>
           </>
         ) : (
           <>
             New to RushX Organization?{" "}
-            <Link href="/sign-up" className="text-primary hover:underline font-semibold">
+            <Link href="/sign-up" className="text-violet-300 hover:text-violet-200 hover:underline font-semibold">
               Create account
             </Link>
           </>

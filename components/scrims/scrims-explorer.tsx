@@ -155,9 +155,9 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
           type="button"
           onClick={() => setSelectedCategory("all")}
           className={cn(
-            "flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
+            "rushx-btn-splash flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
             selectedCategory === "all"
-              ? "border-orange-400/40 bg-gradient-to-b from-orange-400 to-orange-500 text-zinc-950 shadow-lg shadow-orange-500/20"
+              ? "border-violet-400/45 bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/25"
               : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-foreground"
           )}
         >

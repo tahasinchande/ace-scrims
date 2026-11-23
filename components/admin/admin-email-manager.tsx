@@ -400,33 +400,39 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
     })
   }
 
-  // Construct sandboxed HTML preview document
+  // Construct sandboxed HTML preview document matching RushX Organization email shell
   const previewDoc = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;background:#05060a;color:#e2e8f0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;background:#0c0e17;border:1px solid #1e2235;border-radius:12px;overflow:hidden;">
-    <div style="height:4px;background:linear-gradient(90deg,#ea580c,#f97316,#ea580c);"></div>
+<body style="margin:0;padding:24px;background:#050712;color:#e2e8f0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;background:#0a0f22;border:1px solid #1e2749;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.75);">
+    <div style="height:4px;background:linear-gradient(90deg,#7c3aed 0%,#4f46e5 52%,#38bdf8 100%);"></div>
+    <div style="padding:20px 28px 16px 28px;background:linear-gradient(180deg,#12193a 0%,#0a0f22 100%);border-bottom:1px solid #1a2344;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <img src="/images/brand/rushx-full-white.png" alt="RushX Organization" style="height:26px;width:auto;object-fit:contain;display:block;" />
+      <span style="font-size:10px;font-weight:700;letter-spacing:1.3px;color:#38bdf8;text-transform:uppercase;">${escapePreviewHtml(label)}</span>
+    </div>
     <div style="padding:28px;">
-      <div style="margin-bottom:18px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#f97316;text-transform:uppercase;">RUSHX ORGANIZATION · ${escapePreviewHtml(label)}</div>
-      <h2 style="margin:0 0 14px 0;color:#ffffff;font-size:18px;">${escapePreviewHtml(subject)}</h2>
+      <h2 style="margin:0 0 14px 0;color:#ffffff;font-size:19px;font-weight:800;letter-spacing:-0.3px;">${escapePreviewHtml(subject)}</h2>
       ${
         format === "text"
-          ? `<pre style="white-space:pre-wrap;font-family:inherit;color:#cbd5e1;font-size:14px;line-height:1.6;">${escapePreviewHtml(bodyText)}</pre>`
-          : `<div style="color:#cbd5e1;font-size:14px;line-height:1.65;">${bodyHtml}</div>`
+          ? `<pre style="white-space:pre-wrap;font-family:inherit;color:#cbd5e1;font-size:14px;line-height:1.65;">${escapePreviewHtml(bodyText)}</pre>`
+          : `<div style="color:#cbd5e1;font-size:14px;line-height:1.7;">${bodyHtml}</div>`
       }
       ${mediaItems
         .map((m) =>
           m.type === "image"
-            ? `<div style="margin-top:16px;"><img src="${escapePreviewHtml(resolveImageUrl(m.url))}" alt="" style="max-width:100%;border-radius:8px;border:1px solid #1e2235;" /></div>`
-            : `<div style="margin-top:14px;padding:10px 14px;background:#121524;border:1px solid #1e2235;border-radius:8px;font-size:13px;color:#f97316;">[${escapePreviewHtml(m.type.toUpperCase())}] ${escapePreviewHtml(m.name || m.url)}</div>`
+            ? `<div style="margin-top:16px;"><img src="${escapePreviewHtml(resolveImageUrl(m.url))}" alt="" style="max-width:100%;border-radius:10px;border:1px solid #1e2749;" /></div>`
+            : `<div style="margin-top:14px;padding:10px 14px;background:#111735;border:1px solid #1e2749;border-radius:10px;font-size:13px;color:#a78bfa;">[${escapePreviewHtml(m.type.toUpperCase())}] ${escapePreviewHtml(m.name || m.url)}</div>`
         )
         .join("")}
       ${
         ctaText && ctaUrl
-          ? `<div style="margin-top:24px;text-align:center;"><span style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;font-size:13px;padding:12px 26px;border-radius:8px;text-transform:uppercase;">${escapePreviewHtml(ctaText)}</span></div>`
+          ? `<div style="margin-top:26px;text-align:center;"><span style="display:inline-block;background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);color:#fff;font-weight:700;font-size:13px;padding:12px 28px;border-radius:10px;letter-spacing:0.4px;">${escapePreviewHtml(ctaText)}</span></div>`
           : ""
       }
+    </div>
+    <div style="padding:14px 28px;border-top:1px solid #1a2344;text-align:center;font-size:11px;color:#64748b;">
+      RushX Organization · Competitive Free Fire Esports Platform
     </div>
   </div>
 </body>
@@ -437,8 +443,8 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Sidebar: Email Purpose List */}
         <div className="lg:col-span-4 flex flex-col gap-3">
-          <div className="glass rounded-2xl border border-border/70 p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
+          <div className="dc-surface rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
@@ -468,36 +474,31 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                   <div
                     key={tpl.id}
                     className={cn(
-                      "rounded-xl border p-3 transition-all flex items-center justify-between gap-3",
+                      "rushx-box-splash rounded-xl border p-3 transition-all flex items-center justify-between gap-3",
                       selected
-                        ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border/60 bg-secondary/30 hover:bg-secondary/60"
+                        ? "border-violet-400/50 bg-violet-500/14 shadow-[0_10px_28px_-14px_rgba(124,58,237,0.7)]"
+                        : "dc-metric-cell hover:border-violet-400/30"
                     )}
                   >
                     <button
                       type="button"
                       onClick={() => handleSelectTemplate(tpl)}
-                      className="min-w-0 flex-1 text-left"
+                      className="min-w-0 flex-1 text-left cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
                         <Mail
                           className={cn(
                             "size-4 shrink-0",
-                            selected ? "text-primary" : "text-muted-foreground"
+                            selected ? "text-violet-300" : "text-slate-400"
                           )}
                         />
                         <span className="font-display text-sm font-bold uppercase tracking-wide truncate text-foreground">
                           {tpl.label}
                         </span>
-                        {(tpl.purposeKey === "welcome" || tpl.purposeKey === "register") && (
-                          <span className="shrink-0 rounded-md border border-border/80 bg-background/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Default: OFF
-                          </span>
-                        )}
                       </div>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
-                        {tpl.purposeKey} · {tpl.isCore ? "Core Trigger" : "Custom"} ·{" "}
-                        {tpl.format.toUpperCase()}
+                      <p className="mt-0.5 text-[11px] text-slate-400 truncate">
+                        {tpl.purposeKey} · {tpl.isCore ? "Core" : "Custom"} · {tpl.format.toUpperCase()}
+                        {(tpl.purposeKey === "welcome" || tpl.purposeKey === "register") ? " · Default OFF" : ""}
                       </p>
                     </button>
 
@@ -511,7 +512,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                         "shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer disabled:opacity-60",
                         tpl.isEnabled
                           ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                          : "border-white/10 bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:border-white/20"
+                          : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white hover:border-white/20"
                       )}
                     >
                       {togglingKey === (tpl.purposeKey || tpl.id) ? (
@@ -641,10 +642,10 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                       type="button"
                       onClick={() => setFormat("html")}
                       className={cn(
-                        "h-9 rounded-lg border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-1.5",
+                        "h-9 rounded-lg border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer",
                         format === "html"
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-secondary/40 text-muted-foreground hover:text-foreground"
+                          ? "border-violet-400/50 bg-violet-500/16 text-violet-200"
+                          : "dc-metric-cell text-slate-400 hover:text-white"
                       )}
                     >
                       <Code2 className="size-3.5" /> HTML + Text
@@ -653,10 +654,10 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                       type="button"
                       onClick={() => setFormat("text")}
                       className={cn(
-                        "h-9 rounded-lg border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-1.5",
+                        "h-9 rounded-lg border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer",
                         format === "text"
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-secondary/40 text-muted-foreground hover:text-foreground"
+                          ? "border-violet-400/50 bg-violet-500/16 text-violet-200"
+                          : "dc-metric-cell text-slate-400 hover:text-white"
                       )}
                     >
                       Plain Text
@@ -696,9 +697,9 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
 
               {/* Variables Helper */}
               {activeTemplate.variablesHint.length > 0 && (
-                <div className="rounded-xl border border-border/60 bg-secondary/20 p-3 flex flex-col gap-2">
+                <div className="dc-metric-cell rounded-xl p-3 flex flex-col gap-2">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Sparkles className="size-3.5 text-primary" />
+                    <Sparkles className="size-3.5 text-violet-300" />
                     Available Dynamic Variables (Click to insert)
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -707,7 +708,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                         key={v}
                         type="button"
                         onClick={() => handleInsertVariable(v)}
-                        className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-mono text-primary hover:bg-primary/20 transition-colors"
+                        className="rounded-md border border-violet-400/30 bg-violet-500/12 px-2 py-1 text-[11px] font-mono text-violet-200 hover:bg-violet-500/22 transition-colors cursor-pointer"
                       >
                         {`{{${v}}}`}
                       </button>
@@ -722,15 +723,15 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                   <Label className="text-xs font-semibold">
                     {format === "html" ? "HTML Body Content" : "Plain Text Message"} &amp; Live Preview
                   </Label>
-                  <div className="flex items-center gap-1 rounded-lg bg-secondary/50 p-1">
+                  <div className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0a0f22] p-1">
                     <button
                       type="button"
                       onClick={() => setActiveTab("editor")}
                       className={cn(
-                        "rounded-md px-3 py-1 text-xs font-bold uppercase transition-colors flex items-center gap-1.5",
+                        "rounded-md px-3 py-1 text-xs font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer",
                         activeTab === "editor"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground"
+                          ? "bg-violet-600 text-white"
+                          : "text-slate-400 hover:text-white"
                       )}
                     >
                       <Code2 className="size-3.5" /> Edit
@@ -739,10 +740,10 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                       type="button"
                       onClick={() => setActiveTab("preview")}
                       className={cn(
-                        "rounded-md px-3 py-1 text-xs font-bold uppercase transition-colors flex items-center gap-1.5",
+                        "rounded-md px-3 py-1 text-xs font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer",
                         activeTab === "preview"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground"
+                          ? "bg-violet-600 text-white"
+                          : "text-slate-400 hover:text-white"
                       )}
                     >
                       <Eye className="size-3.5" /> Preview

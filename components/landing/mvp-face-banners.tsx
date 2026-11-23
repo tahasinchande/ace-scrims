@@ -115,7 +115,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
                 transition={{ duration: 5, ease: "linear" }}
-                className="h-full bg-gradient-to-r from-orange-600 via-primary to-amber-400 shadow-[0_0_8px_rgba(249,115,22,0.8)]"
+                className="h-full bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-[0_0_8px_rgba(124,58,237,0.75)]"
               />
             </div>
           )}
@@ -166,7 +166,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                     </Badge>
                   )}
                   {currentItem.kills != null && currentItem.kills > 0 && (
-                    <Badge variant="secondary" className="font-mono font-bold text-orange-400 text-xs">
+                    <Badge variant="secondary" className="font-mono font-bold text-cyan-300 text-xs tabular-nums">
                       <Crosshair className="size-3 mr-1 inline" /> {currentItem.kills} FRAGS
                     </Badge>
                   )}

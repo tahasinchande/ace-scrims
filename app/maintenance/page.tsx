@@ -155,21 +155,20 @@ export default function MaintenancePage() {
       {/* Ensure Global 3D Cyber Background is active and visible */}
       <GlobalCyberBackground />
 
-      {/* Ambient Cyber Lighting Layer */}
-      <div className="pointer-events-none fixed inset-0 bg-radial-gradient from-transparent via-[#030407]/50 to-[#030407]/90 z-[1]" />
-      <div className="pointer-events-none absolute -left-20 top-1/4 size-96 rounded-full bg-orange-600/15 blur-[140px] z-[1]" />
-      <div className="pointer-events-none absolute -right-20 bottom-1/4 size-96 rounded-full bg-amber-600/15 blur-[140px] z-[1]" />
+      {/* Ambient Lighting Layer */}
+      <div className="pointer-events-none fixed inset-0 bg-radial-gradient from-transparent via-[#050816]/45 to-[#040610]/85 z-[1]" />
+      <div className="pointer-events-none absolute -left-20 top-1/4 size-96 rounded-full bg-violet-600/18 blur-[140px] z-[1]" />
+      <div className="pointer-events-none absolute -right-20 bottom-1/4 size-96 rounded-full bg-cyan-500/15 blur-[140px] z-[1]" />
 
-      <main className="relative z-10 flex max-w-xl w-full flex-col items-center text-center gap-6 rounded-3xl p-6 sm:p-8 border border-orange-500/30 bg-black/75 shadow-2xl backdrop-blur-2xl">
+      <main className="dc-surface rushx-box-splash relative z-10 flex max-w-xl w-full flex-col items-center text-center gap-6 rounded-3xl p-6 sm:p-8 shadow-2xl">
         {/* Top 3D / 2D Switch & Status */}
         <div className="flex w-full items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-950/40 px-3 py-1 text-[11px] font-bold text-orange-400">
-            <span className="size-2 rounded-full bg-orange-500 animate-pulse" />
-            LIVE UPGRADE
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-300">
+            Live Upgrade
           </span>
 
           <div
-            className="inline-flex items-center rounded-full border border-orange-500/30 bg-black/60 p-0.5 backdrop-blur-md shadow-md"
+            className="inline-flex items-center rounded-full border border-white/[0.12] bg-[#070a17]/75 p-0.5 backdrop-blur-md shadow-md"
             role="group"
             aria-label="View Mode Selector"
           >
@@ -178,10 +177,10 @@ export default function MaintenancePage() {
               onClick={() => setMode("2d")}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-all ${
                 mode === "2d"
-                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-black shadow-sm"
+                  ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
               }`}
-              title="Switch to 2D Static Mode"
+              title="Switch to 2D Dynamic Mode"
             >
               <Layers className="size-3" />
               2D
@@ -191,7 +190,7 @@ export default function MaintenancePage() {
               onClick={() => setMode("3d")}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-all ${
                 mode === "3d"
-                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-black shadow-sm"
+                  ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
               }`}
               title="Switch to 3D Cyber Mode"
@@ -202,13 +201,11 @@ export default function MaintenancePage() {
           </div>
         </div>
 
-        {/* Shield Icon */}
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-orange-500/15 text-orange-400 glow-primary border border-orange-500/30 shadow-lg shadow-orange-500/10">
-          <ShieldAlert className="size-8 animate-pulse text-orange-400" />
-        </div>
+        {/* Status Icon */}
+        <ShieldAlert className="size-11 text-violet-300" />
 
         <div className="flex flex-col gap-2">
-          <p className="font-display text-xs font-bold uppercase tracking-widest text-orange-400">
+          <p className="font-display text-xs font-bold uppercase tracking-widest text-cyan-300">
             SYSTEM MAINTENANCE IN PROGRESS
           </p>
           <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wide text-balance text-foreground">
@@ -217,27 +214,27 @@ export default function MaintenancePage() {
           <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
             RushX Organization is currently carrying out routine system upgrades for tonight&apos;s 12 scrim matches. Registrations will reopen shortly!
           </p>
-          <p className="font-semibold text-orange-400 text-xs mt-1">
+          <p className="font-semibold text-violet-300 text-xs mt-1">
             সাইটটি বর্তমানে রক্ষণাবেক্ষণের অধীনে আছে। শীঘ্রই আজকের ১২টি স্ক্রিমের বুকিং চালু হবে।
           </p>
         </div>
 
         {/* 12 Scrim Slideshow Widget with Motion Transitions & Auto Slideshow */}
         <div
-          className="w-full overflow-hidden rounded-3xl border border-orange-500/30 bg-black/85 p-3 sm:p-4 shadow-2xl relative group"
+          className="dc-metric-cell w-full overflow-hidden rounded-3xl p-3 sm:p-4 shadow-2xl relative group"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
           {/* Progress Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-zinc-800 z-30 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-30 overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-orange-500 via-amber-400 to-rose-500"
+              className="h-full bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400"
               style={{ width: `${progress}%` }}
               transition={{ ease: "linear" }}
             />
           </div>
 
-          <div className="relative h-48 sm:h-52 w-full rounded-2xl overflow-hidden bg-zinc-950 flex items-center justify-center">
+          <div className="relative h-48 sm:h-52 w-full rounded-2xl overflow-hidden bg-[#060916] flex items-center justify-center">
             <AnimatePresence initial={false} custom={direction} mode="popLayout">
               <motion.div
                 key={page}
@@ -257,28 +254,28 @@ export default function MaintenancePage() {
                   className="object-cover object-center"
                 />
 
-                {/* Cyber Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent pointer-events-none" />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#050712] via-[#050712]/60 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#050712]/80 via-transparent to-transparent pointer-events-none" />
               </motion.div>
             </AnimatePresence>
 
             {/* Overlay Title & Details */}
             <div className="absolute inset-0 p-4 sm:p-5 flex flex-col justify-end text-left z-20 pointer-events-none">
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1 rounded-md bg-orange-500/20 border border-orange-500/40 px-2 py-0.5 text-[10px] font-bold text-orange-400 uppercase backdrop-blur-md">
+                <span className="inline-flex items-center gap-1 rounded-md bg-violet-500/20 border border-violet-400/35 px-2 py-0.5 text-[10px] font-bold text-violet-200 uppercase backdrop-blur-md">
                   <Flame className="size-3" />
                   Slot #{slide.id}
                 </span>
-                <span className="text-[10px] text-zinc-300 font-semibold bg-black/60 px-2 py-0.5 rounded-md border border-white/10 backdrop-blur-md">
+                <span className="text-[10px] text-slate-300 font-semibold bg-[#060916]/75 px-2 py-0.5 rounded-md border border-white/10 backdrop-blur-md">
                   Map: {slide.map}
                 </span>
               </div>
               <h3 className="font-display text-lg sm:text-xl font-bold text-white uppercase tracking-wide flex items-center gap-2 drop-shadow-md">
-                <Trophy className="size-4 text-orange-400 shrink-0" />
+                <Trophy className="size-4 text-cyan-300 shrink-0" />
                 {slide.title}
               </h3>
-              <p className="text-xs text-zinc-300 font-medium">Daily Schedule: {slide.time} BANGLADESH TIME</p>
+              <p className="text-xs text-slate-300 font-medium">Daily Schedule: {slide.time} BANGLADESH TIME</p>
             </div>
 
             {/* Slideshow Control Arrows */}
@@ -286,7 +283,7 @@ export default function MaintenancePage() {
               <button
                 type="button"
                 onClick={() => paginate(-1)}
-                className="size-7 rounded-lg bg-black/70 hover:bg-black text-zinc-300 hover:text-white border border-white/15 flex items-center justify-center backdrop-blur-md transition-colors"
+                className="size-7 rounded-lg bg-[#060916]/75 hover:bg-[#060916] text-slate-300 hover:text-white border border-white/15 flex items-center justify-center backdrop-blur-md transition-colors"
                 aria-label="Previous scrim"
               >
                 <ChevronLeft className="size-4" />
@@ -294,7 +291,7 @@ export default function MaintenancePage() {
               <button
                 type="button"
                 onClick={() => paginate(1)}
-                className="size-7 rounded-lg bg-black/70 hover:bg-black text-zinc-300 hover:text-white border border-white/15 flex items-center justify-center backdrop-blur-md transition-colors"
+                className="size-7 rounded-lg bg-[#060916]/75 hover:bg-[#060916] text-slate-300 hover:text-white border border-white/15 flex items-center justify-center backdrop-blur-md transition-colors"
                 aria-label="Next scrim"
               >
                 <ChevronRight className="size-4" />
@@ -313,7 +310,7 @@ export default function MaintenancePage() {
                   if (diff !== 0) paginate(diff)
                 }}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx === currentSlide ? "w-6 bg-gradient-to-r from-orange-500 to-amber-400" : "w-1.5 bg-zinc-700 hover:bg-zinc-500"
+                  idx === currentSlide ? "w-6 bg-gradient-to-r from-violet-500 to-cyan-400" : "w-1.5 bg-white/25 hover:bg-white/50"
                 }`}
                 aria-label={`Go to scrim slide ${idx + 1}`}
               />
@@ -322,7 +319,7 @@ export default function MaintenancePage() {
         </div>
 
         {statusMessage && (
-          <p className="text-xs text-amber-400 font-semibold bg-amber-950/40 border border-amber-500/30 rounded-lg px-3 py-2 animate-fade-in">
+          <p className="text-xs text-amber-300 font-semibold bg-amber-950/40 border border-amber-500/30 rounded-lg px-3 py-2 animate-fade-in">
             {statusMessage}
           </p>
         )}
@@ -331,7 +328,7 @@ export default function MaintenancePage() {
           <Button
             onClick={() => checkStatusAndRedirect(true)}
             disabled={checking}
-            className="w-full font-display font-bold uppercase h-11 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-black shadow-lg shadow-orange-500/20"
+            className="w-full font-display font-bold uppercase h-11"
           >
             <RefreshCw className={`size-4 mr-2 ${checking ? "animate-spin" : ""}`} />
             {checking ? "Checking System..." : "Try Again / Check Status"}
@@ -342,9 +339,9 @@ export default function MaintenancePage() {
             onClick={() => {
               window.location.href = "/"
             }}
-            className="w-full sm:w-auto font-display font-semibold uppercase h-11 border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:text-white"
+            className="w-full sm:w-auto font-display font-semibold uppercase h-11"
           >
-            <Home className="size-4 mr-2 text-orange-400" />
+            <Home className="size-4 mr-2 text-cyan-300" />
             Homepage
           </Button>
         </div>

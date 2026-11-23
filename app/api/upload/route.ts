@@ -97,15 +97,17 @@ export async function POST(req: NextRequest) {
 
     const ext = file.name.split(".").pop()?.toLowerCase() || ""
     const mime = (file.type || "").toLowerCase()
-    if (!ALLOWED_EXTENSIONS.has(ext) && !ALLOWED_MIME_TYPES.has(mime)) {
-      return NextResponse.json(
-        { ok: false, error: "Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, MP4, WEBM, MOV, MKV, AVI, PDF." },
-        { status: 400 }
-      )
-    }
     if (mime === "image/svg+xml" || ext === "svg" || ext === "html" || ext === "htm" || ext === "js") {
       return NextResponse.json(
         { ok: false, error: "SVG and executable script/HTML uploads are blocked for security reasons." },
+        { status: 400 }
+      )
+    }
+    const isExtensionAllowed = ALLOWED_EXTENSIONS.has(ext)
+    const isMimeAllowed = mime === "" || ALLOWED_MIME_TYPES.has(mime)
+    if (!isExtensionAllowed || !isMimeAllowed) {
+      return NextResponse.json(
+        { ok: false, error: "Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, MP4, WEBM, MOV, MKV, AVI, PDF." },
         { status: 400 }
       )
     }

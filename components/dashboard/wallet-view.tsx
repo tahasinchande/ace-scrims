@@ -335,7 +335,7 @@ export function WalletView({
         </div>
 
         {transactions.length === 0 ? (
-          <div className="glass flex flex-col items-center gap-3 rounded-2xl py-12 text-center border border-border/60">
+          <div className="dc-surface flex flex-col items-center gap-3 rounded-2xl py-12 text-center">
             <Clock className="size-8 text-muted-foreground/60" aria-hidden />
             <p className="font-display font-bold uppercase text-foreground">No Transactions Yet</p>
             <p className="max-w-sm text-xs text-muted-foreground">
@@ -343,7 +343,7 @@ export function WalletView({
             </p>
           </div>
         ) : (
-          <div className="glass overflow-hidden rounded-2xl border border-border/80 shadow-md">
+          <div className="dc-surface overflow-hidden rounded-2xl shadow-md">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -366,7 +366,7 @@ export function WalletView({
                             className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                               isDeposit
                                 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                                : "bg-orange-500/15 text-orange-400 border border-orange-500/30"
+                                : "bg-violet-500/15 text-violet-300 border border-violet-500/30"
                             }`}
                           >
                             {isDeposit ? (
@@ -380,8 +380,8 @@ export function WalletView({
                         <td className="px-4 py-3 font-sans font-medium text-foreground max-w-xs truncate">
                           {tx.description || (isDeposit ? "Wallet Deposit" : "Scrim Slot Fee")}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap font-bold">
-                          <span className={isDeposit ? "text-emerald-400" : "text-orange-400"}>
+                        <td className="px-4 py-3 whitespace-nowrap font-bold tabular-nums">
+                          <span className={isDeposit ? "text-emerald-400" : "text-violet-300"}>
                             {isDeposit ? "+" : "-"}৳{tx.amountBdt}
                           </span>
                         </td>

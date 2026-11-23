@@ -189,7 +189,7 @@ export function PartnershipTicker({
           </div>
           <Link
             href="/partnerships"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary hover:text-orange-300 transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary hover:text-cyan-300 transition-colors shrink-0"
           >
             View All Partners <ArrowUpRight className="size-3.5" />
           </Link>

@@ -135,8 +135,8 @@ export function ScrimCard({
       onMouseLeave={handlePointerLeave}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      viewport={{ once: true, amount: 0.08 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className="scrim-splash-wrap group relative flex flex-col"
     >
       {/* Dynamic outer hover splash layers (RandomQbit-inspired diffused outer halo + crisp edge bloom) */}
@@ -270,8 +270,8 @@ export function ScrimCard({
           {/* Prize Distribution Breakdown */}
           <div className="dc-metric-cell rounded-xl p-3">
             <div className="mb-2 flex items-center justify-between text-[11px] font-semibold">
-              <span className="flex items-center gap-1.5 text-amber-300">
-                <Award className="size-3.5 text-amber-400" aria-hidden />
+              <span className="flex items-center gap-1.5 text-cyan-200">
+                <Award className="size-3.5 text-cyan-300" aria-hidden />
                 Prize Breakdown
               </span>
               <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
@@ -287,9 +287,9 @@ export function ScrimCard({
                     p.rank === 1
                       ? "border-amber-400/30 bg-amber-500/14 text-amber-200"
                       : p.rank === 2
-                        ? "border-zinc-400/25 bg-zinc-400/10 text-zinc-200"
+                        ? "border-slate-300/25 bg-slate-400/10 text-slate-200"
                         : p.rank === 3
-                          ? "border-orange-500/30 bg-orange-500/14 text-orange-200"
+                          ? "border-violet-400/30 bg-violet-500/14 text-violet-200"
                           : "border-white/10 bg-white/[0.04] text-muted-foreground"
                   )}
                 >
@@ -304,7 +304,7 @@ export function ScrimCard({
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs tabular-nums">
               <span className="font-semibold text-foreground/90">
-                <span className="text-primary">{remaining}</span>{" "}
+                <span className="text-violet-300">{remaining}</span>{" "}
                 <span className="text-muted-foreground">{t("slots_left", "spots left")}</span>
               </span>
               <span className="font-mono text-[11px] text-muted-foreground">{fillPercent}% filled</span>
@@ -320,14 +320,14 @@ export function ScrimCard({
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${fillPercent}%` }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className={cn(
                   "h-full rounded-full",
                   status.tone === "full"
                     ? "bg-rose-500"
                     : status.tone === "filling"
                       ? "bg-amber-400"
-                      : "bg-gradient-to-r from-orange-500 to-amber-400"
+                      : "bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-400"
                 )}
               />
             </div>

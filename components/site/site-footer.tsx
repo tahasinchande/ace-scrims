@@ -1,10 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { MessageCircle, HelpCircle } from "lucide-react"
 import { FacebookIcon, DiscordIcon, WhatsAppIcon, YouTubeIcon, TelegramIcon, InstagramIcon, TikTokIcon, SupportKoriIcon } from "@/components/site/brand-icons"
 import { useLanguage } from "@/lib/language"
-import { Button } from "@/components/ui/button"
 import { RushXBrandLogo } from "@/components/site/brand-logo"
 import { LiveSupportButton } from "@/components/site/live-support-button"
 

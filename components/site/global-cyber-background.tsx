@@ -61,8 +61,7 @@ export function GlobalCyberBackground() {
     renderer.domElement.style.display = "block"
     renderer.domElement.style.pointerEvents = "none"
 
-    container.innerHTML = ""
-    container.appendChild(renderer.domElement)
+    container.replaceChildren(renderer.domElement)
 
     // ─────────────────────────────────────────────────────────────────────────
     // 2. ILLUMINATION & OPTIMIZED LIGHTING
@@ -505,20 +504,9 @@ export function GlobalCyberBackground() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
-    // Unified sequential single-hue stops (matches 2D 36s cycle: Violet -> Crimson -> Amber -> Emerald -> Cyan -> Sapphire -> Violet)
-    const hueStops = [0.74, 0.94, 1.08, 1.44, 1.55, 1.63, 1.74]
-    const cycleSeconds = 36
-    const getSequentialHue = (t: number) => {
-      if (prefersReducedMotion) return 0.74
-      const phase = ((t % cycleSeconds) / cycleSeconds) * (hueStops.length - 1)
-      const segIndex = Math.floor(phase)
-      const localT = phase - segIndex
-      // Dwell steadily in one unified color mood before gliding smoothly into the next
-      const transitionT = localT < 0.42 ? 0 : (localT - 0.42) / 0.58
-      const eased = transitionT * transitionT * (3 - 2 * transitionT)
-      const rawHue = hueStops[segIndex] + (hueStops[segIndex + 1] - hueStops[segIndex]) * eased
-      return ((rawHue % 1) + 1) % 1
-    }
+    // Continuous vivid dynamic mixed-color shifting cycle (~15s full spectrum)
+    // Preserves 100% of existing Three.js geometry, camera orbit, scroll panning & motion
+    const cycleSpeed = 1 / 15
 
     const renderLoop = () => {
       frameId = requestAnimationFrame(renderLoop)
@@ -571,41 +559,44 @@ export function GlobalCyberBackground() {
       }
       instancedSatelliteCubes.instanceMatrix.needsUpdate = true
 
-      // True sequential single-hue color shifting across the entire 3D scene (preserves all geometry, camera & motion)
-      const activeHue = getSequentialHue(elapsed)
+      // Vivid dynamic mixed-color shifting across key, accent, and complementary fill hues
+      const baseHue = prefersReducedMotion ? 0.76 : (0.76 + elapsed * cycleSpeed) % 1
+      const accentHue = (baseHue + 0.17) % 1
+      const fillHue = (baseHue + 0.48) % 1
 
-      // Subtle deep-obsidian atmospheric tint matched to the active hue
+      // Luminous obsidian-tinted backdrop & fog matched to active shift
       if (scene.background instanceof THREE.Color) {
-        scene.background.setHSL(activeHue, 0.34, 0.028)
+        scene.background.setHSL(baseHue, 0.45, 0.042)
       }
       if (scene.fog instanceof THREE.FogExp2) {
-        scene.fog.color.setHSL(activeHue, 0.34, 0.028)
+        scene.fog.color.setHSL(baseHue, 0.42, 0.042)
       }
-      ambientLight.color.setHSL(activeHue, 0.38, 0.14)
+      ambientLight.color.setHSL(accentHue, 0.45, 0.18)
 
-      // All key/fill/core lights share the exact same activeHue, varying only saturation & lightness for depth
-      dirKey.color.setHSL(activeHue, 0.9, 0.54)
-      dirFill.color.setHSL(activeHue, 0.55, 0.26)
-      coreLight1.color.setHSL(activeHue, 0.95, 0.52)
-      coreLight2.color.setHSL(activeHue, 0.9, 0.56)
-      coreLight3.color.setHSL(activeHue, 0.92, 0.48)
-      coreLight4.color.setHSL(activeHue, 0.88, 0.6)
+      // Multi-layered harmonic lights shifting together over time
+      dirKey.color.setHSL(baseHue, 0.94, 0.56)
+      dirFill.color.setHSL(fillHue, 0.78, 0.36)
+      coreLight1.color.setHSL(baseHue, 0.96, 0.54)
+      coreLight2.color.setHSL(accentHue, 0.94, 0.56)
+      coreLight3.color.setHSL(fillHue, 0.92, 0.52)
+      coreLight4.color.setHSL((baseHue + 0.32) % 1, 0.9, 0.58)
 
-      towerOrangeGlowMat.color.setHSL(activeHue, 0.95, 0.52)
-      towerHotGlowMat.color.setHSL(activeHue, 0.92, 0.72)
-      wallUniforms.uColorDark.value.setHSL(activeHue, 0.92, 0.36)
-      wallUniforms.uColorMid.value.setHSL(activeHue, 0.96, 0.54)
-      wallUniforms.uColorCore.value.setHSL(activeHue, 0.88, 0.84)
-      particleMat.color.setHSL(activeHue, 0.88, 0.7)
+      towerOrangeGlowMat.color.setHSL(baseHue, 0.96, 0.54)
+      towerHotGlowMat.color.setHSL(accentHue, 0.95, 0.74)
+      wallUniforms.uColorDark.value.setHSL(baseHue, 0.94, 0.38)
+      wallUniforms.uColorMid.value.setHSL(accentHue, 0.96, 0.56)
+      wallUniforms.uColorCore.value.setHSL(fillHue, 0.9, 0.84)
+      particleMat.color.setHSL(accentHue, 0.92, 0.72)
 
       if (gridHelper.material instanceof THREE.LineBasicMaterial) {
-        gridHelper.material.color.setHSL(activeHue, 0.68, 0.54)
+        gridHelper.material.color.setHSL(accentHue, 0.76, 0.54)
       }
 
       for (let k = 0; k < totalSatelliteCubes; k++) {
         if (satelliteMeta[k].isGlow) {
-          const cubeLightness = 0.46 + (k % 4) * 0.055
-          colorDummy.setHSL(activeHue, 0.94, cubeLightness)
+          const cubeHue = k % 4 === 0 ? accentHue : baseHue
+          const cubeLightness = 0.48 + (k % 4) * 0.055
+          colorDummy.setHSL(cubeHue, 0.95, cubeLightness)
           instancedSatelliteCubes.setColorAt(k, colorDummy)
         }
       }
@@ -614,15 +605,16 @@ export function GlobalCyberBackground() {
       }
 
       // Dynamic light pulsations
-      coreLight1.intensity = 8.0 + Math.sin(elapsed * 3.2) * 3.0
-      coreLight2.intensity = 5.5 + Math.cos(elapsed * 2.7) * 2.0
-      coreLight3.intensity = 5.0 + Math.sin(elapsed * 2.3) * 1.8
-      coreLight4.intensity = 4.5 + Math.cos(elapsed * 2.0) * 1.6
+      coreLight1.intensity = 8.4 + Math.sin(elapsed * 3.2) * 3.0
+      coreLight2.intensity = 5.8 + Math.cos(elapsed * 2.7) * 2.0
+      coreLight3.intensity = 5.4 + Math.sin(elapsed * 2.3) * 1.8
+      coreLight4.intensity = 4.8 + Math.cos(elapsed * 2.0) * 1.6
 
-      // Pulsing Floor Pads via Instanced Color Update (unified single activeHue, varying lightness only)
+      // Pulsing Floor Pads via Instanced Color Update (harmonized dual-hue shift)
       for (let i = 0; i < tileCount; i++) {
-        const pulse = 0.28 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
-        colorDummy.setHSL(activeHue, 0.92, Math.max(0.14, Math.min(0.68, pulse)))
+        const pulse = 0.3 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
+        const tileHue = i % 3 === 0 ? accentHue : i % 3 === 1 ? baseHue : fillHue
+        colorDummy.setHSL(tileHue, 0.94, Math.max(0.16, Math.min(0.7, pulse)))
         instancedFloorTiles.setColorAt(i, colorDummy)
       }
       if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true

@@ -12,7 +12,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl bg-[radial-gradient(120%_90%_at_12%_0%,rgba(79,98,168,0.13)_0%,transparent_55%),linear-gradient(160deg,rgba(20,27,46,0.92)_0%,rgba(10,14,26,0.96)_55%,rgba(6,9,17,0.99)_100%)] backdrop-blur-md py-(--card-spacing) text-sm text-card-foreground ring-1 ring-white/[0.085] shadow-[0_20px_48px_-20px_rgba(0,0,0,0.84),inset_0_1px_0_rgba(255,255,255,0.09)] transition-all duration-200 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
+        "rushx-box-splash group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl bg-[radial-gradient(125%_90%_at_12%_0%,rgba(124,58,237,0.16)_0%,transparent_56%),radial-gradient(90%_75%_at_90%_100%,rgba(56,189,248,0.09)_0%,transparent_58%),linear-gradient(160deg,rgba(19,24,46,0.9)_0%,rgba(10,13,28,0.95)_55%,rgba(6,9,20,0.98)_100%)] backdrop-blur-md py-(--card-spacing) text-sm text-card-foreground ring-1 ring-violet-300/[0.13] shadow-[0_20px_48px_-20px_rgba(2,4,14,0.88),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 hover:ring-violet-400/[0.26] [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
         className
       )}
       {...props}

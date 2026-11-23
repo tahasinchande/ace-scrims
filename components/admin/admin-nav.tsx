@@ -81,9 +81,7 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
     <aside className="w-full shrink-0 md:w-60">
       <div className="dc-surface sticky top-20 flex flex-col gap-4 rounded-2xl p-4">
         <div className="flex items-center gap-3 border-b border-white/[0.07] pb-3.5">
-          <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.04] p-1">
-            <RushXBrandLogo variant="symbol" size="sm" logoUrl={logoUrl} />
-          </div>
+          <RushXBrandLogo variant="symbol" size="sm" logoUrl={logoUrl} />
           <div className="min-w-0">
             <p className="truncate font-display text-sm font-semibold tracking-tight text-foreground">{name}</p>
             <p className="text-xs capitalize text-muted-foreground">{role}</p>

@@ -32,7 +32,7 @@ const emptyDraft: DraftMethod = {
   code: "",
   label: "",
   description: "",
-  accentColor: "#f97316",
+  accentColor: "#7c3aed",
   requiresAccountNumber: true,
   isActive: true,
   sortOrder: 10,
@@ -54,7 +54,7 @@ export function PayoutMethodsManager({ initialMethods }: { initialMethods: Payou
       code: method.code,
       label: method.label,
       description: method.description || "",
-      accentColor: method.accentColor || "#f97316",
+      accentColor: method.accentColor || "#7c3aed",
       requiresAccountNumber: method.requiresAccountNumber,
       isActive: method.isActive,
       sortOrder: method.sortOrder,
@@ -327,17 +327,17 @@ export function PayoutMethodsManager({ initialMethods }: { initialMethods: Payou
           <div
             key={method.id}
             className={cn(
-              "rounded-xl border p-4 flex items-start justify-between gap-3 transition-colors",
+              "dc-surface rushx-box-splash rounded-xl p-4 flex items-start justify-between gap-3 transition-colors",
               method.isActive
-                ? "border-border/80 bg-secondary/30"
-                : "border-border/40 bg-secondary/10 opacity-65"
+                ? ""
+                : "opacity-65"
             )}
           >
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-2">
                 <span
                   className="size-3 rounded-full shrink-0 border border-white/20"
-                  style={{ backgroundColor: method.accentColor || "#f97316" }}
+                  style={{ backgroundColor: method.accentColor || "#7c3aed" }}
                 />
                 <span className="font-display text-base font-bold uppercase tracking-wide truncate">
                   {method.name}

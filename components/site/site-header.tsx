@@ -137,14 +137,12 @@ export function SiteHeader({
                   <Link
                     href="/scrims"
                     onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/[0.06] transition-colors group"
+                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-violet-500/10 transition-colors group"
                   >
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-orange-500/25 bg-orange-500/12 text-orange-400 group-hover:bg-orange-500/20">
-                      <Calendar className="size-4" />
-                    </div>
+                    <Calendar className="mt-0.5 size-4 shrink-0 text-violet-300" />
                     <div className="flex flex-col">
-                      <span className="text-zinc-100 font-semibold">All Scrims</span>
-                      <span className="text-[11px] text-zinc-400">Browse all active lobbies &amp; formats</span>
+                      <span className="text-white font-semibold">All Scrims</span>
+                      <span className="text-[11px] text-slate-400">Browse all active lobbies &amp; formats</span>
                     </div>
                   </Link>
 
@@ -153,28 +151,24 @@ export function SiteHeader({
                   <Link
                     href="/scrims?category=champion-rush"
                     onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/[0.06] transition-colors group"
+                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-violet-500/10 transition-colors group"
                   >
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/25 bg-emerald-500/12 text-emerald-400 group-hover:bg-emerald-500/20">
-                      <Trophy className="size-4" />
-                    </div>
+                    <Trophy className="mt-0.5 size-4 shrink-0 text-emerald-400" />
                     <div className="flex flex-col">
-                      <span className="text-emerald-400 font-semibold">Champion Rush</span>
-                      <span className="text-[11px] text-zinc-400">3 PM &amp; 10 PM · 8-Match Survival Challenge</span>
+                      <span className="text-emerald-300 font-semibold">Champion Rush</span>
+                      <span className="text-[11px] text-slate-400">3 PM &amp; 10 PM · 8-Match Survival Challenge</span>
                     </div>
                   </Link>
 
                   <Link
                     href="/scrims?category=friday-special-blast"
                     onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/[0.06] transition-colors group"
+                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-violet-500/10 transition-colors group"
                   >
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-amber-500/25 bg-amber-500/12 text-amber-400 group-hover:bg-amber-500/20">
-                      <Flame className="size-4" />
-                    </div>
+                    <Flame className="mt-0.5 size-4 shrink-0 text-cyan-300" />
                     <div className="flex flex-col">
-                      <span className="text-amber-400 font-semibold">Friday Special Blast</span>
-                      <span className="text-[11px] text-zinc-400">5 Premium Matches · ৳80 Entry / ৳850 Prize</span>
+                      <span className="text-cyan-200 font-semibold">Friday Special Blast</span>
+                      <span className="text-[11px] text-slate-400">5 Premium Matches · ৳80 Entry / ৳850 Prize</span>
                     </div>
                   </Link>
                 </motion.div>
@@ -242,8 +236,8 @@ export function SiteHeader({
               className={cn(
                 "flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                 mode === "2d"
-                  ? "bg-white/[0.1] text-orange-300 shadow-xs"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-violet-500/25 text-violet-200 shadow-xs"
+                  : "text-slate-400 hover:text-white"
               )}
               title="2D Dynamic Ambient Mode"
             >
@@ -256,8 +250,8 @@ export function SiteHeader({
               className={cn(
                 "flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                 mode === "3d"
-                  ? "bg-white/[0.1] text-orange-300 shadow-xs"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-violet-500/25 text-violet-200 shadow-xs"
+                  : "text-slate-400 hover:text-white"
               )}
               title="3D Cyber Mode"
             >
@@ -286,7 +280,7 @@ export function SiteHeader({
               )}
               {/* Persistent User Balance Widget directly next to Dashboard */}
               <UserBalanceWidget initialBalance={initialBalance} />
-              <Button asChild size="sm" className="h-9 whitespace-nowrap px-4 rounded-xl font-semibold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-zinc-950 shadow-sm shadow-orange-500/20 transition-all">
+              <Button asChild size="sm" className="h-9 whitespace-nowrap px-4 rounded-xl font-semibold">
                 <Link href="/dashboard">{t("nav_dashboard", "Dashboard")}</Link>
               </Button>
 
@@ -294,15 +288,15 @@ export function SiteHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="More navigation options"
-                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:border-white/[0.16] hover:bg-white/[0.07] hover:text-white transition-all cursor-pointer"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:border-violet-400/30 hover:bg-violet-500/10 hover:text-white transition-all cursor-pointer"
                 >
                   <MoreVertical className="size-4" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="dc-surface w-56 rounded-2xl p-1.5 text-zinc-200">
+                <DropdownMenuContent align="end" className="dc-surface w-56 rounded-2xl p-1.5 text-slate-200">
                   <div className="px-2.5 py-2 border-b border-white/[0.07]">
-                    <span className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">RushX Wallet</span>
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">RushX Wallet</span>
                     <div className="mt-1 flex items-center justify-between">
-                      <span className="text-xs text-zinc-300">Live Balance:</span>
+                      <span className="text-xs text-slate-300">Live Balance:</span>
                       <UserBalanceWidget initialBalance={initialBalance} compact />
                     </div>
                   </div>
@@ -314,19 +308,19 @@ export function SiteHeader({
                   </DropdownMenuItem>
                   <DropdownMenuItem className="p-0">
                     <Link href="/dashboard/scrims" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                      <Calendar className="size-4 text-orange-400" />
+                      <Calendar className="size-4 text-violet-300" />
                       <span>My Scrims</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="p-0">
                     <Link href="/results" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                      <Trophy className="size-4 text-amber-400" />
+                      <Trophy className="size-4 text-cyan-300" />
                       <span>Results &amp; Leaderboard</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="p-0">
                     <Link href="/tutorial" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                      <Boxes className="size-4 text-blue-400" />
+                      <Boxes className="size-4 text-indigo-300" />
                       <span>Tutorial Video</span>
                     </Link>
                   </DropdownMenuItem>
@@ -345,14 +339,14 @@ export function SiteHeader({
               <UserBalanceWidget initialBalance={0} isGuest />
               <Link
                 href="/sign-in"
-                className="whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold text-zinc-300 hover:bg-white/[0.05] hover:text-white transition-colors"
+                className="whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-300 hover:bg-white/[0.05] hover:text-white transition-colors"
               >
                 {t("nav_signin", "Sign In")}
               </Link>
               <Button
                 asChild
                 size="sm"
-                className="h-9 whitespace-nowrap px-4 rounded-xl font-semibold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-zinc-950 shadow-sm shadow-orange-500/20 transition-all"
+                className="h-9 whitespace-nowrap px-4 rounded-xl font-semibold"
               >
                 <Link href="/sign-up">{t("nav_join", "Join Now")}</Link>
               </Button>
@@ -389,21 +383,21 @@ export function SiteHeader({
               </DropdownMenuItem>
               {currentUser && (
                 <DropdownMenuItem className="p-0">
-                  <Link href="/dashboard" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-orange-400 font-semibold">
-                    <Trophy className="size-4 text-orange-400" />
+                  <Link href="/dashboard" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-violet-300 font-semibold">
+                    <Trophy className="size-4 text-violet-300" />
                     <span>My Dashboard</span>
                   </Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem className="p-0">
                 <Link href="/scrims" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                  <Calendar className="size-4 text-zinc-300" />
+                  <Calendar className="size-4 text-slate-300" />
                   <span>All Scrims</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem className="p-0">
                 <Link href="/results" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                  <Trophy className="size-4 text-amber-400" />
+                  <Trophy className="size-4 text-cyan-300" />
                   <span>Results &amp; Leaderboard</span>
                 </Link>
               </DropdownMenuItem>
@@ -420,9 +414,9 @@ export function SiteHeader({
           <button
             type="button"
             onClick={() => setMode(mode === "2d" ? "3d" : "2d")}
-            className="flex h-8 items-center gap-1 whitespace-nowrap rounded-xl border border-white/[0.09] bg-white/[0.04] px-2 text-xs font-semibold text-zinc-300 hover:text-white transition-colors"
+            className="flex h-8 items-center gap-1 whitespace-nowrap rounded-xl border border-white/[0.09] bg-white/[0.04] px-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
           >
-            {mode === "2d" ? <Layers className="size-3 text-orange-400" /> : <Boxes className="size-3 text-orange-400" />}
+            {mode === "2d" ? <Layers className="size-3 text-violet-300" /> : <Boxes className="size-3 text-cyan-300" />}
             {mode.toUpperCase()}
           </button>
 
@@ -503,7 +497,7 @@ export function SiteHeader({
                 </Link>
                 <Link
                   href="/scrims?category=friday-special-blast"
-                  className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 flex items-center gap-2"
+                  className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/10 flex items-center gap-2"
                   onClick={() => setOpen(false)}
                 >
                   <Flame className="size-3.5" />
@@ -512,21 +506,21 @@ export function SiteHeader({
               </div>
               <Link
                 href="/results"
-                className="rounded-xl px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white"
                 onClick={() => setOpen(false)}
               >
                 {t("nav_results", "Results & Leaderboards")}
               </Link>
               <Link
                 href="/report"
-                className="rounded-xl px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white"
                 onClick={() => setOpen(false)}
               >
                 {t("nav_report", "Report Cheater / Issue")}
               </Link>
               <Link
                 href="/tutorial"
-                className="rounded-xl px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white"
                 onClick={() => setOpen(false)}
               >
                 {t("nav_tutorial", "How to Play Tutorial")}
@@ -535,7 +529,7 @@ export function SiteHeader({
                 href={supportUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-xl px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white"
               >
                 {t("nav_support", "WhatsApp Support")}
               </a>
@@ -547,13 +541,13 @@ export function SiteHeader({
                   {(currentUser.role === "admin" || currentUser.role === "moderator") && (
                     <Link
                       href="/admin"
-                      className="rounded-xl px-3 py-2 text-sm font-semibold text-orange-400 hover:bg-white/[0.06]"
+                      className="rounded-xl px-3 py-2 text-sm font-semibold text-violet-300 hover:bg-white/[0.06]"
                       onClick={() => setOpen(false)}
                     >
                       {currentUser.role === "admin" ? "Admin Panel" : "Mod Panel"}
                     </Link>
                   )}
-                  <Button asChild className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 font-semibold text-zinc-950">
+                  <Button asChild className="w-full rounded-xl font-semibold">
                     <Link href="/dashboard" onClick={() => setOpen(false)}>
                       {t("nav_dashboard", "Dashboard")}
                     </Link>
@@ -566,7 +560,7 @@ export function SiteHeader({
                       {t("nav_signin", "Sign In")}
                     </Link>
                   </Button>
-                  <Button asChild className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-zinc-950 font-semibold">
+                  <Button asChild className="w-full rounded-xl font-semibold">
                     <Link href="/sign-up" onClick={() => setOpen(false)}>
                       {t("nav_join", "Join Now")}
                     </Link>

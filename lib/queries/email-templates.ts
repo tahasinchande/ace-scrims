@@ -148,8 +148,8 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
 <p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
   Welcome aboard! Please click the button below to verify your email address and activate your account on RushX Organization.
 </p>
-<div style="background:#121524;border:1px solid #1f2438;border-radius:10px;padding:16px 20px;margin:16px 0;">
-  <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">WHAT'S WAITING FOR YOU:</p>
+<div style="background:#0d1328;border:1px solid rgba(167,139,250,0.22);border-radius:12px;padding:16px 20px;margin:16px 0;">
+  <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#a78bfa;text-transform:uppercase;">WHAT'S WAITING FOR YOU:</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Daily Evening Scrims:</strong> High-tier regular squad showdowns.</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Friday Special Blast &amp; Champion Rush:</strong> Weekend peak events with bigger prize pools.</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Post-Match Rewards:</strong> MVP Face Banners, Top 3 Podium Cards, and real-time Standings.</p>
@@ -190,8 +190,8 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
 <p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#94a3b8;">
   Welcome aboard! {{methodLabel}} You are fully geared up to register your squad and compete with RushX Organization.
 </p>
-<div style="background:#121524;border:1px solid #1f2438;border-radius:10px;padding:16px 20px;margin:16px 0;">
-  <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#f97316;text-transform:uppercase;">COMPETITIVE FEATURES:</p>
+<div style="background:#0d1328;border:1px solid rgba(167,139,250,0.22);border-radius:12px;padding:16px 20px;margin:16px 0;">
+  <p style="margin:0 0 8px 0;font-size:11px;font-weight:800;letter-spacing:1px;color:#a78bfa;text-transform:uppercase;">COMPETITIVE FEATURES:</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Instant Slot Locking:</strong> Register squads in seconds and get automatic slot assignment.</p>
   <p style="margin:4px 0;font-size:13px;color:#94a3b8;"><strong style="color:#ffffff;">Live Room Delivery:</strong> Room ID &amp; Password delivered directly in your dashboard and inbox.</p>
 </div>`,
@@ -215,7 +215,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#121524;border:1px solid #23273e;border-radius:10px;margin-bottom:20px;">
   <tr><td style="padding:16px 20px;">
     <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#64748b;">Squad Name:</strong> {{teamName}}</p>
-    <p style="margin:4px 0;color:#f97316;font-size:14px;font-weight:800;"><strong style="color:#64748b;font-weight:600;">Assigned Slot:</strong> Slot #{{slotNumber}}</p>
+    <p style="margin:4px 0;color:#a78bfa;font-size:14px;font-weight:800;"><strong style="color:#64748b;font-weight:600;">Assigned Slot:</strong> Slot #{{slotNumber}}</p>
     <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#64748b;">Tournament:</strong> {{scrimTitle}}</p>
     <p style="margin:4px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#64748b;">Match Start:</strong> {{startTime}}</p>
   </td></tr>
@@ -238,9 +238,9 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     preheader: "Room ID: {{roomId}} | Password: {{roomPassword}} for {{scrimTitle}}",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:16px;">Hello {{recipientName}},</p>
 <p style="margin:0 0 16px 0;color:#cbd5e1;">{{updateNotice}} Room details for <strong>{{scrimTitle}}</strong> are now ready.</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#13182b;border:2px solid #ea580c;border-radius:12px;margin-bottom:20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0e142a;border:2px solid #7c3aed;border-radius:12px;margin-bottom:20px;">
   <tr><td style="padding:20px 24px;">
-    <p style="margin:6px 0;color:#94a3b8;font-size:13px;">ROOM ID: <strong style="color:#f97316;font-size:20px;font-family:monospace;">{{roomId}}</strong></p>
+    <p style="margin:6px 0;color:#94a3b8;font-size:13px;">ROOM ID: <strong style="color:#a78bfa;font-size:20px;font-family:monospace;">{{roomId}}</strong></p>
     <p style="margin:6px 0;color:#94a3b8;font-size:13px;">PASSWORD: <strong style="color:#ffffff;font-size:20px;font-family:monospace;">{{roomPassword}}</strong></p>
     <p style="margin:6px 0;color:#38bdf8;font-size:14px;font-weight:700;">{{slotText}}</p>
     <p style="margin:6px 0;color:#cbd5e1;font-size:13px;">SCHEDULE: <strong>{{startTime}}</strong></p>
@@ -303,7 +303,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f111c;border:1px solid #1e2235;border-radius:10px;margin-bottom:20px;">
   <tr><td style="padding:18px 20px;">
     <p style="margin:5px 0;color:#cbd5e1;font-size:14px;"><strong style="color:#94a3b8;">YOUR SQUAD:</strong> {{teamName}}</p>
-    <p style="margin:5px 0;color:#f97316;font-size:15px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">CHAMPION / WINNER:</strong> {{winningTeam}} {{winnerStatus}}</p>
+    <p style="margin:5px 0;color:#a78bfa;font-size:15px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">CHAMPION / WINNER:</strong> {{winningTeam}} {{winnerStatus}}</p>
     <p style="margin:5px 0;color:#cbd5e1;font-size:13px;"><strong style="color:#94a3b8;">CATEGORY:</strong> {{category}}</p>
     <p style="margin:5px 0;color:#ffffff;font-size:14px;"><strong style="color:#94a3b8;">WINNER KILLS:</strong> {{kills}} Kills</p>
     <p style="margin:5px 0;color:#10b981;font-size:15px;font-weight:800;"><strong style="color:#94a3b8;font-weight:600;">PRIZE AWARDED:</strong> ৳{{prizeBdt}} BDT</p>
@@ -341,7 +341,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
   <tr><td style="padding:18px 20px;">
     <p style="margin:5px 0;color:#ffffff;font-size:14px;"><strong style="color:#94a3b8;">SQUAD:</strong> {{teamName}}</p>
     <p style="margin:5px 0;color:#10b981;font-size:14px;"><strong style="color:#94a3b8;">TARGET PLAYER:</strong> {{mvpPlayerName}}</p>
-    <p style="margin:5px 0;color:#f97316;font-size:14px;"><strong style="color:#94a3b8;">EVENT:</strong> {{scrimTitle}} ({{scrimDate}})</p>
+    <p style="margin:5px 0;color:#38bdf8;font-size:14px;"><strong style="color:#94a3b8;">EVENT:</strong> {{scrimTitle}} ({{scrimDate}})</p>
     <p style="margin:5px 0;color:#10b981;font-size:14px;"><strong style="color:#94a3b8;">REQUEST TYPE:</strong> {{requestType}}</p>
     <p style="margin:5px 0;color:#cbd5e1;font-size:13px;"><strong style="color:#94a3b8;">GUIDELINES:</strong> Waist-up photo, clean framing, ideally with background removed.</p>
   </td></tr>
@@ -372,7 +372,7 @@ export const CORE_EMAIL_TEMPLATES: CoreEmailPurposeSeed[] = [
     preheader: "{{category}} — {{title}}",
     bodyHtml: `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p>
 <div style="margin-bottom:14px;">
-  <span style="display:inline-block;background:rgba(234,88,12,0.14);color:#f97316;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #f97316;margin-right:8px;">{{priorityLabel}}</span>
+  <span style="display:inline-block;background:rgba(124,58,237,0.16);color:#c4b5fd;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #7c3aed;margin-right:8px;">{{priorityLabel}}</span>
   <span style="display:inline-block;background:#121524;color:#cbd5e1;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:4px 10px;border-radius:6px;border:1px solid #1e2235;">{{category}}</span>
 </div>
 <div style="background:#121524;border:1px solid #1e2235;border-radius:10px;padding:20px;margin-bottom:18px;">

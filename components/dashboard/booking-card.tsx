@@ -49,18 +49,18 @@ export function BookingCard({
   const roomVisible = booking.status === "confirmed" && scrim?.roomPublished && scrim.roomId
 
   return (
-    <article className="glass flex flex-col gap-4 rounded-2xl p-5">
+    <article className="dc-surface rushx-box-splash flex flex-col gap-4 rounded-2xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-display text-lg font-bold">{scrim?.title ?? "Scrim removed"}</h3>
           {scrim && (
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <Clock className="size-3.5" aria-hidden />
+                <Clock className="size-3.5 text-primary/80" aria-hidden />
                 {scrim.startTime} · {formatDate(scrim.scrimDate)}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <MapPin className="size-3.5" aria-hidden />
+                <MapPin className="size-3.5 text-cyan-300/80" aria-hidden />
                 {scrim.map} · {scrim.mode}
               </span>
             </p>
@@ -71,22 +71,22 @@ export function BookingCard({
         </Badge>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-        <div className="rounded-lg bg-secondary/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Team</p>
+      <div className="grid grid-cols-2 gap-2.5 text-sm sm:grid-cols-4">
+        <div className="dc-metric-cell rounded-xl px-3.5 py-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Team</p>
           <p className="truncate font-semibold">{booking.teamName}</p>
         </div>
-        <div className="rounded-lg bg-secondary/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Booked</p>
-          <p className="font-semibold">{formatDate(booking.createdAt)}</p>
+        <div className="dc-metric-cell rounded-xl px-3.5 py-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Booked</p>
+          <p className="font-semibold tabular-nums">{formatDate(booking.createdAt)}</p>
         </div>
-        <div className="rounded-lg bg-secondary/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Entry</p>
-          <p className="font-semibold">{scrim ? bdt(scrim.priceBdt) : "—"}</p>
+        <div className="dc-metric-cell rounded-xl px-3.5 py-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Entry</p>
+          <p className="font-semibold tabular-nums">{scrim ? bdt(scrim.priceBdt) : "—"}</p>
         </div>
-        <div className="rounded-lg bg-secondary/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Slot</p>
-          <p className="font-semibold">{booking.slotNumber ? `#${booking.slotNumber}` : "TBA"}</p>
+        <div className="dc-metric-cell rounded-xl px-3.5 py-2.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Slot</p>
+          <p className="font-semibold text-primary tabular-nums">{booking.slotNumber ? `#${booking.slotNumber}` : "TBA"}</p>
         </div>
       </div>
 

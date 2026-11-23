@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   Accordion,
@@ -19,13 +19,13 @@ import {
   Wallet,
   CalendarClock,
   Swords,
-  Mail,
   ChevronRight,
-  MessageSquare,
 } from "lucide-react"
-import { FacebookIcon, DiscordIcon, WhatsAppIcon } from "@/components/site/brand-icons"
+import { WhatsAppIcon } from "@/components/site/brand-icons"
 import { useLanguage } from "@/lib/language"
 import { LiveSupportButton } from "@/components/site/live-support-button"
+
+const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
 
 export function SectionHeading({
   eyebrow,
@@ -36,18 +36,20 @@ export function SectionHeading({
   title: string
   subtitle?: string
 }) {
+  const prefersReducedMotion = useReducedMotion()
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.5 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
       className="mx-auto mb-12 max-w-2xl text-center relative"
     >
       <div className="inline-flex items-center gap-2.5 mb-3">
-        <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500/80" />
-        <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-orange-400">{eyebrow}</p>
-        <span className="h-px w-6 bg-gradient-to-l from-transparent to-orange-500/80" />
+        <span className="h-px w-6 bg-gradient-to-r from-transparent to-violet-400/80" />
+        <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">{eyebrow}</p>
+        <span className="h-px w-6 bg-gradient-to-l from-transparent to-cyan-400/80" />
       </div>
       <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">{title}</h2>
       {subtitle && <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">{subtitle}</p>}
@@ -57,25 +59,26 @@ export function SectionHeading({
 
 export function Features() {
   const { t } = useLanguage()
+  const prefersReducedMotion = useReducedMotion()
 
   const features = [
     {
       icon: CreditCard,
       title: t("feat1_title", "Instant Auto Payment"),
       body: t("feat1_body", "Pay through secure automated gateway or account balance. Your slot is confirmed the second your payment clears."),
-      color: "text-orange-400",
+      color: "text-violet-300",
     },
     {
       icon: KeyRound,
       title: t("feat2_title", "Room ID On Time"),
       body: t("feat2_body", "Room ID and password are published to paid teams right in your dashboard before match start."),
-      color: "text-amber-400",
+      color: "text-cyan-300",
     },
     {
       icon: Trophy,
       title: t("facility_1", "Top 3 Prize Pool"),
       body: t("feat3_body", "Guaranteed cash prize pool (৳330) paid out to Top 3 teams for every lobby within 6 hours."),
-      color: "text-amber-300",
+      color: "text-violet-300",
     },
     {
       icon: ShieldCheck,
@@ -87,20 +90,19 @@ export function Features() {
       icon: Bell,
       title: t("facility_5", "6 Hour Guaranteed Payout"),
       body: t("facility_5_body", "Prizes are paid directly to winner's wallet within 6 hours of match completion."),
-      color: "text-orange-400",
+      color: "text-cyan-300",
     },
     {
       icon: Wallet,
       title: t("feat6_title", "Transparent History"),
       body: t("feat6_body", "Every booking, payment and result is tracked in your dashboard. Full transaction history, always."),
-      color: "text-orange-300",
+      color: "text-indigo-300",
     },
   ]
 
   return (
     <section className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 overflow-hidden" aria-labelledby="features-heading">
-      {/* Background Cyber Laser Ribbon Sweep */}
-      <div className="pointer-events-none absolute -left-40 top-1/2 -translate-y-1/2 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute -left-40 top-1/2 -translate-y-1/2 w-96 h-96 bg-violet-600/12 rounded-full blur-3xl" />
 
       <SectionHeading
         eyebrow={t("features_eyebrow", "Why RushX Organization")}
@@ -111,18 +113,19 @@ export function Features() {
         {features.map((f, i) => (
           <motion.div
             key={f.title}
-            initial={{ opacity: 0, y: 24 }}
+            initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.35, delay: i * 0.06 }}
-            className="dc-surface dc-card-hover group relative rounded-2xl p-6 overflow-hidden"
+            viewport={{ once: true, amount: 0.12 }}
+            transition={{
+              duration: prefersReducedMotion ? 0 : 0.5,
+              delay: prefersReducedMotion ? 0 : i * 0.055,
+              ease: DEEPCHARTS_EASE,
+            }}
+            className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 overflow-hidden"
           >
-            {/* Precision top hairline glow */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent opacity-45 group-hover:opacity-100 transition-opacity" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent opacity-45 group-hover:opacity-100 transition-opacity" />
 
-            <span className={`mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] ${f.color} transition-transform group-hover:scale-105 group-hover:border-primary/35`}>
-              <f.icon className="size-5" aria-hidden />
-            </span>
+            <f.icon className={`mb-4 size-5 ${f.color} transition-transform duration-200 group-hover:scale-110`} aria-hidden />
             <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">{f.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
           </motion.div>
@@ -134,6 +137,7 @@ export function Features() {
 
 export function HowItWorks() {
   const { t } = useLanguage()
+  const prefersReducedMotion = useReducedMotion()
 
   const steps = [
     {
@@ -187,7 +191,7 @@ export function HowItWorks() {
   ]
 
   return (
-    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#060913]/28 backdrop-blur-[2px] py-20" aria-labelledby="how-heading">
+    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#060917]/28 backdrop-blur-[2px] py-20" aria-labelledby="how-heading">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <SectionHeading
           eyebrow={t("how_eyebrow", "How It Works")}
@@ -198,13 +202,17 @@ export function HowItWorks() {
           {steps.map((s, i) => (
             <motion.li
               key={s.step}
-              initial={{ opacity: 0, y: 24 }}
+              initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.35, delay: i * 0.08 }}
-              className="dc-surface dc-card-hover group relative rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
+              viewport={{ once: true, amount: 0.12 }}
+              transition={{
+                duration: prefersReducedMotion ? 0 : 0.5,
+                delay: prefersReducedMotion ? 0 : i * 0.07,
+                ease: DEEPCHARTS_EASE,
+              }}
+              className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
             >
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <Link
                 href={s.actionHref}
                 onClick={s.onClick}
@@ -212,19 +220,17 @@ export function HowItWorks() {
                 aria-label={`${s.title} — ${s.actionText}`}
               />
               <div>
-                <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-primary/20 group-hover:text-primary/40 transition-colors tabular-nums" aria-hidden>
+                <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-violet-400/20 group-hover:text-violet-300/40 transition-colors tabular-nums" aria-hidden>
                   {s.step}
                 </span>
-                <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-orange-400 shadow-sm group-hover:scale-105 group-hover:border-primary/40 transition-all">
-                  <s.icon className="size-5" aria-hidden />
-                </span>
-                <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+                <s.icon className="mb-4 size-5 text-cyan-300 transition-transform duration-200 group-hover:scale-110" aria-hidden />
+                <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-violet-200 transition-colors flex items-center gap-1.5">
                   {s.title}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-orange-400 group-hover:text-orange-300">
+              <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-violet-300 group-hover:text-cyan-200 transition-colors">
                 <span>{s.actionText}</span>
                 <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
               </div>
@@ -233,9 +239,9 @@ export function HowItWorks() {
         </ol>
 
         <div className="mt-10 text-center">
-          <Button asChild size="lg" variant="outline" className="glass gap-2 rounded-xl border-white/[0.12] font-semibold hover:border-orange-500/50 hover:bg-white/[0.06] text-foreground">
+          <Button asChild size="lg" variant="outline" className="glass gap-2 rounded-xl border-violet-300/20 font-semibold hover:border-violet-400/50 hover:bg-violet-500/12 text-foreground">
             <Link href="/tutorial">
-              <KeyRound className="size-4 text-orange-400" />
+              <KeyRound className="size-4 text-cyan-300" />
               {t("watch_tutorial", "Watch Video Tutorial / কীভাবে বুক করবেন দেখুন")}
             </Link>
           </Button>
@@ -247,16 +253,17 @@ export function HowItWorks() {
 
 export function WhyChooseUs() {
   const { t } = useLanguage()
+  const prefersReducedMotion = useReducedMotion()
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="why-heading">
       <div className="grid items-center gap-10 lg:grid-cols-2">
         <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.5 }}
-          className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-white/[0.1] bg-[#070a14] group"
+          initial={prefersReducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96, y: 18 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.6, ease: DEEPCHARTS_EASE }}
+          className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-violet-300/15 bg-[#070a18] group"
         >
           <Image
             src="/images/sakura_warrior_1786871705952.jpg"
@@ -266,29 +273,25 @@ export function WhyChooseUs() {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
             priority
           />
-          {/* Vignette & Lighting Accents */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050811]/92 via-[#050811]/20 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#050811]/55 pointer-events-none" />
-          
-          {/* Bottom Floating Tag */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050816]/94 via-[#050816]/24 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#050816]/55 pointer-events-none" />
+
           <div className="dc-surface absolute bottom-4 left-4 right-4 p-4 rounded-2xl flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-orange-400">Elite Battleground</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-cyan-300">Elite Battleground</p>
               <p className="text-sm font-semibold text-white">Daily High-Tier Scrims</p>
             </div>
-            <span className="flex size-8 items-center justify-center rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400">
-              <ShieldCheck className="size-4" aria-hidden />
-            </span>
+            <ShieldCheck className="size-5 text-violet-300 shrink-0" aria-hidden />
           </div>
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.56, delay: 0.08, ease: DEEPCHARTS_EASE }}
           className="order-1 lg:order-2"
         >
-          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">
             {t("features_eyebrow", "Why Choose Us")}
           </p>
           <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
@@ -303,15 +306,17 @@ export function WhyChooseUs() {
             ].map(([title, body], i) => (
               <motion.li
                 key={title}
-                initial={{ opacity: 0, x: 15 }}
+                initial={prefersReducedMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: 14 }}
                 whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 * i, duration: 0.3 }}
-                className="flex gap-4"
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{
+                  delay: prefersReducedMotion ? 0 : 0.07 * i,
+                  duration: prefersReducedMotion ? 0 : 0.45,
+                  ease: DEEPCHARTS_EASE,
+                }}
+                className="flex gap-3.5"
               >
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/12 text-primary">
-                  <ShieldCheck className="size-3.5" aria-hidden />
-                </span>
+                <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-cyan-300" aria-hidden />
                 <div>
                   <h3 className="font-semibold text-foreground">{title}</h3>
                   <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
@@ -327,6 +332,7 @@ export function WhyChooseUs() {
 
 export function Faq() {
   const { t } = useLanguage()
+  const prefersReducedMotion = useReducedMotion()
 
   const faqs = [
     { q: t("faq1_q", "How do I book a scrim slot?"), a: t("faq1_a", "Create an account, pick a scrim from tonight's schedule, enter your squad details, and pay ৳35 via secure gateway or account balance. Your slot is confirmed automatically.") },
@@ -338,28 +344,32 @@ export function Faq() {
   ]
 
   return (
-    <section id="faq" className="border-t border-white/[0.06] bg-[#060913]/28 backdrop-blur-[2px] py-20" aria-labelledby="faq-heading">
+    <section id="faq" className="border-t border-white/[0.06] bg-[#060917]/28 backdrop-blur-[2px] py-20" aria-labelledby="faq-heading">
       <div className="mx-auto max-w-3xl px-4 md:px-6">
         <SectionHeading eyebrow={t("faq_eyebrow", "FAQ")} title={t("faq_title", "Questions, answered")} />
         <Accordion multiple={false} className="flex flex-col gap-3">
           {faqs.map((f, i) => (
             <motion.div
               key={f.q}
-              initial={{ opacity: 0, y: 15 }}
+              initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.06 }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{
+                delay: prefersReducedMotion ? 0 : i * 0.05,
+                duration: prefersReducedMotion ? 0 : 0.45,
+                ease: DEEPCHARTS_EASE,
+              }}
             >
               <AccordionItem
                 value={`item-${i}`}
-                className="dc-surface rounded-2xl px-5 last:border-b hover:border-primary/35 transition-colors"
+                className="dc-surface rushx-box-splash rounded-2xl px-5 last:border-b hover:border-violet-400/35 transition-colors"
               >
                 <AccordionTrigger className="text-left font-semibold tracking-tight hover:no-underline">{f.q}</AccordionTrigger>
                 <AccordionContent className="text-sm leading-relaxed text-muted-foreground flex flex-col gap-2">
                   <p>{f.a}</p>
                   {i === 0 && (
                     <div className="pt-1">
-                      <Button asChild size="sm" variant="outline" className="rounded-xl text-xs gap-1.5 border-primary/35 text-primary hover:bg-primary/10">
+                      <Button asChild size="sm" variant="outline" className="rounded-xl text-xs gap-1.5 border-violet-400/35 text-violet-200 hover:bg-violet-500/12">
                         <Link href="/tutorial">
                           <KeyRound className="size-3.5" />
                           {t("watch_tutorial", "Watch Tutorial / কীভাবে বুক করবেন দেখুন")}
@@ -379,33 +389,27 @@ export function Faq() {
 
 export function Contact({ settings }: { settings?: { discordUrl?: string; facebookUrl?: string; supportWhatsapp?: string } }) {
   const { t } = useLanguage()
+  const prefersReducedMotion = useReducedMotion()
 
-  const discord = settings?.discordUrl || "https://discord.gg/aKF4hMuhmA"
   const supportWhatsapp = settings?.supportWhatsapp || "+8801831510108"
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
-
-  const handleOpenLiveSupport = () => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("open-live-chat"))
-    }
-  }
 
   return (
     <section id="contact" className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="contact-heading">
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.45 }}
-        className="dc-surface relative overflow-hidden rounded-3xl p-8 md:p-12 border-white/[0.1] shadow-2xl"
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
+        className="dc-surface rushx-box-splash relative overflow-hidden rounded-3xl p-8 md:p-12 border-violet-300/16 shadow-2xl"
       >
-        <div className="absolute -right-20 -top-20 size-64 rounded-full bg-orange-600/12 blur-3xl" aria-hidden />
-        <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-indigo-500/10 blur-3xl" aria-hidden />
+        <div className="absolute -right-20 -top-20 size-64 rounded-full bg-violet-600/16 blur-3xl" aria-hidden />
+        <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-cyan-500/12 blur-3xl" aria-hidden />
         <div className="relative grid items-center gap-8 md:grid-cols-2">
           <div>
             <div className="inline-flex items-center gap-2.5 mb-3">
-              <span className="h-px w-6 bg-gradient-to-r from-transparent to-orange-500/80" />
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-orange-400">{t("contact_eyebrow", "Support")}</p>
+              <span className="h-px w-6 bg-gradient-to-r from-transparent to-violet-400/80" />
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">{t("contact_eyebrow", "Support")}</p>
             </div>
             <h2 className="font-display text-3xl font-bold tracking-tight text-balance text-foreground">
               {t("contact_title", "Need Help? Talk to RushX Support")}
@@ -415,28 +419,21 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            {/* 1. Live Support */}
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <LiveSupportButton
-                variant="cta"
-                label={t("live_support", "Live Support")}
-              />
-            </motion.div>
+            <LiveSupportButton
+              variant="cta"
+              label={t("live_support", "Live Support")}
+              className="w-full"
+            />
 
-            {/* 2. WhatsApp Support */}
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Button asChild size="lg" className="h-12 w-full justify-start gap-3 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
-                <a href={`https://wa.me/${cleanWaNumber || "8801831510108"}`} target="_blank" rel="noopener noreferrer">
-                  <WhatsAppIcon className="size-5 text-white" />
-                  <span>WhatsApp Support</span>
-                </a>
-              </Button>
-            </motion.div>
+            <Button asChild size="lg" className="h-11 w-full justify-center gap-2.5 rounded-full font-display font-bold uppercase tracking-wider text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
+              <a href={`https://wa.me/${cleanWaNumber || "8801831510108"}`} target="_blank" rel="noopener noreferrer">
+                <WhatsAppIcon className="size-4.5 text-white" />
+                <span>WhatsApp Support</span>
+              </a>
+            </Button>
           </div>
         </div>
       </motion.div>
     </section>
   )
 }
-
-

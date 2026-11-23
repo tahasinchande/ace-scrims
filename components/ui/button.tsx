@@ -5,21 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-clip-padding text-sm font-semibold tracking-[-0.01em] whitespace-nowrap transition-all duration-180 outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "rushx-btn-splash group/button inline-flex shrink-0 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-clip-padding text-sm font-semibold tracking-[-0.01em] whitespace-nowrap transition-all duration-200 outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-gradient-to-b from-orange-400 to-orange-500 text-[#090b10] border-orange-300/30 shadow-[0_8px_22px_-8px_rgba(249,115,22,0.58),inset_0_1px_0_rgba(255,255,255,0.34)] hover:from-orange-300 hover:to-orange-500 hover:shadow-[0_12px_28px_-8px_rgba(249,115,22,0.68),inset_0_1px_0_rgba(255,255,255,0.42)]",
+          "bg-gradient-to-b from-violet-500 via-violet-600 to-indigo-600 text-white border-violet-300/30 shadow-[0_10px_26px_-10px_rgba(124,58,237,0.68),inset_0_1px_0_rgba(255,255,255,0.28)] hover:from-violet-400 hover:via-violet-500 hover:to-indigo-600 hover:shadow-[0_14px_32px_-10px_rgba(124,58,237,0.82),inset_0_1px_0_rgba(255,255,255,0.38)]",
         outline:
-          "border-white/[0.11] bg-white/[0.03] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.07] hover:border-white/[0.2] aria-expanded:bg-white/[0.08] aria-expanded:text-foreground",
+          "border-violet-200/[0.14] bg-white/[0.035] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] hover:bg-violet-500/[0.1] hover:border-violet-400/[0.34] aria-expanded:bg-white/[0.08] aria-expanded:text-foreground",
         secondary:
-          "bg-[linear-gradient(180deg,rgba(28,35,56,0.92)_0%,rgba(16,21,36,0.96)_100%)] text-secondary-foreground border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-white/[0.16] hover:bg-[linear-gradient(180deg,rgba(35,43,68,0.95)_0%,rgba(20,26,44,0.98)_100%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-[linear-gradient(180deg,rgba(28,34,62,0.92)_0%,rgba(14,18,36,0.96)_100%)] text-secondary-foreground border-violet-300/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-violet-400/[0.3] hover:bg-[linear-gradient(180deg,rgba(36,44,78,0.95)_0%,rgba(18,24,46,0.98)_100%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground aria-expanded:bg-white/[0.06] aria-expanded:text-foreground",
+          "text-muted-foreground hover:bg-violet-500/[0.1] hover:text-foreground aria-expanded:bg-white/[0.06] aria-expanded:text-foreground",
         destructive:
           "bg-destructive/14 text-destructive border-destructive/28 hover:bg-destructive/24 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-violet-300 underline-offset-4 hover:text-violet-200 hover:underline",
       },
       size: {
         default:

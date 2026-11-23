@@ -242,9 +242,9 @@ export function resolveCleanUrl(url: string): string {
 }
 
 /**
- * Clean, original HTML email shell for Auth & Verification emails.
- * Uses exact original styling: solid #05060a background (no 3D image), #0c0e17 card,
- * #1e2235 border, orange accent stripe, and strictly NO EMOJIS.
+ * RushX Organization HTML email shell for Auth & Verification emails.
+ * Uses obsidian-indigo surface (#050712 / #0a0f22), transparent RushX logo header,
+ * Electric Violet -> Ice Cyan hairline accent, and crisp white CTA.
  */
 function authEmailShell({
   title,
@@ -259,60 +259,67 @@ function authEmailShell({
   ctaText?: string
   ctaUrl?: string
 }) {
+  const appUrl = getProductionAppUrl()
+  const fullLogoUrl = `${appUrl}/images/brand/rushx-full-white.png`
+  const symbolLogoUrl = `${appUrl}/images/brand/rushx-symbol.png`
+
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
     <title>${title}</title>
-    ${preheader ? `<div style="display:none;font-size:1px;color:#05060a;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
+    ${preheader ? `<div style="display:none;font-size:1px;color:#050712;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
   </head>
-  <body style="margin:0;padding:0;background-color:#05060a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;-webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#05060a;padding:40px 16px;">
+  <body style="margin:0;padding:0;background-color:#050712;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f8fafc;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#050712;padding:36px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#0c0e17;border:1px solid #1e2235;border-radius:12px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.7);">
-            <!-- Apex Accent Line -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background-color:#0a0f22;border:1px solid #1e2749;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.75);">
+            <!-- RushX Spectrum Accent Bar -->
             <tr>
-              <td style="background:linear-gradient(90deg, #ea580c 0%, #f97316 50%, #ea580c 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
+              <td style="background:linear-gradient(90deg, #7c3aed 0%, #4f46e5 52%, #38bdf8 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
             </tr>
+            <!-- Brand Header Banner -->
             <tr>
-              <td style="padding:36px 36px 32px 36px;">
-                <!-- Brand Header -->
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <td style="padding:26px 34px 20px 34px;background:linear-gradient(180deg, #111735 0%, #0a0f22 100%);border-bottom:1px solid #1a2344;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td>
-                      <span style="display:inline-block;background:rgba(234,88,12,0.14);color:#f97316;font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;padding:5px 12px;border-radius:6px;border:1px solid rgba(249,115,22,0.35);">
-                        RUSHX ORGANIZATION
-                      </span>
+                    <td align="left" valign="middle">
+                      <img src="${fullLogoUrl}" alt="RushX Organization" width="186" style="display:block;max-width:186px;height:auto;border:0;" />
                     </td>
-                    <td align="right">
-                      <span style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">
-                        Esports Tournament Platform
+                    <td align="right" valign="middle">
+                      <span style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;">
+                        Account Security
                       </span>
                     </td>
                   </tr>
                 </table>
-
-                <h1 style="margin:0 0 16px 0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.4px;line-height:1.3;">
+              </td>
+            </tr>
+            <!-- Main Body -->
+            <tr>
+              <td style="padding:32px 34px 34px 34px;">
+                <h1 style="margin:0 0 14px 0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.35px;line-height:1.3;">
                   ${title}
                 </h1>
 
-                <div style="color:#94a3b8;font-size:14px;line-height:1.65;">
+                <div style="color:#cbd5e1;font-size:14px;line-height:1.7;">
                   ${contentHtml}
                 </div>
 
                 ${
                   ctaText && ctaUrl
                     ? `
-                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:30px 0 16px 0;width:100%;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:30px 0 14px 0;width:100%;">
                   <tr>
                     <td align="center">
                       <table role="presentation" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="border-radius:8px;background:#ea580c;">
-                            <a href="${ctaUrl}" target="_blank" style="display:inline-block;background:#ea580c;color:#ffffff;font-weight:800;font-size:14px;padding:14px 34px;border-radius:8px;text-decoration:none;text-transform:uppercase;letter-spacing:0.8px;">
+                          <td style="border-radius:10px;background-color:#7c3aed;background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);">
+                            <a href="${ctaUrl}" target="_blank" style="display:inline-block;color:#ffffff;font-weight:700;font-size:14px;padding:13px 32px;border-radius:10px;text-decoration:none;letter-spacing:0.4px;">
                               ${ctaText}
                             </a>
                           </td>
@@ -327,12 +334,12 @@ function authEmailShell({
                 ${
                   ctaUrl
                     ? `
-                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #1e2235;">
+                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #1a2344;">
                   <p style="margin:0 0 6px 0;color:#64748b;font-size:11px;line-height:1.5;">
                     If the button does not open directly, copy and paste this link into your browser:
                   </p>
                   <p style="margin:0;word-break:break-all;">
-                    <a href="${ctaUrl}" style="color:#f97316;font-size:11px;text-decoration:underline;">
+                    <a href="${ctaUrl}" style="color:#a78bfa;font-size:11px;text-decoration:underline;">
                       ${ctaUrl}
                     </a>
                   </p>
@@ -344,11 +351,12 @@ function authEmailShell({
           </table>
 
           <!-- Footer -->
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin-top:20px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin-top:22px;">
             <tr>
-              <td align="center" style="color:#475569;font-size:11px;line-height:1.6;">
-                <p style="margin:0;font-weight:600;letter-spacing:0.5px;color:#64748b;">RUSHX ORGANIZATION</p>
-                <p style="margin:4px 0 0 0;">Automated Free Fire esports platform. Mobile devices only.</p>
+              <td align="center" style="color:#64748b;font-size:11px;line-height:1.6;">
+                <img src="${symbolLogoUrl}" alt="RushX" width="24" height="24" style="display:inline-block;width:24px;height:24px;object-fit:contain;margin-bottom:8px;opacity:0.9;" />
+                <p style="margin:0;font-weight:700;letter-spacing:0.8px;color:#94a3b8;">RUSHX ORGANIZATION</p>
+                <p style="margin:4px 0 0 0;">Competitive Free Fire Esports Platform · Mobile Devices Only</p>
               </td>
             </tr>
           </table>
@@ -360,9 +368,9 @@ function authEmailShell({
 }
 
 /**
- * High-contrast, responsive HTML email shell for ACE SCRIMS.
- * Uses a static 3D theme background snapshot, dark esports palette (#05060a, #0c0e17),
- * no emojis, and strict typography hierarchy.
+ * High-contrast, responsive RushX Organization HTML email shell.
+ * Features the transparent RushX brand banner, obsidian-indigo depth,
+ * and Electric Violet -> Ice Cyan accent line.
  */
 function emailShell({
   title,
@@ -378,8 +386,8 @@ function emailShell({
   ctaUrl?: string
 }) {
   const appUrl = getProductionAppUrl()
-  const bgImage = `${appUrl}/images/hero-bg.jpg`
-  const logoImage = `${appUrl}/icon.svg`
+  const fullLogoUrl = `${appUrl}/images/brand/rushx-full-white.png`
+  const symbolLogoUrl = `${appUrl}/images/brand/rushx-symbol.png`
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -389,42 +397,42 @@ function emailShell({
     <meta name="color-scheme" content="dark">
     <meta name="supported-color-schemes" content="dark">
     <title>${title}</title>
-    ${preheader ? `<div style="display:none;font-size:1px;color:#05060a;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
+    ${preheader ? `<div style="display:none;font-size:1px;color:#050712;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
   </head>
-  <body style="margin:0;padding:0;background-color:#05060a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;-webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#05060a;background-image:linear-gradient(rgba(5, 6, 10, 0.92), rgba(5, 6, 10, 0.96)), url('${bgImage}');background-size:cover;background-position:center top;background-repeat:no-repeat;padding:48px 16px;">
+  <body style="margin:0;padding:0;background-color:#050712;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f8fafc;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#050712;background-image:radial-gradient(circle at 50% 0%, rgba(124,58,237,0.22) 0%, rgba(5,7,18,1) 58%);padding:40px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#0c0e17;border:1px solid #1e2235;border-radius:16px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.7);">
-            <!-- Apex Accent Line -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background-color:#0a0f22;border:1px solid #1e2749;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.78);">
+            <!-- RushX Spectrum Accent Bar -->
             <tr>
-              <td style="background:linear-gradient(90deg, #ea580c 0%, #f97316 50%, #ea580c 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
+              <td style="background:linear-gradient(90deg, #7c3aed 0%, #4f46e5 52%, #38bdf8 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
             </tr>
+            <!-- Brand Banner Header -->
             <tr>
-              <td style="padding:40px 36px;">
-                <!-- Brand Header -->
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <td style="padding:26px 34px 20px 34px;background:linear-gradient(180deg, #12193a 0%, #0a0f22 100%);border-bottom:1px solid #1a2344;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td>
-                      <div style="display:flex;align-items:center;">
-                        <span style="display:inline-block;background:rgba(234,88,12,0.14);color:#f97316;font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;padding:5px 12px;border-radius:6px;border:1px solid rgba(249,115,22,0.35);">
-                          RUSHX ORGANIZATION
-                        </span>
-                      </div>
+                    <td align="left" valign="middle">
+                      <img src="${fullLogoUrl}" alt="RushX Organization" width="192" style="display:block;max-width:192px;height:auto;border:0;" />
                     </td>
-                    <td align="right">
-                      <span style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">
-                        Esports Tournament Platform
+                    <td align="right" valign="middle">
+                      <span style="color:#38bdf8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;">
+                        Esports Platform
                       </span>
                     </td>
                   </tr>
                 </table>
-
-                <h1 style="margin:0 0 16px 0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.4px;line-height:1.3;">
+              </td>
+            </tr>
+            <!-- Main Content Card -->
+            <tr>
+              <td style="padding:34px 34px 36px 34px;">
+                <h1 style="margin:0 0 16px 0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.35px;line-height:1.3;">
                   ${title}
                 </h1>
 
-                <div style="color:#94a3b8;font-size:15px;line-height:1.65;">
+                <div style="color:#cbd5e1;font-size:15px;line-height:1.7;">
                   ${contentHtml}
                 </div>
 
@@ -436,8 +444,8 @@ function emailShell({
                     <td align="center">
                       <table role="presentation" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="border-radius:8px;background:#ea580c;">
-                            <a href="${ctaUrl}" target="_blank" style="display:inline-block;background:#ea580c;color:#ffffff;font-weight:800;font-size:14px;padding:14px 34px;border-radius:8px;text-decoration:none;text-transform:uppercase;letter-spacing:0.8px;">
+                          <td style="border-radius:10px;background-color:#7c3aed;background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);">
+                            <a href="${ctaUrl}" target="_blank" style="display:inline-block;color:#ffffff;font-weight:700;font-size:14px;padding:14px 34px;border-radius:10px;text-decoration:none;letter-spacing:0.45px;">
                               ${ctaText}
                             </a>
                           </td>
@@ -452,12 +460,12 @@ function emailShell({
                 ${
                   ctaUrl
                     ? `
-                <div style="margin-top:28px;padding-top:20px;border-top:1px solid #1e2235;">
+                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #1a2344;">
                   <p style="margin:0 0 6px 0;color:#64748b;font-size:11px;line-height:1.5;">
                     If the button does not open directly, copy and paste this link into your browser:
                   </p>
                   <p style="margin:0;word-break:break-all;">
-                    <a href="${ctaUrl}" style="color:#f97316;font-size:11px;text-decoration:underline;">
+                    <a href="${ctaUrl}" style="color:#a78bfa;font-size:11px;text-decoration:underline;">
                       ${ctaUrl}
                     </a>
                   </p>
@@ -469,12 +477,13 @@ function emailShell({
           </table>
 
           <!-- Footer -->
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin-top:24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin-top:24px;">
             <tr>
-              <td align="center" style="color:#475569;font-size:11px;line-height:1.6;">
-                <p style="margin:0;font-weight:600;letter-spacing:0.5px;color:#64748b;">RUSHX ORGANIZATION</p>
-                <p style="margin:4px 0 0 0;">Automated Free Fire esports platform. Mobile devices only.</p>
-                <p style="margin:6px 0 0 0;">This is an automated operational notification. You received this because you have an account or active booking with RushX Organization.</p>
+              <td align="center" style="color:#64748b;font-size:11px;line-height:1.6;">
+                <img src="${symbolLogoUrl}" alt="RushX" width="24" height="24" style="display:inline-block;width:24px;height:24px;object-fit:contain;margin-bottom:8px;opacity:0.9;" />
+                <p style="margin:0;font-weight:700;letter-spacing:0.8px;color:#94a3b8;">RUSHX ORGANIZATION</p>
+                <p style="margin:4px 0 0 0;">Competitive Free Fire Esports Platform · Mobile Devices Only</p>
+                <p style="margin:6px 0 0 0;">Automated operational notification sent for your RushX Organization account or active scrim booking.</p>
               </td>
             </tr>
           </table>
@@ -537,7 +546,7 @@ function renderMediaItemsHtml(mediaItems: EmailTemplateMediaItem[]): string {
           <p style="margin:0 0 6px 0;color:#cbd5e1;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">
             Video Attachment: ${safeName}
           </p>
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#a78bfa;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
             Watch Attached Video
           </a>
         </div>
@@ -545,7 +554,7 @@ function renderMediaItemsHtml(mediaItems: EmailTemplateMediaItem[]): string {
     } else {
       blocks.push(`
         <div style="margin:12px 0;padding:12px 14px;border-radius:8px;border:1px solid #1e2235;background:#121524;">
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#a78bfa;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">
             ${safeName} (${safeUrl})
           </a>
         </div>
