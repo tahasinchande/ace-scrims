@@ -2,6 +2,7 @@ import "server-only"
 
 import { db } from "@/lib/db"
 import { settings } from "@/lib/db/schema"
+import { BRAND } from "@/lib/brand"
 
 export type PublicSiteSettings = {
   discordUrl: string
@@ -19,12 +20,19 @@ export type PublicSiteSettings = {
   maintenanceMode: boolean
   announcement: string
   logoUrl: string
+  showcaseTimeWindow: string
+  showcaseFormatLabel: string
+  showcasePayoutSla: string
+  showcaseHighlightNote: string
 }
 
 export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
   try {
     const rows = await db.select().from(settings)
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+    const rawLogo = (map.site_logo_url || "").trim()
+    const resolvedLogo =
+      !rawLogo || rawLogo === "/icon.svg" ? BRAND.assets.symbol : rawLogo
 
     return {
       discordUrl: map.discord_url || "https://discord.gg/aKF4hMuhmA",
@@ -41,7 +49,11 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       showRoom2: map.show_room2 === "true",
       maintenanceMode: map.maintenance_mode === "true",
       announcement: map.announcement || "",
-      logoUrl: map.site_logo_url || "/icon.svg",
+      logoUrl: resolvedLogo,
+      showcaseTimeWindow: (map.showcase_time_window || "").trim(),
+      showcaseFormatLabel: (map.showcase_format_label || "").trim(),
+      showcasePayoutSla: (map.showcase_payout_sla || "").trim(),
+      showcaseHighlightNote: (map.showcase_highlight_note || "").trim(),
     }
   } catch (err) {
     console.warn("[Settings Query] Error fetching site settings:", err)
@@ -60,7 +72,11 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       showRoom2: false,
       maintenanceMode: false,
       announcement: "",
-      logoUrl: "/icon.svg",
+      logoUrl: BRAND.assets.symbol,
+      showcaseTimeWindow: "",
+      showcaseFormatLabel: "",
+      showcasePayoutSla: "",
+      showcaseHighlightNote: "",
     }
   }
 }

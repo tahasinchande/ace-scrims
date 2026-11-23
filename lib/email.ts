@@ -243,8 +243,8 @@ export function resolveCleanUrl(url: string): string {
 
 /**
  * RushX Organization HTML email shell for Auth & Verification emails.
- * Uses obsidian-indigo surface (#050712 / #0a0f22), transparent RushX logo header,
- * Electric Violet -> Ice Cyan hairline accent, and crisp white CTA.
+ * Features circular RushX Organization sender profile avatar, transparent brand logo,
+ * Schema.org Organization logo JSON-LD, obsidian-blue depth, and Electric Blue CTA.
  */
 function authEmailShell({
   title,
@@ -262,6 +262,15 @@ function authEmailShell({
   const appUrl = getProductionAppUrl()
   const fullLogoUrl = `${appUrl}/images/brand/rushx-full-white.png`
   const symbolLogoUrl = `${appUrl}/images/brand/rushx-symbol.png`
+  const senderAvatarUrl = `${appUrl}/images/brand/rushx-favicon-192.png`
+  const brandJsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "RushX Organization",
+    url: appUrl,
+    logo: senderAvatarUrl,
+    image: symbolLogoUrl,
+  })
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -271,24 +280,37 @@ function authEmailShell({
     <meta name="color-scheme" content="dark">
     <meta name="supported-color-schemes" content="dark">
     <title>${title}</title>
+    <script type="application/ld+json">${brandJsonLd}</script>
     ${preheader ? `<div style="display:none;font-size:1px;color:#050712;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
   </head>
-  <body style="margin:0;padding:0;background-color:#050712;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f8fafc;-webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#050712;padding:36px 16px;">
+  <body style="margin:0;padding:0;background-color:#040814;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f8fafc;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#040814;background-image:radial-gradient(circle at 50% 0%, rgba(37,99,235,0.22) 0%, rgba(4,8,20,1) 58%);padding:36px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background-color:#0a0f22;border:1px solid #1e2749;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.75);">
-            <!-- RushX Spectrum Accent Bar -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background-color:#090f22;border:1px solid #1a284d;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.75);">
+            <!-- RushX Electric Blue Spectrum Bar -->
             <tr>
-              <td style="background:linear-gradient(90deg, #7c3aed 0%, #4f46e5 52%, #38bdf8 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
+              <td style="background:linear-gradient(90deg, #2563eb 0%, #0ea5e9 54%, #38bdf8 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
             </tr>
-            <!-- Brand Header Banner -->
+            <!-- Sender Profile Avatar & Brand Header Banner -->
             <tr>
-              <td style="padding:26px 34px 20px 34px;background:linear-gradient(180deg, #111735 0%, #0a0f22 100%);border-bottom:1px solid #1a2344;">
+              <td style="padding:22px 32px 18px 32px;background:linear-gradient(180deg, #0e1938 0%, #090f22 100%);border-bottom:1px solid #182548;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td align="left" valign="middle">
-                      <img src="${fullLogoUrl}" alt="RushX Organization" width="186" style="display:block;max-width:186px;height:auto;border:0;" />
+                      <table role="presentation" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td valign="middle" style="padding-right:12px;">
+                            <img src="${senderAvatarUrl}" alt="RushX Organization" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;border:2px solid #2563eb;background-color:#050b1d;object-fit:contain;" />
+                          </td>
+                          <td valign="middle">
+                            <img src="${fullLogoUrl}" alt="RushX Organization" width="154" style="display:block;max-width:154px;height:auto;border:0;" />
+                            <span style="display:block;margin-top:3px;color:#7dd3fc;font-size:10px;font-weight:600;letter-spacing:0.6px;">
+                              Official Sender · acescrims.online
+                            </span>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                     <td align="right" valign="middle">
                       <span style="color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;">
@@ -318,7 +340,7 @@ function authEmailShell({
                     <td align="center">
                       <table role="presentation" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="border-radius:10px;background-color:#7c3aed;background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);">
+                          <td style="border-radius:10px;background-color:#2563eb;background:linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);">
                             <a href="${ctaUrl}" target="_blank" style="display:inline-block;color:#ffffff;font-weight:700;font-size:14px;padding:13px 32px;border-radius:10px;text-decoration:none;letter-spacing:0.4px;">
                               ${ctaText}
                             </a>
@@ -334,12 +356,12 @@ function authEmailShell({
                 ${
                   ctaUrl
                     ? `
-                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #1a2344;">
+                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #182548;">
                   <p style="margin:0 0 6px 0;color:#64748b;font-size:11px;line-height:1.5;">
                     If the button does not open directly, copy and paste this link into your browser:
                   </p>
                   <p style="margin:0;word-break:break-all;">
-                    <a href="${ctaUrl}" style="color:#a78bfa;font-size:11px;text-decoration:underline;">
+                    <a href="${ctaUrl}" style="color:#38bdf8;font-size:11px;text-decoration:underline;">
                       ${ctaUrl}
                     </a>
                   </p>
@@ -369,8 +391,8 @@ function authEmailShell({
 
 /**
  * High-contrast, responsive RushX Organization HTML email shell.
- * Features the transparent RushX brand banner, obsidian-indigo depth,
- * and Electric Violet -> Ice Cyan accent line.
+ * Features circular RushX Organization sender profile avatar, transparent brand banner,
+ * Schema.org Organization logo JSON-LD, and Electric Blue -> Sky Cyan accent line.
  */
 function emailShell({
   title,
@@ -388,6 +410,15 @@ function emailShell({
   const appUrl = getProductionAppUrl()
   const fullLogoUrl = `${appUrl}/images/brand/rushx-full-white.png`
   const symbolLogoUrl = `${appUrl}/images/brand/rushx-symbol.png`
+  const senderAvatarUrl = `${appUrl}/images/brand/rushx-favicon-192.png`
+  const brandJsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "RushX Organization",
+    url: appUrl,
+    logo: senderAvatarUrl,
+    image: symbolLogoUrl,
+  })
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -397,24 +428,37 @@ function emailShell({
     <meta name="color-scheme" content="dark">
     <meta name="supported-color-schemes" content="dark">
     <title>${title}</title>
-    ${preheader ? `<div style="display:none;font-size:1px;color:#050712;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
+    <script type="application/ld+json">${brandJsonLd}</script>
+    ${preheader ? `<div style="display:none;font-size:1px;color:#040814;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</div>` : ""}
   </head>
-  <body style="margin:0;padding:0;background-color:#050712;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f8fafc;-webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#050712;background-image:radial-gradient(circle at 50% 0%, rgba(124,58,237,0.22) 0%, rgba(5,7,18,1) 58%);padding:40px 16px;">
+  <body style="margin:0;padding:0;background-color:#040814;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f8fafc;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#040814;background-image:radial-gradient(circle at 50% 0%, rgba(37,99,235,0.24) 0%, rgba(4,8,20,1) 58%);padding:40px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background-color:#0a0f22;border:1px solid #1e2749;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.78);">
-            <!-- RushX Spectrum Accent Bar -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background-color:#090f22;border:1px solid #1a284d;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.78);">
+            <!-- RushX Electric Blue Spectrum Bar -->
             <tr>
-              <td style="background:linear-gradient(90deg, #7c3aed 0%, #4f46e5 52%, #38bdf8 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
+              <td style="background:linear-gradient(90deg, #2563eb 0%, #0ea5e9 54%, #38bdf8 100%);height:4px;font-size:0;line-height:4px;">&nbsp;</td>
             </tr>
-            <!-- Brand Banner Header -->
+            <!-- Sender Profile Avatar & Brand Banner Header -->
             <tr>
-              <td style="padding:26px 34px 20px 34px;background:linear-gradient(180deg, #12193a 0%, #0a0f22 100%);border-bottom:1px solid #1a2344;">
+              <td style="padding:22px 32px 18px 32px;background:linear-gradient(180deg, #0e1938 0%, #090f22 100%);border-bottom:1px solid #182548;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td align="left" valign="middle">
-                      <img src="${fullLogoUrl}" alt="RushX Organization" width="192" style="display:block;max-width:192px;height:auto;border:0;" />
+                      <table role="presentation" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td valign="middle" style="padding-right:12px;">
+                            <img src="${senderAvatarUrl}" alt="RushX Organization" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;border:2px solid #2563eb;background-color:#050b1d;object-fit:contain;" />
+                          </td>
+                          <td valign="middle">
+                            <img src="${fullLogoUrl}" alt="RushX Organization" width="158" style="display:block;max-width:158px;height:auto;border:0;" />
+                            <span style="display:block;margin-top:3px;color:#7dd3fc;font-size:10px;font-weight:600;letter-spacing:0.6px;">
+                              Official Sender · acescrims.online
+                            </span>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                     <td align="right" valign="middle">
                       <span style="color:#38bdf8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;">
@@ -444,7 +488,7 @@ function emailShell({
                     <td align="center">
                       <table role="presentation" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="border-radius:10px;background-color:#7c3aed;background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);">
+                          <td style="border-radius:10px;background-color:#2563eb;background:linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);">
                             <a href="${ctaUrl}" target="_blank" style="display:inline-block;color:#ffffff;font-weight:700;font-size:14px;padding:14px 34px;border-radius:10px;text-decoration:none;letter-spacing:0.45px;">
                               ${ctaText}
                             </a>
@@ -460,12 +504,12 @@ function emailShell({
                 ${
                   ctaUrl
                     ? `
-                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #1a2344;">
+                <div style="margin-top:26px;padding-top:18px;border-top:1px solid #182548;">
                   <p style="margin:0 0 6px 0;color:#64748b;font-size:11px;line-height:1.5;">
                     If the button does not open directly, copy and paste this link into your browser:
                   </p>
                   <p style="margin:0;word-break:break-all;">
-                    <a href="${ctaUrl}" style="color:#a78bfa;font-size:11px;text-decoration:underline;">
+                    <a href="${ctaUrl}" style="color:#38bdf8;font-size:11px;text-decoration:underline;">
                       ${ctaUrl}
                     </a>
                   </p>
@@ -696,6 +740,12 @@ export async function sendEmail({
     return res
   }
 
+  const brandAppUrl = getProductionAppUrl()
+  const brandHeaders: Record<string, string> = {
+    "X-Brand-Logo": `${brandAppUrl}/images/brand/rushx-favicon-192.png`,
+    "List-Id": "RushX Organization <notifications.acescrims.online>",
+  }
+
   // 1. Try Resend if configured (retry up to 2 times on 429 rate-limit)
   if (resend) {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -707,6 +757,7 @@ export async function sendEmail({
           subject,
           html,
           text,
+          headers: brandHeaders,
         })
 
         if (!response.error) {
@@ -732,6 +783,7 @@ export async function sendEmail({
             subject,
             html,
             text,
+            headers: brandHeaders,
           })
           if (!fallbackRes.error) {
             console.log(`[Email Service] Successfully sent email via Resend fallback onboarding@resend.dev.`)
@@ -770,6 +822,7 @@ export async function sendEmail({
             email: parsedFrom.email,
             ...(parsedFrom.name ? { name: parsedFrom.name } : {}),
           },
+          headers: brandHeaders,
           subject,
           content: [
             ...(text ? [{ type: "text/plain", value: text }] : []),
@@ -802,6 +855,7 @@ export async function sendEmail({
         subject,
         html,
         text,
+        headers: brandHeaders,
       })
       console.log(`[Email Service] Successfully sent email to ${to} via SMTP. Message ID: ${info.messageId}`)
       return finish({ success: true, provider: "smtp", messageId: info.messageId })

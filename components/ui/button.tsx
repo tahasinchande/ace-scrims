@@ -10,16 +10,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-gradient-to-b from-violet-500 via-violet-600 to-indigo-600 text-white border-violet-300/30 shadow-[0_10px_26px_-10px_rgba(124,58,237,0.68),inset_0_1px_0_rgba(255,255,255,0.28)] hover:from-violet-400 hover:via-violet-500 hover:to-indigo-600 hover:shadow-[0_14px_32px_-10px_rgba(124,58,237,0.82),inset_0_1px_0_rgba(255,255,255,0.38)]",
+          "rushx-primary-btn text-white border-[rgba(var(--rushx-soft-rgb),0.36)]",
         outline:
-          "border-violet-200/[0.14] bg-white/[0.035] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] hover:bg-violet-500/[0.1] hover:border-violet-400/[0.34] aria-expanded:bg-white/[0.08] aria-expanded:text-foreground",
+          "border-[rgba(var(--rushx-soft-rgb),0.18)] bg-white/[0.035] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] hover:bg-[rgba(var(--rushx-primary-rgb),0.14)] hover:border-[rgba(var(--rushx-soft-rgb),0.4)] aria-expanded:bg-white/[0.08] aria-expanded:text-foreground",
         secondary:
-          "bg-[linear-gradient(180deg,rgba(28,34,62,0.92)_0%,rgba(14,18,36,0.96)_100%)] text-secondary-foreground border-violet-300/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-violet-400/[0.3] hover:bg-[linear-gradient(180deg,rgba(36,44,78,0.95)_0%,rgba(18,24,46,0.98)_100%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-[linear-gradient(180deg,rgba(20,30,58,0.92)_0%,rgba(11,16,34,0.96)_100%)] text-secondary-foreground border-[rgba(var(--rushx-soft-rgb),0.15)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-[rgba(var(--rushx-soft-rgb),0.34)] hover:bg-[linear-gradient(180deg,rgba(26,38,72,0.95)_0%,rgba(14,22,44,0.98)_100%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "text-muted-foreground hover:bg-violet-500/[0.1] hover:text-foreground aria-expanded:bg-white/[0.06] aria-expanded:text-foreground",
+          "text-muted-foreground hover:bg-[rgba(var(--rushx-primary-rgb),0.12)] hover:text-foreground aria-expanded:bg-white/[0.06] aria-expanded:text-foreground",
         destructive:
           "bg-destructive/14 text-destructive border-destructive/28 hover:bg-destructive/24 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-violet-300 underline-offset-4 hover:text-violet-200 hover:underline",
+        link: "text-primary underline-offset-4 hover:text-accent hover:underline",
       },
       size: {
         default:

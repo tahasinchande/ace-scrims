@@ -57,7 +57,7 @@ export function LiveSupportButton({
       type="button"
       onClick={handleClick}
       className={cn(
-        "rushx-live-support-btn rushx-btn-splash group inline-flex items-center justify-center gap-2.5 rounded-full font-display font-bold uppercase tracking-wider text-white cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:pointer-events-none",
+        "rushx-live-support-btn rushx-btn-splash group inline-flex items-center justify-center gap-2.5 rounded-full font-display font-bold uppercase tracking-wider text-white cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:pointer-events-none",
         sizeClass,
         className
       )}

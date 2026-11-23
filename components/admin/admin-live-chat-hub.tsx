@@ -10,8 +10,22 @@ import {
   takeOverChat,
   handBackToAi,
   unbanChatUser,
+  toggleChatReaction,
   type AdminChatConversation,
 } from "@/app/actions/chat"
+import {
+  applyReactionToggle,
+  type ChatReactionEmoji,
+  type ChatReactionsMap,
+  type ChatReplyPreview,
+} from "@/lib/chat-types"
+import {
+  ComposerReplyBar,
+  MessageActionBar,
+  QuotedReplyChip,
+  ReactionPills,
+  SwipeableReplyRow,
+} from "@/components/chat/messenger-interactions"
 import { useChatScroll } from "@/lib/hooks/use-chat-scroll"
 import { uploadMediaFile } from "@/lib/client-upload"
 import { useLanguage } from "@/lib/language"
@@ -62,6 +76,9 @@ type MessageItem = {
   readByUser: boolean
   createdAt: Date | string
   senderImage?: string | null
+  replyToId?: string | null
+  reactionsMap?: ChatReactionsMap
+  replyTo?: ChatReplyPreview | null
 }
 
 type ModerationLogItem = {
@@ -206,8 +223,12 @@ export function AdminLiveChatHub({
   const [deleteMsgTarget, setDeleteMsgTarget] = useState<string | null>(null)
   const [clearThreadConfirmOpen, setClearThreadConfirmOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<MessageItem | null>(null)
+  const [openPickerId, setOpenPickerId] = useState<string | null>(null)
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
 
   const {
     containerRef,
@@ -261,6 +282,8 @@ export function AdminLiveChatHub({
   )
 
   useEffect(() => {
+    setReplyingTo(null)
+    setOpenPickerId(null)
     if (selectedUserId && activeTab !== "moderation") {
       fetchThread(selectedUserId, false)
     } else if (!selectedUserId) {
@@ -339,6 +362,56 @@ export function AdminLiveChatHub({
     }
   }
 
+  function triggerReply(msg: MessageItem) {
+    setReplyingTo(msg)
+    setOpenPickerId(null)
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+    })
+  }
+
+  function jumpToMessage(targetId: string) {
+    const container = containerRef.current
+    if (!container) return
+    const el = container.querySelector(`[data-msg-id="${CSS.escape(targetId)}"]`) as HTMLElement | null
+    if (!el) return
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    setHighlightedMsgId(targetId)
+    window.setTimeout(() => {
+      setHighlightedMsgId((prev) => (prev === targetId ? null : prev))
+    }, 1500)
+  }
+
+  async function handleToggleReaction(messageId: string, emoji: ChatReactionEmoji) {
+    const actor = {
+      userId: _staffUserId,
+      userName: "Staff",
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, reactionsMap: applyReactionToggle(m.reactionsMap || {}, emoji, actor) }
+          : m,
+      ),
+    )
+
+    try {
+      const res = await toggleChatReaction(messageId, emoji)
+      if (res.ok && res.reactions) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, reactionsMap: res.reactions } : m)),
+        )
+      } else if (selectedUserId) {
+        await fetchThread(selectedUserId, true)
+      }
+    } catch {
+      if (selectedUserId) {
+        await fetchThread(selectedUserId, true)
+      }
+    }
+  }
+
   function handleSend(e?: React.FormEvent) {
     if (e) e.preventDefault()
     if (!selectedUserId) return
@@ -350,11 +423,13 @@ export function AdminLiveChatHub({
     const urlToSend = attachedUrl || undefined
     const typeToSend = attachedType || undefined
     const nameToSend = attachedName || undefined
+    const replyIdToSend = replyingTo?.id || undefined
 
     setInputText("")
     setAttachedUrl(null)
     setAttachedType(null)
     setAttachedName(null)
+    setReplyingTo(null)
 
     startSending(async () => {
       try {
@@ -364,7 +439,8 @@ export function AdminLiveChatHub({
           targetUser,
           urlToSend,
           typeToSend,
-          nameToSend
+          nameToSend,
+          replyIdToSend,
         )
         if (res.ok) {
           await Promise.all([fetchThread(targetUser, true), refreshHub()])
@@ -873,6 +949,7 @@ export function AdminLiveChatHub({
                 <div
                   ref={containerRef}
                   onScroll={handleScroll}
+                  onClick={() => openPickerId && setOpenPickerId(null)}
                   className="flex-1 overflow-y-auto p-4 flex flex-col gap-1.5 relative bg-[#18191A]"
                 >
                   {loadingThread ? (
@@ -917,170 +994,204 @@ export function AdminLiveChatHub({
                       const hasText = Boolean(m.message && m.message.trim() && !(mediaKind && isDefaultCaption))
 
                       return (
-                        <div
+                        <SwipeableReplyRow
                           key={m.id}
-                          className={cn(
-                            "group flex flex-col max-w-[82%] sm:max-w-[70%]",
-                            isRightAligned ? "ml-auto items-end" : "mr-auto items-start",
-                            !prevSameSender ? "mt-2" : "mt-0.5"
-                          )}
+                          messageId={m.id}
+                          alignRight={isRightAligned}
+                          highlighted={highlightedMsgId === m.id}
+                          onTriggerReply={() => triggerReply(m)}
                         >
-                          {!prevSameSender && (
-                            <div className="flex items-center gap-1.5 mb-0.5 px-1 text-[10px] text-zinc-400">
-                              {isAi && <Bot className="size-3 text-indigo-400" />}
-                              <span className="font-semibold text-zinc-300">
-                                {isAi
-                                  ? `${m.senderName} (${t("chat_ai_badge")})`
-                                  : isStaff
-                                    ? `${m.senderName} (${t("chat_staff_badge")})`
-                                    : m.senderName}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="relative flex items-center gap-1.5">
-                            {isRightAligned && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteMsgTarget(m.id)}
-                                title={lang === "bn" ? "মেসেজ মুছুন" : "Delete message"}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-zinc-400 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                              >
-                                <Trash2 className="size-3.5" />
-                              </button>
+                          <div
+                            className={cn(
+                              "group/msg flex flex-col max-w-[85%] sm:max-w-[76%]",
+                              isRightAligned ? "items-end" : "items-start",
+                              !prevSameSender ? "mt-2" : "mt-0.5",
+                            )}
+                          >
+                            {!prevSameSender && (
+                              <div className="flex items-center gap-1.5 mb-0.5 px-1 text-[10px] text-zinc-400">
+                                {isAi && <Bot className="size-3 text-sky-400" />}
+                                <span className="font-semibold text-zinc-300">
+                                  {isAi
+                                    ? `${m.senderName} (${t("chat_ai_badge")})`
+                                    : isStaff
+                                      ? `${m.senderName} (${t("chat_staff_badge")})`
+                                      : m.senderName}
+                                </span>
+                              </div>
                             )}
 
-                            <div className="flex flex-col gap-1">
-                              {mediaKind === "image" && m.attachmentUrl ? (
-                                <div className="flex flex-col gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => openLightbox(m.attachmentUrl!)}
-                                    className="group/media relative overflow-hidden rounded-2xl border border-white/10 bg-black cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084FF]"
-                                  >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={resolveImageUrl(m.attachmentUrl)}
-                                      alt={m.attachmentName || "Attachment"}
-                                      className="max-h-64 w-auto max-w-[280px] object-cover transition-transform duration-200 group-hover/media:scale-[1.02]"
-                                    />
-                                  </button>
-                                  {hasText && (
-                                    <div
-                                      className={cn(
-                                        "rounded-2xl px-3.5 py-2 text-[13px] leading-snug shadow",
-                                        isStaff ? "bg-[#0084FF] text-white" : isAi ? "bg-indigo-600/80 text-white" : "bg-[#242526] text-zinc-100"
-                                      )}
-                                    >
-                                      <p className="whitespace-pre-wrap break-words">{m.message}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : mediaKind === "video" && m.attachmentUrl ? (
-                                <div className="flex flex-col gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => openLightbox(m.attachmentUrl!)}
-                                    className="group/media relative overflow-hidden rounded-2xl border border-white/10 bg-black cursor-pointer w-[260px] aspect-video focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084FF]"
-                                  >
-                                    <video
-                                      src={resolveImageUrl(m.attachmentUrl)}
-                                      muted
-                                      playsInline
-                                      preload="metadata"
-                                      className="h-full w-full object-cover opacity-85"
-                                    />
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover/media:bg-black/45 transition-colors">
-                                      <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
-                                        <Play className="size-5 fill-current ml-0.5" />
-                                      </span>
-                                    </div>
-                                  </button>
-                                  {hasText && (
-                                    <div
-                                      className={cn(
-                                        "rounded-2xl px-3.5 py-2 text-[13px] leading-snug shadow",
-                                        isStaff ? "bg-[#0084FF] text-white" : "bg-[#242526] text-zinc-100"
-                                      )}
-                                    >
-                                      <p className="whitespace-pre-wrap break-words">{m.message}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div
-                                  className={cn(
-                                    "px-3.5 py-2 text-[13px] leading-snug shadow-sm flex flex-col gap-1.5",
-                                    isStaff
-                                      ? cn(
-                                          "bg-[#0084FF] text-white rounded-2xl",
-                                          prevSameSender && "rounded-tr-md",
-                                          nextSameSender && "rounded-br-md"
-                                        )
-                                      : isAi
-                                        ? cn(
-                                            "bg-indigo-900/75 border border-indigo-500/40 text-zinc-100 rounded-2xl",
-                                            prevSameSender && "rounded-tr-md",
-                                            nextSameSender && "rounded-br-md"
-                                          )
-                                        : cn(
-                                            "bg-[#242526] text-zinc-100 rounded-2xl",
-                                            prevSameSender && "rounded-tl-md",
-                                            nextSameSender && "rounded-bl-md"
-                                          )
-                                  )}
-                                >
-                                  {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
+                            {m.replyTo && (
+                              <QuotedReplyChip
+                                replyTo={m.replyTo}
+                                alignRight={isRightAligned}
+                                lang={lang}
+                                onJumpToMessage={jumpToMessage}
+                              />
+                            )}
 
-                                  {m.attachmentUrl && (
-                                    <a
-                                      href={resolveImageUrl(m.attachmentUrl)}
-                                      download={m.attachmentName || "file"}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={cn(
-                                        "flex items-center gap-2 p-2 rounded-xl text-[11px] font-medium transition-colors",
-                                        isStaff
-                                          ? "bg-black/20 hover:bg-black/30 text-white"
-                                          : "bg-[#3A3B3C] hover:bg-[#4E4F50] text-zinc-100"
-                                      )}
-                                    >
-                                      <FileText className="size-4 shrink-0" />
-                                      <span className="truncate max-w-xs">{m.attachmentName || "View Document"}</span>
-                                      <ExternalLink className="size-3 opacity-75 ml-auto shrink-0" />
-                                    </a>
-                                  )}
-                                </div>
+                            <div
+                              className={cn(
+                                "relative flex items-center gap-1.5",
+                                isRightAligned ? "flex-row-reverse" : "flex-row",
                               )}
+                            >
+                              <div className={cn("flex flex-col", isRightAligned ? "items-end" : "items-start")}>
+                                {mediaKind === "image" && m.attachmentUrl ? (
+                                  <div className="flex flex-col gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openLightbox(m.attachmentUrl!)}
+                                      className="group/media relative overflow-hidden rounded-2xl border border-white/10 bg-black cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084FF]"
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={resolveImageUrl(m.attachmentUrl)}
+                                        alt={m.attachmentName || "Attachment"}
+                                        className="max-h-64 w-auto max-w-[280px] object-cover transition-transform duration-200 group-hover/media:scale-[1.02]"
+                                      />
+                                    </button>
+                                    {hasText && (
+                                      <div
+                                        className={cn(
+                                          "rounded-2xl px-3.5 py-2 text-[13px] leading-snug shadow",
+                                          isStaff
+                                            ? "bg-[#0084FF] text-white"
+                                            : isAi
+                                              ? "bg-sky-700/80 text-white"
+                                              : "bg-[#242526] text-zinc-100",
+                                        )}
+                                      >
+                                        <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : mediaKind === "video" && m.attachmentUrl ? (
+                                  <div className="flex flex-col gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openLightbox(m.attachmentUrl!)}
+                                      className="group/media relative overflow-hidden rounded-2xl border border-white/10 bg-black cursor-pointer w-[260px] aspect-video focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084FF]"
+                                    >
+                                      <video
+                                        src={resolveImageUrl(m.attachmentUrl)}
+                                        muted
+                                        playsInline
+                                        preload="metadata"
+                                        className="h-full w-full object-cover opacity-85"
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover/media:bg-black/45 transition-colors">
+                                        <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
+                                          <Play className="size-5 fill-current ml-0.5" />
+                                        </span>
+                                      </div>
+                                    </button>
+                                    {hasText && (
+                                      <div
+                                        className={cn(
+                                          "rounded-2xl px-3.5 py-2 text-[13px] leading-snug shadow",
+                                          isStaff ? "bg-[#0084FF] text-white" : "bg-[#242526] text-zinc-100",
+                                        )}
+                                      >
+                                        <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={cn(
+                                      "px-3.5 py-2 text-[13px] leading-snug shadow-sm flex flex-col gap-1.5",
+                                      isStaff
+                                        ? cn(
+                                            "bg-[#0084FF] text-white rounded-2xl",
+                                            prevSameSender && "rounded-tr-md",
+                                            nextSameSender && "rounded-br-md",
+                                          )
+                                        : isAi
+                                          ? cn(
+                                              "bg-sky-900/70 border border-sky-500/40 text-zinc-100 rounded-2xl",
+                                              prevSameSender && "rounded-tr-md",
+                                              nextSameSender && "rounded-br-md",
+                                            )
+                                          : cn(
+                                              "bg-[#242526] text-zinc-100 rounded-2xl",
+                                              prevSameSender && "rounded-tl-md",
+                                              nextSameSender && "rounded-bl-md",
+                                            ),
+                                    )}
+                                  >
+                                    {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
+
+                                    {m.attachmentUrl && (
+                                      <a
+                                        href={resolveImageUrl(m.attachmentUrl)}
+                                        download={m.attachmentName || "file"}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={cn(
+                                          "flex items-center gap-2 p-2 rounded-xl text-[11px] font-medium transition-colors",
+                                          isStaff
+                                            ? "bg-black/20 hover:bg-black/30 text-white"
+                                            : "bg-[#3A3B3C] hover:bg-[#4E4F50] text-zinc-100",
+                                        )}
+                                      >
+                                        <FileText className="size-4 shrink-0" />
+                                        <span className="truncate max-w-xs">{m.attachmentName || "View Document"}</span>
+                                        <ExternalLink className="size-3 opacity-75 ml-auto shrink-0" />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+
+                                <ReactionPills
+                                  reactions={m.reactionsMap}
+                                  currentUserId={_staffUserId}
+                                  alignRight={isRightAligned}
+                                  onToggleEmoji={(emoji) => handleToggleReaction(m.id, emoji)}
+                                />
+                              </div>
+
+                              <MessageActionBar
+                                messageId={m.id}
+                                alignRight={isRightAligned}
+                                pickerOpen={openPickerId === m.id}
+                                onTogglePicker={setOpenPickerId}
+                                onSelectEmoji={(emoji) => handleToggleReaction(m.id, emoji)}
+                                onReply={() => triggerReply(m)}
+                                lang={lang}
+                                extraAction={
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteMsgTarget(m.id)}
+                                    title={lang === "bn" ? "মেসেজ মুছুন" : "Delete message"}
+                                    className="flex size-7 items-center justify-center rounded-full text-zinc-400 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                }
+                              />
                             </div>
 
-                            {!isRightAligned && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteMsgTarget(m.id)}
-                                title={lang === "bn" ? "মেসেজ মুছুন" : "Delete message"}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-zinc-400 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                              >
-                                <Trash2 className="size-3.5" />
-                              </button>
+                            {!nextSameSender && (
+                              <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-zinc-500">
+                                <span className="font-mono">
+                                  {m.createdAt
+                                    ? new Date(m.createdAt).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : ""}
+                                </span>
+                                {isStaff &&
+                                  (m.readByUser ? (
+                                    <CheckCheck className="size-3 text-[#0084FF]" />
+                                  ) : (
+                                    <Check className="size-3 text-zinc-500" />
+                                  ))}
+                              </div>
                             )}
                           </div>
-
-                          {!nextSameSender && (
-                            <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-zinc-500">
-                              <span className="font-mono">
-                                {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
-                              </span>
-                              {isStaff && (
-                                m.readByUser ? (
-                                  <CheckCheck className="size-3 text-[#0084FF]" />
-                                ) : (
-                                  <Check className="size-3 text-zinc-500" />
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        </SwipeableReplyRow>
                       )
                     })
                   )}
@@ -1125,6 +1236,14 @@ export function AdminLiveChatHub({
                   </div>
                 )}
 
+                {replyingTo && (
+                  <ComposerReplyBar
+                    replyTarget={replyingTo}
+                    lang={lang}
+                    onClear={() => setReplyingTo(null)}
+                  />
+                )}
+
                 {/* Composer */}
                 <form onSubmit={handleSend} className="p-3 border-t border-zinc-800 bg-[#242526] flex items-end gap-2 shrink-0">
                   <input
@@ -1147,6 +1266,7 @@ export function AdminLiveChatHub({
                   </Button>
 
                   <Textarea
+                    ref={composerRef}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {

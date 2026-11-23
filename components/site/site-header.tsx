@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
@@ -39,9 +39,35 @@ export function SiteHeader({
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [scrimsDropdownOpen, setScrimsDropdownOpen] = useState(false)
+  const closeDropdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { lang, setLang, t } = useLanguage()
   const { mode, setMode } = useViewMode()
   const { data: sessionData } = useSession()
+
+  const openScrimsMenu = () => {
+    if (closeDropdownTimerRef.current) {
+      clearTimeout(closeDropdownTimerRef.current)
+      closeDropdownTimerRef.current = null
+    }
+    setScrimsDropdownOpen(true)
+  }
+
+  const scheduleCloseScrimsMenu = () => {
+    if (closeDropdownTimerRef.current) {
+      clearTimeout(closeDropdownTimerRef.current)
+    }
+    closeDropdownTimerRef.current = setTimeout(() => {
+      setScrimsDropdownOpen(false)
+    }, 160)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (closeDropdownTimerRef.current) {
+        clearTimeout(closeDropdownTimerRef.current)
+      }
+    }
+  }, [])
 
   const [liveSettings, setLiveSettings] = useState<HeaderSettings | undefined>(initialSettings)
 
@@ -101,77 +127,101 @@ export function SiteHeader({
             {t("nav_home", "Home")}
           </Link>
 
-          {/* Scrims Dropdown Menu */}
+          {/* Scrims Dropdown Menu (Hover bridge + hover-intent + focus + click accessible) */}
           <div
             className="relative"
-            onMouseEnter={() => setScrimsDropdownOpen(true)}
-            onMouseLeave={() => setScrimsDropdownOpen(false)}
+            onMouseEnter={openScrimsMenu}
+            onMouseLeave={scheduleCloseScrimsMenu}
+            onFocus={openScrimsMenu}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setScrimsDropdownOpen(false)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setScrimsDropdownOpen(false)
+            }}
           >
-            <Link
-              href="/scrims"
-              className={cn(
-                "flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold tracking-tight transition-all",
-                pathname.startsWith("/scrims")
-                  ? "text-white bg-white/[0.08] border border-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                  : "text-zinc-400 border border-transparent hover:text-zinc-100 hover:bg-white/[0.05]"
-              )}
-            >
-              {t("nav_scrims", "Scrims")}
-              <ChevronDown
+            <div className="inline-flex items-center">
+              <Link
+                href="/scrims"
                 className={cn(
-                  "size-3.5 opacity-70 transition-transform duration-200",
-                  scrimsDropdownOpen && "rotate-180 opacity-100"
+                  "flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold tracking-tight transition-all",
+                  pathname.startsWith("/scrims") || scrimsDropdownOpen
+                    ? "text-white bg-white/[0.08] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    : "text-zinc-400 border border-transparent hover:text-zinc-100 hover:bg-white/[0.05]"
                 )}
-              />
-            </Link>
+                aria-haspopup="menu"
+                aria-expanded={scrimsDropdownOpen}
+              >
+                {t("nav_scrims", "Scrims")}
+                <ChevronDown
+                  className={cn(
+                    "size-3.5 opacity-75 transition-transform duration-200",
+                    scrimsDropdownOpen && "rotate-180 opacity-100 text-accent"
+                  )}
+                />
+              </Link>
+            </div>
 
             <AnimatePresence>
               {scrimsDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
-                  className="dc-surface absolute left-0 top-full mt-1.5 w-76 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1"
+                <div
+                  className="absolute left-0 top-full z-[60] pt-2"
+                  onMouseEnter={openScrimsMenu}
+                  onMouseLeave={scheduleCloseScrimsMenu}
                 >
-                  <Link
-                    href="/scrims"
-                    onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-violet-500/10 transition-colors group"
+                  <motion.div
+                    role="menu"
+                    aria-label="Scrim categories"
+                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="dc-surface w-80 rounded-2xl p-2 shadow-[0_24px_60px_-14px_rgba(2,6,20,0.95)] flex flex-col gap-1"
                   >
-                    <Calendar className="mt-0.5 size-4 shrink-0 text-violet-300" />
-                    <div className="flex flex-col">
-                      <span className="text-white font-semibold">All Scrims</span>
-                      <span className="text-[11px] text-slate-400">Browse all active lobbies &amp; formats</span>
-                    </div>
-                  </Link>
+                    <Link
+                      role="menuitem"
+                      href="/scrims"
+                      onClick={() => setScrimsDropdownOpen(false)}
+                      className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-[rgba(var(--rushx-primary-rgb),0.15)] transition-colors group"
+                    >
+                      <Calendar className="mt-0.5 size-4 shrink-0 text-accent" />
+                      <div className="flex flex-col">
+                        <span className="text-white font-semibold">All Scrims</span>
+                        <span className="text-[11px] font-normal text-slate-400">Browse all active lobbies &amp; schedules</span>
+                      </div>
+                    </Link>
 
-                  <div className="my-1 h-px bg-white/[0.07]" />
+                    <div className="my-0.5 h-px bg-white/[0.07]" />
 
-                  <Link
-                    href="/scrims?category=champion-rush"
-                    onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-violet-500/10 transition-colors group"
-                  >
-                    <Trophy className="mt-0.5 size-4 shrink-0 text-emerald-400" />
-                    <div className="flex flex-col">
-                      <span className="text-emerald-300 font-semibold">Champion Rush</span>
-                      <span className="text-[11px] text-slate-400">3 PM &amp; 10 PM · 8-Match Survival Challenge</span>
-                    </div>
-                  </Link>
+                    <Link
+                      role="menuitem"
+                      href="/scrims?category=champion-rush"
+                      onClick={() => setScrimsDropdownOpen(false)}
+                      className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-emerald-500/12 transition-colors group"
+                    >
+                      <Trophy className="mt-0.5 size-4 shrink-0 text-emerald-400" />
+                      <div className="flex flex-col">
+                        <span className="text-emerald-300 font-semibold">Champion Rush</span>
+                        <span className="text-[11px] font-normal text-slate-400">Multi-match survival series · Top standings</span>
+                      </div>
+                    </Link>
 
-                  <Link
-                    href="/scrims?category=friday-special-blast"
-                    onClick={() => setScrimsDropdownOpen(false)}
-                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-violet-500/10 transition-colors group"
-                  >
-                    <Flame className="mt-0.5 size-4 shrink-0 text-cyan-300" />
-                    <div className="flex flex-col">
-                      <span className="text-cyan-200 font-semibold">Friday Special Blast</span>
-                      <span className="text-[11px] text-slate-400">5 Premium Matches · ৳80 Entry / ৳850 Prize</span>
-                    </div>
-                  </Link>
-                </motion.div>
+                    <Link
+                      role="menuitem"
+                      href="/scrims?category=friday-special-blast"
+                      onClick={() => setScrimsDropdownOpen(false)}
+                      className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-[rgba(var(--rushx-accent-rgb),0.14)] transition-colors group"
+                    >
+                      <Flame className="mt-0.5 size-4 shrink-0 text-amber-400" />
+                      <div className="flex flex-col">
+                        <span className="text-amber-300 font-semibold">Friday Special Blast</span>
+                        <span className="text-[11px] font-normal text-slate-400">Featured high-stakes weekend scrim series</span>
+                      </div>
+                    </Link>
+                  </motion.div>
+                </div>
               )}
             </AnimatePresence>
           </div>
@@ -236,7 +286,7 @@ export function SiteHeader({
               className={cn(
                 "flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                 mode === "2d"
-                  ? "bg-violet-500/25 text-violet-200 shadow-xs"
+                  ? "bg-[rgba(var(--rushx-primary-rgb),0.26)] text-white shadow-xs"
                   : "text-slate-400 hover:text-white"
               )}
               title="2D Dynamic Ambient Mode"
@@ -250,7 +300,7 @@ export function SiteHeader({
               className={cn(
                 "flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                 mode === "3d"
-                  ? "bg-violet-500/25 text-violet-200 shadow-xs"
+                  ? "bg-[rgba(var(--rushx-primary-rgb),0.26)] text-white shadow-xs"
                   : "text-slate-400 hover:text-white"
               )}
               title="3D Cyber Mode"
@@ -288,7 +338,7 @@ export function SiteHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="More navigation options"
-                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:border-violet-400/30 hover:bg-violet-500/10 hover:text-white transition-all cursor-pointer"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:border-[rgba(var(--rushx-soft-rgb),0.36)] hover:bg-[rgba(var(--rushx-primary-rgb),0.12)] hover:text-white transition-all cursor-pointer"
                 >
                   <MoreVertical className="size-4" />
                 </DropdownMenuTrigger>
@@ -301,14 +351,14 @@ export function SiteHeader({
                     </div>
                   </div>
                   <DropdownMenuItem className="p-0 mt-1">
-                    <Link href="/dashboard/wallet" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-emerald-400 font-semibold focus:text-emerald-300">
-                      <Wallet className="size-4 text-emerald-400" />
+                    <Link href="/dashboard/wallet" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-accent font-semibold">
+                      <Wallet className="size-4 text-accent" />
                       <span>Load / View Balance</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="p-0">
                     <Link href="/dashboard/scrims" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                      <Calendar className="size-4 text-violet-300" />
+                      <Calendar className="size-4 text-accent" />
                       <span>My Scrims</span>
                     </Link>
                   </DropdownMenuItem>
@@ -320,7 +370,7 @@ export function SiteHeader({
                   </DropdownMenuItem>
                   <DropdownMenuItem className="p-0">
                     <Link href="/tutorial" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer">
-                      <Boxes className="size-4 text-indigo-300" />
+                      <Boxes className="size-4 text-slate-300" />
                       <span>Tutorial Video</span>
                     </Link>
                   </DropdownMenuItem>
@@ -383,8 +433,8 @@ export function SiteHeader({
               </DropdownMenuItem>
               {currentUser && (
                 <DropdownMenuItem className="p-0">
-                  <Link href="/dashboard" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-violet-300 font-semibold">
-                    <Trophy className="size-4 text-violet-300" />
+                  <Link href="/dashboard" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-accent font-semibold">
+                    <Trophy className="size-4 text-accent" />
                     <span>My Dashboard</span>
                   </Link>
                 </DropdownMenuItem>
@@ -416,7 +466,7 @@ export function SiteHeader({
             onClick={() => setMode(mode === "2d" ? "3d" : "2d")}
             className="flex h-8 items-center gap-1 whitespace-nowrap rounded-xl border border-white/[0.09] bg-white/[0.04] px-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
           >
-            {mode === "2d" ? <Layers className="size-3 text-violet-300" /> : <Boxes className="size-3 text-cyan-300" />}
+            {mode === "2d" ? <Layers className="size-3 text-accent" /> : <Boxes className="size-3 text-accent" />}
             {mode.toUpperCase()}
           </button>
 
@@ -446,18 +496,16 @@ export function SiteHeader({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-white/[0.07] bg-[#050811]/95 px-4 pb-5 pt-3 backdrop-blur-2xl md:hidden"
+            className="overflow-hidden border-t border-white/[0.07] bg-[#040814]/95 px-4 pb-5 pt-3 backdrop-blur-2xl md:hidden"
             aria-label="Mobile Navigation"
           >
             <div className="flex flex-col gap-1.5">
               {/* Account Balance Highlight in Mobile Drawer */}
-              <div className="dc-surface rounded-2xl border-emerald-500/25 p-3 flex items-center justify-between my-1">
+              <div className="dc-surface rounded-2xl p-3 flex items-center justify-between my-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
-                    <Wallet className="size-4" />
-                  </div>
+                  <Wallet className="size-4 text-accent shrink-0" />
                   <div>
-                    <span className="text-[10px] uppercase font-semibold tracking-wider text-emerald-400">Account Balance</span>
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Account Balance</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <UserBalanceWidget initialBalance={initialBalance} compact isGuest={!currentUser} />
                     </div>
@@ -466,7 +514,7 @@ export function SiteHeader({
                 <Link
                   href={currentUser ? "/dashboard/wallet" : "/sign-in?next=/dashboard/wallet"}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors shadow-sm"
+                  className="rushx-primary-btn rushx-btn-splash rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-all"
                 >
                   + Load
                 </Link>
@@ -541,7 +589,7 @@ export function SiteHeader({
                   {(currentUser.role === "admin" || currentUser.role === "moderator") && (
                     <Link
                       href="/admin"
-                      className="rounded-xl px-3 py-2 text-sm font-semibold text-violet-300 hover:bg-white/[0.06]"
+                      className="rounded-xl px-3 py-2 text-sm font-semibold text-accent hover:bg-white/[0.06]"
                       onClick={() => setOpen(false)}
                     >
                       {currentUser.role === "admin" ? "Admin Panel" : "Mod Panel"}

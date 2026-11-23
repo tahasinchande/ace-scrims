@@ -404,11 +404,17 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
   const previewDoc = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;background:#050712;color:#e2e8f0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;background:#0a0f22;border:1px solid #1e2749;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.75);">
-    <div style="height:4px;background:linear-gradient(90deg,#7c3aed 0%,#4f46e5 52%,#38bdf8 100%);"></div>
-    <div style="padding:20px 28px 16px 28px;background:linear-gradient(180deg,#12193a 0%,#0a0f22 100%);border-bottom:1px solid #1a2344;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <img src="/images/brand/rushx-full-white.png" alt="RushX Organization" style="height:26px;width:auto;object-fit:contain;display:block;" />
+<body style="margin:0;padding:24px;background:#040814;color:#e2e8f0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;background:#090f22;border:1px solid #1a284d;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.75);">
+    <div style="height:4px;background:linear-gradient(90deg,#2563eb 0%,#0ea5e9 54%,#38bdf8 100%);"></div>
+    <div style="padding:18px 26px 14px 26px;background:linear-gradient(180deg,#0e1938 0%,#090f22 100%);border-bottom:1px solid #182548;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <img src="/images/brand/rushx-favicon-192.png" alt="RushX Organization" style="width:36px;height:36px;border-radius:50%;border:2px solid #2563eb;background:#050b1d;object-fit:contain;display:block;" />
+        <div>
+          <img src="/images/brand/rushx-full-white.png" alt="RushX Organization" style="height:22px;width:auto;object-fit:contain;display:block;" />
+          <div style="font-size:10px;font-weight:600;color:#7dd3fc;margin-top:2px;">Official Sender · acescrims.online</div>
+        </div>
+      </div>
       <span style="font-size:10px;font-weight:700;letter-spacing:1.3px;color:#38bdf8;text-transform:uppercase;">${escapePreviewHtml(label)}</span>
     </div>
     <div style="padding:28px;">
@@ -421,17 +427,17 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
       ${mediaItems
         .map((m) =>
           m.type === "image"
-            ? `<div style="margin-top:16px;"><img src="${escapePreviewHtml(resolveImageUrl(m.url))}" alt="" style="max-width:100%;border-radius:10px;border:1px solid #1e2749;" /></div>`
-            : `<div style="margin-top:14px;padding:10px 14px;background:#111735;border:1px solid #1e2749;border-radius:10px;font-size:13px;color:#a78bfa;">[${escapePreviewHtml(m.type.toUpperCase())}] ${escapePreviewHtml(m.name || m.url)}</div>`
+            ? `<div style="margin-top:16px;"><img src="${escapePreviewHtml(resolveImageUrl(m.url))}" alt="" style="max-width:100%;border-radius:10px;border:1px solid #1a284d;" /></div>`
+            : `<div style="margin-top:14px;padding:10px 14px;background:#0e1938;border:1px solid #1a284d;border-radius:10px;font-size:13px;color:#38bdf8;">[${escapePreviewHtml(m.type.toUpperCase())}] ${escapePreviewHtml(m.name || m.url)}</div>`
         )
         .join("")}
       ${
         ctaText && ctaUrl
-          ? `<div style="margin-top:26px;text-align:center;"><span style="display:inline-block;background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);color:#fff;font-weight:700;font-size:13px;padding:12px 28px;border-radius:10px;letter-spacing:0.4px;">${escapePreviewHtml(ctaText)}</span></div>`
+          ? `<div style="margin-top:26px;text-align:center;"><span style="display:inline-block;background:linear-gradient(135deg,#2563eb 0%,#0ea5e9 100%);color:#fff;font-weight:700;font-size:13px;padding:12px 28px;border-radius:10px;letter-spacing:0.4px;">${escapePreviewHtml(ctaText)}</span></div>`
           : ""
       }
     </div>
-    <div style="padding:14px 28px;border-top:1px solid #1a2344;text-align:center;font-size:11px;color:#64748b;">
+    <div style="padding:14px 28px;border-top:1px solid #182548;text-align:center;font-size:11px;color:#64748b;">
       RushX Organization · Competitive Free Fire Esports Platform
     </div>
   </div>

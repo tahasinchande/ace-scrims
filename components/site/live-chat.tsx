@@ -32,9 +32,24 @@ import { useChatScroll } from "@/lib/hooks/use-chat-scroll"
 import { MediaLightbox, type MediaLightboxItem } from "@/components/chat/media-lightbox"
 import { LiveSupportButton } from "@/components/site/live-support-button"
 import { cn } from "@/lib/utils"
+import {
+  applyReactionToggle,
+  type ChatReactionEmoji,
+  type ChatReactionsMap,
+  type ChatReplyPreview,
+} from "@/lib/chat-types"
+import {
+  ComposerReplyBar,
+  MessageActionBar,
+  QuotedReplyChip,
+  ReactionPills,
+  SwipeableReplyRow,
+} from "@/components/chat/messenger-interactions"
 
 type ChatThreadItem = ChatMessage & {
   senderImage?: string | null
+  reactionsMap?: ChatReactionsMap
+  replyTo?: ChatReplyPreview | null
 }
 
 function isMediaType(m: ChatThreadItem): "image" | "video" | "file" | null {
@@ -77,6 +92,9 @@ export function LiveChatWidget() {
   const [failedSenderAvatars, setFailedSenderAvatars] = useState<Record<string, boolean>>({})
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [replyingTo, setReplyingTo] = useState<ChatThreadItem | null>(null)
+  const [openPickerId, setOpenPickerId] = useState<string | null>(null)
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -278,11 +296,69 @@ export function LiveChatWidget() {
     }
   }
 
+  function triggerReply(msg: ChatThreadItem) {
+    setReplyingTo(msg)
+    setOpenPickerId(null)
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+    })
+  }
+
+  function jumpToMessage(targetId: string) {
+    const container = containerRef.current
+    if (!container) return
+    const el = container.querySelector(`[data-msg-id="${CSS.escape(targetId)}"]`) as HTMLElement | null
+    if (!el) return
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    setHighlightedMsgId(targetId)
+    window.setTimeout(() => {
+      setHighlightedMsgId((prev) => (prev === targetId ? null : prev))
+    }, 1500)
+  }
+
+  async function handleToggleReaction(messageId: string, emoji: ChatReactionEmoji) {
+    if (!session?.user || isBanned) return
+    const actor = {
+      userId: session.user.id,
+      userName: session.user.name || "Player",
+    }
+
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, reactionsMap: applyReactionToggle(m.reactionsMap || {}, emoji, actor) }
+          : m,
+      ),
+    )
+
+    try {
+      const res = await fetch("/api/chat/react", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ messageId, emoji }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.ok && data.reactions) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, reactionsMap: data.reactions } : m)),
+        )
+      } else {
+        await loadChatState()
+      }
+    } catch {
+      await loadChatState()
+    }
+  }
+
   async function postSingleChatPayload(payload: {
     message: string
     attachmentUrl?: string
     attachmentType?: string
     attachmentName?: string
+    replyToId?: string
   }) {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -306,15 +382,20 @@ export function LiveChatWidget() {
 
     const msgText = text.trim()
     const filesToSend = [...selectedFiles]
+    const activeReplyId = replyingTo?.id
     setSendError(null)
     setSending(true)
 
     try {
       if (filesToSend.length === 0) {
-        const { ok, data } = await postSingleChatPayload({ message: msgText })
+        const { ok, data } = await postSingleChatPayload({
+          message: msgText,
+          replyToId: activeReplyId,
+        })
         if (data?.banned) {
           setIsBanned(true)
           setText("")
+          setReplyingTo(null)
           toast.error(data.error || t("chat_banned_title"))
         } else if (!ok) {
           const errMsg = data?.error || (lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message")
@@ -323,6 +404,7 @@ export function LiveChatWidget() {
           return
         } else {
           setText("")
+          setReplyingTo(null)
           if (textareaRef.current) {
             textareaRef.current.style.height = "auto"
           }
@@ -347,12 +429,14 @@ export function LiveChatWidget() {
             attachmentUrl: f.url,
             attachmentType: f.type,
             attachmentName: f.name,
+            replyToId: i === 0 ? activeReplyId : undefined,
           })
 
           if (data?.banned) {
             setIsBanned(true)
             setText("")
             setSelectedFiles([])
+            setReplyingTo(null)
             toast.error(data.error || t("chat_banned_title"))
             return
           } else if (!ok) {
@@ -373,6 +457,7 @@ export function LiveChatWidget() {
             textareaRef.current.style.height = "auto"
           }
         }
+        setReplyingTo(null)
         setSelectedFiles(unsentFiles)
 
         if (firstError) {
@@ -423,25 +508,28 @@ export function LiveChatWidget() {
       )}
 
       {open && (
-        <div className="glass-strong flex h-[640px] max-h-[88vh] w-[92vw] sm:w-[420px] flex-col rounded-2xl border border-violet-400/20 shadow-2xl shadow-black/85 overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-200">
+        <div
+          onClick={() => openPickerId && setOpenPickerId(null)}
+          className="glass-strong flex h-[640px] max-h-[88vh] w-[92vw] sm:w-[420px] flex-col rounded-2xl border border-sky-400/20 shadow-2xl shadow-black/85 overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-200"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#0e1328]/95 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#0b1124]/95 px-4 py-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-500/12 border border-violet-400/35 p-1.5">
+              <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-sky-500/12 border border-sky-400/35 p-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/images/brand/rushx-symbol.png"
                   alt="RushX Organization"
                   className="size-7 object-contain"
                 />
-                <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 border-2 border-[#0e1328]" />
+                <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 border-2 border-[#0b1124]" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h3 className="font-display font-bold text-sm tracking-tight text-white">
                     {t("chat_title", "RushX Support")}
                   </h3>
-                  <span className="rounded-md bg-violet-500/20 border border-violet-400/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-200">
+                  <span className="rounded-md bg-sky-500/18 border border-sky-400/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-sky-200">
                     {chatMode === "human"
                       ? t("chat_mode_human", "Human Support Agent")
                       : t("chat_mode_ai", "RushX AI Support")}
@@ -505,14 +593,14 @@ export function LiveChatWidget() {
           >
             {sessionPending ? (
               <div className="my-auto flex flex-col items-center justify-center gap-2 p-6 text-center">
-                <Loader2 className="size-7 animate-spin text-violet-400" />
+                <Loader2 className="size-7 animate-spin text-sky-400" />
                 <p className="text-xs text-slate-400">
                   {lang === "bn" ? "সেশন যাচাই হচ্ছে..." : "Checking your session..."}
                 </p>
               </div>
             ) : !session?.user ? (
               <div className="my-auto flex flex-col items-center justify-center p-6 text-center gap-3.5">
-                <div className="size-12 rounded-full bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-violet-300">
+                <div className="size-12 rounded-full bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300">
                   <User className="size-6" />
                 </div>
                 <div>
@@ -525,7 +613,7 @@ export function LiveChatWidget() {
                 </div>
                 <a
                   href="/sign-in"
-                  className="rushx-btn-splash inline-flex h-9 items-center justify-center rounded-full bg-gradient-to-r from-violet-500 to-indigo-600 px-6 font-display text-xs font-bold uppercase tracking-wider text-white hover:from-violet-400 hover:to-indigo-500 transition-colors"
+                  className="rushx-primary-btn rushx-btn-splash inline-flex h-9 items-center justify-center rounded-full px-6 font-display text-xs font-bold uppercase tracking-wider text-white transition-all"
                 >
                   {t("nav_signin", "Sign In")}
                 </a>
@@ -546,11 +634,11 @@ export function LiveChatWidget() {
               </div>
             ) : loading && messages.length === 0 ? (
               <div className="my-auto flex justify-center">
-                <Loader2 className="size-7 animate-spin text-violet-400" />
+                <Loader2 className="size-7 animate-spin text-sky-400" />
               </div>
             ) : messages.length === 0 ? (
               <div className="my-auto text-center text-xs text-slate-400 leading-relaxed p-5 dc-surface rounded-2xl max-w-xs mx-auto">
-                <div className="size-10 rounded-full bg-violet-500/15 text-violet-300 flex items-center justify-center mx-auto mb-2.5">
+                <div className="size-10 rounded-full bg-sky-500/15 text-sky-300 flex items-center justify-center mx-auto mb-2.5">
                   <Sparkles className="size-5" />
                 </div>
                 <p className="font-semibold text-white mb-1">{t("chat_welcome_title")}</p>
@@ -586,177 +674,216 @@ export function LiveChatWidget() {
                 const hasMeaningfulText = Boolean(m.message && m.message.trim() && !(mediaKind && isDefaultCaption))
 
                 return (
-                  <div
+                  <SwipeableReplyRow
                     key={m.id}
-                    className={cn(
-                      "flex items-end gap-2 max-w-[85%]",
-                      isMe ? "self-end flex-row-reverse" : "self-start flex-row",
-                      !prevSameSender ? "mt-2" : "mt-0.5"
-                    )}
+                    messageId={m.id}
+                    alignRight={isMe}
+                    highlighted={highlightedMsgId === m.id}
+                    onTriggerReply={() => triggerReply(m)}
                   >
-                    {!isMe && (
-                      <div className="w-7 shrink-0">
-                        {!nextSameSender && (
-                          isAi ? (
-                            <span className="flex size-7 items-center justify-center rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300">
-                              <Bot className="size-4" />
-                            </span>
-                          ) : m.senderImage && !failedSenderAvatars[m.id] ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={resolveImageUrl(m.senderImage)}
-                              alt={m.senderName}
-                              onError={() => setFailedSenderAvatars((prev) => ({ ...prev, [m.id]: true }))}
-                              className="size-7 rounded-full object-cover border border-zinc-700"
+                    <div
+                      className={cn(
+                        "group/msg flex items-end gap-1.5 max-w-[92%]",
+                        isMe ? "flex-row-reverse" : "flex-row",
+                        !prevSameSender ? "mt-2" : "mt-0.5",
+                      )}
+                    >
+                      {!isMe && (
+                        <div className="w-7 shrink-0">
+                          {!nextSameSender &&
+                            (isAi ? (
+                              <span className="flex size-7 items-center justify-center rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300">
+                                <Bot className="size-4" />
+                              </span>
+                            ) : m.senderImage && !failedSenderAvatars[m.id] ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={resolveImageUrl(m.senderImage)}
+                                alt={m.senderName}
+                                onError={() => setFailedSenderAvatars((prev) => ({ ...prev, [m.id]: true }))}
+                                className="size-7 rounded-full object-cover border border-zinc-700"
+                              />
+                            ) : isStaff ? (
+                              <span className="flex size-7 items-center justify-center rounded-full bg-[#101830] p-1 border border-sky-400/30">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src="/images/brand/rushx-symbol.png" alt="Staff" className="size-4 object-contain" />
+                              </span>
+                            ) : (
+                              <span className="flex size-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-slate-200">
+                                {(m.senderName || "S").slice(0, 1).toUpperCase()}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+
+                      <div className={cn("flex flex-col min-w-0", isMe ? "items-end" : "items-start")}>
+                        {!isMe && !prevSameSender && (
+                          <span className="text-[10px] text-slate-400 px-2 mb-0.5 font-medium">
+                            {isAi
+                              ? `${m.senderName} · ${t("chat_ai_badge")}`
+                              : isStaff
+                                ? `${m.senderName} · ${t("chat_staff_badge")}`
+                                : m.senderName}
+                          </span>
+                        )}
+
+                        {m.replyTo && (
+                          <QuotedReplyChip
+                            replyTo={m.replyTo}
+                            alignRight={isMe}
+                            lang={lang}
+                            onJumpToMessage={jumpToMessage}
+                          />
+                        )}
+
+                        <div className={cn("flex items-center gap-1", isMe ? "flex-row-reverse" : "flex-row")}>
+                          <div className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                            {mediaKind === "image" && m.attachmentUrl ? (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openMediaInLightbox(m.attachmentUrl!)}
+                                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                                  title={lang === "bn" ? "ছবি বড় করে দেখুন" : "Open photo"}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={resolveImageUrl(m.attachmentUrl)}
+                                    alt={m.attachmentName || "Shared photo"}
+                                    className="max-h-64 w-auto max-w-[240px] object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                    loading="lazy"
+                                  />
+                                </button>
+                                {hasMeaningfulText && (
+                                  <div
+                                    className={cn(
+                                      "px-3.5 py-2 text-[13px] leading-snug break-words whitespace-pre-wrap rounded-2xl",
+                                      isMe
+                                        ? "bg-gradient-to-r from-[#2563eb] to-[#0ea5e9] text-white"
+                                        : "bg-[#121933] text-slate-100 border border-white/[0.06]",
+                                    )}
+                                  >
+                                    {m.message}
+                                  </div>
+                                )}
+                              </div>
+                            ) : mediaKind === "video" && m.attachmentUrl ? (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openMediaInLightbox(m.attachmentUrl!)}
+                                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black cursor-pointer w-[230px] aspect-video focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                                  title={lang === "bn" ? "ভিডিও দেখুন" : "Play video in viewer"}
+                                >
+                                  <video
+                                    src={resolveImageUrl(m.attachmentUrl)}
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                    className="h-full w-full object-cover opacity-85"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/45 transition-colors">
+                                    <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
+                                      <Play className="size-5 fill-current ml-0.5" />
+                                    </span>
+                                  </div>
+                                </button>
+                                {hasMeaningfulText && (
+                                  <div
+                                    className={cn(
+                                      "px-3.5 py-2 text-[13px] leading-snug break-words whitespace-pre-wrap rounded-2xl",
+                                      isMe
+                                        ? "bg-gradient-to-r from-[#2563eb] to-[#0ea5e9] text-white"
+                                        : "bg-[#121933] text-slate-100 border border-white/[0.06]",
+                                    )}
+                                  >
+                                    {m.message}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div
+                                className={cn(
+                                  "px-3.5 py-2 text-[13px] leading-snug flex flex-col gap-1.5 max-w-[265px]",
+                                  isMe
+                                    ? cn(
+                                        "bg-gradient-to-r from-[#2563eb] to-[#0ea5e9] text-white rounded-2xl shadow-sm shadow-blue-600/20",
+                                        prevSameSender && "rounded-tr-md",
+                                        nextSameSender && "rounded-br-md",
+                                      )
+                                    : isAi
+                                      ? cn(
+                                          "bg-sky-950/50 border border-sky-500/30 text-slate-100 rounded-2xl",
+                                          prevSameSender && "rounded-tl-md",
+                                          nextSameSender && "rounded-bl-md",
+                                        )
+                                      : cn(
+                                          "bg-[#121933] border border-white/[0.07] text-slate-100 rounded-2xl",
+                                          prevSameSender && "rounded-tl-md",
+                                          nextSameSender && "rounded-bl-md",
+                                        ),
+                                )}
+                              >
+                                {m.message && (
+                                  <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                                )}
+
+                                {m.attachmentUrl && (
+                                  <a
+                                    href={resolveImageUrl(m.attachmentUrl)}
+                                    download={m.attachmentName || "attachment"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={cn(
+                                      "flex items-center gap-2 rounded-xl p-2 text-[11px] font-semibold transition-colors",
+                                      isMe
+                                        ? "bg-black/20 hover:bg-black/30 text-white"
+                                        : "bg-white/[0.06] hover:bg-white/[0.12] text-slate-100",
+                                    )}
+                                  >
+                                    <FileText className="size-4 shrink-0" />
+                                    <span className="truncate max-w-[160px]">{m.attachmentName || "Document"}</span>
+                                    <ExternalLink className="size-3 opacity-75 ml-auto shrink-0" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            <ReactionPills
+                              reactions={m.reactionsMap}
+                              currentUserId={session.user.id}
+                              alignRight={isMe}
+                              onToggleEmoji={(emoji) => handleToggleReaction(m.id, emoji)}
                             />
-                          ) : isStaff ? (
-                            <span className="flex size-7 items-center justify-center rounded-full bg-[#131934] p-1 border border-violet-400/30">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src="/images/brand/rushx-symbol.png" alt="Staff" className="size-4 object-contain" />
+                          </div>
+
+                          <MessageActionBar
+                            messageId={m.id}
+                            alignRight={isMe}
+                            pickerOpen={openPickerId === m.id}
+                            onTogglePicker={setOpenPickerId}
+                            onSelectEmoji={(emoji) => handleToggleReaction(m.id, emoji)}
+                            onReply={() => triggerReply(m)}
+                            lang={lang}
+                          />
+                        </div>
+
+                        {!nextSameSender && (
+                          <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-slate-500">
+                            <span>
+                              {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
-                          ) : (
-                            <span className="flex size-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-slate-200">
-                              {(m.senderName || "S").slice(0, 1).toUpperCase()}
-                            </span>
-                          )
+                            {isMe &&
+                              (m.readByStaff ? (
+                                <CheckCheck className="size-3 text-sky-400" />
+                              ) : (
+                                <Check className="size-3 text-slate-500" />
+                              ))}
+                          </div>
                         )}
                       </div>
-                    )}
-
-                    <div className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                      {!isMe && !prevSameSender && (
-                        <span className="text-[10px] text-slate-400 px-2 mb-0.5 font-medium">
-                          {isAi
-                            ? `${m.senderName} · ${t("chat_ai_badge")}`
-                            : isStaff
-                              ? `${m.senderName} · ${t("chat_staff_badge")}`
-                              : m.senderName}
-                        </span>
-                      )}
-
-                      {mediaKind === "image" && m.attachmentUrl ? (
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openMediaInLightbox(m.attachmentUrl!)}
-                            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-                            title={lang === "bn" ? "ছবি বড় করে দেখুন" : "Open photo"}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={resolveImageUrl(m.attachmentUrl)}
-                              alt={m.attachmentName || "Shared photo"}
-                              className="max-h-64 w-auto max-w-[260px] object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                              loading="lazy"
-                            />
-                          </button>
-                          {hasMeaningfulText && (
-                            <div
-                              className={cn(
-                                "px-3.5 py-2 text-[13px] leading-snug break-words whitespace-pre-wrap rounded-2xl",
-                                isMe ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white" : "bg-[#141a32] text-slate-100 border border-white/[0.06]"
-                              )}
-                            >
-                              {m.message}
-                            </div>
-                          )}
-                        </div>
-                      ) : mediaKind === "video" && m.attachmentUrl ? (
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openMediaInLightbox(m.attachmentUrl!)}
-                            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black cursor-pointer w-[240px] aspect-video focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-                            title={lang === "bn" ? "ভিডিও দেখুন" : "Play video in viewer"}
-                          >
-                            <video
-                              src={resolveImageUrl(m.attachmentUrl)}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              className="h-full w-full object-cover opacity-85"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/45 transition-colors">
-                              <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
-                                <Play className="size-5 fill-current ml-0.5" />
-                              </span>
-                            </div>
-                          </button>
-                          {hasMeaningfulText && (
-                            <div
-                              className={cn(
-                                "px-3.5 py-2 text-[13px] leading-snug break-words whitespace-pre-wrap rounded-2xl",
-                                isMe ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white" : "bg-[#141a32] text-slate-100 border border-white/[0.06]"
-                              )}
-                            >
-                              {m.message}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          className={cn(
-                            "px-3.5 py-2 text-[13px] leading-snug flex flex-col gap-1.5",
-                            isMe
-                              ? cn(
-                                  "bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl",
-                                  prevSameSender && "rounded-tr-md",
-                                  nextSameSender && "rounded-br-md"
-                                )
-                              : isAi
-                                ? cn(
-                                    "bg-violet-950/55 border border-violet-500/30 text-slate-100 rounded-2xl",
-                                    prevSameSender && "rounded-tl-md",
-                                    nextSameSender && "rounded-bl-md"
-                                  )
-                                : cn(
-                                    "bg-[#141a32] border border-white/[0.07] text-slate-100 rounded-2xl",
-                                    prevSameSender && "rounded-tl-md",
-                                    nextSameSender && "rounded-bl-md"
-                                  )
-                          )}
-                        >
-                          {m.message && (
-                            <p className="whitespace-pre-wrap break-words">{m.message}</p>
-                          )}
-
-                          {m.attachmentUrl && (
-                            <a
-                              href={resolveImageUrl(m.attachmentUrl)}
-                              download={m.attachmentName || "attachment"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={cn(
-                                "flex items-center gap-2 rounded-xl p-2 text-[11px] font-semibold transition-colors",
-                                isMe
-                                  ? "bg-black/20 hover:bg-black/30 text-white"
-                                  : "bg-white/[0.06] hover:bg-white/[0.12] text-slate-100"
-                              )}
-                            >
-                              <FileText className="size-4 shrink-0" />
-                              <span className="truncate max-w-[165px]">{m.attachmentName || "Document"}</span>
-                              <ExternalLink className="size-3 opacity-75 ml-auto shrink-0" />
-                            </a>
-                          )}
-                        </div>
-                      )}
-
-                      {!nextSameSender && (
-                        <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-slate-500">
-                          <span>
-                            {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                          {isMe && (
-                            m.readByStaff ? (
-                              <CheckCheck className="size-3 text-cyan-400" />
-                            ) : (
-                              <Check className="size-3 text-slate-500" />
-                            )
-                          )}
-                        </div>
-                      )}
                     </div>
-                  </div>
+                  </SwipeableReplyRow>
                 )
               })
             )}
@@ -766,26 +893,26 @@ export function LiveChatWidget() {
               <button
                 type="button"
                 onClick={() => scrollToBottom(true)}
-                className="sticky bottom-2 self-center z-20 flex items-center gap-1.5 rounded-full bg-[#131934] border border-violet-400/25 text-slate-100 px-3.5 py-1.5 text-xs font-semibold shadow-lg hover:bg-[#1a2246] transition-colors cursor-pointer"
+                className="sticky bottom-2 self-center z-20 flex items-center gap-1.5 rounded-full bg-[#101834] border border-sky-400/25 text-slate-100 px-3.5 py-1.5 text-xs font-semibold shadow-lg hover:bg-[#16224a] transition-colors cursor-pointer"
                 aria-label={t("chat_latest_messages")}
               >
-                <ChevronDown className="size-3.5 text-violet-300" />
+                <ChevronDown className="size-3.5 text-sky-300" />
                 <span>{t("chat_latest_messages")}</span>
               </button>
             )}
           </div>
 
           {uploading && !isBanned && (
-            <div className="bg-[#0e1328] px-4 py-2 border-t border-white/[0.08]">
+            <div className="bg-[#0b1124] px-4 py-2 border-t border-white/[0.08]">
               <div className="flex items-center justify-between text-xs text-slate-200 font-semibold mb-1">
                 <span className="flex items-center gap-1.5">
-                  <Loader2 className="size-3.5 animate-spin text-violet-400" /> {t("chat_uploading_attachment")}
+                  <Loader2 className="size-3.5 animate-spin text-sky-400" /> {t("chat_uploading_attachment")}
                 </span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-400 transition-all duration-300 rounded-full"
+                  className="h-full bg-gradient-to-r from-[#2563eb] to-[#38bdf8] transition-all duration-300 rounded-full"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -793,18 +920,18 @@ export function LiveChatWidget() {
           )}
 
           {selectedFiles.length > 0 && !uploading && !isBanned && (
-            <div className="flex flex-wrap gap-1.5 bg-[#0e1328] p-2.5 border-t border-white/[0.08] max-h-24 overflow-y-auto">
+            <div className="flex flex-wrap gap-1.5 bg-[#0b1124] p-2.5 border-t border-white/[0.08] max-h-24 overflow-y-auto">
               {selectedFiles.map((file, idx) => (
                 <div
                   key={`${file.url}-${idx}`}
-                  className="flex items-center gap-1.5 bg-[#182042] border border-violet-400/20 rounded-full px-3 py-1 text-[11px] text-slate-100 max-w-[200px]"
+                  className="flex items-center gap-1.5 bg-[#121d3e] border border-sky-400/20 rounded-full px-3 py-1 text-[11px] text-slate-100 max-w-[200px]"
                 >
                   {file.type === "image" ? (
-                    <ImageIcon className="size-3 text-cyan-300 shrink-0" />
+                    <ImageIcon className="size-3 text-sky-300 shrink-0" />
                   ) : file.type === "video" ? (
-                    <Film className="size-3 text-cyan-300 shrink-0" />
+                    <Film className="size-3 text-sky-300 shrink-0" />
                   ) : (
-                    <Paperclip className="size-3 text-cyan-300 shrink-0" />
+                    <Paperclip className="size-3 text-sky-300 shrink-0" />
                   )}
                   <span className="truncate">{file.name}</span>
                   <button
@@ -837,10 +964,18 @@ export function LiveChatWidget() {
             </div>
           )}
 
+          {replyingTo && session?.user && !isBanned && (
+            <ComposerReplyBar
+              replyTarget={replyingTo}
+              lang={lang}
+              onClear={() => setReplyingTo(null)}
+            />
+          )}
+
           {session?.user && !isBanned && (
             <form
               onSubmit={handleSend}
-              className="flex items-center gap-2 border-t border-white/[0.08] p-2.5 bg-[#0e1328]"
+              className="flex items-center gap-2 border-t border-white/[0.08] p-2.5 bg-[#0b1124]"
             >
               <input
                 ref={fileInputRef}
@@ -855,14 +990,14 @@ export function LiveChatWidget() {
                 type="button"
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-violet-300 hover:bg-violet-500/15 transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-sky-300 hover:bg-sky-500/15 transition-colors disabled:opacity-50 cursor-pointer"
                 title={lang === "bn" ? "ছবি, ভিডিও বা ফাইল যুক্ত করুন" : "Attach photos, videos, or documents"}
                 aria-label={lang === "bn" ? "ফাইল যুক্ত করুন" : "Attach files"}
               >
                 <Paperclip className="size-4.5" />
               </button>
 
-              <div className="flex flex-1 items-center rounded-2xl bg-[#161c38] border border-white/[0.08] px-3.5 py-1.5">
+              <div className="flex flex-1 items-center rounded-2xl bg-[#121a35] border border-white/[0.08] px-3.5 py-1.5">
                 <textarea
                   ref={textareaRef}
                   value={text}
@@ -877,7 +1012,7 @@ export function LiveChatWidget() {
               <button
                 type="submit"
                 disabled={sending || uploading || (!text.trim() && selectedFiles.length === 0)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-violet-300 hover:bg-violet-500/15 transition-all disabled:opacity-35 cursor-pointer"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-sky-300 hover:bg-sky-500/15 transition-all disabled:opacity-35 cursor-pointer"
                 aria-label={lang === "bn" ? "মেসেজ পাঠান" : "Send message"}
               >
                 {sending ? <Loader2 className="size-4.5 animate-spin" /> : <Send className="size-4.5" />}

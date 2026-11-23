@@ -254,6 +254,8 @@ export const chatMessages = pgTable("chat_messages", {
   attachmentUrl: text("attachmentUrl"),
   attachmentType: text("attachmentType"), // image | file
   attachmentName: text("attachmentName"),
+  replyToId: text("replyToId"),
+  reactions: text("reactions"),
   readByStaff: boolean("readByStaff").notNull().default(false),
   readByUser: boolean("readByUser").notNull().default(false),
   createdAt: timestamp("createdAt").notNull().defaultNow(),

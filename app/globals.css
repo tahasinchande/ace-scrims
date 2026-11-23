@@ -50,45 +50,51 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* RushX Organization — Obsidian-Indigo Esports Identity (Electric Violet + Ice Cyan) */
+/* RushX Organization — Deep Obsidian Blue-Primary Esports Identity (Synchronized Dynamic Shift) */
 :root,
 .dark {
   color-scheme: dark;
-  --background: oklch(0.115 0.018 272);
-  --foreground: oklch(0.968 0.006 270);
-  --card: oklch(0.155 0.022 272);
-  --card-foreground: oklch(0.968 0.006 270);
-  --popover: oklch(0.145 0.02 272);
-  --popover-foreground: oklch(0.968 0.006 270);
-  --primary: oklch(0.65 0.22 282);
-  --primary-foreground: oklch(0.985 0.004 280);
-  --secondary: oklch(0.205 0.024 272);
-  --secondary-foreground: oklch(0.96 0.006 270);
-  --muted: oklch(0.195 0.02 272);
-  --muted-foreground: oklch(0.71 0.016 268);
-  --accent: oklch(0.76 0.14 205);
+  /* Synchronized dynamic RGB channels (Default entrance: Electric Cobalt Blue + Sky Cyan) */
+  --rushx-primary-rgb: 37, 99, 235;
+  --rushx-soft-rgb: 96, 165, 250;
+  --rushx-accent-rgb: 56, 189, 248;
+  --rushx-deep-rgb: 12, 34, 88;
+
+  --background: oklch(0.115 0.018 252);
+  --foreground: oklch(0.968 0.006 248);
+  --card: oklch(0.15 0.022 252);
+  --card-foreground: oklch(0.968 0.006 248);
+  --popover: oklch(0.14 0.02 252);
+  --popover-foreground: oklch(0.968 0.006 248);
+  --primary: rgb(37, 99, 235);
+  --primary-foreground: oklch(0.985 0.004 250);
+  --secondary: oklch(0.2 0.024 252);
+  --secondary-foreground: oklch(0.96 0.006 248);
+  --muted: oklch(0.19 0.02 252);
+  --muted-foreground: oklch(0.71 0.016 248);
+  --accent: rgb(56, 189, 248);
   --accent-foreground: oklch(0.12 0.02 250);
   --destructive: oklch(0.62 0.22 22);
-  --border: oklch(0.28 0.028 272);
-  --input: oklch(0.225 0.022 272);
-  --ring: oklch(0.68 0.21 282);
+  --border: oklch(0.27 0.026 252);
+  --input: oklch(0.22 0.022 252);
+  --ring: rgb(96, 165, 250);
   --success: oklch(0.72 0.17 155);
   --warning: oklch(0.8 0.15 84);
   --info: oklch(0.75 0.14 215);
-  --chart-1: oklch(0.65 0.22 282);
-  --chart-2: oklch(0.76 0.14 205);
+  --chart-1: rgb(37, 99, 235);
+  --chart-2: rgb(56, 189, 248);
   --chart-3: oklch(0.72 0.17 155);
-  --chart-4: oklch(0.72 0.18 320);
+  --chart-4: rgb(96, 165, 250);
   --chart-5: oklch(0.8 0.15 84);
   --radius: 0.75rem;
-  --sidebar: oklch(0.135 0.018 272);
-  --sidebar-foreground: oklch(0.965 0.006 270);
-  --sidebar-primary: oklch(0.65 0.22 282);
-  --sidebar-primary-foreground: oklch(0.985 0.004 280);
-  --sidebar-accent: oklch(0.205 0.024 272);
-  --sidebar-accent-foreground: oklch(0.965 0.006 270);
-  --sidebar-border: oklch(0.26 0.025 272);
-  --sidebar-ring: oklch(0.68 0.21 282);
+  --sidebar: oklch(0.13 0.018 252);
+  --sidebar-foreground: oklch(0.965 0.006 248);
+  --sidebar-primary: rgb(37, 99, 235);
+  --sidebar-primary-foreground: oklch(0.985 0.004 250);
+  --sidebar-accent: oklch(0.2 0.024 252);
+  --sidebar-accent-foreground: oklch(0.965 0.006 248);
+  --sidebar-border: oklch(0.25 0.024 252);
+  --sidebar-ring: rgb(96, 165, 250);
 }
 
 @layer base {
@@ -97,7 +103,7 @@
     box-sizing: border-box;
   }
   html {
-    background-color: #050712;
+    background-color: #040814;
     overflow-x: hidden;
     max-width: 100vw;
     width: 100%;
@@ -127,44 +133,64 @@
 }
 
 @layer utilities {
-  /* DeepCharts-inspired luminous obsidian-indigo gradient surface with crisp hairline edge */
+  /* DeepCharts-inspired luminous obsidian surface synchronized with active ambient color.
+     NOTE: Intentionally omits `position: relative` so Tailwind `absolute`/`fixed` positioning is never overridden. */
   .dc-surface {
-    position: relative;
     background:
-      radial-gradient(125% 92% at 12% 0%, rgba(124, 58, 237, 0.16) 0%, transparent 56%),
-      radial-gradient(92% 76% at 88% 100%, rgba(56, 189, 248, 0.095) 0%, transparent 58%),
-      linear-gradient(160deg, rgba(19, 24, 46, 0.82) 0%, rgba(10, 13, 28, 0.90) 54%, rgba(6, 9, 20, 0.94) 100%);
+      radial-gradient(125% 92% at 12% 0%, rgba(var(--rushx-primary-rgb), 0.17) 0%, transparent 56%),
+      radial-gradient(92% 76% at 88% 100%, rgba(var(--rushx-accent-rgb), 0.1) 0%, transparent 58%),
+      linear-gradient(160deg, rgba(14, 21, 40, 0.84) 0%, rgba(8, 13, 27, 0.91) 54%, rgba(5, 9, 19, 0.95) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(167, 139, 250, 0.14);
+    border: 1px solid rgba(var(--rushx-soft-rgb), 0.16);
     box-shadow:
-      0 20px 48px -22px rgba(2, 4, 14, 0.88),
+      0 20px 48px -22px rgba(2, 5, 16, 0.9),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   .dc-card-hover {
     transition:
-      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 240ms ease,
-      box-shadow 240ms ease;
+      transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 260ms ease,
+      box-shadow 260ms ease;
   }
 
   .dc-card-hover:hover {
     transform: translateY(-2px);
-    border-color: rgba(167, 139, 250, 0.36);
+    border-color: rgba(var(--rushx-soft-rgb), 0.38);
     box-shadow:
-      0 26px 58px -20px rgba(3, 5, 16, 0.9),
-      0 0 0 1px rgba(139, 92, 246, 0.2),
-      0 0 32px -12px rgba(124, 58, 237, 0.32),
+      0 26px 58px -20px rgba(3, 6, 18, 0.92),
+      0 0 0 1px rgba(var(--rushx-primary-rgb), 0.24),
+      0 0 34px -12px rgba(var(--rushx-primary-rgb), 0.36),
       inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
 
   .dc-metric-cell {
     background:
-      radial-gradient(120% 100% at 0% 0%, rgba(124, 58, 237, 0.1) 0%, transparent 62%),
-      linear-gradient(180deg, rgba(24, 31, 58, 0.72) 0%, rgba(12, 16, 33, 0.84) 100%);
-    border: 1px solid rgba(167, 139, 250, 0.13);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+      radial-gradient(120% 100% at 0% 0%, rgba(var(--rushx-primary-rgb), 0.12) 0%, transparent 62%),
+      linear-gradient(180deg, rgba(17, 26, 50, 0.74) 0%, rgba(9, 15, 31, 0.86) 100%);
+    border: 1px solid rgba(var(--rushx-soft-rgb), 0.15);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* Synchronized primary action button gradient (starts Blue, shifts harmoniously with background) */
+  .rushx-primary-btn {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--rushx-primary-rgb), 0.96) 0%,
+      rgba(var(--rushx-accent-rgb), 0.88) 100%
+    );
+    border-color: rgba(var(--rushx-soft-rgb), 0.38);
+    box-shadow:
+      0 10px 26px -10px rgba(var(--rushx-primary-rgb), 0.68),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .rushx-primary-btn:hover {
+    filter: brightness(1.08);
+    box-shadow:
+      0 14px 32px -10px rgba(var(--rushx-primary-rgb), 0.84),
+      inset 0 1px 0 rgba(255, 255, 255, 0.38);
   }
 
   /* RandomQbit-inspired pointer-reactive splashing glow for buttons & interactive boxes */
@@ -186,9 +212,9 @@
     transition: opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
     background: radial-gradient(
       140px circle at var(--splash-x) var(--splash-y),
-      rgba(255, 255, 255, 0.36) 0%,
-      rgba(167, 139, 250, 0.24) 42%,
-      rgba(56, 189, 248, 0.14) 68%,
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(var(--rushx-soft-rgb), 0.26) 42%,
+      rgba(var(--rushx-accent-rgb), 0.14) 68%,
       transparent 100%
     );
   }
@@ -213,7 +239,7 @@
     background: radial-gradient(
       circle,
       rgba(255, 255, 255, 0.65) 0%,
-      rgba(167, 139, 250, 0.38) 45%,
+      rgba(var(--rushx-soft-rgb), 0.4) 45%,
       transparent 74%
     );
   }
@@ -244,8 +270,8 @@
     transition: opacity 280ms cubic-bezier(0.16, 1, 0.3, 1);
     background: radial-gradient(
       260px circle at var(--splash-x) var(--splash-y),
-      rgba(139, 92, 246, 0.22) 0%,
-      rgba(56, 189, 248, 0.11) 46%,
+      rgba(var(--rushx-primary-rgb), 0.22) 0%,
+      rgba(var(--rushx-accent-rgb), 0.12) 46%,
       transparent 76%
     );
   }
@@ -254,7 +280,7 @@
     opacity: 1;
   }
 
-  /* Dynamic outer hover splash for Scrim Cards (Violet + Ice-Cyan) */
+  /* Dynamic outer hover splash for Scrim Cards (Synchronized with active ambient color) */
   .scrim-splash-wrap {
     position: relative;
     --splash-x: 50%;
@@ -272,7 +298,7 @@
     transform: scale(0.97);
     transition: opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
     background:
-      radial-gradient(250px circle at var(--splash-x) var(--splash-y), rgba(139, 92, 246, 0.48) 0%, rgba(56, 189, 248, 0.28) 48%, transparent 76%);
+      radial-gradient(250px circle at var(--splash-x) var(--splash-y), rgba(var(--rushx-primary-rgb), 0.48) 0%, rgba(var(--rushx-accent-rgb), 0.28) 48%, transparent 76%);
   }
 
   .scrim-splash-ring {
@@ -284,7 +310,7 @@
     opacity: 0;
     transition: opacity 260ms ease;
     background:
-      radial-gradient(260px circle at var(--splash-x) var(--splash-y), rgba(167, 139, 250, 0.85) 0%, rgba(56, 189, 248, 0.56) 45%, rgba(255, 255, 255, 0.1) 72%, transparent 100%);
+      radial-gradient(260px circle at var(--splash-x) var(--splash-y), rgba(var(--rushx-soft-rgb), 0.85) 0%, rgba(var(--rushx-accent-rgb), 0.56) 45%, rgba(255, 255, 255, 0.1) 72%, transparent 100%);
   }
 
   .scrim-splash-wrap:hover .scrim-splash-aura {
@@ -296,7 +322,7 @@
     opacity: 1;
   }
 
-  /* Unified dynamic color-shifting Live Support button (matches ambient background cycle + splash sheen) */
+  /* Unified dynamic color-shifting Live Support button (synchronized in real time with ambient background phase) */
   .rushx-live-support-btn {
     position: relative;
     overflow: hidden;
@@ -306,17 +332,15 @@
     color: #ffffff;
     background: linear-gradient(
       130deg,
-      hsl(268, 86%, 56%) 0%,
-      hsl(232, 84%, 56%) 50%,
-      hsl(196, 86%, 48%) 100%
+      rgb(var(--rushx-primary-rgb)) 0%,
+      rgb(var(--rushx-accent-rgb)) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.26);
     box-shadow:
-      0 12px 28px -10px rgba(109, 40, 217, 0.65),
-      inset 0 1px 0 rgba(255, 255, 255, 0.32);
-    animation: rushx-live-hue 16s linear infinite;
-    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease;
-    will-change: filter, transform;
+      0 12px 28px -10px rgba(var(--rushx-primary-rgb), 0.68),
+      inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease, filter 220ms ease;
+    will-change: transform;
   }
 
   .rushx-live-support-btn::before {
@@ -337,9 +361,10 @@
 
   .rushx-live-support-btn:hover {
     transform: translateY(-1px) scale(1.02);
+    filter: brightness(1.08);
     box-shadow:
-      0 16px 34px -10px rgba(109, 40, 217, 0.8),
-      inset 0 1px 0 rgba(255, 255, 255, 0.44);
+      0 16px 34px -10px rgba(var(--rushx-primary-rgb), 0.82),
+      inset 0 1px 0 rgba(255, 255, 255, 0.46);
   }
 
   .rushx-live-support-btn:hover::before {
@@ -358,11 +383,11 @@
   /* Glassmorphism surface */
   .glass {
     background:
-      radial-gradient(110% 80% at 10% 0%, rgba(124, 58, 237, 0.14) 0%, transparent 56%),
-      linear-gradient(165deg, rgba(18, 24, 44, 0.78) 0%, rgba(8, 12, 24, 0.88) 100%);
+      radial-gradient(110% 80% at 10% 0%, rgba(var(--rushx-primary-rgb), 0.14) 0%, transparent 56%),
+      linear-gradient(165deg, rgba(14, 21, 40, 0.8) 0%, rgba(7, 12, 24, 0.9) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(167, 139, 250, 0.13);
+    border: 1px solid rgba(var(--rushx-soft-rgb), 0.14);
     box-shadow:
       0 18px 40px -18px rgba(0, 0, 0, 0.78),
       inset 0 1px 0 rgba(255, 255, 255, 0.09);
@@ -370,11 +395,11 @@
 
   .glass-strong {
     background:
-      radial-gradient(120% 85% at 15% 0%, rgba(124, 58, 237, 0.16) 0%, transparent 58%),
-      linear-gradient(165deg, rgba(20, 26, 48, 0.92) 0%, rgba(9, 12, 25, 0.97) 100%);
+      radial-gradient(120% 85% at 15% 0%, rgba(var(--rushx-primary-rgb), 0.16) 0%, transparent 58%),
+      linear-gradient(165deg, rgba(16, 24, 46, 0.92) 0%, rgba(8, 12, 25, 0.97) 100%);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(167, 139, 250, 0.16);
+    border: 1px solid rgba(var(--rushx-soft-rgb), 0.18);
     box-shadow:
       0 26px 60px -18px rgba(0, 0, 0, 0.88),
       inset 0 1px 0 rgba(255, 255, 255, 0.11);
@@ -382,21 +407,13 @@
 
   /* Glow accents */
   .glow-primary {
-    box-shadow: 0 10px 28px -8px color-mix(in oklch, var(--primary) 58%, transparent);
+    box-shadow: 0 10px 28px -8px rgba(var(--rushx-primary-rgb), 0.58);
   }
   .glow-accent {
-    box-shadow: 0 10px 28px -8px color-mix(in oklch, var(--accent) 52%, transparent);
+    box-shadow: 0 10px 28px -8px rgba(var(--rushx-accent-rgb), 0.52);
   }
   .text-glow {
-    text-shadow: 0 0 28px color-mix(in oklch, var(--primary) 52%, transparent);
-  }
-
-  /* Subtle grid backdrop */
-  .bg-grid {
-    background-image:
-      linear-gradient(color-mix(in oklch, var(--border) 35%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in oklch, var(--border) 35%, transparent) 1px, transparent 1px);
-    background-size: 48px 48px;
+    text-shadow: 0 0 28px rgba(var(--rushx-primary-rgb), 0.52);
   }
 
   .animate-pulse-glow {
@@ -457,73 +474,40 @@
   }
 }
 
-@keyframes rushx-live-hue {
-  0% {
-    filter: hue-rotate(0deg) saturate(1.12);
-  }
-  50% {
-    filter: hue-rotate(180deg) saturate(1.18);
-  }
-  100% {
-    filter: hue-rotate(360deg) saturate(1.12);
-  }
-}
-
-/* Full-viewport 2D dynamic color-shifting atmosphere (visibly alive, continuous full-height coverage, zero black lower block) */
+/* RandomQbit-inspired top-lit 2D atmospheric wash driven by delay-based --rushx-*-rgb phases.
+   Zero square boxes, zero solid black lower block — clean full-height luminous depth starting on Electric Blue. */
 .rushx-ambient-canvas {
   background:
-    radial-gradient(96% 78% at 18% 12%, hsla(272, 92%, 58%, 0.44) 0%, hsla(262, 85%, 44%, 0.22) 42%, transparent 76%),
-    radial-gradient(92% 76% at 84% 86%, hsla(212, 92%, 54%, 0.36) 0%, hsla(230, 82%, 40%, 0.18) 46%, transparent 78%),
-    radial-gradient(72% 62% at 50% 48%, hsla(288, 86%, 52%, 0.24) 0%, transparent 72%),
-    linear-gradient(155deg, hsl(268, 52%, 15%) 0%, hsl(250, 44%, 11%) 50%, hsl(234, 48%, 14%) 100%);
-  animation: rushx-dynamic-hue 16s linear infinite;
-  will-change: filter;
+    radial-gradient(88% 62% at 50% -6%, rgba(var(--rushx-primary-rgb), 0.44) 0%, rgba(var(--rushx-primary-rgb), 0.16) 44%, transparent 78%),
+    radial-gradient(64% 52% at 16% 18%, rgba(var(--rushx-accent-rgb), 0.22) 0%, transparent 70%),
+    radial-gradient(68% 58% at 86% 78%, rgba(var(--rushx-primary-rgb), 0.18) 0%, transparent 74%),
+    linear-gradient(180deg, rgba(var(--rushx-deep-rgb), 0.62) 0%, #050a18 46%, #040814 100%);
 }
 
 .rushx-ambient-glow {
   background:
-    radial-gradient(78% 64% at 52% 36%, hsla(280, 96%, 64%, 0.32) 0%, hsla(252, 88%, 50%, 0.14) 46%, transparent 76%);
-  animation: rushx-glow-breathe 10s ease-in-out infinite alternate;
+    radial-gradient(66% 48% at 50% 8%, rgba(var(--rushx-soft-rgb), 0.24) 0%, rgba(var(--rushx-accent-rgb), 0.1) 44%, transparent 76%);
+  animation: rushx-glow-breathe 11s ease-in-out infinite alternate;
   will-change: transform, opacity;
-}
-
-@keyframes rushx-dynamic-hue {
-  0% {
-    filter: hue-rotate(0deg) saturate(1.18) brightness(1.02);
-  }
-  25% {
-    filter: hue-rotate(90deg) saturate(1.24) brightness(1.04);
-  }
-  50% {
-    filter: hue-rotate(180deg) saturate(1.2) brightness(1.02);
-  }
-  75% {
-    filter: hue-rotate(270deg) saturate(1.24) brightness(1.04);
-  }
-  100% {
-    filter: hue-rotate(360deg) saturate(1.18) brightness(1.02);
-  }
 }
 
 @keyframes rushx-glow-breathe {
   0% {
-    transform: translate3d(-2%, -3%, 0) scale(0.98);
-    opacity: 0.78;
+    transform: translate3d(-1.5%, -2%, 0) scale(0.98);
+    opacity: 0.82;
   }
   50% {
-    transform: translate3d(2%, 2%, 0) scale(1.08);
+    transform: translate3d(1.5%, 1.5%, 0) scale(1.06);
     opacity: 1;
   }
   100% {
-    transform: translate3d(-1%, 5%, 0) scale(1.02);
-    opacity: 0.84;
+    transform: translate3d(-1%, 3%, 0) scale(1.01);
+    opacity: 0.88;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rushx-ambient-canvas,
   .rushx-ambient-glow,
-  .rushx-live-support-btn,
   .rushx-btn-splash[data-splashing="true"]::after {
     animation: none !important;
   }

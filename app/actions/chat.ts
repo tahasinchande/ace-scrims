@@ -14,6 +14,49 @@ import { getSessionUser, requireStaff, logActivity } from "@/lib/session"
 import { eq, desc, asc, and, inArray } from "drizzle-orm"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import { generateAiSupportReply, moderateUserMessage } from "@/lib/ai-support"
+import {
+  applyReactionToggle,
+  isAllowedReactionEmoji,
+  parseChatReactions,
+  type ChatReactionsMap,
+  type ChatReplyPreview,
+} from "@/lib/chat-types"
+
+function enrichChatMessages<
+  T extends {
+    id: string
+    senderName: string
+    senderRole: string
+    message: string
+    attachmentType?: string | null
+    replyToId?: string | null
+    reactions?: string | null
+  },
+>(rows: T[]) {
+  const byId = new Map<string, T>()
+  for (const row of rows) {
+    byId.set(row.id, row)
+  }
+
+  return rows.map((row) => {
+    const parent = row.replyToId ? byId.get(row.replyToId) : undefined
+    const replyTo: ChatReplyPreview | null = parent
+      ? {
+          id: parent.id,
+          senderName: parent.senderName,
+          senderRole: parent.senderRole,
+          message: parent.message,
+          attachmentType: parent.attachmentType ?? null,
+        }
+      : null
+
+    return {
+      ...row,
+      reactionsMap: parseChatReactions(row.reactions),
+      replyTo,
+    }
+  })
+}
 
 export type AdminChatConversation = {
   userId: string
@@ -109,6 +152,8 @@ export async function getUserChatState() {
         attachmentUrl: chatMessages.attachmentUrl,
         attachmentType: chatMessages.attachmentType,
         attachmentName: chatMessages.attachmentName,
+        replyToId: chatMessages.replyToId,
+        reactions: chatMessages.reactions,
         readByStaff: chatMessages.readByStaff,
         readByUser: chatMessages.readByUser,
         createdAt: chatMessages.createdAt,
@@ -125,7 +170,7 @@ export async function getUserChatState() {
       banned: false,
       mode: (chatSession?.mode === "human" ? "human" : "ai") as "ai" | "human",
       escalatedAt: chatSession?.escalatedAt ?? null,
-      messages: rows,
+      messages: enrichChatMessages(rows),
     }
   } catch (err) {
     console.warn("[Chat] Error fetching user chat state:", err)
@@ -144,7 +189,8 @@ export async function sendChatMessage(
   targetUserId?: string,
   attachmentUrl?: string,
   attachmentType?: string,
-  attachmentName?: string
+  attachmentName?: string,
+  replyToId?: string,
 ): Promise<{
   ok: boolean
   error: string | null
@@ -215,8 +261,8 @@ export async function sendChatMessage(
           await tx.insert(chatMessages).values({
             id: randomUUID(),
             userId: sessionUser.id,
-            senderId: "ace-system",
-            senderName: "ACE Safety System",
+            senderId: "rushx-system",
+            senderName: "RushX Safety System",
             senderRole: "system",
             message:
               "Automated Moderation: This account was permanently suspended for sending abusive or explicit 18+/NSFW content.",
@@ -242,6 +288,20 @@ export async function sendChatMessage(
     const chatSession = await ensureUserChatSession(conversationUserId)
     const sessionMode = chatSession?.mode === "human" ? "human" : "ai"
 
+    // Validate optional reply target belongs to the exact same conversation (prevents cross-thread IDOR)
+    let validReplyToId: string | null = null
+    const cleanReplyId = typeof replyToId === "string" ? replyToId.trim() : ""
+    if (cleanReplyId) {
+      const [parentMsg] = await db
+        .select({ id: chatMessages.id, userId: chatMessages.userId })
+        .from(chatMessages)
+        .where(eq(chatMessages.id, cleanReplyId))
+        .limit(1)
+      if (parentMsg && parentMsg.userId === conversationUserId) {
+        validReplyToId = parentMsg.id
+      }
+    }
+
     // Staff reply marks conversation read & keeps mode unless changed explicitly
     const markReadByStaff = isStaff || sessionMode === "ai"
     const insertedMessageId = randomUUID()
@@ -262,6 +322,8 @@ export async function sendChatMessage(
       attachmentUrl: cleanAttachmentUrl || null,
       attachmentType: attachmentType || null,
       attachmentName: attachmentName || null,
+      replyToId: validReplyToId,
+      reactions: null,
       readByStaff: markReadByStaff,
       readByUser: !isStaff,
       createdAt: new Date(),
@@ -752,6 +814,8 @@ export async function getStaffChatThread(targetUserId: string) {
         attachmentUrl: chatMessages.attachmentUrl,
         attachmentType: chatMessages.attachmentType,
         attachmentName: chatMessages.attachmentName,
+        replyToId: chatMessages.replyToId,
+        reactions: chatMessages.reactions,
         readByStaff: chatMessages.readByStaff,
         readByUser: chatMessages.readByUser,
         createdAt: chatMessages.createdAt,
@@ -763,9 +827,85 @@ export async function getStaffChatThread(targetUserId: string) {
       .orderBy(asc(chatMessages.createdAt))
       .limit(120)
 
-    return rows
+    return enrichChatMessages(rows)
   } catch (err) {
     console.warn("[Chat] Error fetching staff thread:", err)
     return []
+  }
+}
+
+export async function toggleChatReaction(
+  messageId: string,
+  emoji: string,
+): Promise<{ ok: boolean; reactions?: ChatReactionsMap; error?: string }> {
+  try {
+    await ensureSchemaReady()
+    const sessionUser = await getSessionUser()
+    if (!sessionUser) {
+      return { ok: false, error: "Authentication required" }
+    }
+
+    const cleanId = typeof messageId === "string" ? messageId.trim() : ""
+    if (!cleanId) {
+      return { ok: false, error: "Message ID is required" }
+    }
+    if (!isAllowedReactionEmoji(emoji)) {
+      return { ok: false, error: "Unsupported reaction emoji" }
+    }
+
+    const [freshUser] = await db
+      .select({ banned: user.banned, role: user.role, name: user.name })
+      .from(user)
+      .where(eq(user.id, sessionUser.id))
+      .limit(1)
+
+    if (freshUser?.banned || sessionUser.banned) {
+      return { ok: false, error: "Account is suspended" }
+    }
+
+    const effectiveRole = freshUser?.role || sessionUser.role || "user"
+    const isStaff = effectiveRole === "admin" || effectiveRole === "moderator"
+
+    const [targetMsg] = await db
+      .select({
+        id: chatMessages.id,
+        userId: chatMessages.userId,
+        senderRole: chatMessages.senderRole,
+        reactions: chatMessages.reactions,
+      })
+      .from(chatMessages)
+      .where(eq(chatMessages.id, cleanId))
+      .limit(1)
+
+    if (!targetMsg) {
+      return { ok: false, error: "Message not found" }
+    }
+    if (!isStaff && targetMsg.userId !== sessionUser.id) {
+      return { ok: false, error: "Unauthorized" }
+    }
+    if (targetMsg.senderRole === "system") {
+      return { ok: false, error: "Cannot react to system notices" }
+    }
+
+    const currentMap = parseChatReactions(targetMsg.reactions)
+    const nextMap = applyReactionToggle(currentMap, emoji, {
+      userId: sessionUser.id,
+      userName: freshUser?.name || sessionUser.name || "Player",
+    })
+
+    const serialized = Object.keys(nextMap).length > 0 ? JSON.stringify(nextMap) : null
+
+    await db
+      .update(chatMessages)
+      .set({ reactions: serialized })
+      .where(eq(chatMessages.id, targetMsg.id))
+
+    revalidatePath("/admin/live-chat")
+    revalidatePath("/admin/chat")
+
+    return { ok: true, reactions: nextMap }
+  } catch (err) {
+    console.error("[Chat] toggleChatReaction error:", err)
+    return { ok: false, error: "Failed to update reaction" }
   }
 }

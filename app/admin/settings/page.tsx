@@ -42,7 +42,11 @@ export default async function AdminSettingsPage() {
         maintenanceMode={map.maintenance_mode === "true"}
         staffPortalPath={map.staff_portal_path ?? "/staff-login"}
         fridayScrimsOverride={map.friday_scrims_override ?? "auto"}
-        logoUrl={map.site_logo_url ?? "/icon.svg"}
+        logoUrl={map.site_logo_url && map.site_logo_url !== "/icon.svg" ? map.site_logo_url : "/images/brand/rushx-symbol.png"}
+        showcaseTimeWindow={map.showcase_time_window ?? ""}
+        showcaseFormatLabel={map.showcase_format_label ?? ""}
+        showcasePayoutSla={map.showcase_payout_sla ?? ""}
+        showcaseHighlightNote={map.showcase_highlight_note ?? ""}
       />
     </div>
   )

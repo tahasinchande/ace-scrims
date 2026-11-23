@@ -1277,6 +1277,10 @@ export async function saveAllSiteSettings(
       "rules_general",
       "payment_note",
       "site_logo_url",
+      "showcase_time_window",
+      "showcase_format_label",
+      "showcase_payout_sla",
+      "showcase_highlight_note",
     ])
 
     const entriesToSave: Array<[string, string]> = []
@@ -1309,6 +1313,10 @@ export async function saveAllSiteSettings(
     await logActivity(admin.id, "admin", "batch_update_settings")
     revalidatePath("/admin/settings")
     revalidatePath("/")
+    revalidatePath("/scrims")
+    revalidatePath("/sign-in")
+    revalidatePath("/sign-up")
+    revalidatePath("/tutorial")
     return { ok: true, error: null }
   } catch (e) {
     console.error("[saveAllSiteSettings] Error:", e)

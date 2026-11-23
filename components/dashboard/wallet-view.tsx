@@ -140,62 +140,66 @@ export function WalletView({
         </div>
       )}
 
-      {/* Prominent Balance Policy & Terms Disclaimer */}
-      <div className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 text-amber-200 shadow-md">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/20 p-3 text-amber-400 shrink-0">
-            <ShieldAlert className="size-6" />
-          </div>
-          <div className="flex-1 space-y-1.5 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-display text-sm font-extrabold uppercase tracking-wide text-amber-300">
+      {/* Cohesive Balance Policy & Terms Card matching RushX surface system */}
+      <div className="dc-surface rushx-box-splash relative overflow-hidden rounded-2xl p-5 sm:p-6">
+        <div
+          className="pointer-events-none absolute inset-y-4 left-0 w-1 rounded-r-full"
+          style={{
+            background: "linear-gradient(180deg, rgb(var(--rushx-primary-rgb)), rgb(var(--rushx-accent-rgb)))",
+          }}
+        />
+        <div className="flex flex-col gap-2.5 pl-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="size-4.5 text-accent shrink-0" />
+              <h2 className="font-display text-sm sm:text-base font-bold uppercase tracking-wide text-foreground">
                 Official Balance Policy &amp; Terms
-              </span>
-              <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                Non-Withdrawable
-              </span>
-              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-                Scrims Entry Only
-              </span>
+              </h2>
             </div>
-            <p className="font-sans leading-relaxed text-amber-100/90 text-xs sm:text-[13px]">
-              User balance can <strong>ONLY</strong> be used to register for scrims and participate in RushX Organization platform tournaments and events. <strong>Balance funds cannot be cashed out or withdrawn to external accounts</strong> (such as bKash, Nagad, Rocket, or bank accounts).
-            </p>
-            <p className="text-[11px] text-amber-300/80 leading-relaxed font-sans">
-              (বিশেষ ঘোষণা: আপনার একাউন্ট ব্যালেন্স শুধুমাত্র স্ক্রিম রেজিস্ট্রেশন এবং টুর্নামেন্ট এন্ট্রির জন্য ব্যবহারযোগ্য। এই ব্যালেন্স কোনো বহিরাগত বিকাশ, নগদ বা ব্যাংক একাউন্টে ক্যাশআউট বা উত্তোলন করা যাবে না।)
-            </p>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+              Non-Withdrawable · Scrims Entry Only
+            </span>
           </div>
+          <p className="text-xs sm:text-[13px] leading-relaxed text-slate-300">
+            Account balance is used <strong className="text-white">exclusively</strong> for RushX Organization scrim registrations and official tournaments.{" "}
+            <strong className="text-white">Wallet funds cannot be cashed out or withdrawn</strong> to external bKash, Nagad, Rocket, or bank accounts.
+          </p>
+          <p className="text-[11px] sm:text-xs leading-relaxed text-slate-400">
+            বিশেষ ঘোষণা: আপনার একাউন্ট ব্যালেন্স শুধুমাত্র স্ক্রিম রেজিস্ট্রেশন এবং টুর্নামেন্ট এন্ট্রির জন্য ব্যবহারযোগ্য। এই ব্যালেন্স কোনো বহিরাগত বিকাশ, নগদ বা ব্যাংক একাউন্টে ক্যাশআউট বা উত্তোলন করা যাবে না।
+          </p>
         </div>
       </div>
 
       {/* Main Grid: Balance Card + Deposit Form */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Left Column: Live Balance Overview */}
-        <div className="glass flex flex-col justify-between rounded-2xl p-6 lg:col-span-5 relative overflow-hidden border border-emerald-500/20">
-          <div className="absolute -right-8 -top-8 size-40 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        <div className="dc-surface rushx-box-splash flex flex-col justify-between rounded-2xl p-6 lg:col-span-5 relative overflow-hidden">
+          <div
+            className="absolute -right-8 -top-8 size-40 rounded-full blur-3xl pointer-events-none"
+            style={{ background: "rgba(var(--rushx-primary-rgb), 0.16)" }}
+          />
 
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Current Balance
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
                 Active Wallet
               </span>
             </div>
 
-            <div className="mt-4 flex items-baseline gap-2">
-              <span className="font-mono text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+            <div className="mt-4 flex flex-wrap items-baseline gap-2.5">
+              <span className="font-mono text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl tabular-nums">
                 {bdt(balance)}
               </span>
-              <span className="text-[11px] font-bold uppercase text-amber-400/90 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                Non-Withdrawable
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Scrims Credit
               </span>
             </div>
 
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              When registering for scrims, your entry fee will automatically be deducted from this balance for instantaneous slot confirmation.
+              When registering for scrims, your entry fee is deducted automatically from this balance for instantaneous slot confirmation.
             </p>
           </div>
 

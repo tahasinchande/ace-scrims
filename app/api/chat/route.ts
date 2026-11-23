@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       attachmentUrl?: string
       attachmentType?: string
       attachmentName?: string
+      replyToId?: string
     } | null
 
     if (!body || typeof body !== "object") {
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
       typeof body.attachmentUrl === "string" ? body.attachmentUrl : undefined,
       typeof body.attachmentType === "string" ? body.attachmentType : undefined,
       typeof body.attachmentName === "string" ? body.attachmentName : undefined,
+      typeof body.replyToId === "string" ? body.replyToId : undefined,
     )
 
     if (!res.ok) {

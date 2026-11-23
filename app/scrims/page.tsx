@@ -13,7 +13,7 @@ import { PartnershipTickerBar } from "@/components/site/partnership-ticker-bar"
 export const metadata: Metadata = {
   title: "Daily Scrims — RushX Organization",
   description:
-    "Browse today's Free Fire scrim lobbies. 12 daily slots from 7 PM to 12 AM, ৳35 entry, 12 teams max per lobby.",
+    "Browse today's live Free Fire scrim lobbies managed by RushX Organization. Instant booking, automated checkout, and verified cash prize pools.",
 }
 
 export const dynamic = "force-dynamic"

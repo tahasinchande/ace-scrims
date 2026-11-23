@@ -4,6 +4,7 @@ import { getActiveScrims } from "@/lib/queries/scrims"
 import { sanitizePublicScrim } from "@/lib/iceberg"
 import { getRecentResults } from "@/lib/queries/results"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
+import { buildShowcaseSummary } from "@/lib/queries/showcase"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SupportKoriBanner } from "@/components/site/supportkori-banner"
@@ -98,6 +99,7 @@ export default async function HomePage() {
     totalTeams: scrims.reduce((s, x) => s + (x.maxTeams || 12), 0),
     totalPrize: scrims.reduce((s, x) => s + (x.prizePoolBdt || 0), 0),
   }
+  const showcase = buildShowcaseSummary(scrims, settings)
 
   return (
     <>
@@ -106,7 +108,7 @@ export default async function HomePage() {
       </Suspense>
       <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
       <main className="w-full max-w-full overflow-x-hidden flex-1">
-        <Hero stats={stats} />
+        <Hero stats={stats} showcase={showcase} />
 
         <section id="schedule" className="mx-auto max-w-6xl px-4 py-20 md:px-6 scroll-mt-20" aria-labelledby="tonight-heading">
           <SectionHeading
@@ -114,7 +116,9 @@ export default async function HomePage() {
             title={scheduleTitle}
             subtitle={
               scrimCount > 0
-                ? "Every scrim runs for one hour with 12 team slots. Book before they fill."
+                ? showcase.timeWindow
+                  ? `Live lobbies open (${showcase.timeWindow}) — pick your slot before teams fill up.`
+                  : "Browse live lobbies managed by RushX admins. Book before slots fill."
                 : "New competitive lobbies will be listed soon. Book before they fill."
             }
           />
@@ -126,15 +130,15 @@ export default async function HomePage() {
           <PartnershipTickerBar />
         </Suspense>
 
-        <HowItWorks />
-        <Features />
-        <WhyChooseUs />
+        <HowItWorks showcase={showcase} />
+        <Features showcase={showcase} />
+        <WhyChooseUs showcase={showcase} />
         
         {/* Two distinct sections with dynamic image sizing preserving original dimensions */}
         <Top3FaceBannersSection banners={displayTop3Banners} />
         <MvpFaceBannersSection banners={displayMvpBanners} />
 
-        <Faq />
+        <Faq showcase={showcase} />
         <Contact settings={settings} />
 
         {/* SupportKori Banner downside of homepage */}

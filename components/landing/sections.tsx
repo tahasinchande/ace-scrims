@@ -24,6 +24,7 @@ import {
 import { WhatsAppIcon } from "@/components/site/brand-icons"
 import { useLanguage } from "@/lib/language"
 import { LiveSupportButton } from "@/components/site/live-support-button"
+import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
 
 const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
 
@@ -40,45 +41,75 @@ export function SectionHeading({
 
   return (
     <motion.div
-      initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.988 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
       className="mx-auto mb-12 max-w-2xl text-center relative"
     >
       <div className="inline-flex items-center gap-2.5 mb-3">
-        <span className="h-px w-6 bg-gradient-to-r from-transparent to-violet-400/80" />
-        <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">{eyebrow}</p>
-        <span className="h-px w-6 bg-gradient-to-l from-transparent to-cyan-400/80" />
+        <span
+          className="h-px w-6"
+          style={{
+            background: "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.85))",
+          }}
+        />
+        <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+          {eyebrow}
+        </p>
+        <span
+          className="h-px w-6"
+          style={{
+            background: "linear-gradient(to left, transparent, rgba(var(--rushx-accent-rgb), 0.85))",
+          }}
+        />
       </div>
-      <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">{title}</h2>
-      {subtitle && <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">{subtitle}</p>}
+      <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">
+        {title}
+      </h2>
+      {subtitle && (
+        <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">
+          {subtitle}
+        </p>
+      )}
     </motion.div>
   )
 }
 
-export function Features() {
-  const { t } = useLanguage()
+export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
+  const { lang, t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
+
+  const prizeBody =
+    showcase?.maxPrizePoolBdt
+      ? lang === "bn"
+        ? `প্রতিটি লবিতে নিশ্চিত প্রাইজ পুল (সর্বোচ্চ ৳${showcase.maxPrizePoolBdt.toLocaleString()} পর্যন্ত)। বিজয়ীদের তালিকা ও স্ক্রিনশট প্রুফসহ দ্রুত পুরষ্কার পাঠানো হয়।`
+        : `Guaranteed cash prize pools (up to ৳${showcase.maxPrizePoolBdt.toLocaleString()}) paid directly to top squads with verified result proof.`
+      : t("feat3_body", "Every lobby has a guaranteed cash prize pool. Winners are published with proof and prizes are paid out fast.")
+
+  const payoutBody =
+    showcase?.payoutSla && lang === "en"
+      ? `${showcase.payoutSla} — verified payouts sent directly to the team leader's payout wallet after result publication.`
+      : t("facility_5_body", "Prizes are paid directly to the winner's payout wallet after match result verification.")
 
   const features = [
     {
       icon: CreditCard,
       title: t("feat1_title", "Instant Auto Payment"),
       body: t("feat1_body", "Pay through secure automated gateway or account balance. Your slot is confirmed the second your payment clears."),
-      color: "text-violet-300",
+      color: "text-accent",
     },
     {
       icon: KeyRound,
       title: t("feat2_title", "Room ID On Time"),
       body: t("feat2_body", "Room ID and password are published to paid teams right in your dashboard before match start."),
-      color: "text-cyan-300",
+      color: "text-accent",
     },
     {
       icon: Trophy,
       title: t("facility_1", "Top 3 Prize Pool"),
-      body: t("feat3_body", "Guaranteed cash prize pool (৳330) paid out to Top 3 teams for every lobby within 6 hours."),
-      color: "text-violet-300",
+      body: prizeBody,
+      color: "text-accent",
     },
     {
       icon: ShieldCheck,
@@ -88,21 +119,24 @@ export function Features() {
     },
     {
       icon: Bell,
-      title: t("facility_5", "6 Hour Guaranteed Payout"),
-      body: t("facility_5_body", "Prizes are paid directly to winner's wallet within 6 hours of match completion."),
-      color: "text-cyan-300",
+      title: t("facility_5", "Fast Verified Payouts"),
+      body: payoutBody,
+      color: "text-accent",
     },
     {
       icon: Wallet,
       title: t("feat6_title", "Transparent History"),
       body: t("feat6_body", "Every booking, payment and result is tracked in your dashboard. Full transaction history, always."),
-      color: "text-indigo-300",
+      color: "text-accent",
     },
   ]
 
   return (
     <section className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 overflow-hidden" aria-labelledby="features-heading">
-      <div className="pointer-events-none absolute -left-40 top-1/2 -translate-y-1/2 w-96 h-96 bg-violet-600/12 rounded-full blur-3xl" />
+      <div
+        className="pointer-events-none absolute -left-40 top-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl"
+        style={{ background: "rgba(var(--rushx-primary-rgb), 0.14)" }}
+      />
 
       <SectionHeading
         eyebrow={t("features_eyebrow", "Why RushX Organization")}
@@ -113,17 +147,23 @@ export function Features() {
         {features.map((f, i) => (
           <motion.div
             key={f.title}
-            initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.985 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
             viewport={{ once: true, amount: 0.12 }}
             transition={{
-              duration: prefersReducedMotion ? 0 : 0.5,
+              duration: prefersReducedMotion ? 0 : 0.52,
               delay: prefersReducedMotion ? 0 : i * 0.055,
               ease: DEEPCHARTS_EASE,
             }}
             className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 overflow-hidden"
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent opacity-45 group-hover:opacity-100 transition-opacity" />
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-50 group-hover:opacity-100 transition-opacity"
+              style={{
+                background:
+                  "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.6), transparent)",
+              }}
+            />
 
             <f.icon className={`mb-4 size-5 ${f.color} transition-transform duration-200 group-hover:scale-110`} aria-hidden />
             <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">{f.title}</h3>
@@ -135,16 +175,28 @@ export function Features() {
   )
 }
 
-export function HowItWorks() {
-  const { t } = useLanguage()
+export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
+  const { lang, t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
+
+  const dynamicStep1Body =
+    showcase && showcase.activeScrimCount > 0 && lang === "en"
+      ? `${showcase.activeScrimCount} live ${showcase.activeScrimCount === 1 ? "lobby" : "lobbies"} currently open${showcase.timeWindow ? ` (${showcase.timeWindow})` : ""}. Choose your time slot, map, and prize pool.`
+      : t("step1_body", "Browse today's live lobbies managed by RushX admins. Choose your time slot, map, and prize pool.")
+
+  const dynamicStep2Title =
+    showcase?.minEntryFeeBdt
+      ? lang === "bn"
+        ? `এনট্রি ফি প্রদান করুন (৳${showcase.minEntryFeeBdt} থেকে)`
+        : `Pay Entry (From ৳${showcase.minEntryFeeBdt})`
+      : t("step2_title", "Instant Checkout")
 
   const steps = [
     {
       icon: CalendarClock,
       step: "01",
       title: t("step1_title", "Pick a Scrim"),
-      body: t("step1_body", "12 lobbies every night from 7 PM to 12 AM. Choose your time, check the map and prize pool."),
+      body: dynamicStep1Body,
       actionHref: "#schedule",
       actionText: "View Schedule",
       onClick: (e: React.MouseEvent) => {
@@ -158,7 +210,7 @@ export function HowItWorks() {
     {
       icon: CreditCard,
       step: "02",
-      title: t("step2_title", "Pay ৳35"),
+      title: dynamicStep2Title,
       body: t("step2_body", "Checkout with automated gateway or wallet balance. Payment is verified automatically in seconds."),
       actionHref: "#schedule",
       actionText: "Book Now",
@@ -183,7 +235,7 @@ export function HowItWorks() {
       icon: Swords,
       step: "04",
       title: t("step4_title", "Play & Win"),
-      body: t("step4_body", "Drop in, top the lobby, and get your prize. Results and payouts published the same night."),
+      body: t("step4_body", "Drop in, top the lobby, and get your prize. Results and payouts published promptly after matches."),
       actionHref: "/results",
       actionText: "View Leaderboard",
       onClick: undefined,
@@ -191,7 +243,7 @@ export function HowItWorks() {
   ]
 
   return (
-    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#060917]/28 backdrop-blur-[2px] py-20" aria-labelledby="how-heading">
+    <section id="how-it-works" className="border-y border-white/[0.06] bg-[#040814]/28 backdrop-blur-[2px] py-20" aria-labelledby="how-heading">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <SectionHeading
           eyebrow={t("how_eyebrow", "How It Works")}
@@ -202,17 +254,23 @@ export function HowItWorks() {
           {steps.map((s, i) => (
             <motion.li
               key={s.step}
-              initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.985 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true, amount: 0.12 }}
               transition={{
-                duration: prefersReducedMotion ? 0 : 0.5,
+                duration: prefersReducedMotion ? 0 : 0.52,
                 delay: prefersReducedMotion ? 0 : i * 0.07,
                 ease: DEEPCHARTS_EASE,
               }}
               className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
             >
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-45 group-hover:opacity-100 transition-opacity"
+                style={{
+                  background:
+                    "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.6), transparent)",
+                }}
+              />
               <Link
                 href={s.actionHref}
                 onClick={s.onClick}
@@ -220,17 +278,17 @@ export function HowItWorks() {
                 aria-label={`${s.title} — ${s.actionText}`}
               />
               <div>
-                <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-violet-400/20 group-hover:text-violet-300/40 transition-colors tabular-nums" aria-hidden>
+                <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-white/15 group-hover:text-accent/40 transition-colors tabular-nums" aria-hidden>
                   {s.step}
                 </span>
-                <s.icon className="mb-4 size-5 text-cyan-300 transition-transform duration-200 group-hover:scale-110" aria-hidden />
-                <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-violet-200 transition-colors flex items-center gap-1.5">
+                <s.icon className="mb-4 size-5 text-accent transition-transform duration-200 group-hover:scale-110" aria-hidden />
+                <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-white transition-colors flex items-center gap-1.5">
                   {s.title}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-violet-300 group-hover:text-cyan-200 transition-colors">
+              <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-accent transition-colors">
                 <span>{s.actionText}</span>
                 <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
               </div>
@@ -239,9 +297,9 @@ export function HowItWorks() {
         </ol>
 
         <div className="mt-10 text-center">
-          <Button asChild size="lg" variant="outline" className="glass gap-2 rounded-xl border-violet-300/20 font-semibold hover:border-violet-400/50 hover:bg-violet-500/12 text-foreground">
+          <Button asChild size="lg" variant="outline" className="glass gap-2 rounded-xl font-semibold text-foreground">
             <Link href="/tutorial">
-              <KeyRound className="size-4 text-cyan-300" />
+              <KeyRound className="size-4 text-accent" />
               {t("watch_tutorial", "Watch Video Tutorial / কীভাবে বুক করবেন দেখুন")}
             </Link>
           </Button>
@@ -251,7 +309,7 @@ export function HowItWorks() {
   )
 }
 
-export function WhyChooseUs() {
+export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
   const { t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
 
@@ -259,11 +317,11 @@ export function WhyChooseUs() {
     <section className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="why-heading">
       <div className="grid items-center gap-10 lg:grid-cols-2">
         <motion.div
-          initial={prefersReducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96, y: 18 }}
+          initial={prefersReducedMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.96, y: 18 }}
           whileInView={{ opacity: 1, scale: 1, y: 0 }}
           viewport={{ once: true, amount: 0.15 }}
-          transition={{ duration: prefersReducedMotion ? 0 : 0.6, ease: DEEPCHARTS_EASE }}
-          className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-violet-300/15 bg-[#070a18] group"
+          transition={{ duration: prefersReducedMotion ? 0 : 0.62, ease: DEEPCHARTS_EASE }}
+          className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-[rgba(var(--rushx-soft-rgb),0.18)] bg-[#050a18] group"
         >
           <Image
             src="/images/sakura_warrior_1786871705952.jpg"
@@ -273,17 +331,23 @@ export function WhyChooseUs() {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050816]/94 via-[#050816]/24 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#050816]/55 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#040814]/94 via-[#040814]/24 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#040814]/55 pointer-events-none" />
 
-          <div className="dc-surface absolute bottom-4 left-4 right-4 p-4 rounded-2xl flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-cyan-300">Elite Battleground</p>
-              <p className="text-sm font-semibold text-white">Daily High-Tier Scrims</p>
+          {/* Cleanly pinned bottom overlay card inside the image frame */}
+          <div className="dc-surface absolute inset-x-4 bottom-4 z-10 p-4 rounded-2xl flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-accent">
+                Elite Battleground
+              </p>
+              <p className="text-sm font-semibold text-white truncate">
+                {showcase?.timeWindow ? `Daily High-Tier Scrims · ${showcase.timeWindow}` : "Daily High-Tier Scrims"}
+              </p>
             </div>
-            <ShieldCheck className="size-5 text-violet-300 shrink-0" aria-hidden />
+            <ShieldCheck className="size-5 text-accent shrink-0" aria-hidden />
           </div>
         </motion.div>
+
         <motion.div
           initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -291,7 +355,7 @@ export function WhyChooseUs() {
           transition={{ duration: prefersReducedMotion ? 0 : 0.56, delay: 0.08, ease: DEEPCHARTS_EASE }}
           className="order-1 lg:order-2"
         >
-          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">
+          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
             {t("features_eyebrow", "Why Choose Us")}
           </p>
           <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
@@ -300,7 +364,7 @@ export function WhyChooseUs() {
           <ul className="mt-8 flex flex-col gap-5">
             {[
               [t("feat1_title", "Zero manual verification"), t("feat1_body", "Payments confirm instantly through automated gateway.")],
-              [t("feat2_title", "Daily competitive lobbies"), t("feat2_body", "Scheduled nightly lobbies. Whenever your squad is ready, we have a lobby.")],
+              [t("feat2_title", "Daily competitive lobbies"), t("feat2_body", "Scheduled competitive lobbies managed live by RushX admins.")],
               [t("feat3_title", "Results with receipts"), t("feat3_body", "Every match result is published with screenshots and kill counts.")],
               [t("feat4_title", "Moderated, competitive, clean"), t("feat4_body", "Dedicated moderators run every lobby so matches start on time.")],
             ].map(([title, body], i) => (
@@ -316,7 +380,7 @@ export function WhyChooseUs() {
                 }}
                 className="flex gap-3.5"
               >
-                <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-cyan-300" aria-hidden />
+                <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-accent" aria-hidden />
                 <div>
                   <h3 className="font-semibold text-foreground">{title}</h3>
                   <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
@@ -330,21 +394,26 @@ export function WhyChooseUs() {
   )
 }
 
-export function Faq() {
-  const { t } = useLanguage()
+export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
+  const { lang, t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
 
+  const faq1Answer =
+    showcase?.minEntryFeeBdt && lang === "en"
+      ? `Create an account, pick an open scrim from today's schedule, enter your squad details, and pay the listed entry fee (starting from ৳${showcase.minEntryFeeBdt}) via automated gateway or wallet balance. Your slot confirms immediately.`
+      : t("faq1_a", "Create an account, pick an open scrim from today's schedule, enter your squad details, and pay via automated gateway or wallet balance. Your slot is confirmed automatically.")
+
   const faqs = [
-    { q: t("faq1_q", "How do I book a scrim slot?"), a: t("faq1_a", "Create an account, pick a scrim from tonight's schedule, enter your squad details, and pay ৳35 via secure gateway or account balance. Your slot is confirmed automatically.") },
+    { q: t("faq1_q", "How do I book a scrim slot?"), a: faq1Answer },
     { q: t("faq2_q", "When do I get the Room ID and password?"), a: t("faq2_a", "Room credentials are published by our moderators 10-15 minutes before match start in your dashboard and sent via WhatsApp.") },
-    { q: t("faq3_q", "What happens if the lobby is full?"), a: t("faq3_a", "Each scrim is capped at 12 teams. Once full, booking closes automatically. Check the other 11 nightly time slots.") },
-    { q: t("faq4_q", "How are prizes paid out?"), a: t("faq4_a", "Winners are published on the Results page with kills and screenshots. Prizes are sent to the leader's digital payout wallet within 6 hours.") },
+    { q: t("faq3_q", "What happens if the lobby is full?"), a: t("faq3_a", "Once a lobby reaches its max team slots, booking closes automatically. Check any other open time slots on the live schedule.") },
+    { q: t("faq4_q", "How are prizes paid out?"), a: t("faq4_a", "Winners are published on the Results page with kills and screenshots. Prizes are sent directly to the team leader's payout wallet after verification.") },
     { q: t("faq5_q", "Can I get a refund?"), a: t("faq5_a", "If a scrim is cancelled by us, you get a full automatic refund. See our Refund Policy for details.") },
     { q: t("faq6_q", "Are emulator players allowed?"), a: t("faq6_a", "No. RushX Organization is mobile-only. Emulator players are banned without refund per our fair play rules.") },
   ]
 
   return (
-    <section id="faq" className="border-t border-white/[0.06] bg-[#060917]/28 backdrop-blur-[2px] py-20" aria-labelledby="faq-heading">
+    <section id="faq" className="border-t border-white/[0.06] bg-[#040814]/28 backdrop-blur-[2px] py-20" aria-labelledby="faq-heading">
       <div className="mx-auto max-w-3xl px-4 md:px-6">
         <SectionHeading eyebrow={t("faq_eyebrow", "FAQ")} title={t("faq_title", "Questions, answered")} />
         <Accordion multiple={false} className="flex flex-col gap-3">
@@ -362,16 +431,16 @@ export function Faq() {
             >
               <AccordionItem
                 value={`item-${i}`}
-                className="dc-surface rushx-box-splash rounded-2xl px-5 last:border-b hover:border-violet-400/35 transition-colors"
+                className="dc-surface rushx-box-splash rounded-2xl px-5 last:border-b hover:border-[rgba(var(--rushx-soft-rgb),0.36)] transition-colors"
               >
                 <AccordionTrigger className="text-left font-semibold tracking-tight hover:no-underline">{f.q}</AccordionTrigger>
                 <AccordionContent className="text-sm leading-relaxed text-muted-foreground flex flex-col gap-2">
                   <p>{f.a}</p>
                   {i === 0 && (
                     <div className="pt-1">
-                      <Button asChild size="sm" variant="outline" className="rounded-xl text-xs gap-1.5 border-violet-400/35 text-violet-200 hover:bg-violet-500/12">
+                      <Button asChild size="sm" variant="outline" className="rounded-xl text-xs gap-1.5">
                         <Link href="/tutorial">
-                          <KeyRound className="size-3.5" />
+                          <KeyRound className="size-3.5 text-accent" />
                           {t("watch_tutorial", "Watch Tutorial / কীভাবে বুক করবেন দেখুন")}
                         </Link>
                       </Button>
@@ -397,19 +466,34 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
   return (
     <section id="contact" className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="contact-heading">
       <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 22, scale: 0.985 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
-        className="dc-surface rushx-box-splash relative overflow-hidden rounded-3xl p-8 md:p-12 border-violet-300/16 shadow-2xl"
+        className="dc-surface rushx-box-splash relative overflow-hidden rounded-3xl p-8 md:p-12 shadow-2xl"
       >
-        <div className="absolute -right-20 -top-20 size-64 rounded-full bg-violet-600/16 blur-3xl" aria-hidden />
-        <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-cyan-500/12 blur-3xl" aria-hidden />
+        <div
+          className="absolute -right-20 -top-20 size-64 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "rgba(var(--rushx-primary-rgb), 0.18)" }}
+          aria-hidden
+        />
+        <div
+          className="absolute -bottom-20 -left-20 size-64 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "rgba(var(--rushx-accent-rgb), 0.14)" }}
+          aria-hidden
+        />
         <div className="relative grid items-center gap-8 md:grid-cols-2">
           <div>
             <div className="inline-flex items-center gap-2.5 mb-3">
-              <span className="h-px w-6 bg-gradient-to-r from-transparent to-violet-400/80" />
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">{t("contact_eyebrow", "Support")}</p>
+              <span
+                className="h-px w-6"
+                style={{
+                  background: "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.85))",
+                }}
+              />
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+                {t("contact_eyebrow", "Support")}
+              </p>
             </div>
             <h2 className="font-display text-3xl font-bold tracking-tight text-balance text-foreground">
               {t("contact_title", "Need Help? Talk to RushX Support")}

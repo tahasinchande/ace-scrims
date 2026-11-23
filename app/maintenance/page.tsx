@@ -156,19 +156,25 @@ export default function MaintenancePage() {
       <GlobalCyberBackground />
 
       {/* Ambient Lighting Layer */}
-      <div className="pointer-events-none fixed inset-0 bg-radial-gradient from-transparent via-[#050816]/45 to-[#040610]/85 z-[1]" />
-      <div className="pointer-events-none absolute -left-20 top-1/4 size-96 rounded-full bg-violet-600/18 blur-[140px] z-[1]" />
-      <div className="pointer-events-none absolute -right-20 bottom-1/4 size-96 rounded-full bg-cyan-500/15 blur-[140px] z-[1]" />
+      <div className="pointer-events-none fixed inset-0 bg-radial-gradient from-transparent via-[#040814]/45 to-[#030610]/85 z-[1]" />
+      <div
+        className="pointer-events-none absolute -left-20 top-1/4 size-96 rounded-full blur-[140px] z-[1]"
+        style={{ background: "rgba(var(--rushx-primary-rgb), 0.18)" }}
+      />
+      <div
+        className="pointer-events-none absolute -right-20 bottom-1/4 size-96 rounded-full blur-[140px] z-[1]"
+        style={{ background: "rgba(var(--rushx-accent-rgb), 0.15)" }}
+      />
 
       <main className="dc-surface rushx-box-splash relative z-10 flex max-w-xl w-full flex-col items-center text-center gap-6 rounded-3xl p-6 sm:p-8 shadow-2xl">
         {/* Top 3D / 2D Switch & Status */}
         <div className="flex w-full items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-300">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
             Live Upgrade
           </span>
 
           <div
-            className="inline-flex items-center rounded-full border border-white/[0.12] bg-[#070a17]/75 p-0.5 backdrop-blur-md shadow-md"
+            className="inline-flex items-center rounded-full border border-white/[0.12] bg-[#060c1d]/75 p-0.5 backdrop-blur-md shadow-md"
             role="group"
             aria-label="View Mode Selector"
           >
@@ -177,7 +183,7 @@ export default function MaintenancePage() {
               onClick={() => setMode("2d")}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-all ${
                 mode === "2d"
-                  ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-sm"
+                  ? "rushx-primary-btn text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
               }`}
               title="Switch to 2D Dynamic Mode"
@@ -190,7 +196,7 @@ export default function MaintenancePage() {
               onClick={() => setMode("3d")}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-all ${
                 mode === "3d"
-                  ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-sm"
+                  ? "rushx-primary-btn text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
               }`}
               title="Switch to 3D Cyber Mode"
@@ -202,24 +208,24 @@ export default function MaintenancePage() {
         </div>
 
         {/* Status Icon */}
-        <ShieldAlert className="size-11 text-violet-300" />
+        <ShieldAlert className="size-11 text-accent" />
 
         <div className="flex flex-col gap-2">
-          <p className="font-display text-xs font-bold uppercase tracking-widest text-cyan-300">
+          <p className="font-display text-xs font-bold uppercase tracking-widest text-accent">
             SYSTEM MAINTENANCE IN PROGRESS
           </p>
           <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wide text-balance text-foreground">
             Upgrading RushX Organization Infrastructure
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
-            RushX Organization is currently carrying out routine system upgrades for tonight&apos;s 12 scrim matches. Registrations will reopen shortly!
+            RushX Organization is currently carrying out routine system upgrades for upcoming scrim lobbies. Registrations will reopen shortly!
           </p>
-          <p className="font-semibold text-violet-300 text-xs mt-1">
-            সাইটটি বর্তমানে রক্ষণাবেক্ষণের অধীনে আছে। শীঘ্রই আজকের ১২টি স্ক্রিমের বুকিং চালু হবে।
+          <p className="font-semibold text-accent text-xs mt-1">
+            সাইটটি বর্তমানে রক্ষণাবেক্ষণের অধীনে আছে। শীঘ্রই আজকের স্ক্রিম লবিগুলোর বুকিং চালু হবে।
           </p>
         </div>
 
-        {/* 12 Scrim Slideshow Widget with Motion Transitions & Auto Slideshow */}
+        {/* Scrim Slideshow Widget with Motion Transitions & Auto Slideshow */}
         <div
           className="dc-metric-cell w-full overflow-hidden rounded-3xl p-3 sm:p-4 shadow-2xl relative group"
           onMouseEnter={() => setIsPaused(true)}
@@ -228,8 +234,11 @@ export default function MaintenancePage() {
           {/* Progress Bar */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-30 overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400"
-              style={{ width: `${progress}%` }}
+              className="h-full"
+              style={{
+                width: `${progress}%`,
+                background: "linear-gradient(90deg, rgb(var(--rushx-primary-rgb)), rgb(var(--rushx-accent-rgb)))",
+              }}
               transition={{ ease: "linear" }}
             />
           </div>

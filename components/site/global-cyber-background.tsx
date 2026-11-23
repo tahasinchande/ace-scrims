@@ -3,10 +3,49 @@
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import { useViewMode } from "@/lib/view-mode"
+import {
+  AMBIENT_PHASES,
+  applyAmbientThemeToRoot,
+  getAmbientPhaseAt,
+} from "@/lib/ambient-theme"
 
 export function GlobalCyberBackground() {
   const containerRef = useRef<HTMLDivElement>(null)
   const { mode } = useViewMode()
+
+  // Synchronized delay-driven color-shifting engine across BOTH 2D & 3D modes.
+  // Starts on Electric Cobalt Blue, holds calmly for ~5.5s, then smoothly eases over ~2.2s into the next phase.
+  useEffect(() => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    const initialPhase = getAmbientPhaseAt(0)
+    applyAmbientThemeToRoot(initialPhase)
+
+    if (prefersReducedMotion) return
+
+    let rafId = 0
+    const startMs = performance.now()
+    let lastAppliedKey = ""
+
+    const tick = () => {
+      rafId = window.requestAnimationFrame(tick)
+      if (document.hidden) return
+      const elapsedSec = (performance.now() - startMs) / 1000
+      const state = getAmbientPhaseAt(elapsedSec)
+      const key = `${state.primaryRgb.join(",")}|${state.accentRgb.join(",")}`
+      if (key !== lastAppliedKey) {
+        lastAppliedKey = key
+        applyAmbientThemeToRoot(state)
+      }
+    }
+
+    rafId = window.requestAnimationFrame(tick)
+    return () => {
+      window.cancelAnimationFrame(rafId)
+    }
+  }, [])
 
   useEffect(() => {
     if (mode !== "3d") return
@@ -559,19 +598,26 @@ export function GlobalCyberBackground() {
       }
       instancedSatelliteCubes.instanceMatrix.needsUpdate = true
 
-      // Vivid dynamic mixed-color shifting across key, accent, and complementary fill hues
-      const baseHue = prefersReducedMotion ? 0.76 : (0.76 + elapsed * cycleSpeed) % 1
-      const accentHue = (baseHue + 0.17) % 1
-      const fillHue = (baseHue + 0.48) % 1
+      // Delay-driven RandomQbit-inspired color phases starting on Electric Cobalt Blue
+      const phase = prefersReducedMotion
+        ? {
+            baseHue: AMBIENT_PHASES[0].baseHue,
+            accentHue: AMBIENT_PHASES[0].accentHue,
+            fillHue: AMBIENT_PHASES[0].fillHue,
+          }
+        : getAmbientPhaseAt(elapsed)
+      const baseHue = phase.baseHue
+      const accentHue = phase.accentHue
+      const fillHue = phase.fillHue
 
       // Luminous obsidian-tinted backdrop & fog matched to active shift
       if (scene.background instanceof THREE.Color) {
-        scene.background.setHSL(baseHue, 0.45, 0.042)
+        scene.background.setHSL(baseHue, 0.48, 0.044)
       }
       if (scene.fog instanceof THREE.FogExp2) {
-        scene.fog.color.setHSL(baseHue, 0.42, 0.042)
+        scene.fog.color.setHSL(baseHue, 0.44, 0.044)
       }
-      ambientLight.color.setHSL(accentHue, 0.45, 0.18)
+      ambientLight.color.setHSL(accentHue, 0.46, 0.18)
 
       // Multi-layered harmonic lights shifting together over time
       dirKey.color.setHSL(baseHue, 0.94, 0.56)
@@ -705,16 +751,13 @@ export function GlobalCyberBackground() {
         aria-hidden="true"
         className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden"
       >
-        {/* Full-viewport sequential single-hue color-shifting atmosphere (covers entire page top-to-bottom, zero solid black lower block) */}
+        {/* Full-viewport top-lit delay-driven color-shifting atmosphere (Electric Blue entrance, zero square boxes, zero solid black lower block) */}
         <div className="rushx-ambient-canvas absolute inset-0 w-full h-full">
           <div className="rushx-ambient-glow absolute inset-0 w-full h-full" />
         </div>
 
-        {/* Crisp subtle tactical grid overlay across the full page */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.032)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.032)_1px,transparent_1px)] bg-[size:52px_52px] opacity-55" />
-
-        {/* Subtle radial edge vignette for readability (never covers lower page in opaque black) */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_28%,rgba(4,6,13,0.44)_100%)]" />
+        {/* Subtle radial edge vignette for readability */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_32%,rgba(4,8,18,0.42)_100%)]" />
 
         {/* Neutral top horizon hairline */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />

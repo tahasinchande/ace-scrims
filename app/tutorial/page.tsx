@@ -7,6 +7,7 @@ import { tutorials } from "@/lib/db/schema"
 import { desc } from "drizzle-orm"
 import { TutorialView } from "@/components/tutorial/tutorial-view"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
+import { getLiveShowcaseSummary } from "@/lib/queries/showcase"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
@@ -15,17 +16,18 @@ export const metadata: Metadata = {
 }
 
 export default async function TutorialPage() {
-  const [user, videoTutorials, settings] = await Promise.all([
+  const [user, videoTutorials, settings, showcase] = await Promise.all([
     getSessionUser().catch(() => null),
     db.select().from(tutorials).orderBy(desc(tutorials.createdAt)).catch(() => []),
     getPublicSiteSettings().catch(() => undefined),
+    getLiveShowcaseSummary().catch(() => undefined),
   ])
 
   return (
     <>
       <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
       <main className="min-h-screen py-16">
-        <TutorialView tutorials={videoTutorials} />
+        <TutorialView tutorials={videoTutorials} showcase={showcase} />
       </main>
       <SiteFooter settings={settings} />
     </>

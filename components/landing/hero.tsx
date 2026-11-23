@@ -14,10 +14,17 @@ import {
 import { useLanguage } from "@/lib/language"
 import { useViewMode } from "@/lib/view-mode"
 import { BRAND } from "@/lib/brand"
+import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
 
 const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
 
-export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: number; totalPrize: number } }) {
+export function Hero({
+  stats,
+  showcase,
+}: {
+  stats: { scrimsTonight: number; totalTeams: number; totalPrize: number }
+  showcase?: LiveShowcaseSummary
+}) {
   const { t } = useLanguage()
   const { mode, setMode } = useViewMode()
   const prefersReducedMotion = useReducedMotion()
@@ -29,31 +36,44 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
       transition: prefersReducedMotion
         ? { duration: 0 }
         : {
-            staggerChildren: 0.08,
-            delayChildren: 0.04,
+            staggerChildren: 0.085,
+            delayChildren: 0.03,
           },
     },
   }
 
   const itemFadeUp = {
-    hidden: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 },
+    hidden: prefersReducedMotion
+      ? { opacity: 1, y: 0, scale: 1 }
+      : { opacity: 0, y: 22, scale: 0.985 },
     show: {
       opacity: 1,
       y: 0,
+      scale: 1,
       transition: prefersReducedMotion
         ? { duration: 0 }
-        : { duration: 0.56, ease: DEEPCHARTS_EASE },
+        : { duration: 0.62, ease: DEEPCHARTS_EASE },
     },
   }
+
+  const activeScrims = stats.scrimsTonight ?? 0
+  const totalSlots = stats.totalTeams ?? 0
+  const formatLine = showcase?.timeWindow || t("matches_per_scrim", "Live Daily Format")
 
   return (
     <section className="relative min-h-[88svh] w-full max-w-full overflow-x-clip overflow-hidden bg-transparent">
       {/* 3D Mode atmospheric sweep framing */}
       {mode === "3d" && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden w-full max-w-full">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#040610]/52 via-transparent to-transparent z-[1]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#040610]/38 via-transparent to-transparent z-[1]" />
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-300/30 to-transparent z-[2]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#040814]/54 via-transparent to-transparent z-[1]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#040814]/38 via-transparent to-transparent z-[1]" />
+          <div
+            className="absolute top-0 left-0 right-0 h-px z-[2]"
+            style={{
+              background:
+                "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.35), transparent)",
+            }}
+          />
           {!prefersReducedMotion && (
             <motion.div
               animate={{
@@ -64,7 +84,11 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                 repeat: Infinity,
                 ease: "linear",
               }}
-              className="absolute top-1/3 left-0 w-1/3 h-[2px] bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent blur-sm z-[2]"
+              className="absolute top-1/3 left-0 w-1/3 h-[2px] blur-sm z-[2]"
+              style={{
+                background:
+                  "linear-gradient(to right, transparent, rgba(var(--rushx-accent-rgb), 0.42), transparent)",
+              }}
             />
           )}
         </div>
@@ -81,21 +105,29 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
             variants={container}
             initial="hidden"
             animate="show"
-            className="flex max-w-3xl flex-col justify-center w-full"
+            className="flex max-w-4xl flex-col justify-center w-full"
           >
-            {/* Clean unboxed editorial metadata line + segmented 2D / 3D switch (zero micro-pill clutter) */}
+            {/* Clean unboxed editorial metadata line + segmented 2D / 3D switch */}
             <motion.div variants={itemFadeUp} className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-6">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-[13px] font-medium text-slate-200/90 tabular-nums">
                 <span className="font-semibold text-white">
-                  {stats.scrimsTonight ?? 0} {t("scrims_tonight", "Scrims Live Tonight")}
+                  {activeScrims > 0
+                    ? `${activeScrims} ${t("scrims_tonight", "Active Lobbies Today")}`
+                    : t("scrims_tonight", "Competitive Free Fire Scrims")}
                 </span>
-                <span className="text-violet-300/60" aria-hidden="true">·</span>
-                <span className="text-cyan-200/90">Mobile-Only Fair Play</span>
+                {showcase?.timeWindow && (
+                  <>
+                    <span className="text-accent/60" aria-hidden="true">·</span>
+                    <span className="text-slate-200">{showcase.timeWindow}</span>
+                  </>
+                )}
+                <span className="text-accent/60" aria-hidden="true">·</span>
+                <span className="text-accent">Mobile-Only Fair Play</span>
               </div>
 
               {/* 2D / 3D Mode Selector Switch */}
               <div
-                className="inline-flex items-center rounded-xl border border-violet-300/20 bg-[#080c1d]/75 p-0.5 backdrop-blur-md shadow-lg"
+                className="inline-flex items-center rounded-xl border border-[rgba(var(--rushx-soft-rgb),0.22)] bg-[#060c1e]/75 p-0.5 backdrop-blur-md shadow-lg"
                 role="group"
                 aria-label="View Mode Selector"
               >
@@ -104,7 +136,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                   onClick={() => setMode("2d")}
                   className={`rushx-btn-splash inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
                     mode === "2d"
-                      ? "bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-sm"
+                      ? "rushx-primary-btn text-white"
                       : "text-slate-300 hover:text-white"
                   }`}
                   title="Switch to 2D Dynamic Ambient Mode"
@@ -117,7 +149,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                   onClick={() => setMode("3d")}
                   className={`rushx-btn-splash inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
                     mode === "3d"
-                      ? "bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-sm"
+                      ? "rushx-primary-btn text-white"
                       : "text-slate-300 hover:text-white"
                   }`}
                   title="Switch to 3D Cyber Mode"
@@ -128,26 +160,26 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
               </div>
             </motion.div>
 
-            {/* Primary H1: Transparent RushX ORGANIZATION Brand Artwork */}
+            {/* Primary H1: Oversized, unmistakable RushX ORGANIZATION brand centerpiece */}
             <motion.h1
               variants={itemFadeUp}
-              className="font-display text-4xl font-black leading-none tracking-tight sm:text-6xl md:text-7xl"
+              className="font-display font-black leading-none tracking-tight"
             >
               <span className="sr-only">{t("hero_title", BRAND.name)}</span>
-              <span className="relative block max-w-[330px] sm:max-w-[520px] md:max-w-[640px] -ml-0.5">
+              <span className="relative block w-full max-w-[440px] sm:max-w-[680px] md:max-w-[820px] lg:max-w-[880px] -ml-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={BRAND.assets.fullWordmark}
                   alt={BRAND.name}
-                  className="block w-full h-auto max-h-[80px] sm:max-h-[112px] md:max-h-[132px] object-contain object-left drop-shadow-[0_6px_28px_rgba(139,92,246,0.28)] select-none"
+                  className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none"
                 />
               </span>
             </motion.h1>
 
-            {/* Preserved Headline Structure & Typography (Rajdhani Extrabold) */}
+            {/* Subheadline H2: Scaled intentionally below H1 so RUSHX ORGANIZATION commands top visual hierarchy */}
             <motion.h2
               variants={itemFadeUp}
-              className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+              className="mt-3 font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]"
             >
               {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
             </motion.h2>
@@ -158,7 +190,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
             >
               {t(
                 "hero_subtitle",
-                "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pool. Your squad vs the best."
+                "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pools. Your squad vs the best."
               )}
             </motion.p>
 
@@ -188,7 +220,7 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
                 asChild
                 size="lg"
                 variant="outline"
-                className="glass h-12 border-violet-300/20 px-8 font-semibold hover:border-violet-400/50 hover:bg-violet-500/12 text-foreground transition-all duration-200"
+                className="glass h-12 px-8 font-semibold text-foreground transition-all duration-200"
               >
                 <Link href="/results">{t("view_results", "View Results")}</Link>
               </Button>
@@ -201,35 +233,35 @@ export function Hero({ stats }: { stats: { scrimsTonight: number; totalTeams: nu
               </span>
             </motion.div>
 
-            {/* Luminous Obsidian-Indigo Stats Strip */}
+            {/* Live Admin-Synced Stats Strip */}
             <motion.dl variants={itemFadeUp} className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4">
               <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-violet-200/90">
-                  <Zap className="size-3.5 text-violet-400" aria-hidden />
-                  {t("scrims_tonight", "Nightly")}
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Zap className="size-3.5 text-accent" aria-hidden />
+                  {t("scrims_tonight", "Active Lobbies")}
                 </dt>
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
-                  {stats.scrimsTonight || 12}
+                  {activeScrims > 0 ? activeScrims : "Live"}
                 </dd>
               </div>
 
               <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-cyan-200/90">
-                  <Users className="size-3.5 text-cyan-400" aria-hidden />
-                  {t("team_slots", "Teams")}
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Users className="size-3.5 text-accent" aria-hidden />
+                  {t("team_slots", "Team Slots")}
                 </dt>
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
-                  {stats.totalTeams || 144}
+                  {totalSlots > 0 ? totalSlots : "Open"}
                 </dd>
               </div>
 
               <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-violet-200/90">
-                  <Trophy className="size-3.5 text-cyan-300" aria-hidden />
-                  {t("scrim_format", "Format")}
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Trophy className="size-3.5 text-accent" aria-hidden />
+                  {showcase?.timeWindow ? "Schedule" : t("scrim_format", "Format")}
                 </dt>
-                <dd className="mt-1 font-display text-sm sm:text-base font-bold text-cyan-200 leading-tight">
-                  {t("matches_per_scrim", "3 matches per scrim")}
+                <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
+                  {formatLine}
                 </dd>
               </div>
             </motion.dl>

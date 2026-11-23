@@ -25,7 +25,11 @@ export function SiteSettingsForm({
   maintenanceMode,
   staffPortalPath,
   fridayScrimsOverride = "auto",
-  logoUrl = "/icon.svg",
+  logoUrl = "/images/brand/rushx-symbol.png",
+  showcaseTimeWindow = "",
+  showcaseFormatLabel = "",
+  showcasePayoutSla = "",
+  showcaseHighlightNote = "",
 }: {
   discordUrl: string
   facebookUrl: string
@@ -43,6 +47,10 @@ export function SiteSettingsForm({
   staffPortalPath: string
   fridayScrimsOverride?: string
   logoUrl?: string
+  showcaseTimeWindow?: string
+  showcaseFormatLabel?: string
+  showcasePayoutSla?: string
+  showcaseHighlightNote?: string
 }) {
   const { lang, t } = useLanguage()
   const [discord, setDiscord] = useState(discordUrl)
@@ -60,7 +68,11 @@ export function SiteSettingsForm({
   const [maintEnabled, setMaintEnabled] = useState(maintenanceMode)
   const [staffPath, setStaffPath] = useState(staffPortalPath)
   const [fridayMode, setFridayMode] = useState(fridayScrimsOverride)
-  const [siteLogo, setSiteLogo] = useState(logoUrl || "/icon.svg")
+  const [siteLogo, setSiteLogo] = useState(logoUrl || "/images/brand/rushx-symbol.png")
+  const [scTimeWindow, setScTimeWindow] = useState(showcaseTimeWindow)
+  const [scFormatLabel, setScFormatLabel] = useState(showcaseFormatLabel)
+  const [scPayoutSla, setScPayoutSla] = useState(showcasePayoutSla)
+  const [scHighlightNote, setScHighlightNote] = useState(showcaseHighlightNote)
   const [isPending, startTransition] = useTransition()
 
   function save() {
@@ -82,7 +94,11 @@ export function SiteSettingsForm({
           maintenance_mode: maintEnabled ? "true" : "false",
           staff_portal_path: staffPath.trim() || "/staff-login",
           friday_scrims_override: fridayMode,
-          site_logo_url: siteLogo.trim() || "/icon.svg",
+          site_logo_url: siteLogo.trim() || "/images/brand/rushx-symbol.png",
+          showcase_time_window: scTimeWindow.trim(),
+          showcase_format_label: scFormatLabel.trim(),
+          showcase_payout_sla: scPayoutSla.trim(),
+          showcase_highlight_note: scHighlightNote.trim(),
         })
 
         if (res.ok) {
@@ -118,11 +134,11 @@ export function SiteSettingsForm({
         <div className="flex items-center gap-4">
           <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/80 bg-zinc-950 p-2 shadow-inner">
             <img
-              src={siteLogo || "/icon.svg"}
+              src={siteLogo || "/images/brand/rushx-symbol.png"}
               alt="Brand Preview"
               className="h-full w-full object-contain"
               onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).src = "/icon.svg"
+                ;(e.currentTarget as HTMLImageElement).src = "/images/brand/rushx-symbol.png"
               }}
             />
           </div>
@@ -134,18 +150,66 @@ export function SiteSettingsForm({
               id="site-logo-url"
               value={siteLogo}
               onChange={(e) => setSiteLogo(e.target.value)}
-              placeholder="/icon.svg or https://..."
+              placeholder="/images/brand/rushx-symbol.png or https://..."
               className="text-xs font-mono"
             />
             <div className="flex items-center gap-2 mt-1">
               <button
                 type="button"
-                onClick={() => setSiteLogo("/icon.svg")}
+                onClick={() => setSiteLogo("/images/brand/rushx-symbol.png")}
                 className="text-[11px] text-primary hover:underline"
               >
-                Use default (/icon.svg)
+                Use RushX Symbol (/images/brand/rushx-symbol.png)
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dynamic Public Showcase & Schedule Copy */}
+      <div className="flex flex-col gap-3 pb-4 border-b border-border">
+        <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
+          {lang === "bn" ? "পাবলিক শোকেস ও শিডিউল তথ্য (ডায়নামিক)" : "Public Showcase & Schedule Info (Dynamic)"}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Controls public info shown on Sign In, Sign Up, Homepage, and Tutorial pages. Leave blank to automatically calculate live numbers directly from your active scrims.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="showcase-time-window">Schedule Time Window Override</Label>
+            <Input
+              id="showcase-time-window"
+              value={scTimeWindow}
+              onChange={(e) => setScTimeWindow(e.target.value)}
+              placeholder="Auto-detected from active scrims"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="showcase-payout-sla">Prize Payout Turnaround</Label>
+            <Input
+              id="showcase-payout-sla"
+              value={scPayoutSla}
+              onChange={(e) => setScPayoutSla(e.target.value)}
+              placeholder="e.g. Fast verified prize payouts"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="showcase-format-label">Lobby Format Summary</Label>
+            <Input
+              id="showcase-format-label"
+              value={scFormatLabel}
+              onChange={(e) => setScFormatLabel(e.target.value)}
+              placeholder="e.g. Competitive squad lobbies across official Free Fire maps"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="showcase-highlight-note">Custom Top Highlight Line (Sign In / Sign Up)</Label>
+            <Input
+              id="showcase-highlight-note"
+              value={scHighlightNote}
+              onChange={(e) => setScHighlightNote(e.target.value)}
+              placeholder="Leave blank to show live active lobby count automatically"
+            />
           </div>
         </div>
       </div>

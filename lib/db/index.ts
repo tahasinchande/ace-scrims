@@ -147,6 +147,8 @@ async function ensureSchema() {
           "attachmentUrl" text,
           "attachmentType" text,
           "attachmentName" text,
+          "replyToId" text,
+          "reactions" text,
           "readByStaff" boolean NOT NULL DEFAULT false,
           "readByUser" boolean NOT NULL DEFAULT false,
           "createdAt" timestamp NOT NULL DEFAULT NOW()
@@ -154,6 +156,8 @@ async function ensureSchema() {
         `ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "attachmentUrl" text`,
         `ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "attachmentType" text`,
         `ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "attachmentName" text`,
+        `ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "replyToId" text`,
+        `ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "reactions" text`,
         `CREATE TABLE IF NOT EXISTS "not_hosted_teams" (
           "id" text PRIMARY KEY,
           "scrimId" text NOT NULL,

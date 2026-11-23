@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     template: `%s | ${BRAND.name}`,
   },
   description:
-    'Book competitive Free Fire scrims daily from 7 PM to 12 AM with RushX Organization. 12-team lobbies, instant room details, automated gateway payments, and real cash prize pools.',
+    'Book competitive Free Fire scrims daily with RushX Organization. Live admin-managed lobbies, instant room credentials, automated checkout, and real cash prize pools.',
   applicationName: BRAND.name,
   manifest: '/manifest.webmanifest',
   icons: {

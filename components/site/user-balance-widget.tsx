@@ -43,9 +43,10 @@ export function UserBalanceWidget({
       fetchBalance()
     }
 
-    function onBalanceUpdate(e: any) {
-      if (typeof e.detail?.balance === "number") {
-        setBalance(e.detail.balance)
+    function onBalanceUpdate(e: Event) {
+      const detail = (e as CustomEvent<{ balance?: number }>).detail
+      if (typeof detail?.balance === "number") {
+        setBalance(detail.balance)
       } else {
         fetchBalance()
       }
@@ -69,12 +70,12 @@ export function UserBalanceWidget({
         href={targetHref}
         title="Account Balance — Click to load or view wallet"
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:border-emerald-500/60 hover:bg-emerald-900/30 transition-all",
+          "rushx-btn-splash inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/[0.1] bg-white/[0.04] px-2.5 text-xs font-semibold text-white backdrop-blur-md transition-all hover:border-[rgba(var(--rushx-soft-rgb),0.38)] hover:bg-[rgba(var(--rushx-primary-rgb),0.14)] tabular-nums",
           className
         )}
       >
-        <Wallet className="size-3.5 text-emerald-400 shrink-0" />
-        <span className="font-mono font-bold">৳{balance}</span>
+        <Wallet className="size-3.5 text-accent shrink-0" />
+        <span className="font-mono font-bold tracking-tight">৳{loaded ? balance : "0"}</span>
       </Link>
     )
   }
@@ -84,22 +85,16 @@ export function UserBalanceWidget({
       href={targetHref}
       title="RushX Wallet — Click to manage funds & load balance"
       className={cn(
-        "rushx-btn-splash group relative inline-flex h-9 items-center gap-2 rounded-xl border border-emerald-400/30 bg-[#0d1428]/85 px-3 py-1 text-xs backdrop-blur-md transition-all hover:border-emerald-400/60 hover:bg-emerald-500/12 hover:shadow-sm hover:shadow-emerald-500/15",
+        "rushx-btn-splash group inline-flex h-9 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 text-xs font-semibold text-slate-200 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-[rgba(var(--rushx-soft-rgb),0.4)] hover:bg-[rgba(var(--rushx-primary-rgb),0.14)] hover:text-white",
         className
       )}
     >
-      <Wallet className="size-3.5 text-emerald-400 shrink-0" />
-
-      <div className="flex flex-col items-start leading-tight">
-        <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400 group-hover:text-slate-300">
-          Balance
-        </span>
-        <span className="font-mono text-xs font-bold text-emerald-400 group-hover:text-emerald-300 tabular-nums">
-          ৳{loaded ? balance : "..."}
-        </span>
-      </div>
-
-      <Plus className="ml-0.5 size-3.5 text-emerald-400/80 transition-transform group-hover:scale-110 group-hover:text-emerald-300" />
+      <Wallet className="size-3.5 text-accent shrink-0 transition-transform duration-200 group-hover:scale-105" />
+      <span className="font-mono text-xs font-bold tracking-tight text-white tabular-nums">
+        ৳{loaded ? balance : "..."}
+      </span>
+      <span className="h-3.5 w-px bg-white/[0.12]" aria-hidden="true" />
+      <Plus className="size-3.5 text-slate-300 transition-transform duration-200 group-hover:rotate-90 group-hover:text-accent" />
     </Link>
   )
 }
