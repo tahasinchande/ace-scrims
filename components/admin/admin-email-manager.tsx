@@ -409,7 +409,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
     <div style="height:4px;background:linear-gradient(90deg,#2563eb 0%,#0ea5e9 54%,#38bdf8 100%);"></div>
     <div style="padding:18px 26px 14px 26px;background:linear-gradient(180deg,#0e1938 0%,#090f22 100%);border-bottom:1px solid #182548;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="display:flex;align-items:center;gap:11px;">
-        <img src="/images/brand/rushx-favicon-192.png" alt="RushX Organization" style="width:36px;height:36px;border-radius:50%;border:2px solid #2563eb;background:#050b1d;object-fit:contain;display:block;" />
+        <img src="/images/brand/rushx-email-pfp.png" alt="RushX Organization" style="width:40px;height:40px;border-radius:50%;border:2px solid #2563eb;background:#060c1f;object-fit:cover;display:block;flex-shrink:0;" />
         <div>
           <img src="/images/brand/rushx-full-white.png" alt="RushX Organization" style="height:22px;width:auto;object-fit:contain;display:block;" />
           <div style="font-size:10px;font-weight:600;color:#7dd3fc;margin-top:2px;">Official Sender · acescrims.online</div>

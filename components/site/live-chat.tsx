@@ -98,6 +98,7 @@ export function LiveChatWidget() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const mutationEpochRef = useRef(0)
 
   const {
     containerRef,
@@ -152,6 +153,7 @@ export function LiveChatWidget() {
 
   const loadChatState = useCallback(async () => {
     if (!session?.user) return
+    const pollEpoch = mutationEpochRef.current
     try {
       const res = await fetch("/api/chat", {
         method: "GET",
@@ -160,6 +162,8 @@ export function LiveChatWidget() {
       })
       if (!res.ok) return
       const data = await res.json().catch(() => null)
+      // Drop stale poll responses if a send/reaction/escalation started while this poll was in flight
+      if (pollEpoch !== mutationEpochRef.current) return
       if (data?.ok) {
         applyChatState(data)
       }
@@ -318,6 +322,7 @@ export function LiveChatWidget() {
 
   async function handleToggleReaction(messageId: string, emoji: ChatReactionEmoji) {
     if (!session?.user || isBanned) return
+    mutationEpochRef.current += 1
     const actor = {
       userId: session.user.id,
       userName: session.user.name || "Player",
@@ -383,6 +388,7 @@ export function LiveChatWidget() {
     const msgText = text.trim()
     const filesToSend = [...selectedFiles]
     const activeReplyId = replyingTo?.id
+    mutationEpochRef.current += 1
     setSendError(null)
     setSending(true)
 

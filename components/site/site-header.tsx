@@ -108,9 +108,9 @@ export function SiteHeader({
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-[#050811]/72 backdrop-blur-2xl shadow-[0_12px_32px_-16px_rgba(0,0,0,0.85)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        {/* Brand Logo (Left — RushX wordmark ONLY) */}
-        <Link href="/" className="flex shrink-0 items-center gap-2 group transition-opacity hover:opacity-90" aria-label="RushX Organization Home">
-          <RushXBrandLogo size="md" variant="wordmark" logoUrl={activeLogoUrl} />
+        {/* Brand Logo (Left — 'R' mark beside stylized RushX wordmark) */}
+        <Link href="/" className="flex shrink-0 items-center group transition-opacity hover:opacity-90" aria-label="RushX Organization Home">
+          <RushXBrandLogo size="md" variant="lockup" logoUrl={activeLogoUrl} />
         </Link>
 
         {/* Central Navigation Links */}

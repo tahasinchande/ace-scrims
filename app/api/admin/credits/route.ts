@@ -35,9 +35,10 @@ export async function GET(_req: NextRequest) {
       users,
       recentTransactions,
     })
-  } catch (err: any) {
+  } catch (err) {
+    console.error("[API /admin/credits GET] Failed:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Internal error" },
+      { ok: false, error: "Unable to load credit records" },
       { status: 500 }
     )
   }
@@ -65,9 +66,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, data: result.data })
-  } catch (err: any) {
+  } catch (err) {
+    console.error("[API /admin/credits POST] Failed:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Failed to process balance update" },
+      { ok: false, error: "Failed to process balance update" },
       { status: 500 }
     )
   }

@@ -4,21 +4,25 @@ import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import { useViewMode } from "@/lib/view-mode"
 import {
-  AMBIENT_PHASES,
   applyAmbientThemeToRoot,
   getAmbientPhaseAt,
 } from "@/lib/ambient-theme"
 
 export function GlobalCyberBackground() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const sharedStartMsRef = useRef<number | null>(null)
   const { mode } = useViewMode()
 
-  // Synchronized delay-driven color-shifting engine across BOTH 2D & 3D modes.
-  // Starts on Electric Cobalt Blue, holds calmly for ~5.5s, then smoothly eases over ~2.2s into the next phase.
+  // Synchronized RandomQbit-inspired continuous color-shifting engine across BOTH 2D & 3D modes.
+  // Starts on Electric Cobalt Blue, holds for 2.2s, smoothstep-fades over 3.0s through Teal -> Gold -> Rose -> Violet.
   useEffect(() => {
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    if (sharedStartMsRef.current === null) {
+      sharedStartMsRef.current = performance.now()
+    }
 
     const initialPhase = getAmbientPhaseAt(0)
     applyAmbientThemeToRoot(initialPhase)
@@ -26,15 +30,15 @@ export function GlobalCyberBackground() {
     if (prefersReducedMotion) return
 
     let rafId = 0
-    const startMs = performance.now()
     let lastAppliedKey = ""
 
     const tick = () => {
       rafId = window.requestAnimationFrame(tick)
       if (document.hidden) return
+      const startMs = sharedStartMsRef.current ?? performance.now()
       const elapsedSec = (performance.now() - startMs) / 1000
       const state = getAmbientPhaseAt(elapsedSec)
-      const key = `${state.primaryRgb.join(",")}|${state.accentRgb.join(",")}`
+      const key = `${state.primaryRgb.join(",")}|${state.glowRgb.join(",")}|${state.accentRgb.join(",")}`
       if (key !== lastAppliedKey) {
         lastAppliedKey = key
         applyAmbientThemeToRoot(state)
@@ -543,9 +547,11 @@ export function GlobalCyberBackground() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
-    // Continuous vivid dynamic mixed-color shifting cycle (~15s full spectrum)
-    // Preserves 100% of existing Three.js geometry, camera orbit, scroll panning & motion
-    const cycleSpeed = 1 / 15
+    const phasePrimaryColor = new THREE.Color()
+    const phaseAccentColor = new THREE.Color()
+    const phaseSoftColor = new THREE.Color()
+    const phaseDeepColor = new THREE.Color()
+    const phaseGlowColor = new THREE.Color()
 
     const renderLoop = () => {
       frameId = requestAnimationFrame(renderLoop)
@@ -556,9 +562,13 @@ export function GlobalCyberBackground() {
       }
 
       const elapsed = clock.getElapsedTime()
+      const sharedElapsed =
+        sharedStartMsRef.current !== null
+          ? (performance.now() - sharedStartMsRef.current) / 1000
+          : elapsed
 
       // Shader time update
-      wallUniforms.uTime.value = elapsed
+      wallUniforms.uTime.value = prefersReducedMotion ? 0 : elapsed
 
       // Normalized scroll progression
       const docHeight = Math.max(
@@ -568,10 +578,11 @@ export function GlobalCyberBackground() {
       ) - window.innerHeight
       const scrollRatio = Math.min(scrollY / Math.max(docHeight, 1), 1)
 
-      // Smooth camera orbit + scroll panning
-      const targetX = baseCamX + mouseX + Math.sin(elapsed * 0.14) * 2.2 + scrollRatio * 8.0
-      const targetY = baseCamY + mouseY - scrollRatio * 7.0 + Math.cos(elapsed * 0.12) * 1.5
-      const targetZ = baseCamZ - scrollRatio * 6.0 + Math.sin(elapsed * 0.1) * 2.0
+      // Smooth camera orbit + scroll panning (static calm angle when reduced-motion is enabled)
+      const motionElapsed = prefersReducedMotion ? 0 : elapsed
+      const targetX = baseCamX + mouseX + Math.sin(motionElapsed * 0.14) * 2.2 + scrollRatio * 8.0
+      const targetY = baseCamY + mouseY - scrollRatio * 7.0 + Math.cos(motionElapsed * 0.12) * 1.5
+      const targetZ = baseCamZ - scrollRatio * 6.0 + Math.sin(motionElapsed * 0.1) * 2.0
 
       camera.position.x += (targetX - camera.position.x) * 0.04
       camera.position.y += (targetY - camera.position.y) * 0.04
@@ -581,11 +592,11 @@ export function GlobalCyberBackground() {
       // Animate Orbiting Satellite Cubes (Single batch update on instanced matrix buffer)
       for (let k = 0; k < totalSatelliteCubes; k++) {
         const meta = satelliteMeta[k]
-        const cubeY = meta.baseY + Math.sin(elapsed * 2.5 + k) * 0.15
-        const cubeX = meta.towerX + Math.cos(meta.angle + elapsed * 0.4) * meta.radius
-        const cubeZ = meta.towerZ + Math.sin(meta.angle + elapsed * 0.4) * meta.radius
+        const cubeY = meta.baseY + Math.sin(motionElapsed * 2.5 + k) * 0.15
+        const cubeX = meta.towerX + Math.cos(meta.angle + motionElapsed * 0.4) * meta.radius
+        const cubeZ = meta.towerZ + Math.sin(meta.angle + motionElapsed * 0.4) * meta.radius
 
-        rotationEuler.set(elapsed * 0.6 + k * 0.3, elapsed * 1.2 + k * 0.5, 0)
+        rotationEuler.set(motionElapsed * 0.6 + k * 0.3, motionElapsed * 1.2 + k * 0.5, 0)
         rotQuat.setFromEuler(rotationEuler)
         cubeScaleVec.set(0.7 * meta.towerScale, 0.7 * meta.towerScale, 0.7 * meta.towerScale)
 
@@ -598,51 +609,71 @@ export function GlobalCyberBackground() {
       }
       instancedSatelliteCubes.instanceMatrix.needsUpdate = true
 
-      // Delay-driven RandomQbit-inspired color phases starting on Electric Cobalt Blue
+      // Shared RandomQbit-inspired 5-color hold+smoothstep cycle starting on RushX Electric Cobalt Blue
       const phase = prefersReducedMotion
-        ? {
-            baseHue: AMBIENT_PHASES[0].baseHue,
-            accentHue: AMBIENT_PHASES[0].accentHue,
-            fillHue: AMBIENT_PHASES[0].fillHue,
-          }
-        : getAmbientPhaseAt(elapsed)
+        ? getAmbientPhaseAt(0)
+        : getAmbientPhaseAt(sharedElapsed)
       const baseHue = phase.baseHue
       const accentHue = phase.accentHue
       const fillHue = phase.fillHue
 
-      // Luminous obsidian-tinted backdrop & fog matched to active shift
+      phasePrimaryColor.setRGB(
+        phase.primaryRgb[0] / 255,
+        phase.primaryRgb[1] / 255,
+        phase.primaryRgb[2] / 255,
+      )
+      phaseAccentColor.setRGB(
+        phase.accentRgb[0] / 255,
+        phase.accentRgb[1] / 255,
+        phase.accentRgb[2] / 255,
+      )
+      phaseSoftColor.setRGB(
+        phase.softRgb[0] / 255,
+        phase.softRgb[1] / 255,
+        phase.softRgb[2] / 255,
+      )
+      phaseDeepColor.setRGB(
+        (phase.bgWashRgb[0] * 0.36) / 255,
+        (phase.bgWashRgb[1] * 0.36) / 255,
+        (phase.bgWashRgb[2] * 0.36) / 255,
+      )
+      phaseGlowColor.setRGB(
+        phase.glowRgb[0] / 255,
+        phase.glowRgb[1] / 255,
+        phase.glowRgb[2] / 255,
+      )
+
+      // Luminous obsidian-tinted backdrop & fog matched directly to the active phase wash
       if (scene.background instanceof THREE.Color) {
-        scene.background.setHSL(baseHue, 0.48, 0.044)
+        scene.background.copy(phaseDeepColor)
       }
       if (scene.fog instanceof THREE.FogExp2) {
-        scene.fog.color.setHSL(baseHue, 0.44, 0.044)
+        scene.fog.color.copy(phaseDeepColor)
       }
-      ambientLight.color.setHSL(accentHue, 0.46, 0.18)
+      ambientLight.color.copy(phaseGlowColor).multiplyScalar(0.52)
 
       // Multi-layered harmonic lights shifting together over time
-      dirKey.color.setHSL(baseHue, 0.94, 0.56)
-      dirFill.color.setHSL(fillHue, 0.78, 0.36)
-      coreLight1.color.setHSL(baseHue, 0.96, 0.54)
-      coreLight2.color.setHSL(accentHue, 0.94, 0.56)
-      coreLight3.color.setHSL(fillHue, 0.92, 0.52)
-      coreLight4.color.setHSL((baseHue + 0.32) % 1, 0.9, 0.58)
+      dirKey.color.copy(phasePrimaryColor)
+      dirFill.color.copy(phaseAccentColor).multiplyScalar(0.75)
+      coreLight1.color.copy(phasePrimaryColor)
+      coreLight2.color.copy(phaseAccentColor)
+      coreLight3.color.copy(phaseGlowColor)
+      coreLight4.color.copy(phaseSoftColor)
 
-      towerOrangeGlowMat.color.setHSL(baseHue, 0.96, 0.54)
-      towerHotGlowMat.color.setHSL(accentHue, 0.95, 0.74)
-      wallUniforms.uColorDark.value.setHSL(baseHue, 0.94, 0.38)
-      wallUniforms.uColorMid.value.setHSL(accentHue, 0.96, 0.56)
-      wallUniforms.uColorCore.value.setHSL(fillHue, 0.9, 0.84)
-      particleMat.color.setHSL(accentHue, 0.92, 0.72)
+      towerOrangeGlowMat.color.copy(phasePrimaryColor)
+      towerHotGlowMat.color.copy(phaseSoftColor)
+      wallUniforms.uColorDark.value.copy(phaseGlowColor).multiplyScalar(0.85)
+      wallUniforms.uColorMid.value.copy(phasePrimaryColor)
+      wallUniforms.uColorCore.value.copy(phaseSoftColor)
+      particleMat.color.copy(phaseSoftColor)
 
       if (gridHelper.material instanceof THREE.LineBasicMaterial) {
-        gridHelper.material.color.setHSL(accentHue, 0.76, 0.54)
+        gridHelper.material.color.copy(phaseAccentColor)
       }
 
       for (let k = 0; k < totalSatelliteCubes; k++) {
         if (satelliteMeta[k].isGlow) {
-          const cubeHue = k % 4 === 0 ? accentHue : baseHue
-          const cubeLightness = 0.48 + (k % 4) * 0.055
-          colorDummy.setHSL(cubeHue, 0.95, cubeLightness)
+          colorDummy.copy(k % 4 === 0 ? phaseSoftColor : k % 2 === 0 ? phasePrimaryColor : phaseAccentColor)
           instancedSatelliteCubes.setColorAt(k, colorDummy)
         }
       }
@@ -651,14 +682,14 @@ export function GlobalCyberBackground() {
       }
 
       // Dynamic light pulsations
-      coreLight1.intensity = 8.4 + Math.sin(elapsed * 3.2) * 3.0
-      coreLight2.intensity = 5.8 + Math.cos(elapsed * 2.7) * 2.0
-      coreLight3.intensity = 5.4 + Math.sin(elapsed * 2.3) * 1.8
-      coreLight4.intensity = 4.8 + Math.cos(elapsed * 2.0) * 1.6
+      coreLight1.intensity = 8.4 + Math.sin(motionElapsed * 3.2) * 3.0
+      coreLight2.intensity = 5.8 + Math.cos(motionElapsed * 2.7) * 2.0
+      coreLight3.intensity = 5.4 + Math.sin(motionElapsed * 2.3) * 1.8
+      coreLight4.intensity = 4.8 + Math.cos(motionElapsed * 2.0) * 1.6
 
       // Pulsing Floor Pads via Instanced Color Update (harmonized dual-hue shift)
       for (let i = 0; i < tileCount; i++) {
-        const pulse = 0.3 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
+        const pulse = 0.3 + Math.sin(motionElapsed * 3.2 + i * 0.35) * 0.32
         const tileHue = i % 3 === 0 ? accentHue : i % 3 === 1 ? baseHue : fillHue
         colorDummy.setHSL(tileHue, 0.94, Math.max(0.16, Math.min(0.7, pulse)))
         instancedFloorTiles.setColorAt(i, colorDummy)
@@ -666,14 +697,16 @@ export function GlobalCyberBackground() {
       if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true
 
       // Upward drifting cyber embers
-      const positions = particleGeo.attributes.position.array as Float32Array
-      for (let i = 0; i < particleCount; i++) {
-        positions[i * 3 + 1] += 0.04
-        if (positions[i * 3 + 1] > 25) {
-          positions[i * 3 + 1] = 0.1
+      if (!prefersReducedMotion) {
+        const positions = particleGeo.attributes.position.array as Float32Array
+        for (let i = 0; i < particleCount; i++) {
+          positions[i * 3 + 1] += 0.04
+          if (positions[i * 3 + 1] > 25) {
+            positions[i * 3 + 1] = 0.1
+          }
         }
+        particleGeo.attributes.position.needsUpdate = true
       }
-      particleGeo.attributes.position.needsUpdate = true
 
       renderer.render(scene, camera)
     }

@@ -37,8 +37,8 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
         subtitle="Every result is published with kills, prize pool, and official Top 3 Face Banners."
       />
       {displayResults.length === 0 ? (
-        <div className="dc-surface flex flex-col items-center justify-center rounded-2xl border border-dashed border-violet-300/20 p-12 text-center">
-          <Trophy className="size-10 text-violet-300/50 mb-3" />
+        <div className="dc-surface flex flex-col items-center justify-center rounded-2xl border border-dashed border-[rgba(var(--rushx-soft-rgb),0.28)] p-12 text-center">
+          <Trophy className="size-10 text-accent/60 mb-3" />
           <h3 className="font-display text-lg font-bold text-foreground">No match results published yet</h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-md">
             Official match results and podium face banners will appear here as soon as upcoming scrim rooms conclude.
@@ -56,9 +56,9 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
             return (
               <motion.div
                 key={r.id}
-                initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.1 }}
+                initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.988 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true, amount: "some" }}
                 transition={{
                   duration: prefersReducedMotion ? 0 : 0.5,
                   delay: prefersReducedMotion ? 0 : i * 0.06,
@@ -73,7 +73,7 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
                         ? "text-amber-300"
                         : i === 1
                           ? "text-slate-300"
-                          : "text-violet-300"
+                          : "text-accent"
                     }`}
                     aria-hidden
                   />
@@ -86,7 +86,7 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
                   </div>
 
                   <div className="text-right shrink-0 tabular-nums">
-                    <p className="font-display font-bold text-cyan-200">{bdt(r.prizeBdt)}</p>
+                    <p className="font-display font-bold text-accent">{bdt(r.prizeBdt)}</p>
                     <p className="text-xs text-muted-foreground">{r.kills} kills</p>
                   </div>
                 </div>
@@ -105,7 +105,7 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
                       onClick={() => setLightboxImage(bannerImage)}
                       className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-semibold gap-1.5 cursor-pointer"
                     >
-                      <Eye className="size-4 text-violet-300" />
+                      <Eye className="size-4 text-accent" />
                       <span>View Banner</span>
                     </button>
                   </div>
@@ -117,7 +117,7 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
       )}
 
       <div className="mt-8 text-center">
-        <Button asChild variant="outline" className="glass bg-transparent hover:border-violet-400/50 hover:bg-violet-500/10">
+        <Button asChild variant="outline" className="glass bg-transparent hover:border-[rgba(var(--rushx-soft-rgb),0.5)] hover:bg-[rgba(var(--rushx-primary-rgb),0.12)]">
           <Link href="/results">
             Full Results &amp; Leaderboard
             <ChevronRight className="size-4" />

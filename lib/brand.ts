@@ -17,6 +17,7 @@ export const BRAND = {
     fullWordmarkDark: "/images/brand/rushx-full-dark.png",
     favicon64: "/images/brand/rushx-favicon-64.png",
     favicon192: "/images/brand/rushx-favicon-192.png",
+    emailPfp: "/images/brand/rushx-email-pfp.png",
     appleIcon180: "/images/brand/rushx-apple-icon-180.png",
   },
 } as const

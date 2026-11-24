@@ -17,8 +17,12 @@ export async function GET() {
       return NextResponse.json({ ok: false, balance: 0, error: "Account suspended" }, { status: 403 })
     }
     const row = await db.select({ balance: user.balance }).from(user).where(eq(user.id, sessionUser.id)).limit(1)
-    return NextResponse.json({ ok: true, balance: row[0]?.balance ?? 0 })
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, balance: 0, error: err?.message }, { status: 500 })
+    return NextResponse.json(
+      { ok: true, balance: row[0]?.balance ?? 0 },
+      { headers: { "Cache-Control": "no-store" } }
+    )
+  } catch (err) {
+    console.error("[API /user/balance GET] Failed:", err)
+    return NextResponse.json({ ok: false, balance: 0, error: "Unable to load balance" }, { status: 500 })
   }
 }

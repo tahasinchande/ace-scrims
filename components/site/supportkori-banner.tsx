@@ -13,9 +13,9 @@ export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string 
   return (
     <section className="w-full py-8 px-4">
       <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.2 }}
+        initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.988 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        viewport={{ once: true, amount: "some" }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.52, ease: DEEPCHARTS_EASE }}
         className="dc-surface rushx-box-splash mx-auto max-w-5xl overflow-hidden rounded-3xl border-amber-400/25 p-6 sm:p-8 shadow-2xl relative group"
       >

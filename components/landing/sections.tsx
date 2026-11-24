@@ -43,7 +43,7 @@ export function SectionHeading({
     <motion.div
       initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.988 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, amount: 0.2 }}
+      viewport={{ once: true, amount: "some" }}
       transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
       className="mx-auto mb-12 max-w-2xl text-center relative"
     >
@@ -149,7 +149,7 @@ export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
             key={f.title}
             initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.985 }}
             whileInView={{ opacity: 1, y: 0, scale: 1 }}
-            viewport={{ once: true, amount: 0.12 }}
+            viewport={{ once: true, amount: "some" }}
             transition={{
               duration: prefersReducedMotion ? 0 : 0.52,
               delay: prefersReducedMotion ? 0 : i * 0.055,
@@ -256,7 +256,7 @@ export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
               key={s.step}
               initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.985 }}
               whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true, amount: 0.12 }}
+              viewport={{ once: true, amount: "some" }}
               transition={{
                 duration: prefersReducedMotion ? 0 : 0.52,
                 delay: prefersReducedMotion ? 0 : i * 0.07,
@@ -319,7 +319,7 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
         <motion.div
           initial={prefersReducedMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.96, y: 18 }}
           whileInView={{ opacity: 1, scale: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.15 }}
+          viewport={{ once: true, amount: "some" }}
           transition={{ duration: prefersReducedMotion ? 0 : 0.62, ease: DEEPCHARTS_EASE }}
           className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-[rgba(var(--rushx-soft-rgb),0.18)] bg-[#050a18] group"
         >
@@ -351,7 +351,7 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
         <motion.div
           initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.15 }}
+          viewport={{ once: true, amount: "some" }}
           transition={{ duration: prefersReducedMotion ? 0 : 0.56, delay: 0.08, ease: DEEPCHARTS_EASE }}
           className="order-1 lg:order-2"
         >
@@ -372,7 +372,7 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
                 key={title}
                 initial={prefersReducedMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: 14 }}
                 whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
+                viewport={{ once: true, amount: "some" }}
                 transition={{
                   delay: prefersReducedMotion ? 0 : 0.07 * i,
                   duration: prefersReducedMotion ? 0 : 0.45,
@@ -422,7 +422,7 @@ export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
               key={f.q}
               initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.15 }}
+              viewport={{ once: true, amount: "some" }}
               transition={{
                 delay: prefersReducedMotion ? 0 : i * 0.05,
                 duration: prefersReducedMotion ? 0 : 0.45,
@@ -468,7 +468,7 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
       <motion.div
         initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 22, scale: 0.985 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: true, amount: "some" }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
         className="dc-surface rushx-box-splash relative overflow-hidden rounded-3xl p-8 md:p-12 shadow-2xl"
       >

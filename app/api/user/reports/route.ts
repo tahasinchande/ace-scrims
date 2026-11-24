@@ -82,7 +82,7 @@ export async function GET() {
   } catch (err: unknown) {
     console.error("[API GET /api/user/reports] Error fetching user reports:", err)
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Failed to fetch user reports." },
+      { ok: false, error: "Failed to fetch user reports." },
       { status: 500 }
     )
   }

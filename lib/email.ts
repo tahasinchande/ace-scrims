@@ -262,7 +262,7 @@ function authEmailShell({
   const appUrl = getProductionAppUrl()
   const fullLogoUrl = `${appUrl}/images/brand/rushx-full-white.png`
   const symbolLogoUrl = `${appUrl}/images/brand/rushx-symbol.png`
-  const senderAvatarUrl = `${appUrl}/images/brand/rushx-favicon-192.png`
+  const senderAvatarUrl = `${appUrl}/images/brand/rushx-email-pfp.png`
   const brandJsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -301,7 +301,7 @@ function authEmailShell({
                       <table role="presentation" cellpadding="0" cellspacing="0">
                         <tr>
                           <td valign="middle" style="padding-right:12px;">
-                            <img src="${senderAvatarUrl}" alt="RushX Organization" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;border:2px solid #2563eb;background-color:#050b1d;object-fit:contain;" />
+                            <img src="${senderAvatarUrl}" alt="RushX Organization" width="42" height="42" style="display:block;width:42px;height:42px;border-radius:50%;border:2px solid #2563eb;background-color:#060c1f;object-fit:cover;" />
                           </td>
                           <td valign="middle">
                             <img src="${fullLogoUrl}" alt="RushX Organization" width="154" style="display:block;max-width:154px;height:auto;border:0;" />
@@ -410,7 +410,7 @@ function emailShell({
   const appUrl = getProductionAppUrl()
   const fullLogoUrl = `${appUrl}/images/brand/rushx-full-white.png`
   const symbolLogoUrl = `${appUrl}/images/brand/rushx-symbol.png`
-  const senderAvatarUrl = `${appUrl}/images/brand/rushx-favicon-192.png`
+  const senderAvatarUrl = `${appUrl}/images/brand/rushx-email-pfp.png`
   const brandJsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -449,7 +449,7 @@ function emailShell({
                       <table role="presentation" cellpadding="0" cellspacing="0">
                         <tr>
                           <td valign="middle" style="padding-right:12px;">
-                            <img src="${senderAvatarUrl}" alt="RushX Organization" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;border:2px solid #2563eb;background-color:#050b1d;object-fit:contain;" />
+                            <img src="${senderAvatarUrl}" alt="RushX Organization" width="42" height="42" style="display:block;width:42px;height:42px;border-radius:50%;border:2px solid #2563eb;background-color:#060c1f;object-fit:cover;" />
                           </td>
                           <td valign="middle">
                             <img src="${fullLogoUrl}" alt="RushX Organization" width="158" style="display:block;max-width:158px;height:auto;border:0;" />
@@ -742,7 +742,7 @@ export async function sendEmail({
 
   const brandAppUrl = getProductionAppUrl()
   const brandHeaders: Record<string, string> = {
-    "X-Brand-Logo": `${brandAppUrl}/images/brand/rushx-favicon-192.png`,
+    "X-Brand-Logo": `${brandAppUrl}/images/brand/rushx-email-pfp.png`,
     "List-Id": "RushX Organization <notifications.acescrims.online>",
   }
 

@@ -3,7 +3,7 @@
 import { useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Countdown } from "@/components/site/countdown"
@@ -53,6 +53,7 @@ export function ScrimCard({
   hideSingleMap?: boolean
 }) {
   const { t } = useLanguage()
+  const prefersReducedMotion = useReducedMotion()
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const status = scrimStatus(
@@ -133,10 +134,10 @@ export function ScrimCard({
       ref={wrapRef}
       onMouseMove={handlePointerMove}
       onMouseLeave={handlePointerLeave}
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.08 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.988 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, amount: "some" }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.48, ease: [0.16, 1, 0.3, 1] }}
       className="scrim-splash-wrap group relative flex flex-col"
     >
       {/* Dynamic outer hover splash layers (RandomQbit-inspired diffused outer halo + crisp edge bloom) */}
@@ -241,9 +242,9 @@ export function ScrimCard({
             </div>
 
             <div className="dc-metric-cell rounded-xl px-2.5 py-2.5 text-center">
-              <MapPin className="mx-auto mb-1 size-3.5 text-indigo-400" aria-hidden />
+              <MapPin className="mx-auto mb-1 size-3.5 text-accent" aria-hidden />
               <p
-                className="text-[11px] font-semibold uppercase tracking-wide text-indigo-300 truncate"
+                className="text-[11px] font-semibold uppercase tracking-wide text-accent truncate"
                 title={scrim.mode}
               >
                 {scrim.mode || "BATTLE ROYALE"}
@@ -257,7 +258,7 @@ export function ScrimCard({
             </div>
 
             <div className="dc-metric-cell rounded-xl px-2.5 py-2.5 text-center">
-              <Users className="mx-auto mb-1 size-3.5 text-sky-400" aria-hidden />
+              <Users className="mx-auto mb-1 size-3.5 text-accent" aria-hidden />
               <p className="text-[12px] font-semibold tabular-nums text-foreground">
                 {scrim.confirmedTeams}/{scrim.maxTeams}
               </p>
@@ -270,8 +271,8 @@ export function ScrimCard({
           {/* Prize Distribution Breakdown */}
           <div className="dc-metric-cell rounded-xl p-3">
             <div className="mb-2 flex items-center justify-between text-[11px] font-semibold">
-              <span className="flex items-center gap-1.5 text-cyan-200">
-                <Award className="size-3.5 text-cyan-300" aria-hidden />
+              <span className="flex items-center gap-1.5 text-accent">
+                <Award className="size-3.5 text-accent" aria-hidden />
                 Prize Breakdown
               </span>
               <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
@@ -304,7 +305,7 @@ export function ScrimCard({
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs tabular-nums">
               <span className="font-semibold text-foreground/90">
-                <span className="text-violet-300">{remaining}</span>{" "}
+                <span className="text-accent">{remaining}</span>{" "}
                 <span className="text-muted-foreground">{t("slots_left", "spots left")}</span>
               </span>
               <span className="font-mono text-[11px] text-muted-foreground">{fillPercent}% filled</span>
@@ -318,17 +319,25 @@ export function ScrimCard({
               aria-label="Slots filled"
             >
               <motion.div
-                initial={{ width: 0 }}
+                initial={{ width: prefersReducedMotion ? `${fillPercent}%` : 0 }}
                 animate={{ width: `${fillPercent}%` }}
-                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className={cn(
                   "h-full rounded-full",
                   status.tone === "full"
                     ? "bg-rose-500"
                     : status.tone === "filling"
                       ? "bg-amber-400"
-                      : "bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-400"
+                      : ""
                 )}
+                style={
+                  status.tone !== "full" && status.tone !== "filling"
+                    ? {
+                        background:
+                          "linear-gradient(90deg, rgb(var(--rushx-primary-rgb)) 0%, rgb(var(--rushx-accent-rgb)) 100%)",
+                      }
+                    : undefined
+                }
               />
             </div>
           </div>

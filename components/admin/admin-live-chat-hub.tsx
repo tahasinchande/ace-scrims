@@ -229,6 +229,8 @@ export function AdminLiveChatHub({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const mutationEpochRef = useRef(0)
+  const activeThreadUserRef = useRef<string | null>(defaultSelected)
 
   const {
     containerRef,
@@ -269,19 +271,24 @@ export function AdminLiveChatHub({
   const fetchThread = useCallback(
     async (userId: string, isSilent = false) => {
       if (!isSilent) setLoadingThread(true)
+      const pollEpoch = mutationEpochRef.current
       try {
         const thread = await getStaffChatThread(userId)
+        // Drop stale responses if staff switched threads or triggered a newer mutation while this request was in flight
+        if (activeThreadUserRef.current !== userId) return
+        if (isSilent && pollEpoch !== mutationEpochRef.current) return
         setMessages(thread as MessageItem[])
       } catch {
         if (!isSilent) toast.error(lang === "bn" ? "চ্যাট লোড করা যায়নি" : "Could not load chat messages")
       } finally {
-        if (!isSilent) setLoadingThread(false)
+        if (!isSilent && activeThreadUserRef.current === userId) setLoadingThread(false)
       }
     },
     [lang]
   )
 
   useEffect(() => {
+    activeThreadUserRef.current = selectedUserId
     setReplyingTo(null)
     setOpenPickerId(null)
     if (selectedUserId && activeTab !== "moderation") {
@@ -383,6 +390,7 @@ export function AdminLiveChatHub({
   }
 
   async function handleToggleReaction(messageId: string, emoji: ChatReactionEmoji) {
+    mutationEpochRef.current += 1
     const actor = {
       userId: _staffUserId,
       userName: "Staff",
@@ -403,11 +411,11 @@ export function AdminLiveChatHub({
           prev.map((m) => (m.id === messageId ? { ...m, reactionsMap: res.reactions } : m)),
         )
       } else if (selectedUserId) {
-        await fetchThread(selectedUserId, true)
+        await fetchThread(selectedUserId, false)
       }
     } catch {
       if (selectedUserId) {
-        await fetchThread(selectedUserId, true)
+        await fetchThread(selectedUserId, false)
       }
     }
   }
@@ -418,6 +426,7 @@ export function AdminLiveChatHub({
     const clean = inputText.trim()
     if (!clean && !attachedUrl) return
 
+    mutationEpochRef.current += 1
     const targetUser = selectedUserId
     const textToSend = clean
     const urlToSend = attachedUrl || undefined
