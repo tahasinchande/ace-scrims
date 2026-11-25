@@ -4,17 +4,17 @@ export interface AmbientColorPhase {
   baseHue: number
   accentHue: number
   fillHue: number
-  /** Verified RandomQbit orb.js c1 -> Primary RGB (0..255) for UI accents & 3D key/core */
+  /** Primary RGB (0..255) for UI accents & 3D key/core */
   primaryRgb: [number, number, number]
-  /** Verified RandomQbit orb.js c3 -> Soft luminous highlight RGB (0..255) for borders/laser cores */
+  /** Soft luminous highlight RGB (0..255) for borders/laser cores */
   softRgb: [number, number, number]
-  /** Verified RandomQbit qbit.css / orb.js c2 -> Secondary/accent RGB (0..255) */
+  /** Secondary/accent RGB (0..255) */
   accentRgb: [number, number, number]
-  /** Derived deep atmospheric base RGB (0..255) for fog & shadow fills */
+  /** Deep atmospheric base RGB (0..255) for fog & shadow fills */
   deepRgb: [number, number, number]
-  /** Verified RandomQbit orb.js bgB -> Top-left diagonal ambient wash RGB (0..255) */
+  /** Diagonal ambient wash RGB (0..255) */
   bgWashRgb: [number, number, number]
-  /** Verified RandomQbit orb.js glow -> Upper-right & upper-center radiant bloom RGB (0..255) */
+  /** Upper radiant bloom RGB (0..255) */
   glowRgb: [number, number, number]
   /** Normalized 0..1 RGB floats for WebGL / Three.js shaders */
   c1: [number, number, number]
@@ -24,111 +24,113 @@ export interface AmbientColorPhase {
   bgB: [number, number, number]
 }
 
-/** Verified RandomQbit stage base (#020308) from qbit.css `--qb-stage` & orb.js `bgA` */
-export const STAGE_BASE_RGB: [number, number, number] = [2, 3, 8]
-export const STAGE_BASE_NORM: [number, number, number] = [0.008, 0.012, 0.031]
+/** Deep obsidian navy stage base (#020510) */
+export const STAGE_BASE_RGB: [number, number, number] = [2, 5, 16]
+export const STAGE_BASE_NORM: [number, number, number] = [0.008, 0.02, 0.062]
 
 /**
- * Verified RandomQbit continuous hold + smoothstep color cycle
- * (extracted directly from https://randomqbit.site/wp-content/themes/qbit/assets/js/orb.js & qbit.css),
- * anchored at Phase 0 Electric Blue to preserve RushX Organization's unmistakable entrance color.
+ * Continuous Dynamic Blue-Spectrum Color Cycle:
+ * Flows seamlessly across Electric Cobalt -> Electric Cyan -> Deep Royal Navy
+ * -> Luminous Azure -> Hyper Sapphire -> Electric Cobalt.
+ * Always alive, unmistakable, and harmonized across 3D lighting, wave shaders,
+ * 2D volumetric fields, and synchronized UI accents.
  */
 export const AMBIENT_PHASES: AmbientColorPhase[] = [
   {
-    // Phase 0 (Primary Entrance): Electric Blue (#1F73FF / #40B8FF / #BFF0FF / #0A2661 / #050F33)
-    name: "electric-blue",
+    // Phase 0: Electric Cobalt (#1F73FF / #40B8FF / #BFF0FF)
+    name: "electric-cobalt",
     baseHue: 217 / 360,
-    accentHue: 202 / 360,
-    fillHue: 226 / 360,
+    accentHue: 200 / 360,
+    fillHue: 228 / 360,
     primaryRgb: [31, 115, 255],
     accentRgb: [64, 184, 255],
     softRgb: [191, 240, 255],
-    deepRgb: [7, 22, 64],
-    glowRgb: [10, 38, 97],
-    bgWashRgb: [5, 15, 51],
-    c1: [0.12, 0.45, 1.0],
-    c2: [0.25, 0.72, 1.0],
-    c3: [0.75, 0.94, 1.0],
-    glow: [0.04, 0.15, 0.38],
-    bgB: [0.02, 0.06, 0.2],
+    deepRgb: [6, 20, 58],
+    glowRgb: [18, 72, 168],
+    bgWashRgb: [8, 28, 84],
+    c1: [0.122, 0.451, 1.0],
+    c2: [0.251, 0.722, 1.0],
+    c3: [0.749, 0.941, 1.0],
+    glow: [0.071, 0.282, 0.659],
+    bgB: [0.031, 0.11, 0.329],
   },
   {
-    // Phase 1: Quantum Teal (#1A9ED9 / #33EBB8 / #C7FFE0 / #083D38 / #04141F)
-    name: "quantum-teal",
-    baseHue: 175 / 360,
-    accentHue: 163 / 360,
-    fillHue: 198 / 360,
-    primaryRgb: [26, 158, 217],
-    accentRgb: [51, 235, 184],
-    softRgb: [199, 255, 224],
-    deepRgb: [6, 32, 42],
-    glowRgb: [8, 61, 56],
-    bgWashRgb: [4, 20, 31],
-    c1: [0.1, 0.62, 0.85],
-    c2: [0.2, 0.92, 0.72],
-    c3: [0.78, 1.0, 0.88],
-    glow: [0.03, 0.24, 0.22],
-    bgB: [0.015, 0.08, 0.12],
+    // Phase 1: Electric Cyan / Arctic Surge (#06B6D4 / #22D3EE / #CFFAFE)
+    name: "electric-cyan",
+    baseHue: 189 / 360,
+    accentHue: 186 / 360,
+    fillHue: 204 / 360,
+    primaryRgb: [6, 182, 212],
+    accentRgb: [34, 211, 238],
+    softRgb: [207, 250, 254],
+    deepRgb: [5, 28, 48],
+    glowRgb: [12, 98, 138],
+    bgWashRgb: [6, 42, 74],
+    c1: [0.024, 0.714, 0.831],
+    c2: [0.133, 0.827, 0.933],
+    c3: [0.812, 0.98, 0.996],
+    glow: [0.047, 0.384, 0.541],
+    bgB: [0.024, 0.165, 0.29],
   },
   {
-    // Phase 2: Solar Gold (#F2662E / #FFB347 / #FFEBA8 / #422108 / #0F0B1F)
-    name: "solar-gold",
-    baseHue: 34 / 360,
-    accentHue: 40 / 360,
-    fillHue: 22 / 360,
-    primaryRgb: [242, 102, 46],
-    accentRgb: [255, 179, 71],
-    softRgb: [255, 235, 168],
-    deepRgb: [36, 20, 14],
-    glowRgb: [66, 33, 8],
-    bgWashRgb: [15, 11, 31],
-    c1: [0.95, 0.4, 0.18],
-    c2: [1.0, 0.7, 0.28],
-    c3: [1.0, 0.92, 0.66],
-    glow: [0.26, 0.13, 0.03],
-    bgB: [0.06, 0.045, 0.12],
+    // Phase 2: Deep Royal Navy / Indigo Surge (#3B5BFF / #60A5FA / #DBEAFE)
+    name: "deep-royal-navy",
+    baseHue: 230 / 360,
+    accentHue: 213 / 360,
+    fillHue: 242 / 360,
+    primaryRgb: [59, 91, 255],
+    accentRgb: [96, 165, 250],
+    softRgb: [219, 234, 254],
+    deepRgb: [8, 14, 54],
+    glowRgb: [28, 52, 152],
+    bgWashRgb: [12, 22, 82],
+    c1: [0.231, 0.357, 1.0],
+    c2: [0.376, 0.647, 0.98],
+    c3: [0.859, 0.918, 0.996],
+    glow: [0.11, 0.204, 0.596],
+    bgB: [0.047, 0.086, 0.322],
   },
   {
-    // Phase 3: Neon Rose / Magenta Pink (#B338FF / #FF61B8 / #FFC7EB / #520D42 / #12082B)
-    name: "neon-rose",
-    baseHue: 325 / 360,
-    accentHue: 304 / 360,
-    fillHue: 280 / 360,
-    primaryRgb: [179, 56, 255],
-    accentRgb: [255, 97, 184],
-    softRgb: [255, 199, 235],
-    deepRgb: [38, 12, 48],
-    glowRgb: [82, 13, 66],
-    bgWashRgb: [18, 8, 43],
-    c1: [0.7, 0.22, 1.0],
-    c2: [1.0, 0.38, 0.72],
-    c3: [1.0, 0.78, 0.92],
-    glow: [0.32, 0.05, 0.26],
-    bgB: [0.07, 0.03, 0.17],
+    // Phase 3: Luminous Azure / Sky Horizon (#0284C7 / #38BDF8 / #E0F2FE)
+    name: "luminous-azure",
+    baseHue: 200 / 360,
+    accentHue: 198 / 360,
+    fillHue: 214 / 360,
+    primaryRgb: [2, 132, 199],
+    accentRgb: [56, 189, 248],
+    softRgb: [224, 242, 254],
+    deepRgb: [5, 22, 52],
+    glowRgb: [14, 86, 152],
+    bgWashRgb: [7, 34, 78],
+    c1: [0.008, 0.518, 0.78],
+    c2: [0.22, 0.741, 0.973],
+    c3: [0.878, 0.949, 0.996],
+    glow: [0.055, 0.337, 0.596],
+    bgB: [0.027, 0.133, 0.306],
   },
   {
-    // Phase 4: Electric Violet (#5266FF / #A173FF / #EDB8FF / #361766 / #0B0F36)
-    name: "electric-violet",
-    baseHue: 256 / 360,
-    accentHue: 242 / 360,
-    fillHue: 274 / 360,
-    primaryRgb: [82, 102, 255],
-    accentRgb: [161, 115, 255],
-    softRgb: [237, 184, 255],
-    deepRgb: [22, 18, 66],
-    glowRgb: [54, 23, 102],
-    bgWashRgb: [11, 15, 54],
-    c1: [0.32, 0.4, 1.0],
-    c2: [0.63, 0.45, 1.0],
-    c3: [0.93, 0.72, 1.0],
-    glow: [0.21, 0.09, 0.4],
-    bgB: [0.045, 0.06, 0.21],
+    // Phase 4: Hyper Sapphire (#2563EB / #38E8FF / #BAE6FD)
+    name: "hyper-sapphire",
+    baseHue: 221 / 360,
+    accentHue: 188 / 360,
+    fillHue: 232 / 360,
+    primaryRgb: [37, 99, 235],
+    accentRgb: [56, 232, 255],
+    softRgb: [186, 230, 253],
+    deepRgb: [6, 18, 52],
+    glowRgb: [16, 68, 162],
+    bgWashRgb: [8, 26, 78],
+    c1: [0.145, 0.388, 0.922],
+    c2: [0.22, 0.91, 1.0],
+    c3: [0.729, 0.902, 0.992],
+    glow: [0.063, 0.267, 0.635],
+    bgB: [0.031, 0.102, 0.306],
   },
 ]
 
-/** Verified RandomQbit orb.js cadence: hold 2.2s, smoothstep fade 3.0s (5.2s per phase, 26.0s full cycle). */
-export const PHASE_HOLD_SEC = 2.2
-export const PHASE_TRANSITION_SEC = 3.0
+/** Continuous flowing cadence: brief 0.8s settle + 3.2s smoothstep glide (4.0s per phase, 20s full cycle). */
+export const PHASE_HOLD_SEC = 0.8
+export const PHASE_TRANSITION_SEC = 3.2
 export const PHASE_TOTAL_SEC = PHASE_HOLD_SEC + PHASE_TRANSITION_SEC
 
 function lerp(a: number, b: number, t: number): number {
@@ -145,7 +147,7 @@ function lerpHue(a: number, b: number, t: number): number {
 function lerpRgb(
   a: [number, number, number],
   b: [number, number, number],
-  t: number,
+  t: number
 ): [number, number, number] {
   return [
     Math.round(lerp(a[0], b[0], t)),
@@ -157,12 +159,12 @@ function lerpRgb(
 function lerpVec3(
   a: [number, number, number],
   b: [number, number, number],
-  t: number,
+  t: number
 ): [number, number, number] {
   return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]
 }
 
-/** Hermite smoothstep curve matching RandomQbit's `m * m * (3 - 2 * m)` fade */
+/** Hermite smoothstep curve for organic, seamless hue glides */
 function smoothstep(t: number): number {
   const clamped = Math.max(0, Math.min(1, t))
   return clamped * clamped * (3 - 2 * clamped)

@@ -12,17 +12,17 @@ interface ViewModeContextType {
 }
 
 const ViewModeContext = createContext<ViewModeContextType>({
-  mode: "2d",
+  mode: "3d",
   setMode: () => {},
   toggleMode: () => {},
-  is3D: false,
+  is3D: true,
 })
 
 const STORAGE_KEY = "ace_scrims_view_mode"
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
-  // Default to 2D static mode as requested
-  const [mode, setModeState] = useState<ViewMode>("2d")
+  // Default to dynamic 3D Cyber experience on initial entry; respects saved user toggle
+  const [mode, setModeState] = useState<ViewMode>("3d")
 
   useEffect(() => {
     try {

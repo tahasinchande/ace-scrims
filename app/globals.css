@@ -476,43 +476,63 @@
   }
 }
 
-/* RandomQbit-inspired top-lit 2D atmospheric shader composition driven by --rushx-*-rgb phases.
-   Deep #020308 stage + top-left diagonal bgWash + top-right radiant glow + upper-center bloom.
-   Starts on RushX Electric Cobalt Blue, shifts smoothly through Teal -> Gold -> Rose -> Violet. */
+/* Flowing Blue-Spectrum 2D atmospheric fallback driven by --rushx-*-rgb phases.
+   Continuously drifts across deep navy, electric cobalt, cyan, and azure even without WebGL. */
 .rushx-ambient-canvas {
   background:
-    radial-gradient(62% 54% at 88% 8%, rgba(var(--rushx-glow-rgb), 0.42) 0%, rgba(var(--rushx-primary-rgb), 0.14) 46%, transparent 78%),
-    radial-gradient(76% 58% at 50% 4%, rgba(var(--rushx-glow-rgb), 0.52) 0%, rgba(var(--rushx-primary-rgb), 0.18) 44%, transparent 78%),
-    radial-gradient(68% 58% at 14% 22%, rgba(var(--rushx-bg-wash-rgb), 0.72) 0%, rgba(var(--rushx-accent-rgb), 0.12) 48%, transparent 78%),
-    radial-gradient(62% 52% at 82% 84%, rgba(var(--rushx-bg-wash-rgb), 0.45) 0%, transparent 76%),
-    linear-gradient(155deg, rgba(var(--rushx-deep-rgb), 0.78) 0%, #030612 46%, #020308 100%);
+    radial-gradient(66% 56% at 86% 10%, rgba(var(--rushx-glow-rgb), 0.56) 0%, rgba(var(--rushx-primary-rgb), 0.24) 46%, transparent 78%),
+    radial-gradient(80% 60% at 50% 6%, rgba(var(--rushx-glow-rgb), 0.62) 0%, rgba(var(--rushx-accent-rgb), 0.22) 44%, transparent 78%),
+    radial-gradient(72% 60% at 14% 24%, rgba(var(--rushx-bg-wash-rgb), 0.78) 0%, rgba(var(--rushx-accent-rgb), 0.18) 48%, transparent 78%),
+    radial-gradient(64% 54% at 82% 84%, rgba(var(--rushx-bg-wash-rgb), 0.52) 0%, transparent 76%),
+    linear-gradient(155deg, rgba(var(--rushx-deep-rgb), 0.85) 0%, #03081a 48%, #020510 100%);
+  background-size: 130% 130%;
+  animation: rushx-canvas-drift 14s ease-in-out infinite alternate;
+  will-change: background-position;
 }
 
 .rushx-ambient-glow {
   background:
-    radial-gradient(64% 48% at 54% 12%, rgba(var(--rushx-soft-rgb), 0.24) 0%, rgba(var(--rushx-accent-rgb), 0.12) 44%, transparent 76%),
-    radial-gradient(48% 42% at 82% 18%, rgba(var(--rushx-accent-rgb), 0.18) 0%, transparent 72%);
-  animation: rushx-glow-breathe 11s ease-in-out infinite alternate;
+    radial-gradient(64% 48% at 52% 16%, rgba(var(--rushx-soft-rgb), 0.30) 0%, rgba(var(--rushx-accent-rgb), 0.18) 44%, transparent 76%),
+    radial-gradient(52% 46% at 80% 24%, rgba(var(--rushx-primary-rgb), 0.26) 0%, transparent 72%),
+    radial-gradient(58% 42% at 22% 72%, rgba(var(--rushx-accent-rgb), 0.18) 0%, transparent 74%);
+  animation: rushx-glow-breathe 9s ease-in-out infinite alternate;
   will-change: transform, opacity;
+}
+
+@keyframes rushx-canvas-drift {
+  0% {
+    background-position: 0% 20%;
+  }
+  50% {
+    background-position: 85% 60%;
+  }
+  100% {
+    background-position: 25% 100%;
+  }
 }
 
 @keyframes rushx-glow-breathe {
   0% {
-    transform: translate3d(-1.5%, -2%, 0) scale(0.98);
-    opacity: 0.82;
+    transform: translate3d(-4%, -3%, 0) scale(0.96);
+    opacity: 0.78;
   }
   50% {
-    transform: translate3d(1.5%, 1.5%, 0) scale(1.06);
+    transform: translate3d(4%, 2.5%, 0) scale(1.08);
     opacity: 1;
   }
   100% {
-    transform: translate3d(-1%, 3%, 0) scale(1.01);
-    opacity: 0.88;
+    transform: translate3d(-2.5%, 4%, 0) scale(1.02);
+    opacity: 0.86;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rushx-ambient-glow,
+  .rushx-ambient-canvas {
+    animation-duration: 28s;
+  }
+  .rushx-ambient-glow {
+    animation-duration: 22s;
+  }
   .rushx-btn-splash[data-splashing="true"]::after {
     animation: none !important;
   }

@@ -6,6 +6,7 @@ import { ViewModeProvider } from '@/lib/view-mode'
 import { LiveChatWidget } from '@/components/site/live-chat'
 import { GlobalCyberBackground } from '@/components/site/global-cyber-background'
 import { GlobalSplashTracker } from '@/components/site/global-splash-tracker'
+import { OpeningTransition, OpeningStage } from '@/components/site/opening-transition'
 import { Toaster } from 'sonner'
 import { BRAND } from '@/lib/brand'
 import './globals.css'
@@ -94,9 +95,10 @@ export default function RootLayout({
           <ViewModeProvider>
             <GlobalCyberBackground />
             <GlobalSplashTracker />
-            <div className="relative z-10 min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+            <OpeningTransition />
+            <OpeningStage className="relative z-10 min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
               {children}
-            </div>
+            </OpeningStage>
             <LiveChatWidget />
             <Toaster position="top-right" theme="dark" richColors />
           </ViewModeProvider>

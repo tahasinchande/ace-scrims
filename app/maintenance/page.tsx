@@ -22,7 +22,6 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useViewMode } from "@/lib/view-mode"
-import { GlobalCyberBackground } from "@/components/site/global-cyber-background"
 
 const SCRIM_SLIDES = [
   { id: 1, title: "3 PM SCRIM ROOM 1", time: "3:00 PM", map: "Bermuda", image: "/images/scrim-1.jpg" },
@@ -152,8 +151,6 @@ export default function MaintenancePage() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-transparent text-foreground flex flex-col items-center justify-center p-4 sm:p-6">
-      {/* Ensure Global 3D Cyber Background is active and visible */}
-      <GlobalCyberBackground />
 
       {/* Ambient Lighting Layer */}
       <div className="pointer-events-none fixed inset-0 bg-radial-gradient from-transparent via-[#040814]/45 to-[#030610]/85 z-[1]" />
