@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { getAdminStats, getAdminPayments } from "@/lib/queries/admin"
 import { formatTaka } from "@/lib/format"
 import { BanknoteIcon, CalendarCheck, Users, Ticket, Wallet, Swords, KeyRound } from "lucide-react"
@@ -12,7 +13,7 @@ export const metadata = { title: "Admin Overview — RushX Organization" }
 
 export default async function AdminOverviewPage() {
   const user = await getSessionUser()
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (!isAdminOrOwner(user?.role)) redirect("/admin/scrims")
 
   const [stats, recentPayments] = await Promise.all([getAdminStats(), getAdminPayments()])
 

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { db } from "@/lib/db"
 import { settings } from "@/lib/db/schema"
 import { SiteSettingsForm } from "@/components/admin/site-settings-form"
@@ -11,7 +12,7 @@ export const metadata = { title: "Settings — RushX Organization Admin" }
 
 export default async function AdminSettingsPage() {
   const user = await getSessionUser()
-  if (user?.banned || user?.role !== "admin") redirect("/admin/scrims")
+  if (user?.banned || !isAdminOrOwner(user?.role)) redirect("/admin/scrims")
 
   const [rows, payoutMethods] = await Promise.all([
     db.select().from(settings),

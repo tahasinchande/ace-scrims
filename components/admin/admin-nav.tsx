@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
+import { isAdminOrOwner } from "@/lib/roles"
 import { cn } from "@/lib/utils"
 import { RushXBrandLogo } from "@/components/site/brand-logo"
 import {
@@ -75,7 +76,7 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
-  const links = role === "admin" ? adminLinks : moderatorLinks
+  const links = isAdminOrOwner(role) ? adminLinks : moderatorLinks
 
   return (
     <aside className="w-full shrink-0 md:w-60">

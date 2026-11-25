@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
+import { isStaffRole } from "@/lib/roles"
 
 const PROTECTED_PREFIXES = ["tutorials/", "scrims/", "banners/", "results/", "email-media/", "notices/"]
 
@@ -17,7 +18,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("Authentication required for uploads.")
         }
 
-        const isStaff = user.role === "admin" || user.role === "moderator"
+        const isStaff = isStaffRole(user.role)
         const normalizedPath = pathname.replace(/^\/+/, "")
         if (normalizedPath.includes("..")) {
           throw new Error("Invalid upload path.")

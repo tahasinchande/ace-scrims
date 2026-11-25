@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { getAdminPayments } from "@/lib/queries/admin"
 import { Button } from "@/components/ui/button"
 import { ExternalLink } from "lucide-react"
@@ -10,7 +11,7 @@ export const metadata = { title: "Payments — RushX Organization Admin" }
 
 export default async function AdminPaymentsPage() {
   const user = await getSessionUser()
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (!isAdminOrOwner(user?.role)) redirect("/admin/scrims")
 
   const payments = await getAdminPayments()
 

@@ -17,7 +17,7 @@ export const user = pgTable("user", {
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
   phone: text("phone"),
-  role: text("role").notNull().default("user"), // user | moderator | admin
+  role: text("role").notNull().default("user"), // user | moderator | admin | owner
   balance: integer("balance").notNull().default(0),
   creatorBalance: integer("creatorBalance").notNull().default(0),
   referralCode: text("referralCode").unique(),

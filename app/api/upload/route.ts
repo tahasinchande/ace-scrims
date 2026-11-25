@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
 
     // Role validation for protected folders
     const isStaff =
+      user.role === "owner" ||
       user.role === "admin" ||
       user.role === "moderator" ||
       user.role === "staff" ||

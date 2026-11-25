@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   Accordion,
@@ -24,9 +23,14 @@ import {
 import { WhatsAppIcon } from "@/components/site/brand-icons"
 import { useLanguage } from "@/lib/language"
 import { LiveSupportButton } from "@/components/site/live-support-button"
+import {
+  Reveal,
+  MaskedLineReveal,
+  VisualReveal,
+  RevealStagger,
+  RevealItem,
+} from "@/components/site/reveal"
 import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
-
-const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
 
 export function SectionHeading({
   eyebrow,
@@ -37,17 +41,9 @@ export function SectionHeading({
   title: string
   subtitle?: string
 }) {
-  const prefersReducedMotion = useReducedMotion()
-
   return (
-    <motion.div
-      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.988 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, amount: "some" }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
-      className="mx-auto mb-12 max-w-2xl text-center relative"
-    >
-      <div className="inline-flex items-center gap-2.5 mb-3">
+    <div className="mx-auto mb-12 max-w-2xl text-center relative">
+      <Reveal y={12} duration={0.5} className="inline-flex items-center gap-2.5 mb-3">
         <span
           className="h-px w-6"
           style={{
@@ -63,22 +59,25 @@ export function SectionHeading({
             background: "linear-gradient(to left, transparent, rgba(var(--rushx-accent-rgb), 0.85))",
           }}
         />
-      </div>
-      <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">
-        {title}
-      </h2>
+      </Reveal>
+      <MaskedLineReveal delay={0.05} duration={0.6}>
+        <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">
+          {title}
+        </h2>
+      </MaskedLineReveal>
       {subtitle && (
-        <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">
-          {subtitle}
-        </p>
+        <Reveal delay={0.1} y={12} duration={0.52}>
+          <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">
+            {subtitle}
+          </p>
+        </Reveal>
       )}
-    </motion.div>
+    </div>
   )
 }
 
 export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
   const { lang, t } = useLanguage()
-  const prefersReducedMotion = useReducedMotion()
 
   const prizeBody =
     showcase?.maxPrizePoolBdt
@@ -143,18 +142,15 @@ export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
         title={t("features_title", "Built for serious squads")}
         subtitle={t("features_subtitle", "Everything a competitive Free Fire team needs — automated, transparent and fast.")}
       />
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 relative z-10">
-        {features.map((f, i) => (
-          <motion.div
+      <RevealStagger
+        stagger={0.055}
+        delay={0.04}
+        className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 relative z-10"
+      >
+        {features.map((f) => (
+          <RevealItem
             key={f.title}
-            initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.985 }}
-            whileInView={{ opacity: 1, y: 0, scale: 1 }}
-            viewport={{ once: true, amount: "some" }}
-            transition={{
-              duration: prefersReducedMotion ? 0 : 0.52,
-              delay: prefersReducedMotion ? 0 : i * 0.055,
-              ease: DEEPCHARTS_EASE,
-            }}
+            y={18}
             className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 overflow-hidden"
           >
             <div
@@ -168,16 +164,15 @@ export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
             <f.icon className={`mb-4 size-5 ${f.color} transition-transform duration-200 group-hover:scale-110`} aria-hidden />
             <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">{f.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-          </motion.div>
+          </RevealItem>
         ))}
-      </div>
+      </RevealStagger>
     </section>
   )
 }
 
 export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
   const { lang, t } = useLanguage()
-  const prefersReducedMotion = useReducedMotion()
 
   const dynamicStep1Body =
     showcase && showcase.activeScrimCount > 0 && lang === "en"
@@ -252,47 +247,43 @@ export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
         />
         <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s, i) => (
-            <motion.li
-              key={s.step}
-              initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.985 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true, amount: "some" }}
-              transition={{
-                duration: prefersReducedMotion ? 0 : 0.52,
-                delay: prefersReducedMotion ? 0 : i * 0.07,
-                ease: DEEPCHARTS_EASE,
-              }}
-              className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
-            >
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-45 group-hover:opacity-100 transition-opacity"
-                style={{
-                  background:
-                    "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.6), transparent)",
-                }}
-              />
-              <Link
-                href={s.actionHref}
-                onClick={s.onClick}
-                className="absolute inset-0 z-10 rounded-2xl"
-                aria-label={`${s.title} — ${s.actionText}`}
-              />
-              <div>
-                <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-white/15 group-hover:text-accent/40 transition-colors tabular-nums" aria-hidden>
-                  {s.step}
-                </span>
-                <s.icon className="mb-4 size-5 text-accent transition-transform duration-200 group-hover:scale-110" aria-hidden />
-                <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-white transition-colors flex items-center gap-1.5">
-                  {s.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-              </div>
+            <li key={s.step} className="h-full">
+              <Reveal
+                delay={i * 0.065}
+                y={18}
+                duration={0.52}
+                className="dc-surface dc-card-hover rushx-box-splash group relative h-full rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
+              >
+                <div
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-45 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    background:
+                      "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.6), transparent)",
+                  }}
+                />
+                <Link
+                  href={s.actionHref}
+                  onClick={s.onClick}
+                  className="absolute inset-0 z-10 rounded-2xl"
+                  aria-label={`${s.title} — ${s.actionText}`}
+                />
+                <div>
+                  <span className="absolute right-5 top-4 font-display text-3xl font-semibold text-white/15 group-hover:text-accent/40 transition-colors tabular-nums" aria-hidden>
+                    {s.step}
+                  </span>
+                  <s.icon className="mb-4 size-5 text-accent transition-transform duration-200 group-hover:scale-110" aria-hidden />
+                  <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-white transition-colors flex items-center gap-1.5">
+                    {s.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+                </div>
 
-              <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-accent transition-colors">
-                <span>{s.actionText}</span>
-                <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
-              </div>
-            </motion.li>
+                <div className="mt-5 pt-3 border-t border-white/[0.07] flex items-center justify-between text-xs font-semibold text-accent transition-colors">
+                  <span>{s.actionText}</span>
+                  <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                </div>
+              </Reveal>
+            </li>
           ))}
         </ol>
 
@@ -311,16 +302,14 @@ export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
 
 export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
   const { t } = useLanguage()
-  const prefersReducedMotion = useReducedMotion()
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="why-heading">
       <div className="grid items-center gap-10 lg:grid-cols-2">
-        <motion.div
-          initial={prefersReducedMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.96, y: 18 }}
-          whileInView={{ opacity: 1, scale: 1, y: 0 }}
-          viewport={{ once: true, amount: "some" }}
-          transition={{ duration: prefersReducedMotion ? 0 : 0.62, ease: DEEPCHARTS_EASE }}
+        <VisualReveal
+          duration={0.68}
+          y={18}
+          initialScale={1.035}
           className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-[rgba(var(--rushx-soft-rgb),0.18)] bg-[#050a18] group"
         >
           <Image
@@ -346,21 +335,19 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
             </div>
             <ShieldCheck className="size-5 text-accent shrink-0" aria-hidden />
           </div>
-        </motion.div>
+        </VisualReveal>
 
-        <motion.div
-          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: "some" }}
-          transition={{ duration: prefersReducedMotion ? 0 : 0.56, delay: 0.08, ease: DEEPCHARTS_EASE }}
-          className="order-1 lg:order-2"
-        >
-          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-            {t("features_eyebrow", "Why Choose Us")}
-          </p>
-          <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
-            {t("features_title", "The lobby where grinders become champions")}
-          </h2>
+        <div className="order-1 lg:order-2">
+          <Reveal y={14} duration={0.5}>
+            <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+              {t("features_eyebrow", "Why Choose Us")}
+            </p>
+          </Reveal>
+          <MaskedLineReveal delay={0.05} duration={0.62}>
+            <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
+              {t("features_title", "The lobby where grinders become champions")}
+            </h2>
+          </MaskedLineReveal>
           <ul className="mt-8 flex flex-col gap-5">
             {[
               [t("feat1_title", "Zero manual verification"), t("feat1_body", "Payments confirm instantly through automated gateway.")],
@@ -368,27 +355,18 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
               [t("feat3_title", "Results with receipts"), t("feat3_body", "Every match result is published with screenshots and kill counts.")],
               [t("feat4_title", "Moderated, competitive, clean"), t("feat4_body", "Dedicated moderators run every lobby so matches start on time.")],
             ].map(([title, body], i) => (
-              <motion.li
-                key={title}
-                initial={prefersReducedMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: 14 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, amount: "some" }}
-                transition={{
-                  delay: prefersReducedMotion ? 0 : 0.07 * i,
-                  duration: prefersReducedMotion ? 0 : 0.45,
-                  ease: DEEPCHARTS_EASE,
-                }}
-                className="flex gap-3.5"
-              >
-                <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-accent" aria-hidden />
-                <div>
-                  <h3 className="font-semibold text-foreground">{title}</h3>
-                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                </div>
-              </motion.li>
+              <li key={title}>
+                <Reveal delay={0.06 * i} y={12} duration={0.46} className="flex gap-3.5">
+                  <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-accent" aria-hidden />
+                  <div>
+                    <h3 className="font-semibold text-foreground">{title}</h3>
+                    <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                  </div>
+                </Reveal>
+              </li>
             ))}
           </ul>
-        </motion.div>
+        </div>
       </div>
     </section>
   )
@@ -396,7 +374,6 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
 
 export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
   const { lang, t } = useLanguage()
-  const prefersReducedMotion = useReducedMotion()
 
   const faq1Answer =
     showcase?.minEntryFeeBdt && lang === "en"
@@ -418,17 +395,7 @@ export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
         <SectionHeading eyebrow={t("faq_eyebrow", "FAQ")} title={t("faq_title", "Questions, answered")} />
         <Accordion multiple={false} className="flex flex-col gap-3">
           {faqs.map((f, i) => (
-            <motion.div
-              key={f.q}
-              initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: "some" }}
-              transition={{
-                delay: prefersReducedMotion ? 0 : i * 0.05,
-                duration: prefersReducedMotion ? 0 : 0.45,
-                ease: DEEPCHARTS_EASE,
-              }}
-            >
+            <Reveal key={f.q} delay={i * 0.045} y={12} duration={0.46}>
               <AccordionItem
                 value={`item-${i}`}
                 className="dc-surface rushx-box-splash rounded-2xl px-5 last:border-b hover:border-[rgba(var(--rushx-soft-rgb),0.36)] transition-colors"
@@ -448,7 +415,7 @@ export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
                   )}
                 </AccordionContent>
               </AccordionItem>
-            </motion.div>
+            </Reveal>
           ))}
         </Accordion>
       </div>
@@ -458,18 +425,15 @@ export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
 
 export function Contact({ settings }: { settings?: { discordUrl?: string; facebookUrl?: string; supportWhatsapp?: string } }) {
   const { t } = useLanguage()
-  const prefersReducedMotion = useReducedMotion()
 
   const supportWhatsapp = settings?.supportWhatsapp || "+8801831510108"
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
 
   return (
     <section id="contact" className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="contact-heading">
-      <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 22, scale: 0.985 }}
-        whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: true, amount: "some" }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.56, ease: DEEPCHARTS_EASE }}
+      <Reveal
+        y={20}
+        duration={0.58}
         className="dc-surface rushx-box-splash relative overflow-hidden rounded-3xl p-8 md:p-12 shadow-2xl"
       >
         <div
@@ -517,7 +481,7 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
             </Button>
           </div>
         </div>
-      </motion.div>
+      </Reveal>
     </section>
   )
 }

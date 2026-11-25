@@ -63,7 +63,7 @@ export function DashboardNav({
     router.refresh()
   }
 
-  const isStaff = user.role === "admin" || user.role === "moderator"
+  const isStaff = user.role === "owner" || user.role === "admin" || user.role === "moderator"
   const avatarUrl = user.image ? resolveImageUrl(user.image) : null
 
   return (
@@ -120,11 +120,13 @@ export function DashboardNav({
             {isStaff && (
               <li className="w-full lg:flex-none">
                 <Link
-                  href={user.role === "admin" ? "/admin" : "/admin/scrims"}
+                  href={user.role === "owner" || user.role === "admin" ? "/admin" : "/admin/scrims"}
                   className="flex items-center gap-2.5 rounded-xl border border-transparent px-3 py-2 text-xs sm:text-sm font-semibold text-indigo-300 transition-all hover:bg-white/[0.05] hover:text-indigo-200 w-full"
                 >
                   <Shield className="size-4 shrink-0" aria-hidden />
-                  <span className="truncate">{user.role === "admin" ? "Admin Panel" : "Mod Panel"}</span>
+                  <span className="truncate">
+                    {user.role === "owner" ? "Owner Panel" : user.role === "admin" ? "Admin Panel" : "Mod Panel"}
+                  </span>
                 </Link>
               </li>
             )}

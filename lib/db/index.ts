@@ -39,7 +39,7 @@ function isBuildTimeContext(): boolean {
 }
 
 const SCHEMA_VERSION_KEY = "schema_migration_version"
-const CURRENT_SCHEMA_VERSION = "v2026_11_22_email_templates_hardening_v3"
+const CURRENT_SCHEMA_VERSION = "v2026_11_24_live_chat_columns_v4"
 
 async function ensureSchema() {
   if (!connectionString || isBuildTimeContext()) return
@@ -806,5 +806,95 @@ export async function ensureEmailTemplatesSchema(): Promise<void> {
     console.warn("[Database] ensureEmailTemplatesSchema error:", err)
   }
 }
+
+let chatSchemaEnsured = false
+let chatSchemaPromise: Promise<void> | null = null
+
+/**
+ * Guarantees Live Support tables and columns (`replyToId`, `reactions`, attachments,
+ * `chat_sessions`, `chat_moderation_logs`) exist in PostgreSQL even if an older
+ * schema migration version was already stamped.
+ */
+export async function ensureChatSchema(force = false): Promise<void> {
+  if (!connectionString || isBuildTimeContext()) return
+  if (force) {
+    chatSchemaEnsured = false
+    chatSchemaPromise = null
+  }
+  if (chatSchemaEnsured) return
+  if (!chatSchemaPromise) {
+    chatSchemaPromise = (async () => {
+      const client = await pool.connect()
+      try {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS "chat_messages" (
+            "id" text PRIMARY KEY,
+            "userId" text NOT NULL,
+            "senderId" text NOT NULL,
+            "senderName" text NOT NULL,
+            "senderRole" text NOT NULL DEFAULT 'user',
+            "message" text NOT NULL,
+            "attachmentUrl" text,
+            "attachmentType" text,
+            "attachmentName" text,
+            "replyToId" text,
+            "reactions" text,
+            "readByStaff" boolean NOT NULL DEFAULT false,
+            "readByUser" boolean NOT NULL DEFAULT false,
+            "createdAt" timestamp NOT NULL DEFAULT NOW()
+          );
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "attachmentUrl" text;
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "attachmentType" text;
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "attachmentName" text;
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "replyToId" text;
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "reactions" text;
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "readByStaff" boolean NOT NULL DEFAULT false;
+          ALTER TABLE "chat_messages" ADD COLUMN IF NOT EXISTS "readByUser" boolean NOT NULL DEFAULT false;
+          CREATE TABLE IF NOT EXISTS "chat_sessions" (
+            "userId" text PRIMARY KEY,
+            "mode" text NOT NULL DEFAULT 'ai',
+            "escalatedAt" timestamp,
+            "takenOverBy" text,
+            "takenOverAt" timestamp,
+            "lastAiReplyAt" timestamp,
+            "createdAt" timestamp NOT NULL DEFAULT NOW(),
+            "updatedAt" timestamp NOT NULL DEFAULT NOW()
+          );
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "mode" text NOT NULL DEFAULT 'ai';
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "escalatedAt" timestamp;
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "takenOverBy" text;
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "takenOverAt" timestamp;
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "lastAiReplyAt" timestamp;
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW();
+          ALTER TABLE "chat_sessions" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW();
+          CREATE TABLE IF NOT EXISTS "chat_moderation_logs" (
+            "id" text PRIMARY KEY,
+            "userId" text NOT NULL,
+            "userName" text,
+            "userEmail" text,
+            "messageContent" text NOT NULL DEFAULT '',
+            "violationCategory" text NOT NULL DEFAULT 'abusive',
+            "reason" text NOT NULL DEFAULT '',
+            "confidence" integer NOT NULL DEFAULT 0,
+            "detectorSource" text NOT NULL DEFAULT 'regex',
+            "actionTaken" text NOT NULL DEFAULT 'permanent_ban',
+            "isResolved" boolean NOT NULL DEFAULT false,
+            "resolvedBy" text,
+            "resolvedAt" timestamp,
+            "createdAt" timestamp NOT NULL DEFAULT NOW()
+          );
+        `)
+        chatSchemaEnsured = true
+      } catch (err) {
+        chatSchemaPromise = null
+        console.warn("[Database] ensureChatSchema error:", err)
+      } finally {
+        client.release()
+      }
+    })()
+  }
+  await chatSchemaPromise
+}
+
 
 

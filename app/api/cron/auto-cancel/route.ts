@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
 import { autoCancelUnderfilledScrims } from "@/lib/not-hosted-service"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
     const hasValidCronToken = isValidCronBearer(authHeader, cronSecret)
     if (!hasValidCronToken) {
       const user = await getSessionUser().catch(() => null)
-      if (!user || user.banned || user.role !== "admin") {
+      if (!user || user.banned || !isAdminOrOwner(user.role)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
       }
     }

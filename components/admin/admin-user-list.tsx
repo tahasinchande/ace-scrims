@@ -14,6 +14,7 @@ import { resolveImageUrl } from "@/lib/image-url"
 import { cn } from "@/lib/utils"
 import {
   Ban,
+  Crown,
   Search,
   ShieldCheck,
   Undo2,
@@ -26,6 +27,7 @@ import {
   ShieldAlert,
 } from "lucide-react"
 import { toast } from "sonner"
+import { isAdminOrOwner, isOwnerRole, type UserRole } from "@/lib/roles"
 
 type UserRow = {
   id: string
@@ -51,11 +53,14 @@ function getUserInitials(name: string): string {
 export function AdminUserList({
   users,
   currentUserId,
+  currentUserRole = "admin",
 }: {
   users: UserRow[]
   currentUserId: string
+  currentUserRole?: string
 }) {
   const router = useRouter()
+  const isCurrentUserOwner = isOwnerRole(currentUserRole)
   const [localUsers, setLocalUsers] = useState<UserRow[]>(users)
   const [query, setQuery] = useState("")
   const [isPending, startTransition] = useTransition()
@@ -74,7 +79,7 @@ export function AdminUserList({
       u.email.toLowerCase().includes(query.toLowerCase()),
   )
 
-  const selectableUsers = filtered.filter((u) => u.id !== currentUserId && u.role !== "admin")
+  const selectableUsers = filtered.filter((u) => u.id !== currentUserId && !isAdminOrOwner(u.role))
   const allSelected = selectableUsers.length > 0 && selectedUserIds.length === selectableUsers.length
 
   function toggleSelectAll() {
@@ -111,12 +116,12 @@ export function AdminUserList({
     })
   }
 
-  function changeRole(userId: string, role: "user" | "moderator" | "admin") {
+  function changeRole(userId: string, role: UserRole) {
     startTransition(async () => {
       try {
         await setUserRole(userId, role)
         setLocalUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)))
-        toast.success(`Role updated to ${role}`)
+        toast.success(`Role updated to ${role.charAt(0).toUpperCase() + role.slice(1)}`)
         router.refresh()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update role")
@@ -218,7 +223,9 @@ export function AdminUserList({
         <ul className="flex flex-col gap-2">
           {filtered.map((u) => {
             const isSelf = u.id === currentUserId
-            const isCanTrash = !isSelf && u.role !== "admin"
+            const targetIsOwner = isOwnerRole(u.role)
+            const lockedForNonOwner = targetIsOwner && !isCurrentUserOwner
+            const isCanTrash = !isSelf && !isAdminOrOwner(u.role)
             const isSelected = selectedUserIds.includes(u.id)
             const hasValidImage = Boolean(u.image && u.image.trim()) && !failedImages[u.id]
             const isTogglingThis = togglingVerifyId === u.id
@@ -263,8 +270,15 @@ export function AdminUserList({
                   <div className="flex flex-wrap items-center gap-2 font-medium">
                     <span className="truncate">{u.name}</span>
                     {u.role !== "user" && (
-                      <Badge variant="default" className="capitalize">
-                        <ShieldCheck className="size-3" />
+                      <Badge
+                        variant="default"
+                        className={cn(
+                          "capitalize gap-1",
+                          targetIsOwner &&
+                            "border border-amber-400/50 bg-amber-500/20 text-amber-300",
+                        )}
+                      >
+                        {targetIsOwner ? <Crown className="size-3" /> : <ShieldCheck className="size-3" />}
                         {u.role}
                       </Badge>
                     )}
@@ -308,13 +322,13 @@ export function AdminUserList({
                     >
                       <Switch
                         checked={u.emailVerified}
-                        disabled={isPending || isTogglingThis}
+                        disabled={isPending || isTogglingThis || lockedForNonOwner}
                         onCheckedChange={(checked) => void handleToggleVerified(u, Boolean(checked))}
                         aria-label={`Verification status for ${u.name}`}
                       />
                       <button
                         type="button"
-                        disabled={isPending || isTogglingThis}
+                        disabled={isPending || isTogglingThis || lockedForNonOwner}
                         onClick={() => void handleToggleVerified(u, !u.emailVerified)}
                         className={cn(
                           "text-xs font-semibold cursor-pointer disabled:opacity-50",
@@ -343,22 +357,31 @@ export function AdminUserList({
                     </Button>
                     <select
                       value={u.role}
-                      disabled={isPending}
-                      onChange={(e) =>
-                        changeRole(u.id, e.target.value as "user" | "moderator" | "admin")
-                      }
+                      disabled={isPending || lockedForNonOwner}
+                      onChange={(e) => changeRole(u.id, e.target.value as UserRole)}
                       aria-label={`Role for ${u.name}`}
-                      className="h-8 rounded-md border border-input bg-secondary px-2 text-xs capitalize"
+                      title={
+                        lockedForNonOwner
+                          ? "Only an Owner can modify an Owner account"
+                          : !isCurrentUserOwner
+                            ? "Only an Owner can assign the Owner role"
+                            : `Change role for ${u.name}`
+                      }
+                      className="h-8 rounded-md border border-input bg-secondary px-2 text-xs capitalize disabled:opacity-60"
                     >
                       <option value="user">User</option>
                       <option value="moderator">Moderator</option>
                       <option value="admin">Admin</option>
+                      <option value="owner" disabled={!isCurrentUserOwner}>
+                        Owner
+                      </option>
                     </select>
                     <Button
                       size="sm"
                       variant={u.banned ? "outline" : "destructive"}
-                      disabled={isPending}
+                      disabled={isPending || lockedForNonOwner}
                       onClick={() => toggleBan(u.id, !u.banned)}
+                      title={lockedForNonOwner ? "Only an Owner can ban or unban an Owner account" : undefined}
                     >
                       {u.banned ? <Undo2 className="size-3.5" /> : <Ban className="size-3.5" />}
                       {u.banned ? "Unban" : "Ban"}

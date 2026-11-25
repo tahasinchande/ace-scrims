@@ -1,6 +1,12 @@
 import { Resend } from "resend"
 import nodemailer from "nodemailer"
-import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import {
+  escapeHtml,
+  isSafeHttpOrRelativeUrl,
+  isValidEmailAddress,
+  sanitizeEmailHeader,
+  sanitizeEmailHtml,
+} from "@/lib/url-safety"
 import {
   getCoreEmailDefaultEnabled,
   getEmailTemplateByPurpose,
@@ -52,6 +58,7 @@ function getFromAddress(fallback = DEFAULT_SENDER): string {
   const from =
     process.env.EMAIL_FROM ||
     process.env.RESEND_FROM ||
+    process.env.SENDGRID_FROM ||
     process.env.SMTP_FROM ||
     process.env.MAIL_FROM ||
     fallback
@@ -668,7 +675,8 @@ export function renderEmailFromTemplate(
     )
     contentHtml = `<div style="color:#cbd5e1;font-size:14px;line-height:1.7;">${escapedPlain}</div>${mediaHtml}`
   } else {
-    const interpolatedHtml = interpolateTemplateText(tpl.bodyHtml || "", vars, true)
+    const safeTemplateHtml = sanitizeEmailHtml(tpl.bodyHtml || "")
+    const interpolatedHtml = interpolateTemplateText(safeTemplateHtml, vars, true)
     contentHtml = `${interpolatedHtml}${mediaHtml}`
   }
 
@@ -709,7 +717,23 @@ export async function sendEmail({
   from?: string
   purposeKey?: string
 }): Promise<EmailSendResult> {
-  const sender = from || getFromAddress()
+  const cleanTo = typeof to === "string" ? to.trim() : ""
+  const cleanSubject = sanitizeEmailHeader(typeof subject === "string" ? subject : "RushX Organization Notification")
+  const sender = sanitizeEmailHeader(from || getFromAddress())
+
+  if (!isValidEmailAddress(cleanTo)) {
+    const errMsg = "Invalid recipient email address."
+    await recordEmailLog({
+      to: cleanTo.slice(0, 120) || "(missing)",
+      purposeKey: purposeKey ?? null,
+      subject: cleanSubject,
+      status: "failed",
+      provider: null,
+      error: errMsg,
+    })
+    return { success: false, error: errMsg }
+  }
+
   const resend = getResendClient()
   const sendGridKey = getSendGridApiKey()
   const smtp = getSmtpTransporter()
@@ -719,9 +743,9 @@ export async function sendEmail({
     const allowed = await isEmailTemplateEnabled(purposeKey)
     if (!allowed) {
       await recordEmailLog({
-        to,
+        to: cleanTo,
         purposeKey,
-        subject,
+        subject: cleanSubject,
         status: "blocked_by_toggle",
       })
       return { success: true, provider: "blocked_by_toggle" }
@@ -730,9 +754,9 @@ export async function sendEmail({
 
   const finish = async (res: EmailSendResult): Promise<EmailSendResult> => {
     await recordEmailLog({
-      to,
+      to: cleanTo,
       purposeKey: purposeKey ?? null,
-      subject,
+      subject: cleanSubject,
       status: res.success ? "sent" : "failed",
       provider: res.provider ?? null,
       error: res.error ?? null,
@@ -746,32 +770,39 @@ export async function sendEmail({
     "List-Id": "RushX Organization <notifications.acescrims.online>",
   }
 
+  let lastProviderError: string | null = null
+
   // 1. Try Resend if configured (retry up to 2 times on 429 rate-limit)
   if (resend) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        console.log(`[Email Service] Attempting delivery to ${to} via Resend (${sender})...`)
+        console.log(`[Email Service] Attempting delivery to ${cleanTo} via Resend (${sender})...`)
         const response = await resend.emails.send({
           from: sender,
-          to,
-          subject,
+          to: cleanTo,
+          subject: cleanSubject,
           html,
           text,
           headers: brandHeaders,
         })
 
         if (!response.error) {
-          console.log(`[Email Service] Successfully sent email to ${to} via Resend. Message ID: ${response.data?.id}`)
+          console.log(`[Email Service] Successfully sent email to ${cleanTo} via Resend. Message ID: ${response.data?.id}`)
           return finish({ success: true, provider: "resend", messageId: response.data?.id })
         }
 
         if (isRateLimitError(response.error) && attempt < 2) {
           const waitMs = 900 * (attempt + 1)
-          console.warn(`[Email Service] Resend rate-limit (429) for ${to}. Waiting ${waitMs}ms before retry #${attempt + 1}...`)
+          console.warn(`[Email Service] Resend rate-limit (429) for ${cleanTo}. Waiting ${waitMs}ms before retry #${attempt + 1}...`)
           await sleep(waitMs)
           continue
         }
 
+        const primaryResendErr =
+          typeof response.error === "object" && response.error && "message" in response.error
+            ? String((response.error as { message?: unknown }).message || "Resend delivery error")
+            : "Resend delivery error"
+        lastProviderError = `Resend: ${primaryResendErr}`
         console.warn(`[Email Service] Resend error with sender "${sender}":`, response.error)
 
         // Fallback: If custom sender failed on Resend (e.g. unverified domain), try onboarding@resend.dev
@@ -779,8 +810,8 @@ export async function sendEmail({
           console.log(`[Email Service] Retrying Resend with fallback onboarding@resend.dev...`)
           const fallbackRes = await resend.emails.send({
             from: "RushX Organization <onboarding@resend.dev>",
-            to,
-            subject,
+            to: cleanTo,
+            subject: cleanSubject,
             html,
             text,
             headers: brandHeaders,
@@ -789,16 +820,22 @@ export async function sendEmail({
             console.log(`[Email Service] Successfully sent email via Resend fallback onboarding@resend.dev.`)
             return finish({ success: true, provider: "resend", messageId: fallbackRes.data?.id })
           }
+          const fbMsg =
+            typeof fallbackRes.error === "object" && fallbackRes.error && "message" in fallbackRes.error
+              ? String((fallbackRes.error as { message?: unknown }).message || "")
+              : ""
+          if (fbMsg) lastProviderError = `Resend: ${fbMsg}`
           console.error(`[Email Service] Resend fallback also failed:`, fallbackRes.error)
         }
         break
       } catch (resendErr: any) {
         if (isRateLimitError(resendErr) && attempt < 2) {
           const waitMs = 900 * (attempt + 1)
-          console.warn(`[Email Service] Resend 429 exception for ${to}. Waiting ${waitMs}ms before retry...`)
+          console.warn(`[Email Service] Resend 429 exception for ${cleanTo}. Waiting ${waitMs}ms before retry...`)
           await sleep(waitMs)
           continue
         }
+        lastProviderError = `Resend: ${resendErr?.message || "Connection error"}`
         console.error(`[Email Service] Resend exception:`, resendErr?.message || resendErr)
         break
       }
@@ -808,8 +845,9 @@ export async function sendEmail({
   // 2. Try SendGrid HTTP v3 API if configured
   if (sendGridKey) {
     try {
-      const parsedFrom = parseEmailAddress(sender)
-      console.log(`[Email Service] Attempting delivery to ${to} via SendGrid (${parsedFrom.email})...`)
+      const sgSenderRaw = sanitizeEmailHeader(from || process.env.SENDGRID_FROM || sender)
+      const parsedFrom = parseEmailAddress(sgSenderRaw)
+      console.log(`[Email Service] Attempting delivery to ${cleanTo} via SendGrid (${parsedFrom.email})...`)
       const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
         method: "POST",
         headers: {
@@ -817,13 +855,13 @@ export async function sendEmail({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          personalizations: [{ to: [{ email: to }] }],
+          personalizations: [{ to: [{ email: cleanTo }] }],
           from: {
             email: parsedFrom.email,
             ...(parsedFrom.name ? { name: parsedFrom.name } : {}),
           },
           headers: brandHeaders,
-          subject,
+          subject: cleanSubject,
           content: [
             ...(text ? [{ type: "text/plain", value: text }] : []),
             { type: "text/html", value: html },
@@ -834,12 +872,14 @@ export async function sendEmail({
 
       if (sgRes.ok) {
         const messageId = sgRes.headers.get("x-message-id") || undefined
-        console.log(`[Email Service] Successfully sent email to ${to} via SendGrid.`)
+        console.log(`[Email Service] Successfully sent email to ${cleanTo} via SendGrid.`)
         return finish({ success: true, provider: "sendgrid", messageId })
       }
       const errBody = await sgRes.text().catch(() => "")
+      lastProviderError = `SendGrid (${sgRes.status}): ${errBody.slice(0, 180) || "Rejected request"}`
       console.error(`[Email Service] SendGrid error (${sgRes.status}):`, errBody)
     } catch (sgErr: any) {
+      lastProviderError = `SendGrid: ${sgErr?.message || "Connection error"}`
       console.error(`[Email Service] SendGrid exception:`, sgErr?.message || sgErr)
     }
   }
@@ -847,19 +887,20 @@ export async function sendEmail({
   // 3. Try SMTP / Nodemailer if configured
   if (smtp) {
     try {
-      const smtpSender = from || getSmtpFromAddress(sender)
-      console.log(`[Email Service] Attempting delivery to ${to} via SMTP Transporter (${smtpSender})...`)
+      const smtpSender = sanitizeEmailHeader(from || getSmtpFromAddress(sender))
+      console.log(`[Email Service] Attempting delivery to ${cleanTo} via SMTP Transporter (${smtpSender})...`)
       const info = await smtp.sendMail({
         from: smtpSender,
-        to,
-        subject,
+        to: cleanTo,
+        subject: cleanSubject,
         html,
         text,
         headers: brandHeaders,
       })
-      console.log(`[Email Service] Successfully sent email to ${to} via SMTP. Message ID: ${info.messageId}`)
+      console.log(`[Email Service] Successfully sent email to ${cleanTo} via SMTP. Message ID: ${info.messageId}`)
       return finish({ success: true, provider: "smtp", messageId: info.messageId })
     } catch (smtpErr: any) {
+      lastProviderError = `SMTP: ${smtpErr?.message || "Delivery error"}`
       console.error(`[Email Service] SMTP delivery exception:`, smtpErr?.message || smtpErr)
     }
   }
@@ -867,7 +908,9 @@ export async function sendEmail({
   // 4. Fallback when no working provider is configured
   const errorMsg = !resend && !sendGridKey && !smtp
     ? "No email provider configured. Please set RESEND_API_KEY, SENDGRID_API_KEY, or SMTP credentials in environment variables."
-    : "Email delivery failed across all configured providers."
+    : lastProviderError
+      ? `Email delivery failed (${lastProviderError.slice(0, 260)})`
+      : "Email delivery failed across all configured providers."
 
   console.error(`[Email Service Warning] ${errorMsg}`)
   return finish({ success: false, error: errorMsg })

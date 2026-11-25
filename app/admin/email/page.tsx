@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { getAllEmailTemplates } from "@/lib/queries/email-templates"
 import { AdminEmailManager } from "@/components/admin/admin-email-manager"
 
@@ -8,7 +9,7 @@ export const metadata = { title: "Email Management — RushX Organization Admin"
 
 export default async function AdminEmailPage() {
   const user = await getSessionUser()
-  if (!user || user.banned || user.role !== "admin") {
+  if (!user || user.banned || !isAdminOrOwner(user.role)) {
     redirect("/admin/scrims")
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { getTrashScrims, getTrashResults } from "@/lib/queries/admin"
 import {
   restoreScrim,
@@ -20,7 +21,7 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized: Valid session token required." }, { status: 401 })
     }
-    if (user.banned || user.role !== "admin") {
+    if (user.banned || !isAdminOrOwner(user.role)) {
       return NextResponse.json({ error: "Forbidden: Admin privileges required." }, { status: 403 })
     }
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized: Valid session token required." }, { status: 401 })
     }
-    if (user.banned || user.role !== "admin") {
+    if (user.banned || !isAdminOrOwner(user.role)) {
       return NextResponse.json({ error: "Forbidden: Admin privileges required." }, { status: 403 })
     }
 

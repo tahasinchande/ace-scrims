@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db, ensureSchemaReady } from "@/lib/db"
 import { chatMessages } from "@/lib/db/schema"
 import { getSessionUser } from "@/lib/session"
+import { isStaffRole } from "@/lib/roles"
 import { eq } from "drizzle-orm"
 
 export const runtime = "nodejs"
@@ -16,7 +17,7 @@ const NO_STORE_HEADERS = {
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser()
-    if (!user || user.banned || (user.role !== "admin" && user.role !== "moderator")) {
+    if (!user || user.banned || !isStaffRole(user.role)) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS })
     }
 

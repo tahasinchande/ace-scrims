@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { db, ensureSchemaReady } from "@/lib/db"
 import { reports, user, scrims } from "@/lib/db/schema"
 import { eq, desc, and } from "drizzle-orm"
@@ -10,7 +11,7 @@ export const metadata = { title: "Reports — RushX Organization Admin" }
 
 export default async function AdminReportsPage() {
   const sessionUser = await getSessionUser()
-  if (!sessionUser || sessionUser.banned || sessionUser.role !== "admin") {
+  if (!sessionUser || sessionUser.banned || !isAdminOrOwner(sessionUser.role)) {
     redirect("/admin/scrims")
   }
 

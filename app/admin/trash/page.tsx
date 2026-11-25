@@ -1,4 +1,5 @@
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import {
   getTrashScrims,
   getTrashResults,
@@ -24,7 +25,7 @@ export default async function AdminTrashPage() {
       getTrashPayments(),
     ])
 
-  const isAdmin = user?.role === "admin"
+  const isAdmin = isAdminOrOwner(user?.role)
   const totalTrashCount =
     trashScrims.length +
     trashResults.length +

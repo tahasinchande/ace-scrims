@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
@@ -8,6 +8,7 @@ import { formatDate, bdt } from "@/lib/format"
 import { Trophy, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Reveal, MaskedLineReveal, VisualReveal } from "@/components/site/reveal"
 
 export type Top3BannerItem = {
   id: string
@@ -24,6 +25,10 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
   if (!banners || banners.length === 0) {
     return null
   }
+  return <Top3FaceBannersInner banners={banners} />
+}
+
+function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
   const count = banners.length
 
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -77,20 +82,24 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
     >
       {/* Centered Heading */}
       <div className="flex flex-col items-center text-center max-w-2xl mb-8">
-        <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-display font-bold uppercase tracking-wider mb-2">
+        <Reveal y={12} duration={0.48} className="inline-flex items-center gap-2 text-amber-400 text-xs font-display font-bold uppercase tracking-wider mb-2">
           <Trophy className="size-4 text-amber-400" />
           <span>Official Victory Gallery</span>
-        </div>
-        <h2
-          id="top3-banners-heading"
-          className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
-        >
-          Top 3 Face Banners
-        </h2>
-        <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
-          Celebrating podium-winning squads from daily scrims with high-resolution original team face banners.
-        </p>
-        <div className="mt-4 flex items-center justify-center gap-2">
+        </Reveal>
+        <MaskedLineReveal delay={0.05} duration={0.6}>
+          <h2
+            id="top3-banners-heading"
+            className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
+          >
+            Top 3 Face Banners
+          </h2>
+        </MaskedLineReveal>
+        <Reveal delay={0.1} y={12} duration={0.5}>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
+            Celebrating podium-winning squads from daily scrims with high-resolution original team face banners.
+          </p>
+        </Reveal>
+        <Reveal delay={0.14} y={10} duration={0.46} className="mt-4 flex items-center justify-center gap-2">
           <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-300 font-semibold">
             {count} Showcase{count > 1 ? "s" : ""}
           </Badge>
@@ -100,11 +109,17 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
               {isPaused ? <Pause className="size-2.5 text-amber-400" /> : <Play className="size-2.5 text-emerald-400 fill-emerald-400" />}
             </Badge>
           )}
-        </div>
+        </Reveal>
       </div>
 
       {/* Centered Slideshow Stage */}
-      <div className="relative w-full max-w-4xl flex flex-col items-center">
+      <VisualReveal
+        delay={0.08}
+        y={18}
+        duration={0.64}
+        initialScale={1.025}
+        className="relative w-full max-w-4xl flex flex-col items-center"
+      >
         {/* Banner Slide Frame */}
         <div className="relative w-full rounded-3xl border border-amber-500/30 bg-black/60 shadow-2xl p-3 sm:p-5 backdrop-blur-xl overflow-hidden flex flex-col items-center">
           {/* 5-Second Animated Progress Bar */}
@@ -244,7 +259,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
             </Link>
           </Button>
         </div>
-      </div>
+      </VisualReveal>
 
       {/* Fullscreen Lightbox Modal */}
       {activeLightbox && (

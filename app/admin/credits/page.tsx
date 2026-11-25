@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import {
   getAdminCreditUsers,
   getAdminCreditStats,
@@ -19,7 +20,7 @@ export const metadata = {
 
 export default async function AdminCreditsPage() {
   const user = await getSessionUser().catch(() => null)
-  if (user?.role !== "admin") redirect("/admin/scrims")
+  if (!isAdminOrOwner(user?.role)) redirect("/admin/scrims")
 
   const [users, stats, recentTransactions] = await Promise.all([
     getAdminCreditUsers().catch(() => []),

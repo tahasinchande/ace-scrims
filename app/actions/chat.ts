@@ -2,7 +2,7 @@
 
 import { randomUUID } from "crypto"
 import { revalidatePath } from "next/cache"
-import { db, ensureSchemaReady } from "@/lib/db"
+import { db, ensureChatSchema, ensureSchemaReady } from "@/lib/db"
 import {
   chatMessages,
   chatModerationLogs,
@@ -21,6 +21,38 @@ import {
   type ChatReactionsMap,
   type ChatReplyPreview,
 } from "@/lib/chat-types"
+import {
+  isNonOwnerStaffRole,
+  isOwnerRole,
+  isStaffRole,
+  RUSHX_SUPPORT_AVATAR,
+  RUSHX_SUPPORT_NAME,
+} from "@/lib/roles"
+
+function isMissingSchemaError(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string; message?: string }; message?: string } | null
+  const code = e?.code || e?.cause?.code
+  if (code === "42703" || code === "42P01") return true
+  const msg = `${e?.message || ""} ${e?.cause?.message || ""}`.toLowerCase()
+  return (
+    msg.includes("does not exist") &&
+    (msg.includes("replytoid") ||
+      msg.includes("reactions") ||
+      msg.includes("chat_messages") ||
+      msg.includes("chat_sessions") ||
+      msg.includes("chat_moderation_logs"))
+  )
+}
+
+function safeRevalidateChatPaths(extraPaths: string[] = []) {
+  for (const path of ["/admin/live-chat", "/admin/chat", ...extraPaths]) {
+    try {
+      revalidatePath(path)
+    } catch {
+      // Ignore revalidation errors outside page render contexts
+    }
+  }
+}
 
 function enrichChatMessages<
   T extends {
@@ -76,6 +108,7 @@ export type AdminChatConversation = {
 
 async function ensureUserChatSession(userId: string) {
   await ensureSchemaReady()
+  await ensureChatSchema()
   const existing = await db
     .select()
     .from(chatSessions)
@@ -105,75 +138,11 @@ async function ensureUserChatSession(userId: string) {
   return fallback[0]
 }
 
-export async function getUserChatState() {
-  try {
-    await ensureSchemaReady()
-    const sessionUser = await getSessionUser()
-    if (!sessionUser) {
-      return {
-        authenticated: false,
-        banned: false,
-        mode: "ai" as "ai" | "human",
-        escalatedAt: null as Date | null,
-        messages: [],
-      }
-    }
-
-    const [freshUserRows, chatSession] = await Promise.all([
-      db.select({ banned: user.banned }).from(user).where(eq(user.id, sessionUser.id)).limit(1),
-      ensureUserChatSession(sessionUser.id),
-    ])
-
-    const isBanned = Boolean(freshUserRows[0]?.banned ?? sessionUser.banned)
-    if (isBanned) {
-      return {
-        authenticated: true,
-        banned: true,
-        mode: (chatSession?.mode === "human" ? "human" : "ai") as "ai" | "human",
-        escalatedAt: chatSession?.escalatedAt ?? null,
-        messages: [],
-      }
-    }
-
-    // Mark staff & AI messages as read by user
-    await db
-      .update(chatMessages)
-      .set({ readByUser: true })
-      .where(and(eq(chatMessages.userId, sessionUser.id), eq(chatMessages.readByUser, false)))
-
-    const rows = await db
-      .select({
-        id: chatMessages.id,
-        userId: chatMessages.userId,
-        senderId: chatMessages.senderId,
-        senderName: chatMessages.senderName,
-        senderRole: chatMessages.senderRole,
-        message: chatMessages.message,
-        attachmentUrl: chatMessages.attachmentUrl,
-        attachmentType: chatMessages.attachmentType,
-        attachmentName: chatMessages.attachmentName,
-        replyToId: chatMessages.replyToId,
-        reactions: chatMessages.reactions,
-        readByStaff: chatMessages.readByStaff,
-        readByUser: chatMessages.readByUser,
-        createdAt: chatMessages.createdAt,
-        senderImage: user.image,
-      })
-      .from(chatMessages)
-      .leftJoin(user, eq(chatMessages.senderId, user.id))
-      .where(eq(chatMessages.userId, sessionUser.id))
-      .orderBy(asc(chatMessages.createdAt))
-      .limit(120)
-
-    return {
-      authenticated: true,
-      banned: false,
-      mode: (chatSession?.mode === "human" ? "human" : "ai") as "ai" | "human",
-      escalatedAt: chatSession?.escalatedAt ?? null,
-      messages: enrichChatMessages(rows),
-    }
-  } catch (err) {
-    console.warn("[Chat] Error fetching user chat state:", err)
+async function fetchUserChatStateOnce() {
+  await ensureSchemaReady()
+  await ensureChatSchema()
+  const sessionUser = await getSessionUser()
+  if (!sessionUser) {
     return {
       authenticated: false,
       banned: false,
@@ -181,6 +150,122 @@ export async function getUserChatState() {
       escalatedAt: null as Date | null,
       messages: [],
     }
+  }
+
+  const [freshUserRows, chatSession] = await Promise.all([
+    db.select({ banned: user.banned }).from(user).where(eq(user.id, sessionUser.id)).limit(1),
+    ensureUserChatSession(sessionUser.id),
+  ])
+
+  const isBanned = Boolean(freshUserRows[0]?.banned ?? sessionUser.banned)
+  if (isBanned) {
+    return {
+      authenticated: true,
+      banned: true,
+      mode: (chatSession?.mode === "human" ? "human" : "ai") as "ai" | "human",
+      escalatedAt: chatSession?.escalatedAt ?? null,
+      messages: [],
+    }
+  }
+
+  // Mark staff & AI messages as read by user
+  await db
+    .update(chatMessages)
+    .set({ readByUser: true })
+    .where(and(eq(chatMessages.userId, sessionUser.id), eq(chatMessages.readByUser, false)))
+
+  const rawRows = await db
+    .select({
+      id: chatMessages.id,
+      userId: chatMessages.userId,
+      senderId: chatMessages.senderId,
+      senderName: chatMessages.senderName,
+      senderRole: chatMessages.senderRole,
+      message: chatMessages.message,
+      attachmentUrl: chatMessages.attachmentUrl,
+      attachmentType: chatMessages.attachmentType,
+      attachmentName: chatMessages.attachmentName,
+      replyToId: chatMessages.replyToId,
+      reactions: chatMessages.reactions,
+      readByStaff: chatMessages.readByStaff,
+      readByUser: chatMessages.readByUser,
+      createdAt: chatMessages.createdAt,
+      senderImage: user.image,
+      senderCurrentRole: user.role,
+    })
+    .from(chatMessages)
+    .leftJoin(user, eq(chatMessages.senderId, user.id))
+    .where(eq(chatMessages.userId, sessionUser.id))
+    .orderBy(asc(chatMessages.createdAt))
+    .limit(120)
+
+  // Normalize sender presentation server-side so non-Owner staff personal names/avatars
+  // are masked to "RushX Support" + the 'R' logo before reaching the client (including reply quotes),
+  // while Owner replies always show ONLY the exact replier's name.
+  const rows = rawRows.map(({ senderCurrentRole, ...row }) => {
+    const effectiveSenderRole =
+      isStaffRole(row.senderRole) && isStaffRole(senderCurrentRole)
+        ? senderCurrentRole!
+        : row.senderRole
+
+    if (isNonOwnerStaffRole(effectiveSenderRole)) {
+      return {
+        ...row,
+        senderRole: effectiveSenderRole,
+        senderName: RUSHX_SUPPORT_NAME,
+        senderImage: RUSHX_SUPPORT_AVATAR,
+      }
+    }
+
+    return {
+      ...row,
+      senderRole: effectiveSenderRole,
+    }
+  })
+
+  return {
+    authenticated: true,
+    banned: false,
+    mode: (chatSession?.mode === "human" ? "human" : "ai") as "ai" | "human",
+    escalatedAt: chatSession?.escalatedAt ?? null,
+    messages: enrichChatMessages(rows),
+  }
+}
+
+export async function getUserChatState() {
+  try {
+    return await fetchUserChatStateOnce()
+  } catch (err) {
+    if (isMissingSchemaError(err)) {
+      try {
+        await ensureChatSchema(true)
+        return await fetchUserChatStateOnce()
+      } catch (retryErr) {
+        console.warn("[Chat] Error fetching user chat state after schema heal:", retryErr)
+      }
+    } else {
+      console.warn("[Chat] Error fetching user chat state:", err)
+    }
+    return {
+      authenticated: false,
+      banned: false,
+      mode: "ai" as "ai" | "human",
+      escalatedAt: null as Date | null,
+      messages: [],
+    }
+  }
+}
+
+async function insertMessageWithSchemaHeal(values: typeof chatMessages.$inferInsert) {
+  try {
+    await db.insert(chatMessages).values(values)
+  } catch (err) {
+    if (isMissingSchemaError(err)) {
+      await ensureChatSchema(true)
+      await db.insert(chatMessages).values(values)
+      return
+    }
+    throw err
   }
 }
 
@@ -200,6 +285,7 @@ export async function sendChatMessage(
 }> {
   try {
     await ensureSchemaReady()
+    await ensureChatSchema()
     const sessionUser = await getSessionUser()
     if (!sessionUser) return { ok: false, error: "Authentication required" }
 
@@ -228,7 +314,7 @@ export async function sendChatMessage(
     }
 
     const effectiveRole = freshUser?.role || sessionUser.role || "user"
-    const isStaff = effectiveRole === "admin" || effectiveRole === "moderator"
+    const isStaff = isStaffRole(effectiveRole)
 
     // 1. Two-layer AI + regex safety moderation for player messages
     if (!isStaff && cleanMsg) {
@@ -272,9 +358,7 @@ export async function sendChatMessage(
           })
         })
 
-        revalidatePath("/admin/live-chat")
-        revalidatePath("/admin/chat")
-        revalidatePath("/admin/users")
+        safeRevalidateChatPaths(["/admin/users"])
         return {
           ok: false,
           banned: true,
@@ -306,7 +390,7 @@ export async function sendChatMessage(
     const markReadByStaff = isStaff || sessionMode === "ai"
     const insertedMessageId = randomUUID()
 
-    await db.insert(chatMessages).values({
+    await insertMessageWithSchemaHeal({
       id: insertedMessageId,
       userId: conversationUserId,
       senderId: sessionUser.id,
@@ -333,87 +417,100 @@ export async function sendChatMessage(
       .update(chatSessions)
       .set({ updatedAt: new Date() })
       .where(eq(chatSessions.userId, conversationUserId))
+      .catch(() => {})
 
     let aiUnavailable = false
 
-    // 2. If user sent a message in AI mode, generate RushX AI Support reply grounded in public DB data
+    // 2. If user sent a message in AI mode, generate RushX AI Support reply grounded in public DB data.
+    // Isolated in its own try/catch so once the user's message is stored, AI errors never fail delivery.
     if (!isStaff && sessionMode === "ai") {
-      const recentRows = await db
-        .select({
-          senderRole: chatMessages.senderRole,
-          senderName: chatMessages.senderName,
-          message: chatMessages.message,
+      try {
+        const recentRows = await db
+          .select({
+            senderRole: chatMessages.senderRole,
+            senderName: chatMessages.senderName,
+            message: chatMessages.message,
+          })
+          .from(chatMessages)
+          .where(eq(chatMessages.userId, conversationUserId))
+          .orderBy(desc(chatMessages.createdAt))
+          .limit(12)
+
+        const history = [...recentRows].reverse().slice(0, -1)
+        const userQuery =
+          cleanMsg ||
+          (cleanAttachmentUrl
+            ? `[User uploaded a ${attachmentType || "file"} attachment: ${attachmentName || "file"}]`
+            : "")
+
+        const aiRes = await generateAiSupportReply({
+          message: userQuery,
+          history,
+          userName: freshUser?.name || sessionUser.name || "Player",
         })
-        .from(chatMessages)
-        .where(eq(chatMessages.userId, conversationUserId))
-        .orderBy(desc(chatMessages.createdAt))
-        .limit(12)
 
-      const history = [...recentRows].reverse().slice(0, -1)
-      const userQuery =
-        cleanMsg ||
-        (cleanAttachmentUrl
-          ? `[User uploaded a ${attachmentType || "file"} attachment: ${attachmentName || "file"}]`
-          : "")
+        if (aiRes.ok && aiRes.reply) {
+          await insertMessageWithSchemaHeal({
+            id: randomUUID(),
+            userId: conversationUserId,
+            senderId: "ace-ai-assistant",
+            senderName: "RushX AI Support",
+            senderRole: "ai",
+            message: aiRes.reply,
+            readByStaff: true,
+            readByUser: true,
+            createdAt: new Date(),
+          })
+          await db
+            .update(chatSessions)
+            .set({ lastAiReplyAt: new Date(), updatedAt: new Date() })
+            .where(eq(chatSessions.userId, conversationUserId))
+            .catch(() => {})
+        } else {
+          aiUnavailable = true
+          // Surface unanswered player messages to staff so nothing gets lost silently
+          await db
+            .update(chatMessages)
+            .set({ readByStaff: false })
+            .where(eq(chatMessages.id, insertedMessageId))
+            .catch(() => {})
 
-      const aiRes = await generateAiSupportReply({
-        message: userQuery,
-        history,
-        userName: freshUser?.name || sessionUser.name || "Player",
-      })
-
-      if (aiRes.ok && aiRes.reply) {
-        await db.insert(chatMessages).values({
-          id: randomUUID(),
-          userId: conversationUserId,
-          senderId: "ace-ai-assistant",
-          senderName: "RushX AI Support",
-          senderRole: "ai",
-          message: aiRes.reply,
-          readByStaff: true,
-          readByUser: true,
-          createdAt: new Date(),
-        })
-        await db
-          .update(chatSessions)
-          .set({ lastAiReplyAt: new Date(), updatedAt: new Date() })
-          .where(eq(chatSessions.userId, conversationUserId))
-      } else {
+          await insertMessageWithSchemaHeal({
+            id: randomUUID(),
+            userId: conversationUserId,
+            senderId: "ace-ai-assistant",
+            senderName: "RushX AI Support",
+            senderRole: "ai",
+            message:
+              "Our AI assistant is temporarily busy. Please tap 'Talk to Human Agent' at the top of this chat to connect directly with our tournament staff.",
+            readByStaff: true,
+            readByUser: true,
+            createdAt: new Date(),
+          })
+        }
+      } catch (aiErr) {
         aiUnavailable = true
-        // Surface unanswered player messages to staff so nothing gets lost silently
+        console.warn("[Chat] AI reply generation failed after saving user message:", aiErr)
         await db
           .update(chatMessages)
           .set({ readByStaff: false })
           .where(eq(chatMessages.id, insertedMessageId))
           .catch(() => {})
-
-        await db.insert(chatMessages).values({
-          id: randomUUID(),
-          userId: conversationUserId,
-          senderId: "ace-ai-assistant",
-          senderName: "RushX AI Support",
-          senderRole: "ai",
-          message:
-            "Our AI assistant is temporarily busy. Please tap 'Talk to Human Agent' at the top of this chat to connect directly with our tournament staff.",
-          readByStaff: true,
-          readByUser: true,
-          createdAt: new Date(),
-        })
       }
     }
 
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
     return { ok: true, error: null, aiUnavailable, mode: sessionMode }
   } catch (err) {
     console.error("[Chat] sendChatMessage failed:", err)
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to send message" }
+    return { ok: false, error: "Unable to send message right now. Please try again." }
   }
 }
 
 export async function escalateToHumanAgent() {
   try {
     await ensureSchemaReady()
+    await ensureChatSchema()
     const sessionUser = await getSessionUser()
     if (!sessionUser) return { ok: false, error: "Authentication required" }
     if (sessionUser.banned) return { ok: false, error: "Account suspended" }
@@ -432,7 +529,7 @@ export async function escalateToHumanAgent() {
       })
       .where(eq(chatSessions.userId, sessionUser.id))
 
-    await db.insert(chatMessages).values({
+    await insertMessageWithSchemaHeal({
       id: randomUUID(),
       userId: sessionUser.id,
       senderId: "ace-system",
@@ -445,11 +542,11 @@ export async function escalateToHumanAgent() {
       createdAt: new Date(),
     })
 
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to connect to human agent" }
+    console.error("[Chat] escalateToHumanAgent failed:", err)
+    return { ok: false, error: "Failed to connect to human agent" }
   }
 }
 
@@ -469,24 +566,28 @@ export async function takeOverChat(targetUserId: string) {
       })
       .where(eq(chatSessions.userId, targetUserId))
 
-    await db.insert(chatMessages).values({
+    const joinMessage = isOwnerRole(staff.role)
+      ? `${staff.name?.trim() || "Owner"} joined the conversation.`
+      : `${RUSHX_SUPPORT_NAME} joined the conversation.`
+
+    await insertMessageWithSchemaHeal({
       id: randomUUID(),
       userId: targetUserId,
       senderId: "ace-system",
       senderName: "RushX Support System",
       senderRole: "system",
-      message: `Human support agent (${staff.name || "Staff"}) joined the conversation.`,
+      message: joinMessage,
       readByStaff: true,
       readByUser: false,
       createdAt: new Date(),
     })
 
     await logActivity(staff.id, staff.role, "chat_take_over", targetUserId)
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to take over chat" }
+    console.error("[Chat] takeOverChat failed:", err)
+    return { ok: false, error: "Failed to take over chat" }
   }
 }
 
@@ -505,7 +606,7 @@ export async function handBackToAi(targetUserId: string) {
       })
       .where(eq(chatSessions.userId, targetUserId))
 
-    await db.insert(chatMessages).values({
+    await insertMessageWithSchemaHeal({
       id: randomUUID(),
       userId: targetUserId,
       senderId: "ace-system",
@@ -518,11 +619,11 @@ export async function handBackToAi(targetUserId: string) {
     })
 
     await logActivity(staff.id, staff.role, "chat_hand_back_ai", targetUserId)
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to hand back to AI" }
+    console.error("[Chat] handBackToAi failed:", err)
+    return { ok: false, error: "Failed to hand back to AI" }
   }
 }
 
@@ -530,6 +631,7 @@ export async function unbanChatUser(targetUserId: string, logId?: string) {
   try {
     const staff = await requireStaff()
     await ensureSchemaReady()
+    await ensureChatSchema()
 
     await db
       .update(user)
@@ -554,12 +656,11 @@ export async function unbanChatUser(targetUserId: string, logId?: string) {
     }
 
     await logActivity(staff.id, staff.role, "unban_chat_user", targetUserId, { logId })
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
-    revalidatePath("/admin/users")
+    safeRevalidateChatPaths(["/admin/users"])
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to unban user" }
+    console.error("[Chat] unbanChatUser failed:", err)
+    return { ok: false, error: "Failed to unban user" }
   }
 }
 
@@ -572,6 +673,7 @@ export async function getStaffChatConversations(): Promise<AdminChatConversation
   try {
     await requireStaff()
     await ensureSchemaReady()
+    await ensureChatSchema()
 
     const [rows, sessionRows] = await Promise.all([
       db
@@ -697,6 +799,7 @@ export async function getAdminChatHubData() {
   try {
     await requireStaff()
     await ensureSchemaReady()
+    await ensureChatSchema()
 
     const [conversations, modLogs] = await Promise.all([
       getStaffChatConversations(),
@@ -748,6 +851,8 @@ export async function getAdminChatHubData() {
 export async function deleteChatMessage(messageId: string) {
   try {
     await requireStaff()
+    await ensureSchemaReady()
+    await ensureChatSchema()
 
     const deleted = await db
       .delete(chatMessages)
@@ -758,17 +863,19 @@ export async function deleteChatMessage(messageId: string) {
       return { ok: false, error: "Message not found" }
     }
 
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
     return { ok: true, error: null }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to delete message" }
+    console.error("[Chat] deleteChatMessage failed:", err)
+    return { ok: false, error: "Failed to delete message" }
   }
 }
 
 export async function deleteUserChatHistory(targetUserId: string) {
   try {
     await requireStaff()
+    await ensureSchemaReady()
+    await ensureChatSchema()
 
     if (!targetUserId || typeof targetUserId !== "string") {
       return { ok: false, error: "Target user ID is required" }
@@ -785,51 +892,87 @@ export async function deleteUserChatHistory(targetUserId: string) {
       .set({ mode: "ai", escalatedAt: null, takenOverBy: null, takenOverAt: null, updatedAt: new Date() })
       .where(eq(chatSessions.userId, cleanId))
 
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
     return { ok: true, count: deleted.length, error: null }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to delete user chat history" }
+    console.error("[Chat] deleteUserChatHistory failed:", err)
+    return { ok: false, error: "Failed to delete user chat history" }
   }
+}
+
+async function fetchStaffChatThreadOnce(targetUserId: string) {
+  await requireStaff()
+  await ensureSchemaReady()
+  await ensureChatSchema()
+
+  await db
+    .update(chatMessages)
+    .set({ readByStaff: true })
+    .where(and(eq(chatMessages.userId, targetUserId), eq(chatMessages.readByStaff, false)))
+
+  const rawRows = await db
+    .select({
+      id: chatMessages.id,
+      userId: chatMessages.userId,
+      senderId: chatMessages.senderId,
+      senderName: chatMessages.senderName,
+      senderRole: chatMessages.senderRole,
+      message: chatMessages.message,
+      attachmentUrl: chatMessages.attachmentUrl,
+      attachmentType: chatMessages.attachmentType,
+      attachmentName: chatMessages.attachmentName,
+      replyToId: chatMessages.replyToId,
+      reactions: chatMessages.reactions,
+      readByStaff: chatMessages.readByStaff,
+      readByUser: chatMessages.readByUser,
+      createdAt: chatMessages.createdAt,
+      senderImage: user.image,
+      senderCurrentRole: user.role,
+    })
+    .from(chatMessages)
+    .leftJoin(user, eq(chatMessages.senderId, user.id))
+    .where(eq(chatMessages.userId, targetUserId))
+    .orderBy(asc(chatMessages.createdAt))
+    .limit(120)
+
+  const rows = rawRows.map(({ senderCurrentRole, ...row }) => {
+    const effectiveSenderRole =
+      isStaffRole(row.senderRole) && isStaffRole(senderCurrentRole)
+        ? senderCurrentRole!
+        : row.senderRole
+
+    if (isNonOwnerStaffRole(effectiveSenderRole)) {
+      return {
+        ...row,
+        senderRole: effectiveSenderRole,
+        senderName: RUSHX_SUPPORT_NAME,
+        senderImage: RUSHX_SUPPORT_AVATAR,
+      }
+    }
+
+    return {
+      ...row,
+      senderRole: effectiveSenderRole,
+    }
+  })
+
+  return enrichChatMessages(rows)
 }
 
 export async function getStaffChatThread(targetUserId: string) {
   try {
-    await requireStaff()
-    await ensureSchemaReady()
-
-    await db
-      .update(chatMessages)
-      .set({ readByStaff: true })
-      .where(and(eq(chatMessages.userId, targetUserId), eq(chatMessages.readByStaff, false)))
-
-    const rows = await db
-      .select({
-        id: chatMessages.id,
-        userId: chatMessages.userId,
-        senderId: chatMessages.senderId,
-        senderName: chatMessages.senderName,
-        senderRole: chatMessages.senderRole,
-        message: chatMessages.message,
-        attachmentUrl: chatMessages.attachmentUrl,
-        attachmentType: chatMessages.attachmentType,
-        attachmentName: chatMessages.attachmentName,
-        replyToId: chatMessages.replyToId,
-        reactions: chatMessages.reactions,
-        readByStaff: chatMessages.readByStaff,
-        readByUser: chatMessages.readByUser,
-        createdAt: chatMessages.createdAt,
-        senderImage: user.image,
-      })
-      .from(chatMessages)
-      .leftJoin(user, eq(chatMessages.senderId, user.id))
-      .where(eq(chatMessages.userId, targetUserId))
-      .orderBy(asc(chatMessages.createdAt))
-      .limit(120)
-
-    return enrichChatMessages(rows)
+    return await fetchStaffChatThreadOnce(targetUserId)
   } catch (err) {
-    console.warn("[Chat] Error fetching staff thread:", err)
+    if (isMissingSchemaError(err)) {
+      try {
+        await ensureChatSchema(true)
+        return await fetchStaffChatThreadOnce(targetUserId)
+      } catch (retryErr) {
+        console.warn("[Chat] Error fetching staff thread after schema heal:", retryErr)
+      }
+    } else {
+      console.warn("[Chat] Error fetching staff thread:", err)
+    }
     return []
   }
 }
@@ -838,8 +981,9 @@ export async function toggleChatReaction(
   messageId: string,
   emoji: string,
 ): Promise<{ ok: boolean; reactions?: ChatReactionsMap; error?: string }> {
-  try {
+  const executeToggle = async (): Promise<{ ok: boolean; reactions?: ChatReactionsMap; error?: string }> => {
     await ensureSchemaReady()
+    await ensureChatSchema()
     const sessionUser = await getSessionUser()
     if (!sessionUser) {
       return { ok: false, error: "Authentication required" }
@@ -864,7 +1008,7 @@ export async function toggleChatReaction(
     }
 
     const effectiveRole = freshUser?.role || sessionUser.role || "user"
-    const isStaff = effectiveRole === "admin" || effectiveRole === "moderator"
+    const isStaff = isStaffRole(effectiveRole)
 
     const [targetMsg] = await db
       .select({
@@ -900,12 +1044,24 @@ export async function toggleChatReaction(
       .set({ reactions: serialized })
       .where(eq(chatMessages.id, targetMsg.id))
 
-    revalidatePath("/admin/live-chat")
-    revalidatePath("/admin/chat")
+    safeRevalidateChatPaths()
 
     return { ok: true, reactions: nextMap }
+  }
+
+  try {
+    return await executeToggle()
   } catch (err) {
-    console.error("[Chat] toggleChatReaction error:", err)
+    if (isMissingSchemaError(err)) {
+      try {
+        await ensureChatSchema(true)
+        return await executeToggle()
+      } catch (retryErr) {
+        console.error("[Chat] toggleChatReaction error after schema heal:", retryErr)
+      }
+    } else {
+      console.error("[Chat] toggleChatReaction error:", err)
+    }
     return { ok: false, error: "Failed to update reaction" }
   }
 }

@@ -54,13 +54,13 @@
 :root,
 .dark {
   color-scheme: dark;
-  /* Synchronized dynamic RGB channels (Default entrance: Electric Cobalt Blue + Sky Cyan) */
-  --rushx-primary-rgb: 37, 99, 235;
-  --rushx-soft-rgb: 125, 190, 255;
-  --rushx-accent-rgb: 56, 189, 248;
-  --rushx-deep-rgb: 10, 26, 76;
-  --rushx-bg-wash-rgb: 12, 34, 98;
-  --rushx-glow-rgb: 28, 92, 224;
+  /* Synchronized dynamic RGB channels (Verified Phase 0 Entrance: Electric Blue #1F73FF + Sky #40B8FF) */
+  --rushx-primary-rgb: 31, 115, 255;
+  --rushx-soft-rgb: 191, 240, 255;
+  --rushx-accent-rgb: 64, 184, 255;
+  --rushx-deep-rgb: 7, 22, 64;
+  --rushx-bg-wash-rgb: 5, 15, 51;
+  --rushx-glow-rgb: 10, 38, 97;
 
   --background: oklch(0.115 0.018 252);
   --foreground: oklch(0.968 0.006 248);

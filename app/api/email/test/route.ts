@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendEmail, getProductionAppUrl } from "@/lib/email"
 import { getSessionUser } from "@/lib/session"
-import { escapeHtml } from "@/lib/url-safety"
+import { isAdminOrOwner } from "@/lib/roles"
+import { escapeHtml, isValidEmailAddress } from "@/lib/url-safety"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
     const user = await getSessionUser().catch(() => null)
 
     const searchParams = req.nextUrl.searchParams
-    if (!user || user.banned || user.role !== "admin") {
+    if (!user || user.banned || !isAdminOrOwner(user.role)) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized. Admin privileges required." },
         { status: 401 }
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     }
 
     const targetEmail = (searchParams.get("to") || user.email || "").trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+    if (!isValidEmailAddress(targetEmail)) {
       return NextResponse.json(
         { ok: false, error: "Invalid recipient email address." },
         { status: 400 }

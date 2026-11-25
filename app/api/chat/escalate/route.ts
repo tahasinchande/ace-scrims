@@ -4,6 +4,7 @@ import { escalateToHumanAgent, getUserChatState } from "@/app/actions/chat"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+export const maxDuration = 30
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

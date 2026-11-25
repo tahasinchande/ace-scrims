@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isStaffRole } from "@/lib/roles"
 import { AdminNav } from "@/components/admin/admin-nav"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 
@@ -12,7 +13,7 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const user = await getSessionUser()
-  if (!user || user.banned || (user.role !== "admin" && user.role !== "moderator")) {
+  if (!user || user.banned || !isStaffRole(user.role)) {
     redirect("/")
   }
 

@@ -25,6 +25,12 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { resolveImageUrl } from "@/lib/image-url"
+import {
+  isNonOwnerStaffRole,
+  isOwnerRole,
+  RUSHX_SUPPORT_AVATAR,
+  RUSHX_SUPPORT_NAME,
+} from "@/lib/roles"
 import { uploadMediaFile } from "@/lib/client-upload"
 import { toast } from "sonner"
 import type { ChatMessage } from "@/lib/db/schema"
@@ -151,8 +157,10 @@ export function LiveChatWidget() {
     [],
   )
 
+  const sessionUserId = session?.user?.id ?? null
+
   const loadChatState = useCallback(async () => {
-    if (!session?.user) return
+    if (!sessionUserId) return
     const pollEpoch = mutationEpochRef.current
     try {
       const res = await fetch("/api/chat", {
@@ -170,7 +178,7 @@ export function LiveChatWidget() {
     } catch {
       // Silent retry on next poll interval
     }
-  }, [session?.user, applyChatState])
+  }, [sessionUserId, applyChatState])
 
   useEffect(() => {
     const handleOpen = () => setOpen(true)
@@ -185,13 +193,13 @@ export function LiveChatWidget() {
   }, [])
 
   useEffect(() => {
-    if (open && session?.user && !pathname?.startsWith("/admin")) {
+    if (open && sessionUserId && !pathname?.startsWith("/admin")) {
       setLoading(true)
       loadChatState().finally(() => setLoading(false))
       const interval = setInterval(loadChatState, 3500)
       return () => clearInterval(interval)
     }
-  }, [open, session?.user, pathname, loadChatState])
+  }, [open, sessionUserId, pathname, loadChatState])
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -365,15 +373,37 @@ export function LiveChatWidget() {
     attachmentName?: string
     replyToId?: string
   }) {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      cache: "no-store",
-      body: JSON.stringify(payload),
-    })
-    const data = await res.json().catch(() => null)
-    return { status: res.status, ok: res.ok && Boolean(data?.ok), data }
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000)
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal,
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => null)
+      return { status: res.status, ok: res.ok && Boolean(data?.ok), data }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return {
+          status: 408,
+          ok: false,
+          data: {
+            ok: false,
+            error:
+              lang === "bn"
+                ? "রিকোয়েস্ট টাইমআউট হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।"
+                : "Request timed out. Please try sending your message again.",
+          },
+        }
+      }
+      throw err
+    } finally {
+      window.clearTimeout(timeoutId)
+    }
   }
 
   async function handleSend(e?: React.FormEvent) {
@@ -387,33 +417,68 @@ export function LiveChatWidget() {
 
     const msgText = text.trim()
     const filesToSend = [...selectedFiles]
-    const activeReplyId = replyingTo?.id
+    const activeReply = replyingTo
+    const activeReplyId = activeReply?.id
     mutationEpochRef.current += 1
     setSendError(null)
     setSending(true)
+    let optimisticId: string | null = null
 
     try {
       if (filesToSend.length === 0) {
+        optimisticId = `optimistic-${Date.now()}`
+        const optimisticMsg: ChatThreadItem = {
+          id: optimisticId,
+          userId: session.user.id,
+          senderId: session.user.id,
+          senderName: session.user.name || "You",
+          senderRole: "user",
+          message: msgText,
+          attachmentUrl: null,
+          attachmentType: null,
+          attachmentName: null,
+          replyToId: activeReplyId ?? null,
+          reactions: null,
+          reactionsMap: {},
+          replyTo: activeReply
+            ? {
+                id: activeReply.id,
+                senderName: activeReply.senderName,
+                senderRole: activeReply.senderRole,
+                message: activeReply.message,
+                attachmentType: activeReply.attachmentType ?? null,
+              }
+            : null,
+          readByStaff: false,
+          readByUser: true,
+          createdAt: new Date(),
+        }
+
+        setMessages((prev) => [...prev, optimisticMsg])
+        setText("")
+        setReplyingTo(null)
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto"
+        }
+        notifyUserSentMessage()
+
         const { ok, data } = await postSingleChatPayload({
           message: msgText,
           replyToId: activeReplyId,
         })
         if (data?.banned) {
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
           setIsBanned(true)
-          setText("")
-          setReplyingTo(null)
           toast.error(data.error || t("chat_banned_title"))
         } else if (!ok) {
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
+          setText(msgText)
+          if (activeReply) setReplyingTo(activeReply)
           const errMsg = data?.error || (lang === "bn" ? "মেসেজ পাঠানো যায়নি" : "Failed to send message")
           setSendError(errMsg)
           toast.error(errMsg)
           return
         } else {
-          setText("")
-          setReplyingTo(null)
-          if (textareaRef.current) {
-            textareaRef.current.style.height = "auto"
-          }
           if (data?.state) {
             applyChatState(data.state)
           } else {
@@ -479,6 +544,12 @@ export function LiveChatWidget() {
         notifyUserSentMessage()
       }
     } catch (err) {
+      if (optimisticId) {
+        const failedId = optimisticId
+        setMessages((prev) => prev.filter((m) => m.id !== failedId))
+        setText(msgText)
+        if (activeReply) setReplyingTo(activeReply)
+      }
       const errMsg =
         err instanceof Error
           ? err.message
@@ -664,10 +735,17 @@ export function LiveChatWidget() {
                 }
 
                 const isMe = m.senderId === session.user.id
-                const prevSameSender = idx > 0 && messages[idx - 1].senderId === m.senderId
-                const nextSameSender = idx < messages.length - 1 && messages[idx + 1].senderId === m.senderId
+                const prevSameSender =
+                  idx > 0 &&
+                  messages[idx - 1].senderId === m.senderId &&
+                  messages[idx - 1].senderRole === m.senderRole
+                const nextSameSender =
+                  idx < messages.length - 1 &&
+                  messages[idx + 1].senderId === m.senderId &&
+                  messages[idx + 1].senderRole === m.senderRole
                 const isAi = m.senderRole === "ai"
-                const isStaff = m.senderRole === "admin" || m.senderRole === "moderator"
+                const isOwner = isOwnerRole(m.senderRole)
+                const isNonOwnerStaff = isNonOwnerStaffRole(m.senderRole)
                 const mediaKind = isMediaType(m)
                 const isDefaultCaption =
                   m.message === "📷 Photo" ||
@@ -701,6 +779,15 @@ export function LiveChatWidget() {
                               <span className="flex size-7 items-center justify-center rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300">
                                 <Bot className="size-4" />
                               </span>
+                            ) : isNonOwnerStaff ? (
+                              <span className="flex size-7 items-center justify-center rounded-full bg-[#101830] p-1 border border-sky-400/35">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={RUSHX_SUPPORT_AVATAR}
+                                  alt={RUSHX_SUPPORT_NAME}
+                                  className="size-4 object-contain"
+                                />
+                              </span>
                             ) : m.senderImage && !failedSenderAvatars[m.id] ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -709,14 +796,9 @@ export function LiveChatWidget() {
                                 onError={() => setFailedSenderAvatars((prev) => ({ ...prev, [m.id]: true }))}
                                 className="size-7 rounded-full object-cover border border-zinc-700"
                               />
-                            ) : isStaff ? (
-                              <span className="flex size-7 items-center justify-center rounded-full bg-[#101830] p-1 border border-sky-400/30">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/images/brand/rushx-symbol.png" alt="Staff" className="size-4 object-contain" />
-                              </span>
                             ) : (
-                              <span className="flex size-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-slate-200">
-                                {(m.senderName || "S").slice(0, 1).toUpperCase()}
+                              <span className="flex size-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-slate-200 border border-white/10">
+                                {(m.senderName || "R").slice(0, 1).toUpperCase()}
                               </span>
                             ))}
                         </div>
@@ -727,9 +809,11 @@ export function LiveChatWidget() {
                           <span className="text-[10px] text-slate-400 px-2 mb-0.5 font-medium">
                             {isAi
                               ? `${m.senderName} · ${t("chat_ai_badge")}`
-                              : isStaff
-                                ? `${m.senderName} · ${t("chat_staff_badge")}`
-                                : m.senderName}
+                              : isOwner
+                                ? m.senderName
+                                : isNonOwnerStaff
+                                  ? RUSHX_SUPPORT_NAME
+                                  : m.senderName}
                           </span>
                         )}
 

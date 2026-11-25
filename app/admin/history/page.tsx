@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner, isStaffRole } from "@/lib/roles"
 import { getHistoricalDates, getHistoricalBookings, getAdminScrims, getAdminResults } from "@/lib/queries/admin"
 import { getBangladeshActiveDate } from "@/lib/queries/scrims"
 import { AdminHistoryView } from "@/components/admin/admin-history-view"
@@ -14,7 +15,7 @@ export default async function AdminHistoryPage({
   searchParams: Promise<{ date?: string; scrim?: string }>
 }) {
   const user = await getSessionUser()
-  if (!user || (user.role !== "admin" && user.role !== "moderator")) {
+  if (!user || !isStaffRole(user.role)) {
     redirect("/admin/scrims")
   }
 
@@ -76,7 +77,7 @@ export default async function AdminHistoryPage({
         selectedScrimId={selectedScrim}
         bookings={bookings as any}
         results={results as any}
-        isAdmin={user.role === "admin"}
+        isAdmin={isAdminOrOwner(user.role)}
       />
     </div>
   )

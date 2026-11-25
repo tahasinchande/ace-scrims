@@ -4,6 +4,7 @@ import { isRoom2Enabled } from "@/lib/queries/scrims"
 import { AdminScrimList } from "@/components/admin/admin-scrim-list"
 import { CreateScrimButton } from "@/components/admin/scrim-form-dialog"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { KeyRound, Snowflake } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -22,7 +23,7 @@ export default async function AdminScrimsPage({
     isRoom2Enabled().catch(() => false),
   ])
 
-  const isAdmin = user?.role === "admin"
+  const isAdmin = isAdminOrOwner(user?.role)
 
   return (
     <div className="flex flex-col gap-6">

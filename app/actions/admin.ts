@@ -3,14 +3,15 @@
 import { randomUUID } from "crypto"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { scrims, user, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs, imageRequests, walletTransactions } from "@/lib/db/schema"
+import { scrims, user, session as sessionTable, settings, notifications, bookings, payments, notHostedTeams, results, reports, chatMessages, activityLogs, imageRequests, walletTransactions } from "@/lib/db/schema"
 import { requireAdmin, requireStaff } from "@/lib/session"
 import { logActivity } from "@/lib/notify"
-import { eq, ne, and, or, sql, inArray } from "drizzle-orm"
+import { eq, ne, and, or, sql, inArray, notInArray } from "drizzle-orm"
 import { z } from "zod"
 import { saveUploadedFile } from "@/lib/upload"
 import { creditAdjustmentSchema, type CreditAdjustmentInput } from "@/lib/validations/credit"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import { isOwnerRole, isValidUserRole, type UserRole } from "@/lib/roles"
 
 // ─────────────────────────────────────────────────────────────────────────
 // Admin-only actions. Every function begins with requireAdmin().
@@ -778,14 +779,17 @@ export async function bulkPermanentlyDeleteImageRequests(ids: string[]): Promise
 export async function trashUsers(userIds: string[]): Promise<{ ok: boolean; count: number; error: string | null }> {
   try {
     const admin = await requireAdmin()
-    // Cannot trash oneself or other admins
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return { ok: false, count: 0, error: "No users selected." }
+    }
+    // Cannot trash oneself, admins, or owners
     const targets = await db
       .select({ id: user.id, role: user.role })
       .from(user)
-      .where(and(inArray(user.id, userIds), ne(user.id, admin.id), ne(user.role, "admin")))
+      .where(and(inArray(user.id, userIds), ne(user.id, admin.id), notInArray(user.role, ["admin", "owner"])))
 
     if (targets.length === 0) {
-      return { ok: false, count: 0, error: "Cannot delete admin accounts or your own account." }
+      return { ok: false, count: 0, error: "Cannot delete Owner/Admin accounts or your own account." }
     }
 
     const idsToTrash = targets.map((t) => t.id)
@@ -794,7 +798,7 @@ export async function trashUsers(userIds: string[]): Promise<{ ok: boolean; coun
       .set({ isTrashed: true, deletedAt: new Date() })
       .where(inArray(user.id, idsToTrash))
 
-    await logActivity(admin.id, "admin", "trash_users", undefined, { count: idsToTrash.length })
+    await logActivity(admin.id, admin.role, "trash_users", undefined, { count: idsToTrash.length })
     revalidatePath("/admin/users")
     revalidatePath("/admin/trash")
     return { ok: true, count: idsToTrash.length, error: null }
@@ -834,8 +838,8 @@ export async function permanentlyDeleteUser(id: string): Promise<{ ok: boolean; 
   try {
     const admin = await requireAdmin()
     if (id === admin.id) return { ok: false, error: "Cannot delete your own account" }
-    await db.delete(user).where(and(eq(user.id, id), ne(user.role, "admin")))
-    await logActivity(admin.id, "admin", "permanently_delete_user", id)
+    await db.delete(user).where(and(eq(user.id, id), notInArray(user.role, ["admin", "owner"])))
+    await logActivity(admin.id, admin.role, "permanently_delete_user", id)
     revalidatePath("/admin/users")
     revalidatePath("/admin/trash")
     return { ok: true, error: null }
@@ -848,8 +852,10 @@ export async function bulkPermanentlyDeleteUsers(ids: string[]): Promise<{ ok: b
   try {
     const admin = await requireAdmin()
     if (!ids || ids.length === 0) return { ok: true, count: 0, error: null }
-    await db.delete(user).where(and(inArray(user.id, ids), ne(user.id, admin.id), ne(user.role, "admin")))
-    await logActivity(admin.id, "admin", "bulk_permanently_delete_users", undefined, { count: ids.length })
+    await db
+      .delete(user)
+      .where(and(inArray(user.id, ids), ne(user.id, admin.id), notInArray(user.role, ["admin", "owner"])))
+    await logActivity(admin.id, admin.role, "bulk_permanently_delete_users", undefined, { count: ids.length })
     revalidatePath("/admin/users")
     revalidatePath("/admin/trash")
     return { ok: true, count: ids.length, error: null }
@@ -1021,9 +1027,9 @@ export async function wipeDeploymentData(options?: { deleteNonAdminUsers?: boole
     await db.delete(notifications)
     await db.delete(activityLogs)
 
-    // 8. Optionally wipe non-admin test users (strictly preserving admin accounts)
+    // 8. Optionally wipe non-admin test users (strictly preserving owner & admin accounts)
     if (options?.deleteNonAdminUsers) {
-      await db.delete(user).where(ne(user.role, "admin"))
+      await db.delete(user).where(notInArray(user.role, ["admin", "owner"]))
     }
 
     revalidatePath("/")
@@ -1131,19 +1137,83 @@ export async function deleteResult(resultId: string) {
 
 // ── User management ─────────────────────────────────────────────────────
 
-export async function setUserRole(userId: string, role: "user" | "moderator" | "admin") {
+export async function setUserRole(userId: string, role: UserRole) {
   const admin = await requireAdmin()
-  if (userId === admin.id) throw new Error("You cannot change your own role")
+  if (!userId || typeof userId !== "string" || !userId.trim()) {
+    throw new Error("Invalid user ID")
+  }
+  if (!isValidUserRole(role)) {
+    throw new Error("Invalid role selection")
+  }
+  if (userId === admin.id) {
+    throw new Error("You cannot change your own role")
+  }
+
+  const [target] = await db
+    .select({ id: user.id, role: user.role, isTrashed: user.isTrashed })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+
+  if (!target || target.isTrashed) {
+    throw new Error("User not found")
+  }
+
+  const actorIsOwner = isOwnerRole(admin.role)
+  const targetIsOwner = isOwnerRole(target.role)
+
+  // Strict anti-privilege-escalation: only an Owner can assign Owner or modify an existing Owner
+  if (!actorIsOwner && (role === "owner" || targetIsOwner)) {
+    throw new Error("Only an Owner can assign or modify the Owner role.")
+  }
+
+  // Prevent removing the last remaining active Owner
+  if (targetIsOwner && role !== "owner") {
+    const otherOwners = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(and(eq(user.role, "owner"), eq(user.isTrashed, false), ne(user.id, userId)))
+      .limit(1)
+    if (otherOwners.length === 0) {
+      throw new Error("Cannot demote the last remaining Owner account.")
+    }
+  }
+
   await db.update(user).set({ role, updatedAt: new Date() }).where(eq(user.id, userId))
-  await logActivity(admin.id, "admin", "set_role", userId, { role })
+  await logActivity(admin.id, admin.role, "set_role", userId, { previousRole: target.role, role })
   revalidatePath("/admin/users")
 }
 
 export async function setUserBanned(userId: string, banned: boolean) {
   const admin = await requireAdmin()
+  if (!userId || typeof userId !== "string" || !userId.trim()) {
+    throw new Error("Invalid user ID")
+  }
   if (userId === admin.id) throw new Error("You cannot ban yourself")
-  await db.update(user).set({ banned, updatedAt: new Date() }).where(eq(user.id, userId))
-  await logActivity(admin.id, "admin", banned ? "ban_user" : "unban_user", userId)
+
+  const [target] = await db
+    .select({ id: user.id, role: user.role, isTrashed: user.isTrashed })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+
+  if (!target || target.isTrashed) {
+    throw new Error("User not found")
+  }
+
+  if (isOwnerRole(target.role) && !isOwnerRole(admin.role)) {
+    throw new Error("Only an Owner can modify an Owner account.")
+  }
+
+  const nextBanned = Boolean(banned)
+  await db.update(user).set({ banned: nextBanned, updatedAt: new Date() }).where(eq(user.id, userId))
+
+  // Immediately revoke active login sessions when banning an account
+  if (nextBanned) {
+    await db.delete(sessionTable).where(eq(sessionTable.userId, userId)).catch(() => {})
+  }
+
+  await logActivity(admin.id, admin.role, nextBanned ? "ban_user" : "unban_user", userId)
   revalidatePath("/admin/users")
 }
 
@@ -1160,6 +1230,20 @@ export async function setUserEmailVerified(
       return { ok: false, error: "You cannot unverify your own active admin account." }
     }
 
+    const [target] = await db
+      .select({ id: user.id, role: user.role, isTrashed: user.isTrashed })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+
+    if (!target || target.isTrashed) {
+      return { ok: false, error: "User not found" }
+    }
+
+    if (isOwnerRole(target.role) && !isOwnerRole(admin.role)) {
+      return { ok: false, error: "Only an Owner can modify an Owner account." }
+    }
+
     const updated = await db
       .update(user)
       .set({ emailVerified: Boolean(verified), updatedAt: new Date() })
@@ -1172,7 +1256,7 @@ export async function setUserEmailVerified(
 
     await logActivity(
       admin.id,
-      "admin",
+      admin.role,
       verified ? "verify_user" : "unverify_user",
       userId,
       { emailVerified: Boolean(verified) }

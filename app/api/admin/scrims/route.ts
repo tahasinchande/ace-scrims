@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
+import { isStaffRole } from "@/lib/roles"
 import { getAdminScrims, getAllBookingsByScrim } from "@/lib/queries/admin"
 import { isRoom2Enabled } from "@/lib/queries/scrims"
 
@@ -15,7 +16,7 @@ const NO_STORE_HEADERS = {
 export async function GET() {
   try {
     const user = await getSessionUser().catch(() => null)
-    if (!user || (user.role !== "admin" && user.role !== "moderator") || user.banned) {
+    if (!user || !isStaffRole(user.role) || user.banned) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized: Staff privileges required." },
         { status: 401, headers: NO_STORE_HEADERS }

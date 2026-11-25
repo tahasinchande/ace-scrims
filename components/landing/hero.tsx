@@ -14,9 +14,15 @@ import {
 import { useLanguage } from "@/lib/language"
 import { useViewMode } from "@/lib/view-mode"
 import { BRAND } from "@/lib/brand"
+import { useFirstVisitIntro } from "@/lib/intro-motion"
+import {
+  Reveal,
+  MaskedLineReveal,
+  VisualReveal,
+  RevealStagger,
+  RevealItem,
+} from "@/components/site/reveal"
 import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
-
-const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
 
 export function Hero({
   stats,
@@ -28,33 +34,7 @@ export function Hero({
   const { t } = useLanguage()
   const { mode, setMode } = useViewMode()
   const prefersReducedMotion = useReducedMotion()
-
-  const container = {
-    hidden: { opacity: prefersReducedMotion ? 1 : 0 },
-    show: {
-      opacity: 1,
-      transition: prefersReducedMotion
-        ? { duration: 0 }
-        : {
-            staggerChildren: 0.085,
-            delayChildren: 0.03,
-          },
-    },
-  }
-
-  const itemFadeUp = {
-    hidden: prefersReducedMotion
-      ? { opacity: 1, y: 0, scale: 1 }
-      : { opacity: 0, y: 22, scale: 0.985 },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: prefersReducedMotion
-        ? { duration: 0 }
-        : { duration: 0.62, ease: DEEPCHARTS_EASE },
-    },
-  }
+  const { timing } = useFirstVisitIntro()
 
   const activeScrims = stats.scrimsTonight ?? 0
   const totalSlots = stats.totalTeams ?? 0
@@ -101,14 +81,15 @@ export function Hero({
 
       <div className="relative z-10 mx-auto flex min-h-[86svh] max-w-6xl items-center px-4 py-16 md:px-6 w-full overflow-hidden">
         <div className="w-full max-w-full">
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="flex max-w-4xl flex-col justify-center w-full"
-          >
-            {/* Clean unboxed editorial metadata line + segmented 2D / 3D switch */}
-            <motion.div variants={itemFadeUp} className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-6">
+          <div className="flex max-w-4xl flex-col justify-center w-full">
+            {/* Phase 1: Clean editorial metadata line + segmented 2D / 3D switch */}
+            <Reveal
+              immediate
+              delay={timing.heroBaseDelay}
+              y={14}
+              duration={timing.heroDuration * 0.85}
+              className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-6"
+            >
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-[13px] font-medium text-slate-200/90 tabular-nums">
                 <span className="font-semibold text-white">
                   {activeScrims > 0
@@ -158,44 +139,64 @@ export function Hero({
                   3D Cyber
                 </button>
               </div>
-            </motion.div>
+            </Reveal>
 
-            {/* Primary H1: Oversized, unmistakable RushX ORGANIZATION brand centerpiece */}
-            <motion.h1
-              variants={itemFadeUp}
-              className="font-display font-black leading-none tracking-tight"
+            {/* Phase 2: Primary H1 — Oversized RushX ORGANIZATION brand centerpiece with editorial scale settle */}
+            <VisualReveal
+              immediate
+              delay={timing.visualDelay}
+              duration={timing.visualDuration}
+              y={18}
+              initialScale={1.032}
             >
-              <span className="sr-only">{t("hero_title", BRAND.name)}</span>
-              <span className="relative block w-full max-w-[440px] sm:max-w-[680px] md:max-w-[820px] lg:max-w-[880px] -ml-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={BRAND.assets.fullWordmark}
-                  alt={BRAND.name}
-                  className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none"
-                />
-              </span>
-            </motion.h1>
+              <h1 className="font-display font-black leading-none tracking-tight">
+                <span className="sr-only">{t("hero_title", BRAND.name)}</span>
+                <span className="relative block w-full max-w-[440px] sm:max-w-[680px] md:max-w-[820px] lg:max-w-[880px] -ml-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={BRAND.assets.fullWordmark}
+                    alt={BRAND.name}
+                    className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none"
+                  />
+                </span>
+              </h1>
+            </VisualReveal>
 
-            {/* Subheadline H2: Scaled intentionally below H1 so RUSHX ORGANIZATION commands top visual hierarchy */}
-            <motion.h2
-              variants={itemFadeUp}
-              className="mt-3 font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]"
+            {/* Phase 3: Masked typography slide-up on Subheadline H2 */}
+            <MaskedLineReveal
+              immediate
+              delay={timing.heroBaseDelay + timing.heroStagger * 2}
+              duration={timing.heroDuration}
+              className="mt-3"
             >
-              {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
-            </motion.h2>
+              <h2 className="font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]">
+                {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
+              </h2>
+            </MaskedLineReveal>
 
-            <motion.p
-              variants={itemFadeUp}
-              className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg"
+            {/* Phase 4: Body copy */}
+            <Reveal
+              immediate
+              delay={timing.heroBaseDelay + timing.heroStagger * 3}
+              y={14}
+              duration={timing.heroDuration * 0.9}
             >
-              {t(
-                "hero_subtitle",
-                "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pools. Your squad vs the best."
-              )}
-            </motion.p>
+              <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg">
+                {t(
+                  "hero_subtitle",
+                  "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pools. Your squad vs the best."
+                )}
+              </p>
+            </Reveal>
 
-            {/* Action Buttons */}
-            <motion.div variants={itemFadeUp} className="mt-8 flex flex-wrap items-center gap-4">
+            {/* Phase 5: Action Buttons */}
+            <Reveal
+              immediate
+              delay={timing.heroBaseDelay + timing.heroStagger * 4}
+              y={14}
+              duration={timing.heroDuration * 0.88}
+              className="mt-8 flex flex-wrap items-center gap-4"
+            >
               <Button
                 asChild
                 size="lg"
@@ -231,41 +232,48 @@ export function Hero({
                   {mode === "2d" ? "2D Dynamic Ambient" : "3D Cyber Experience"}
                 </strong>
               </span>
-            </motion.div>
+            </Reveal>
 
-            {/* Live Admin-Synced Stats Strip */}
-            <motion.dl variants={itemFadeUp} className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4">
-              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Zap className="size-3.5 text-accent" aria-hidden />
-                  {t("scrims_tonight", "Active Lobbies")}
-                </dt>
-                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
-                  {activeScrims > 0 ? activeScrims : "Live"}
-                </dd>
-              </div>
+            {/* Phase 6: Staggered Live Admin-Synced Stats Strip */}
+            <RevealStagger
+              immediate
+              delay={timing.heroBaseDelay + timing.heroStagger * 4.8}
+              stagger={0.075}
+              className="mt-10 max-w-xl"
+            >
+              <dl className="grid grid-cols-3 gap-3 sm:gap-4">
+                <RevealItem y={16} className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+                  <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                    <Zap className="size-3.5 text-accent" aria-hidden />
+                    {t("scrims_tonight", "Active Lobbies")}
+                  </dt>
+                  <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
+                    {activeScrims > 0 ? activeScrims : "Live"}
+                  </dd>
+                </RevealItem>
 
-              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Users className="size-3.5 text-accent" aria-hidden />
-                  {t("team_slots", "Team Slots")}
-                </dt>
-                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
-                  {totalSlots > 0 ? totalSlots : "Open"}
-                </dd>
-              </div>
+                <RevealItem y={16} className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+                  <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                    <Users className="size-3.5 text-accent" aria-hidden />
+                    {t("team_slots", "Team Slots")}
+                  </dt>
+                  <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
+                    {totalSlots > 0 ? totalSlots : "Open"}
+                  </dd>
+                </RevealItem>
 
-              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Trophy className="size-3.5 text-accent" aria-hidden />
-                  {showcase?.timeWindow ? "Schedule" : t("scrim_format", "Format")}
-                </dt>
-                <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
-                  {formatLine}
-                </dd>
-              </div>
-            </motion.dl>
-          </motion.div>
+                <RevealItem y={16} className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+                  <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                    <Trophy className="size-3.5 text-accent" aria-hidden />
+                    {showcase?.timeWindow ? "Schedule" : t("scrim_format", "Format")}
+                  </dt>
+                  <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
+                    {formatLine}
+                  </dd>
+                </RevealItem>
+              </dl>
+            </RevealStagger>
+          </div>
         </div>
       </div>
     </section>

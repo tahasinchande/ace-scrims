@@ -16,7 +16,7 @@ export default async function AdminUsersPage() {
           Manage registered user accounts, ban states, permissions, and administrative roles.
         </p>
       </div>
-      <AdminUserList users={users} currentUserId={admin.id} />
+      <AdminUserList users={users} currentUserId={admin.id} currentUserRole={admin.role} />
     </div>
   )
 }

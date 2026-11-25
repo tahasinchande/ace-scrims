@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionUser, logActivity } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { db } from "@/lib/db"
 import { notHostedTeams, bookings, payments } from "@/lib/db/schema"
 import { eq, or } from "drizzle-orm"
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (user.banned || user.role !== "admin") {
+    if (user.banned || !isAdminOrOwner(user.role)) {
       return NextResponse.json(
         { ok: false, error: "Forbidden: Admin privileges required." },
         { status: 403 }

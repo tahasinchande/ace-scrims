@@ -1,6 +1,6 @@
 import "server-only"
 
-import { GoogleGenAI, Type } from "@google/genai"
+import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai"
 import { db, ensureSchemaReady } from "@/lib/db"
 import { notices, results, tutorials } from "@/lib/db/schema"
 import { desc, eq } from "drizzle-orm"
@@ -10,6 +10,25 @@ import { getPublicSiteSettings } from "@/lib/queries/settings"
 
 const MODEL_ID = "gemini-4-hydrogen"
 const FALLBACK_MODEL_ID = "gemini-3.1-flash-lite"
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = (process.env.GEMINI_API_KEY || "").trim()
@@ -40,31 +59,43 @@ function isTransientGeminiError(err: unknown): boolean {
 async function generateWithRetry(
   ai: GoogleGenAI,
   params: Omit<Parameters<GoogleGenAI["models"]["generateContent"]>[0], "model">,
+  options?: {
+    models?: string[]
+    timeoutMs?: number
+    useLowThinkingOnPrimary?: boolean
+  },
 ) {
-  const attempts: Array<{ model: string; delayMs: number }> = [
-    { model: MODEL_ID, delayMs: 0 },
-    { model: MODEL_ID, delayMs: 450 },
-    { model: FALLBACK_MODEL_ID, delayMs: 0 },
-  ]
+  const modelList = options?.models ?? [MODEL_ID, FALLBACK_MODEL_ID]
+  const timeoutMs = options?.timeoutMs ?? 7000
 
   let lastErr: unknown
-  for (let i = 0; i < attempts.length; i++) {
-    const attempt = attempts[i]
-    if (attempt.delayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, attempt.delayMs))
-    }
+  for (let i = 0; i < modelList.length; i++) {
+    const model = modelList[i]
+    const nextConfig =
+      options?.useLowThinkingOnPrimary && model === MODEL_ID
+        ? {
+            ...(params.config ?? {}),
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          }
+        : params.config
+
     try {
-      return await ai.models.generateContent({
-        ...params,
-        model: attempt.model,
-      })
+      return await withTimeout(
+        ai.models.generateContent({
+          ...params,
+          config: nextConfig,
+          model,
+        }),
+        timeoutMs,
+        `Gemini ${model}`,
+      )
     } catch (err) {
       lastErr = err
-      const shouldContinue = i < attempts.length - 1 && (isTransientGeminiError(err) || attempt.model !== FALLBACK_MODEL_ID)
+      const shouldContinue = i < modelList.length - 1 && (isTransientGeminiError(err) || model !== FALLBACK_MODEL_ID)
       if (!shouldContinue) {
         throw err
       }
-      console.warn(`[AI Support] Gemini attempt ${i + 1} (${attempt.model}) failed, falling back:`, err instanceof Error ? err.message : err)
+      console.warn(`[AI Support] Gemini attempt ${i + 1} (${model}) failed, falling back:`, err instanceof Error ? err.message : err)
     }
   }
   throw lastErr
@@ -141,40 +172,48 @@ export async function moderateUserMessage(messageText: string): Promise<Moderati
   }
 
   try {
-    const response = await generateWithRetry(ai, {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Analyze this player live-support chat message for severe safety violations.
+    const response = await generateWithRetry(
+      ai,
+      {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `Analyze this player live-support chat message for severe safety violations.
 Flag ONLY if the message genuinely contains:
 1. Severe abusive language, profanity directed at staff/players, hate speech, threats, or slurs (English, Bengali, or Banglish).
 2. Explicit 18+/NSFW sexual content or solicitation.
 Do NOT flag normal esports frustration, payment complaints, bug reports, "hacker", "kill", "booyah", or polite questions.
 
 Message: """${text}"""`,
-            },
-          ],
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            isAbusive: { type: Type.BOOLEAN },
-            isNsfw: { type: Type.BOOLEAN },
-            category: { type: Type.STRING },
-            confidence: { type: Type.INTEGER },
-            reason: { type: Type.STRING },
+              },
+            ],
           },
-          required: ["isAbusive", "isNsfw", "category", "confidence", "reason"],
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              isAbusive: { type: Type.BOOLEAN },
+              isNsfw: { type: Type.BOOLEAN },
+              category: { type: Type.STRING },
+              confidence: { type: Type.INTEGER },
+              reason: { type: Type.STRING },
+            },
+            required: ["isAbusive", "isNsfw", "category", "confidence", "reason"],
+          },
         },
       },
-    })
+      {
+        // Fast flash-lite classifier with strict timeout so moderation never stalls message sending
+        models: [FALLBACK_MODEL_ID],
+        timeoutMs: 3500,
+      },
+    )
 
-    const raw = response.text?.trim() || "{}"
+    const raw = (response.text?.trim() || "{}").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
     const parsed = JSON.parse(raw) as {
       isAbusive?: boolean
       isNsfw?: boolean
@@ -229,7 +268,8 @@ export async function buildPublicPlatformContext(): Promise<string> {
     await ensureSchemaReady()
 
     const [activeScrims, recentResults, activeNotices, recentTutorials, payoutList, siteSettings] =
-      await Promise.all([
+      await withTimeout(
+        Promise.all([
         getActiveScrims().catch(() => []),
         db
           .select({
@@ -268,7 +308,10 @@ export async function buildPublicPlatformContext(): Promise<string> {
           .catch(() => []),
         getActivePayoutMethods().catch(() => []),
         getPublicSiteSettings().catch(() => null),
-      ])
+      ]),
+        2500,
+        "Public platform context",
+      )
 
     const activeDate = getBangladeshActiveDate()
     const scrimLines = activeScrims.slice(0, 20).map((s) => {
@@ -330,13 +373,15 @@ export async function generateAiSupportReply(params: {
       .map((h) => `${h.senderRole === "user" ? params.userName || "Player" : h.senderName}: ${h.message}`)
       .join("\n")
 
-    const response = await generateWithRetry(ai, {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `You are RushX AI Support, the official virtual assistant for RushX Organization (www.acescrims.online), a competitive Free Fire esports scrims platform in Bangladesh.
+    const response = await generateWithRetry(
+      ai,
+      {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `You are RushX AI Support, the official virtual assistant for RushX Organization (www.acescrims.online), a competitive Free Fire esports scrims platform in Bangladesh.
 
 STRICT PRIVACY & ACCURACY RULES:
 1. ONLY use the PUBLIC platform information below or general platform navigation guidance (/scrims, /results, /notices, /tutorials, /report, /dashboard, /dashboard/wallet, /dashboard/info-setup).
@@ -351,11 +396,17 @@ ${recentHistory || "(New conversation)"}
 
 PLAYER'S NEW MESSAGE:
 ${params.message}`,
-            },
-          ],
-        },
-      ],
-    })
+              },
+            ],
+          },
+        ],
+      },
+      {
+        models: [MODEL_ID, FALLBACK_MODEL_ID],
+        timeoutMs: 7500,
+        useLowThinkingOnPrimary: true,
+      },
+    )
 
     const reply = response.text?.trim()
     if (!reply) {

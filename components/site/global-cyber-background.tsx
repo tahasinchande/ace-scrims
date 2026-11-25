@@ -1,20 +1,173 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 import { useViewMode } from "@/lib/view-mode"
 import {
   applyAmbientThemeToRoot,
   getAmbientPhaseAt,
+  STAGE_BASE_NORM,
 } from "@/lib/ambient-theme"
 
+const VOLUMETRIC_2D_VS = `
+  attribute vec2 aPos;
+  varying vec2 vUv;
+  void main() {
+    vUv = aPos * 0.5 + 0.5;
+    gl_Position = vec4(aPos, 0.0, 1.0);
+  }
+`
+
+/**
+ * Volumetric 2D Atmospheric Fragment Shader
+ * - Grounded directly in RandomQbit's upper-hero color-field composition (FS_BG: bgA/bgB/uGlow)
+ *   without any brain, orb, or sphere graphic.
+ * - Adds multi-layer drifting domain-warped organic light fields & depth parallax so 2D mode
+ *   feels genuinely volumetric and dimensional, with subtle blue-noise dithering for zero banding.
+ */
+const VOLUMETRIC_2D_FS = `
+  precision highp float;
+
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform vec2 uRes;
+  uniform vec2 uPointer;
+  uniform float uScroll;
+  uniform vec3 uBgA;
+  uniform vec3 uBgB;
+  uniform vec3 uGlow;
+  uniform vec3 uC1;
+  uniform vec3 uC2;
+  uniform vec3 uC3;
+
+  float hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+
+  float noise2D(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash12(i + vec2(0.0, 0.0)), hash12(i + vec2(1.0, 0.0)), u.x),
+      mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+    for (int i = 0; i < 4; i++) {
+      v += a * noise2D(p);
+      p = rot * p * 2.02 + vec2(17.1, 31.7);
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    float aspect = uRes.x / max(uRes.y, 1.0);
+    vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+
+    // Subtle pointer + scroll atmospheric parallax
+    vec2 drift = vec2(uPointer.x * 0.06, uPointer.y * 0.045 - uScroll * 0.08);
+    float t = uTime * 0.12;
+
+    // 1. RandomQbit upper-stage base washes (bgA + top-left bgB + upper-right & upper-center uGlow)
+    vec3 col = uBgA;
+    float g1 = clamp(1.0 - length((uv - vec2(0.02, 1.0) - drift * 0.35) * vec2(0.95, 1.22)), 0.0, 1.0);
+    col = mix(col, uBgB * 1.45, smoothstep(0.0, 1.0, g1) * 0.92);
+
+    float g2 = clamp(1.0 - length((uv - vec2(0.98, 0.74) + drift * 0.4) * vec2(1.32, 0.96)), 0.0, 1.0);
+    col += uGlow * 0.65 * pow(g2, 1.65);
+
+    vec2 centerBloomPos = vec2(0.5 + sin(t * 0.85) * 0.07, 0.72 + cos(t * 0.65) * 0.04) + drift * 0.55;
+    float dCenter = length((uv - centerBloomPos) * vec2(aspect * 0.62, 1.1));
+    col += uGlow * 0.85 * exp(-dCenter * dCenter * 1.35);
+
+    // 2. Volumetric multi-depth domain-warped light fields (overlapping, organically blended)
+    vec2 q = vec2(
+      fbm(p * 1.35 + vec2(t * 0.55, -t * 0.35)),
+      fbm(p * 1.35 + vec2(-t * 0.42 + 4.3, t * 0.51 + 1.9))
+    );
+    float veilA = fbm(p * 1.45 + 1.55 * q + vec2(t * 0.25, -t * 0.18));
+    float veilB = fbm(p * 2.1 - 1.25 * q + vec2(-t * 0.32, t * 0.22));
+
+    // Soft overlapping radial light volumes at staggered depths
+    vec2 field1Center = vec2(
+      0.24 + sin(t * 0.95) * 0.11,
+      0.76 + cos(t * 0.72) * 0.08
+    ) + drift * 0.5;
+    float f1 = exp(-pow(length((uv - field1Center) * vec2(aspect * 0.68, 1.05)), 2.0) * 1.85);
+
+    vec2 field2Center = vec2(
+      0.78 + cos(t * 0.82) * 0.10,
+      0.66 + sin(t * 0.68) * 0.09
+    ) - drift * 0.45;
+    float f2 = exp(-pow(length((uv - field2Center) * vec2(aspect * 0.72, 1.08)), 2.0) * 2.15);
+
+    vec2 field3Center = vec2(
+      0.52 + sin(t * 0.60 + 2.1) * 0.14,
+      0.24 + cos(t * 0.54 + 1.4) * 0.08
+    ) + drift * 0.3;
+    float f3 = exp(-pow(length((uv - field3Center) * vec2(aspect * 0.56, 1.15)), 2.0) * 1.65);
+
+    // Volumetric blending: rich depth without washing out foreground readability
+    col += uC1 * (f1 * (0.24 + veilA * 0.22));
+    col += uC2 * (f2 * (0.20 + veilB * 0.20));
+    col += mix(uBgB, uC1, 0.42) * (f3 * (0.24 + veilA * 0.14));
+
+    // Soft specular caustic ribbon high in the atmosphere (pure light field, no hard shapes)
+    float caustic = smoothstep(0.46, 0.88, veilA * 0.6 + veilB * 0.4) * (f1 * 0.55 + f2 * 0.55);
+    col += mix(uC2, uC3, 0.42) * caustic * 0.16;
+
+    // Gentle vertical atmospheric depth gradient so hero pops & lower content remains calm and legible
+    float upperLift = smoothstep(0.0, 0.92, uv.y);
+    col *= mix(0.76, 1.06, upperLift);
+
+    // Subtle cinematic edge vignette
+    float vig = smoothstep(1.38, 0.28, length((uv - 0.5) * vec2(aspect * 0.78, 1.02)));
+    col *= mix(0.58, 1.0, vig);
+
+    // Subtle filmic tone curve to prevent harsh clipping
+    col = col / (1.0 + col * 0.38);
+
+    // Procedural hash dithering to eliminate 8-bit gradient banding
+    float dither = (hash12(gl_FragCoord.xy + fract(uTime * 13.7)) - 0.5) / 255.0;
+    col = clamp(col + dither, 0.0, 1.0);
+
+    gl_FragColor = vec4(col, 1.0);
+  }
+`
+
+function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
+  const shader = gl.createShader(type)
+  if (!shader) return null
+  gl.shaderSource(shader, source)
+  gl.compileShader(shader)
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader)
+    return null
+  }
+  return shader
+}
+
 export function GlobalCyberBackground() {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const threeContainerRef = useRef<HTMLDivElement>(null)
+  const volumetric2DCanvasRef = useRef<HTMLCanvasElement>(null)
   const sharedStartMsRef = useRef<number | null>(null)
   const { mode } = useViewMode()
+  const [webgl2DReady, setWebgl2DReady] = useState(false)
+  const [webgl3DFallback, setWebgl3DFallback] = useState(false)
 
-  // Synchronized RandomQbit-inspired continuous color-shifting engine across BOTH 2D & 3D modes.
-  // Starts on Electric Cobalt Blue, holds for 2.2s, smoothstep-fades over 3.0s through Teal -> Gold -> Rose -> Violet.
+  // Synchronized RandomQbit continuous color-shifting engine across BOTH 2D & 3D modes.
+  // Anchored on RushX Electric Blue (#1F73FF / #40B8FF), holds 2.2s, smoothstep-fades 3.0s
+  // through Teal -> Solar Gold -> Neon Rose -> Electric Violet -> Electric Blue.
   useEffect(() => {
     const prefersReducedMotion =
       typeof window !== "undefined" &&
@@ -51,10 +204,213 @@ export function GlobalCyberBackground() {
     }
   }, [])
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 2D MODE: VOLUMETRIC WEBGL COLOR-FIELD ATMOSPHERE (with CSS fallback)
+  // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mode !== "3d") return
+    if (mode === "3d") {
+      setWebgl2DReady(false)
+      return
+    }
 
-    const container = containerRef.current
+    const canvas = volumetric2DCanvasRef.current
+    if (!canvas) return
+
+    let gl: WebGLRenderingContext | null = null
+    try {
+      gl = canvas.getContext("webgl", {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        powerPreference: "high-performance",
+        preserveDrawingBuffer: false,
+      })
+    } catch {
+      gl = null
+    }
+
+    if (!gl) {
+      setWebgl2DReady(false)
+      return
+    }
+
+    const vs = compileShader(gl, gl.VERTEX_SHADER, VOLUMETRIC_2D_VS)
+    const fs = compileShader(gl, gl.FRAGMENT_SHADER, VOLUMETRIC_2D_FS)
+    if (!vs || !fs) {
+      if (vs) gl.deleteShader(vs)
+      if (fs) gl.deleteShader(fs)
+      setWebgl2DReady(false)
+      return
+    }
+
+    const program = gl.createProgram()
+    if (!program) {
+      gl.deleteShader(vs)
+      gl.deleteShader(fs)
+      setWebgl2DReady(false)
+      return
+    }
+
+    gl.attachShader(program, vs)
+    gl.attachShader(program, fs)
+    gl.linkProgram(program)
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      gl.deleteProgram(program)
+      gl.deleteShader(vs)
+      gl.deleteShader(fs)
+      setWebgl2DReady(false)
+      return
+    }
+
+    gl.useProgram(program)
+
+    // Fullscreen quad (2 triangles)
+    const buffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW
+    )
+
+    const aPos = gl.getAttribLocation(program, "aPos")
+    gl.enableVertexAttribArray(aPos)
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
+
+    const uTime = gl.getUniformLocation(program, "uTime")
+    const uRes = gl.getUniformLocation(program, "uRes")
+    const uPointer = gl.getUniformLocation(program, "uPointer")
+    const uScroll = gl.getUniformLocation(program, "uScroll")
+    const uBgA = gl.getUniformLocation(program, "uBgA")
+    const uBgB = gl.getUniformLocation(program, "uBgB")
+    const uGlow = gl.getUniformLocation(program, "uGlow")
+    const uC1 = gl.getUniformLocation(program, "uC1")
+    const uC2 = gl.getUniformLocation(program, "uC2")
+    const uC3 = gl.getUniformLocation(program, "uC3")
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    let targetPtrX = 0
+    let targetPtrY = 0
+    let smoothPtrX = 0
+    let smoothPtrY = 0
+    let scrollRatio = 0
+    let contextLost = false
+
+    const resize = () => {
+      if (!gl || contextLost) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr))
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr))
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w
+        canvas.height = h
+      }
+      gl.viewport(0, 0, w, h)
+    }
+
+    const onPointerMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : e.clientX
+      const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : e.clientY
+      targetPtrX = (clientX / Math.max(window.innerWidth, 1)) * 2 - 1
+      targetPtrY = -((clientY / Math.max(window.innerHeight, 1)) * 2 - 1)
+    }
+
+    const onScroll = () => {
+      const docHeight = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        window.innerHeight * 2
+      ) - window.innerHeight
+      const y = window.scrollY || document.documentElement.scrollTop || 0
+      scrollRatio = Math.max(0, Math.min(1, y / Math.max(docHeight, 1)))
+    }
+
+    const onContextLost = (e: Event) => {
+      e.preventDefault()
+      contextLost = true
+      setWebgl2DReady(false)
+    }
+
+    resize()
+    window.addEventListener("resize", resize, { passive: true })
+    window.addEventListener("mousemove", onPointerMove, { passive: true })
+    window.addEventListener("touchmove", onPointerMove, { passive: true })
+    window.addEventListener("scroll", onScroll, { passive: true })
+    canvas.addEventListener("webglcontextlost", onContextLost)
+
+    const drawFrame = (elapsedSec: number) => {
+      if (!gl || contextLost) return
+      const phase = getAmbientPhaseAt(prefersReducedMotion ? 0 : elapsedSec)
+      smoothPtrX += (targetPtrX - smoothPtrX) * 0.04
+      smoothPtrY += (targetPtrY - smoothPtrY) * 0.04
+
+      gl.uniform1f(uTime, prefersReducedMotion ? 0 : elapsedSec)
+      gl.uniform2f(uRes, canvas.width, canvas.height)
+      gl.uniform2f(uPointer, smoothPtrX, smoothPtrY)
+      gl.uniform1f(uScroll, scrollRatio)
+      gl.uniform3f(uBgA, STAGE_BASE_NORM[0], STAGE_BASE_NORM[1], STAGE_BASE_NORM[2])
+      gl.uniform3f(uBgB, phase.bgB[0], phase.bgB[1], phase.bgB[2])
+      gl.uniform3f(uGlow, phase.glow[0], phase.glow[1], phase.glow[2])
+      gl.uniform3f(uC1, phase.c1[0], phase.c1[1], phase.c1[2])
+      gl.uniform3f(uC2, phase.c2[0], phase.c2[1], phase.c2[2])
+      gl.uniform3f(uC3, phase.c3[0], phase.c3[1], phase.c3[2])
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+    }
+
+    // Paint initial frame synchronously on Electric Blue entrance
+    const initStart = sharedStartMsRef.current ?? performance.now()
+    drawFrame((performance.now() - initStart) / 1000)
+    setWebgl2DReady(true)
+
+    let rafId = 0
+    const loop = () => {
+      rafId = window.requestAnimationFrame(loop)
+      if (document.hidden || contextLost) return
+      const startMs = sharedStartMsRef.current ?? performance.now()
+      drawFrame((performance.now() - startMs) / 1000)
+    }
+
+    if (!prefersReducedMotion) {
+      rafId = window.requestAnimationFrame(loop)
+    }
+
+    return () => {
+      window.cancelAnimationFrame(rafId)
+      window.removeEventListener("resize", resize)
+      window.removeEventListener("mousemove", onPointerMove)
+      window.removeEventListener("touchmove", onPointerMove)
+      window.removeEventListener("scroll", onScroll)
+      canvas.removeEventListener("webglcontextlost", onContextLost)
+      if (gl && !contextLost) {
+        try {
+          if (buffer) gl.deleteBuffer(buffer)
+          gl.deleteProgram(program)
+          gl.deleteShader(vs)
+          gl.deleteShader(fs)
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+    }
+  }, [mode])
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 3D MODE: PRESERVED ISOMETRIC MONOLITH & CYBER TOWER ARCHITECTURE
+  // Upgraded with Dynamic Blue-Anchored RandomQbit Multi-Color Lighting & Shaders
+  // ─────────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (mode !== "3d") {
+      setWebgl3DFallback(false)
+      return
+    }
+
+    const container = threeContainerRef.current
     if (!container) return
 
     let width = window.innerWidth
@@ -67,33 +423,52 @@ export function GlobalCyberBackground() {
       return resource
     }
 
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({
+        powerPreference: "high-performance",
+        antialias: true,
+        alpha: true,
+        stencil: false,
+        depth: true,
+      })
+    } catch {
+      setWebgl3DFallback(true)
+      return
+    }
+
+    setWebgl3DFallback(false)
+
+    // Start immediately on the shared clock's current phase (Electric Blue at t=0)
+    const initialElapsed =
+      sharedStartMsRef.current !== null
+        ? Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
+        : 0
+    const initPhase = getAmbientPhaseAt(initialElapsed)
+
     // ─────────────────────────────────────────────────────────────────────────
     // 1. THREE.JS SCENE & RENDERER SETUP (DPR Capped & High Performance)
     // ─────────────────────────────────────────────────────────────────────────
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x020306)
-    scene.fog = new THREE.FogExp2(0x020306, 0.012)
+    const stageColor = new THREE.Color(
+      STAGE_BASE_NORM[0] + initPhase.bgB[0] * 0.25,
+      STAGE_BASE_NORM[1] + initPhase.bgB[1] * 0.25,
+      STAGE_BASE_NORM[2] + initPhase.bgB[2] * 0.25
+    )
+    scene.background = stageColor.clone()
+    const fog = new THREE.FogExp2(stageColor.getHex(), 0.0115)
+    scene.fog = fog
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 500)
     camera.position.set(16, 18, 28)
     camera.lookAt(0, 1.5, 0)
 
-    const renderer = new THREE.WebGLRenderer({
-      powerPreference: "high-performance",
-      antialias: true,
-      alpha: true,
-      stencil: false,
-      depth: true,
-    })
-
-    // WebGL Optimization: Limit Pixel Ratio to 1.5 max to avoid GPU fillrate bottleneck on high-DPI displays
     const maxDPR = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 1.5)
     renderer.setPixelRatio(maxDPR)
     renderer.setSize(width, height)
+    renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.45
-
-    // Disable shadows to save dynamic shadow map draw calls
+    renderer.toneMappingExposure = 1.42
     renderer.shadowMap.enabled = false
 
     renderer.domElement.style.position = "absolute"
@@ -106,41 +481,46 @@ export function GlobalCyberBackground() {
 
     container.replaceChildren(renderer.domElement)
 
+    let contextLost = false
+    const onWebglContextLost = (e: Event) => {
+      e.preventDefault()
+      contextLost = true
+      setWebgl3DFallback(true)
+    }
+    renderer.domElement.addEventListener("webglcontextlost", onWebglContextLost)
+
     // ─────────────────────────────────────────────────────────────────────────
-    // 2. ILLUMINATION & OPTIMIZED LIGHTING
+    // 2. DYNAMIC MULTI-COLOR ILLUMINATION (Starts Electric Blue, Shifts Harmoniously)
     // ─────────────────────────────────────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0x0d131f, 3.8)
+    const ambientLight = new THREE.AmbientLight(0x0c1b36, 3.6)
     scene.add(ambientLight)
 
-    // Key cyber orange directional light
-    const dirKey = new THREE.DirectionalLight(0xff6a00, 3.2)
+    const dirKey = new THREE.DirectionalLight(0x1f73ff, 3.1)
     dirKey.position.set(24, 35, 18)
     scene.add(dirKey)
 
-    // Fill cyan-blue deep shadow light
-    const dirFill = new THREE.DirectionalLight(0x1a2e4c, 2.2)
+    const dirFill = new THREE.DirectionalLight(0x0d2b5c, 2.3)
     dirFill.position.set(-28, 25, -20)
     scene.add(dirFill)
 
-    // Glowing Core Point Lights (Optimized distance & decay)
-    const coreLight1 = new THREE.PointLight(0xff4500, 8.0, 50, 1.5)
+    const coreLight1 = new THREE.PointLight(0x1f73ff, 8.2, 52, 1.5)
     coreLight1.position.set(0, 4.5, 0)
     scene.add(coreLight1)
 
-    const coreLight2 = new THREE.PointLight(0xff9900, 5.5, 40, 1.5)
+    const coreLight2 = new THREE.PointLight(0x40b8ff, 5.6, 42, 1.5)
     coreLight2.position.set(16, 3.5, -12)
     scene.add(coreLight2)
 
-    const coreLight3 = new THREE.PointLight(0xff3700, 5.0, 40, 1.5)
+    const coreLight3 = new THREE.PointLight(0x1f73ff, 5.1, 42, 1.5)
     coreLight3.position.set(-16, 3.5, 10)
     scene.add(coreLight3)
 
-    const coreLight4 = new THREE.PointLight(0xffaa00, 4.5, 35, 1.5)
+    const coreLight4 = new THREE.PointLight(0x40b8ff, 4.6, 36, 1.5)
     coreLight4.position.set(-12, 3.0, -18)
     scene.add(coreLight4)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3. EXPANSIVE ISOMETRIC MONOLITH TERRAIN (InstancedMesh)
+    // 3. EXPANSIVE ISOMETRIC MONOLITH TERRAIN (Preserved 48x48 InstancedMesh)
     // ─────────────────────────────────────────────────────────────────────────
     const gridSize = 48 // 48 x 48 = 2,304 monoliths
     const count = gridSize * gridSize
@@ -149,7 +529,7 @@ export function GlobalCyberBackground() {
 
     const blockMat = trackDisposable(
       new THREE.MeshStandardMaterial({
-        color: 0x0f1520,
+        color: 0x0e1626,
         roughness: 0.18,
         metalness: 0.88,
       })
@@ -174,7 +554,6 @@ export function GlobalCyberBackground() {
         const isTertiaryCore = Math.sqrt((posX + 14) ** 2 + (posZ - 8) ** 2) < 3.8
         const isCrevice = Math.random() < 0.13
 
-        // Procedural cyber landscape wave calculation
         let h = 0.22
         if (isCoreArea) {
           h = 2.4 + Math.random() * 4.2
@@ -193,14 +572,13 @@ export function GlobalCyberBackground() {
         dummy.updateMatrix()
         instancedTerrain.setMatrixAt(idx, dummy.matrix)
 
-        // Color & reflectance
         if (isCrevice) {
-          colorDummy.setHex(0x190b05)
+          colorDummy.setHex(0x071126)
         } else if (isCoreArea || isSecondaryCore || isTertiaryCore) {
-          colorDummy.setHex(0x141a24)
+          colorDummy.setHex(0x121d33)
         } else {
           const base = 0.055 + Math.random() * 0.05
-          colorDummy.setRGB(base, base * 1.08, base * 1.28)
+          colorDummy.setRGB(base * 0.92, base * 1.08, base * 1.38)
         }
         instancedTerrain.setColorAt(idx, colorDummy)
         idx++
@@ -212,17 +590,18 @@ export function GlobalCyberBackground() {
     scene.add(instancedTerrain)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 4. INFINITE CYBER CIRCUIT FLOOR GRID MATRIX & INSTANCED NEON PADS
+    // 4. INFINITE CYBER CIRCUIT FLOOR GRID MATRIX & INSTANCED GLOWING PADS
     // ─────────────────────────────────────────────────────────────────────────
-    const gridHelper = new THREE.GridHelper(120, 80, 0x9ca3af, 0x262f42)
+    const gridHelper = new THREE.GridHelper(120, 80, 0x3b82f6, 0x1e2c4a)
     gridHelper.position.y = 0.08
     if (gridHelper.material instanceof THREE.Material) {
+      gridHelper.material.transparent = true
+      gridHelper.material.opacity = 0.42
       trackDisposable(gridHelper.material)
     }
     trackDisposable(gridHelper.geometry)
     scene.add(gridHelper)
 
-    // Glowing Neon Circuit Floor Pads (InstancedMesh: 1 single draw call instead of 64 meshes/materials)
     const tileCount = 64
     const tileGeo = trackDisposable(new THREE.PlaneGeometry(0.92, 0.92))
     tileGeo.rotateX(-Math.PI / 2)
@@ -232,21 +611,18 @@ export function GlobalCyberBackground() {
         color: 0xffffff,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.84,
       })
     )
 
     const instancedFloorTiles = new THREE.InstancedMesh(tileGeo, floorTileMat, tileCount)
     instancedFloorTiles.frustumCulled = true
 
-    // Pre-calculate randomized tile coordinates
-    const tilePositions: Array<{ x: number; z: number }> = []
-    const tileBaseColor = new THREE.Color(0xff6600)
+    const tileBaseColor = new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
 
     for (let i = 0; i < tileCount; i++) {
       const rx = (Math.floor(Math.random() * 44) - 22) * 1.12
       const rz = (Math.floor(Math.random() * 44) - 22) * 1.12
-      tilePositions.push({ x: rx, z: rz })
 
       dummy.position.set(rx, 0.12, rz)
       dummy.scale.set(1, 1, 1)
@@ -261,7 +637,7 @@ export function GlobalCyberBackground() {
     scene.add(instancedFloorTiles)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 5. SHARED CYBER TOWERS & INSTANCED SATELLITE CUBES (Extreme Draw Call Optimization)
+    // 5. PRESERVED CYBER TOWERS & INSTANCED SATELLITE CUBES
     // ─────────────────────────────────────────────────────────────────────────
     const towerConfigs = [
       { x: 0, z: 0, s: 1.0, h: 7.2 },
@@ -274,47 +650,43 @@ export function GlobalCyberBackground() {
     ]
     const towerCount = towerConfigs.length
 
-    // Reusable Unit Box Geometry for Pillars, Slits & Satellites (Cached & Shared)
     const unitBoxGeo = trackDisposable(new THREE.BoxGeometry(1, 1, 1))
 
-    // Reusable Materials (Cached & Shared across all towers)
     const towerNodeMat = trackDisposable(
       new THREE.MeshStandardMaterial({
-        color: 0x06080d,
-        roughness: 0.12,
-        metalness: 0.96,
+        color: 0x060a14,
+        roughness: 0.14,
+        metalness: 0.94,
       })
     )
-    const towerOrangeGlowMat = trackDisposable(new THREE.MeshBasicMaterial({ color: 0xff4400 }))
-    const towerHotGlowMat = trackDisposable(new THREE.MeshBasicMaterial({ color: 0xffa500 }))
+    const towerOuterGlowMat = trackDisposable(
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) })
+    )
+    const towerInnerGlowMat = trackDisposable(
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]) })
+    )
 
-    // Tower Pillars (InstancedMesh: 7 instances = 1 draw call)
     const instancedPillars = new THREE.InstancedMesh(unitBoxGeo, towerNodeMat, towerCount)
     instancedPillars.frustumCulled = true
 
-    // Outer Laser Slits (InstancedMesh: 7 instances = 1 draw call)
-    const instancedOuterSlits = new THREE.InstancedMesh(unitBoxGeo, towerOrangeGlowMat, towerCount)
+    const instancedOuterSlits = new THREE.InstancedMesh(unitBoxGeo, towerOuterGlowMat, towerCount)
     instancedOuterSlits.frustumCulled = true
 
-    // Inner Laser Slits (InstancedMesh: 7 instances = 1 draw call)
-    const instancedInnerSlits = new THREE.InstancedMesh(unitBoxGeo, towerHotGlowMat, towerCount)
+    const instancedInnerSlits = new THREE.InstancedMesh(unitBoxGeo, towerInnerGlowMat, towerCount)
     instancedInnerSlits.frustumCulled = true
 
     towerConfigs.forEach((t, i) => {
-      // Main pillar transform
       dummy.position.set(t.x, (t.h * t.s) / 2, t.z)
       dummy.scale.set(1.5 * t.s, t.h * t.s, 1.5 * t.s)
       dummy.rotation.set(0, 0, 0)
       dummy.updateMatrix()
       instancedPillars.setMatrixAt(i, dummy.matrix)
 
-      // Outer laser slit transform
       dummy.position.set(t.x, (t.h * t.s) / 2, t.z)
       dummy.scale.set(0.38 * t.s, t.h * 0.94 * t.s, 1.56 * t.s)
       dummy.updateMatrix()
       instancedOuterSlits.setMatrixAt(i, dummy.matrix)
 
-      // Inner laser slit transform
       dummy.position.set(t.x, (t.h * t.s) / 2, t.z)
       dummy.scale.set(0.14 * t.s, t.h * 0.94 * t.s, 1.6 * t.s)
       dummy.updateMatrix()
@@ -333,7 +705,7 @@ export function GlobalCyberBackground() {
     scene.add(instancedOuterSlits)
     scene.add(instancedInnerSlits)
 
-    // Satellite Orbiting Data Cubes (InstancedMesh: 42 cubes = 1 single draw call instead of 42 meshes!)
+    // Satellite Orbiting Data Cubes (42 instanced cubes)
     const totalSatelliteCubes = towerCount * 6
     const satelliteMat = trackDisposable(
       new THREE.MeshBasicMaterial({
@@ -341,7 +713,7 @@ export function GlobalCyberBackground() {
       })
     )
     const instancedSatelliteCubes = new THREE.InstancedMesh(unitBoxGeo, satelliteMat, totalSatelliteCubes)
-    instancedSatelliteCubes.frustumCulled = true
+    instancedSatelliteCubes.frustumCulled = false
 
     type SatelliteMeta = {
       towerX: number
@@ -351,16 +723,19 @@ export function GlobalCyberBackground() {
       angle: number
       radius: number
       isGlow: boolean
+      accentMix: number
     }
     const satelliteMeta: SatelliteMeta[] = []
+    const darkSatColor = new THREE.Color(0x070d1c)
 
     let satIdx = 0
-    towerConfigs.forEach((t) => {
+    towerConfigs.forEach((t, tIdx) => {
       for (let i = 0; i < 6; i++) {
         const angle = (i / 6) * Math.PI * 2
         const rad = (1.8 + (i % 2) * 0.5) * t.s
         const isGlow = i % 2 === 0
         const baseY = (t.h * 0.6 + (i % 3) * 0.8) * t.s
+        const accentMix = ((tIdx + i) % 3) * 0.35
 
         satelliteMeta.push({
           towerX: t.x,
@@ -370,9 +745,14 @@ export function GlobalCyberBackground() {
           angle,
           radius: rad,
           isGlow,
+          accentMix,
         })
 
-        colorDummy.setHex(isGlow ? 0xff4400 : 0x06080d)
+        if (isGlow) {
+          colorDummy.setRGB(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
+        } else {
+          colorDummy.copy(darkSatColor)
+        }
         instancedSatelliteCubes.setColorAt(satIdx, colorDummy)
         satIdx++
       }
@@ -382,13 +762,13 @@ export function GlobalCyberBackground() {
     scene.add(instancedSatelliteCubes)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 6. VOLUMETRIC LASER ENERGY WALLS (Optimized Shader Ribbons)
+    // 6. VOLUMETRIC LASER ENERGY WALLS (Dynamic Multi-Color Shader Ribbons)
     // ─────────────────────────────────────────────────────────────────────────
     const wallUniforms = {
       uTime: { value: 0 },
-      uColorDark: { value: new THREE.Color(0xd93800) },
-      uColorMid: { value: new THREE.Color(0xff7700) },
-      uColorCore: { value: new THREE.Color(0xfff0aa) },
+      uColorDark: { value: new THREE.Color(initPhase.glow[0] * 1.4, initPhase.glow[1] * 1.4, initPhase.glow[2] * 1.4) },
+      uColorMid: { value: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) },
+      uColorCore: { value: new THREE.Color(initPhase.c3[0], initPhase.c3[1], initPhase.c3[2]) },
     }
 
     const laserShaderMat = trackDisposable(
@@ -415,15 +795,15 @@ export function GlobalCyberBackground() {
           void main() {
             float fastStreams = sin(vUv.x * 55.0 - uTime * 8.5) * 0.5 + 0.5;
             float pulseWaves = sin(vUv.x * 12.0 - uTime * 3.5) * 0.5 + 0.5;
-            
+
             float beamCore = pow(sin(vUv.y * 3.14159), 2.2);
-            float thinIntense = pow(sin(vUv.y * 3.14159), 8.0) * 2.2;
-            
+            float thinIntense = pow(sin(vUv.y * 3.14159), 8.0) * 1.85;
+
             vec3 col = mix(uColorDark, uColorMid, vUv.y);
-            col = mix(col, uColorCore, thinIntense + fastStreams * 0.35);
-            
-            float alpha = (beamCore * 0.85 + fastStreams * 0.18) * (0.8 + pulseWaves * 0.2);
-            gl_FragColor = vec4(col * 1.8, alpha);
+            col = mix(col, uColorCore, clamp(thinIntense + fastStreams * 0.32, 0.0, 1.0));
+
+            float alpha = (beamCore * 0.78 + fastStreams * 0.16) * (0.8 + pulseWaves * 0.2);
+            gl_FragColor = vec4(col * 1.55, alpha);
           }
         `,
         transparent: true,
@@ -433,7 +813,6 @@ export function GlobalCyberBackground() {
       })
     )
 
-    // Laser wall 1 — Diagonal Main
     const wallGeo1 = trackDisposable(new THREE.PlaneGeometry(48, 6.2, 40, 1))
     wallGeo1.translate(24, 3.1, 0)
     const laserWall1 = new THREE.Mesh(wallGeo1, laserShaderMat)
@@ -441,7 +820,6 @@ export function GlobalCyberBackground() {
     laserWall1.rotation.y = -Math.PI * 0.22
     scene.add(laserWall1)
 
-    // Laser wall 2 — Crossing Midground
     const wallGeo2 = trackDisposable(new THREE.PlaneGeometry(42, 5.0, 36, 1))
     wallGeo2.translate(21, 2.5, 0)
     const laserWall2 = new THREE.Mesh(wallGeo2, laserShaderMat)
@@ -450,7 +828,6 @@ export function GlobalCyberBackground() {
     laserWall2.scale.set(0.85, 0.85, 1)
     scene.add(laserWall2)
 
-    // Laser wall 3 — Background Horizon Beam
     const wallGeo3 = trackDisposable(new THREE.PlaneGeometry(55, 4.5, 46, 1))
     wallGeo3.translate(27.5, 2.25, 0)
     const laserWall3 = new THREE.Mesh(wallGeo3, laserShaderMat)
@@ -459,7 +836,7 @@ export function GlobalCyberBackground() {
     scene.add(laserWall3)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 7. ASCENDING DATA PARTICLES & CYBER EMBERS
+    // 7. ASCENDING DATA PARTICLES & ATMOSPHERIC EMBERS
     // ─────────────────────────────────────────────────────────────────────────
     const particleCount = 700
     const particleGeo = trackDisposable(new THREE.BufferGeometry())
@@ -474,15 +851,15 @@ export function GlobalCyberBackground() {
 
     const particleMat = trackDisposable(
       new THREE.PointsMaterial({
-        color: 0xffb74d,
+        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
         size: 0.18,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.88,
         blending: THREE.AdditiveBlending,
       })
     )
     const particles = new THREE.Points(particleGeo, particleMat)
-    particles.frustumCulled = true
+    particles.frustumCulled = false
     scene.add(particles)
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -531,10 +908,10 @@ export function GlobalCyberBackground() {
     document.addEventListener("visibilitychange", onVisibilityChange)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 10. OPTIMIZED ANIMATION RENDERING LOOP
+    // 10. ANIMATION LOOP WITH SYNCHRONIZED BLUE-ANCHORED DYNAMIC COLOR SHIFTING
     // ─────────────────────────────────────────────────────────────────────────
     const clock = new THREE.Clock()
-    let frameId: number
+    let frameId = 0
 
     const baseCamX = 16
     const baseCamY = 18
@@ -543,32 +920,81 @@ export function GlobalCyberBackground() {
     const rotationEuler = new THREE.Euler()
     const rotQuat = new THREE.Quaternion()
     const cubeScaleVec = new THREE.Vector3()
+    const c1Color = new THREE.Color()
+    const c2Color = new THREE.Color()
+    const c3Color = new THREE.Color()
+    const bgTintColor = new THREE.Color()
+    const fillColor = new THREE.Color()
+    const tempSatColor = new THREE.Color()
+
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
-    const phasePrimaryColor = new THREE.Color()
-    const phaseAccentColor = new THREE.Color()
-    const phaseSoftColor = new THREE.Color()
-    const phaseDeepColor = new THREE.Color()
-    const phaseGlowColor = new THREE.Color()
-
     const renderLoop = () => {
       frameId = requestAnimationFrame(renderLoop)
 
-      // Suspend render loop when out of viewport or tab is inactive to preserve battery & CPU
-      if (!isVisible || !isTabActive) {
+      if (!isVisible || !isTabActive || contextLost) {
         return
       }
 
       const elapsed = clock.getElapsedTime()
-      const sharedElapsed =
-        sharedStartMsRef.current !== null
-          ? (performance.now() - sharedStartMsRef.current) / 1000
-          : elapsed
+      const motionElapsed = prefersReducedMotion ? 0 : elapsed
+      const colorElapsed =
+        prefersReducedMotion || sharedStartMsRef.current === null
+          ? 0
+          : Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
 
-      // Shader time update
-      wallUniforms.uTime.value = prefersReducedMotion ? 0 : elapsed
+      const phase = getAmbientPhaseAt(colorElapsed)
+
+      c1Color.setRGB(phase.c1[0], phase.c1[1], phase.c1[2])
+      c2Color.setRGB(phase.c2[0], phase.c2[1], phase.c2[2])
+      c3Color.setRGB(phase.c3[0], phase.c3[1], phase.c3[2])
+
+      // Subtle atmospheric stage & fog tint harmonized with active phase
+      bgTintColor.setRGB(
+        STAGE_BASE_NORM[0] + phase.bgB[0] * 0.28,
+        STAGE_BASE_NORM[1] + phase.bgB[1] * 0.28,
+        STAGE_BASE_NORM[2] + phase.bgB[2] * 0.28
+      )
+      if (scene.background instanceof THREE.Color) {
+        scene.background.copy(bgTintColor)
+      }
+      fog.color.copy(bgTintColor)
+
+      // Synchronized multi-color scene lighting (blue-anchored -> mixed harmonious tones)
+      ambientLight.color.setRGB(
+        0.04 + phase.bgB[0] * 0.9,
+        0.06 + phase.bgB[1] * 0.9,
+        0.12 + phase.bgB[2] * 0.9
+      )
+      dirKey.color.copy(c1Color)
+      fillColor.setRGB(
+        0.06 + phase.glow[0] * 0.85,
+        0.09 + phase.glow[1] * 0.85,
+        0.16 + phase.glow[2] * 0.85
+      )
+      dirFill.color.copy(fillColor)
+
+      coreLight1.color.copy(c1Color)
+      coreLight2.color.copy(c2Color)
+      coreLight3.color.copy(c1Color).lerp(c2Color, 0.35)
+      coreLight4.color.copy(c2Color).lerp(c3Color, 0.22)
+
+      // Tower emissive slits & rising embers
+      towerOuterGlowMat.color.copy(c1Color)
+      towerInnerGlowMat.color.copy(c2Color).lerp(c3Color, 0.38)
+      particleMat.color.copy(c2Color).lerp(c3Color, 0.32)
+
+      // Volumetric laser walls shader uniforms
+      wallUniforms.uTime.value = motionElapsed
+      wallUniforms.uColorDark.value.setRGB(
+        phase.glow[0] * 1.45,
+        phase.glow[1] * 1.45,
+        phase.glow[2] * 1.45
+      )
+      wallUniforms.uColorMid.value.copy(c1Color).lerp(c2Color, 0.35)
+      wallUniforms.uColorCore.value.copy(c3Color)
 
       // Normalized scroll progression
       const docHeight = Math.max(
@@ -578,8 +1004,7 @@ export function GlobalCyberBackground() {
       ) - window.innerHeight
       const scrollRatio = Math.min(scrollY / Math.max(docHeight, 1), 1)
 
-      // Smooth camera orbit + scroll panning (static calm angle when reduced-motion is enabled)
-      const motionElapsed = prefersReducedMotion ? 0 : elapsed
+      // Smooth camera orbit + scroll panning (100% preserved motion)
       const targetX = baseCamX + mouseX + Math.sin(motionElapsed * 0.14) * 2.2 + scrollRatio * 8.0
       const targetY = baseCamY + mouseY - scrollRatio * 7.0 + Math.cos(motionElapsed * 0.12) * 1.5
       const targetZ = baseCamZ - scrollRatio * 6.0 + Math.sin(motionElapsed * 0.1) * 2.0
@@ -589,7 +1014,7 @@ export function GlobalCyberBackground() {
       camera.position.z += (targetZ - camera.position.z) * 0.04
       camera.lookAt(scrollRatio * 4.0, 1.8, -scrollRatio * 4.0)
 
-      // Animate Orbiting Satellite Cubes (Single batch update on instanced matrix buffer)
+      // Animate Orbiting Satellite Cubes + sync glowing cube colors
       for (let k = 0; k < totalSatelliteCubes; k++) {
         const meta = satelliteMeta[k]
         const cubeY = meta.baseY + Math.sin(motionElapsed * 2.5 + k) * 0.15
@@ -606,97 +1031,30 @@ export function GlobalCyberBackground() {
         dummy.updateMatrix()
 
         instancedSatelliteCubes.setMatrixAt(k, dummy.matrix)
-      }
-      instancedSatelliteCubes.instanceMatrix.needsUpdate = true
-
-      // Shared RandomQbit-inspired 5-color hold+smoothstep cycle starting on RushX Electric Cobalt Blue
-      const phase = prefersReducedMotion
-        ? getAmbientPhaseAt(0)
-        : getAmbientPhaseAt(sharedElapsed)
-      const baseHue = phase.baseHue
-      const accentHue = phase.accentHue
-      const fillHue = phase.fillHue
-
-      phasePrimaryColor.setRGB(
-        phase.primaryRgb[0] / 255,
-        phase.primaryRgb[1] / 255,
-        phase.primaryRgb[2] / 255,
-      )
-      phaseAccentColor.setRGB(
-        phase.accentRgb[0] / 255,
-        phase.accentRgb[1] / 255,
-        phase.accentRgb[2] / 255,
-      )
-      phaseSoftColor.setRGB(
-        phase.softRgb[0] / 255,
-        phase.softRgb[1] / 255,
-        phase.softRgb[2] / 255,
-      )
-      phaseDeepColor.setRGB(
-        (phase.bgWashRgb[0] * 0.36) / 255,
-        (phase.bgWashRgb[1] * 0.36) / 255,
-        (phase.bgWashRgb[2] * 0.36) / 255,
-      )
-      phaseGlowColor.setRGB(
-        phase.glowRgb[0] / 255,
-        phase.glowRgb[1] / 255,
-        phase.glowRgb[2] / 255,
-      )
-
-      // Luminous obsidian-tinted backdrop & fog matched directly to the active phase wash
-      if (scene.background instanceof THREE.Color) {
-        scene.background.copy(phaseDeepColor)
-      }
-      if (scene.fog instanceof THREE.FogExp2) {
-        scene.fog.color.copy(phaseDeepColor)
-      }
-      ambientLight.color.copy(phaseGlowColor).multiplyScalar(0.52)
-
-      // Multi-layered harmonic lights shifting together over time
-      dirKey.color.copy(phasePrimaryColor)
-      dirFill.color.copy(phaseAccentColor).multiplyScalar(0.75)
-      coreLight1.color.copy(phasePrimaryColor)
-      coreLight2.color.copy(phaseAccentColor)
-      coreLight3.color.copy(phaseGlowColor)
-      coreLight4.color.copy(phaseSoftColor)
-
-      towerOrangeGlowMat.color.copy(phasePrimaryColor)
-      towerHotGlowMat.color.copy(phaseSoftColor)
-      wallUniforms.uColorDark.value.copy(phaseGlowColor).multiplyScalar(0.85)
-      wallUniforms.uColorMid.value.copy(phasePrimaryColor)
-      wallUniforms.uColorCore.value.copy(phaseSoftColor)
-      particleMat.color.copy(phaseSoftColor)
-
-      if (gridHelper.material instanceof THREE.LineBasicMaterial) {
-        gridHelper.material.color.copy(phaseAccentColor)
-      }
-
-      for (let k = 0; k < totalSatelliteCubes; k++) {
-        if (satelliteMeta[k].isGlow) {
-          colorDummy.copy(k % 4 === 0 ? phaseSoftColor : k % 2 === 0 ? phasePrimaryColor : phaseAccentColor)
-          instancedSatelliteCubes.setColorAt(k, colorDummy)
+        if (meta.isGlow) {
+          tempSatColor.copy(c1Color).lerp(c2Color, meta.accentMix)
+          instancedSatelliteCubes.setColorAt(k, tempSatColor)
         }
       }
-      if (instancedSatelliteCubes.instanceColor) {
-        instancedSatelliteCubes.instanceColor.needsUpdate = true
-      }
+      instancedSatelliteCubes.instanceMatrix.needsUpdate = true
+      if (instancedSatelliteCubes.instanceColor) instancedSatelliteCubes.instanceColor.needsUpdate = true
 
-      // Dynamic light pulsations
-      coreLight1.intensity = 8.4 + Math.sin(motionElapsed * 3.2) * 3.0
-      coreLight2.intensity = 5.8 + Math.cos(motionElapsed * 2.7) * 2.0
-      coreLight3.intensity = 5.4 + Math.sin(motionElapsed * 2.3) * 1.8
-      coreLight4.intensity = 4.8 + Math.cos(motionElapsed * 2.0) * 1.6
+      // Core light pulsations
+      coreLight1.intensity = 8.2 + Math.sin(motionElapsed * 3.2) * 2.8
+      coreLight2.intensity = 5.6 + Math.cos(motionElapsed * 2.7) * 2.0
+      coreLight3.intensity = 5.1 + Math.sin(motionElapsed * 2.3) * 1.8
+      coreLight4.intensity = 4.6 + Math.cos(motionElapsed * 2.0) * 1.6
 
-      // Pulsing Floor Pads via Instanced Color Update (harmonized dual-hue shift)
+      // Pulsing Floor Pads synced to blended primary/accent phase colors
       for (let i = 0; i < tileCount; i++) {
-        const pulse = 0.3 + Math.sin(motionElapsed * 3.2 + i * 0.35) * 0.32
-        const tileHue = i % 3 === 0 ? accentHue : i % 3 === 1 ? baseHue : fillHue
-        colorDummy.setHSL(tileHue, 0.94, Math.max(0.16, Math.min(0.7, pulse)))
+        const pulse = 0.32 + (Math.sin(motionElapsed * 3.2 + i * 0.35) * 0.5 + 0.5) * 0.68
+        const mixFactor = (i % 4) * 0.25
+        colorDummy.copy(c1Color).lerp(c2Color, mixFactor).multiplyScalar(pulse)
         instancedFloorTiles.setColorAt(i, colorDummy)
       }
       if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true
 
-      // Upward drifting cyber embers
+      // Upward drifting atmospheric particles
       if (!prefersReducedMotion) {
         const positions = particleGeo.attributes.position.array as Float32Array
         for (let i = 0; i < particleCount; i++) {
@@ -716,11 +1074,11 @@ export function GlobalCyberBackground() {
     // ─────────────────────────────────────────────────────────────────────────
     // 11. DEBOUNCED RESIZE LISTENER
     // ─────────────────────────────────────────────────────────────────────────
-    let resizeTimeout: NodeJS.Timeout
+    let resizeTimeout: ReturnType<typeof setTimeout>
     const handleResize = () => {
       clearTimeout(resizeTimeout)
       resizeTimeout = setTimeout(() => {
-        if (!container) return
+        if (!container || contextLost) return
         width = window.innerWidth
         height = window.innerHeight
         camera.aspect = width / height
@@ -735,15 +1093,16 @@ export function GlobalCyberBackground() {
     // 12. CLEANUP & MEMORY DISPOSAL (Zero Memory Leaks on Unmount / Mode Switch)
     // ─────────────────────────────────────────────────────────────────────────
     return () => {
+      clearTimeout(resizeTimeout)
       window.removeEventListener("mousemove", onPointerMove)
       window.removeEventListener("touchmove", onPointerMove)
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", handleResize)
       document.removeEventListener("visibilitychange", onVisibilityChange)
+      renderer.domElement.removeEventListener("webglcontextlost", onWebglContextLost)
       observer.disconnect()
       cancelAnimationFrame(frameId)
 
-      // Traverse and dispose all scene objects
       scene.traverse((obj) => {
         if ((obj as THREE.Mesh).geometry) {
           ;(obj as THREE.Mesh).geometry.dispose()
@@ -758,7 +1117,6 @@ export function GlobalCyberBackground() {
         }
       })
 
-      // Dispose tracked geometries and materials
       disposables.forEach((item) => {
         try {
           item.dispose()
@@ -768,9 +1126,12 @@ export function GlobalCyberBackground() {
       })
       disposables.length = 0
 
-      // Dispose WebGLRenderer and release WebGL context
-      renderer.dispose()
-      renderer.forceContextLoss()
+      try {
+        renderer.dispose()
+        renderer.forceContextLoss()
+      } catch {
+        // ignore disposal errors on lost context
+      }
 
       if (container && renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
@@ -778,19 +1139,32 @@ export function GlobalCyberBackground() {
     }
   }, [mode])
 
-  if (mode !== "3d") {
+  // Render 2D Volumetric Atmosphere (also serves as graceful fallback if 3D WebGL is unavailable)
+  if (mode !== "3d" || webgl3DFallback) {
     return (
       <div
         aria-hidden="true"
-        className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden"
+        className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-[#020308]"
       >
-        {/* Full-viewport top-lit delay-driven color-shifting atmosphere (Electric Blue entrance, zero square boxes, zero solid black lower block) */}
-        <div className="rushx-ambient-canvas absolute inset-0 w-full h-full">
+        {/* CSS volumetric atmospheric fallback layer (visible immediately before WebGL initializes or if WebGL is unavailable) */}
+        <div
+          className="rushx-ambient-canvas absolute inset-0 w-full h-full transition-opacity duration-700"
+          style={{ opacity: webgl2DReady ? 0.18 : 1 }}
+        >
           <div className="rushx-ambient-glow absolute inset-0 w-full h-full" />
         </div>
 
-        {/* Subtle radial edge vignette for readability */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_32%,rgba(4,8,18,0.42)_100%)]" />
+        {/* GPU-accelerated Volumetric 2D RandomQbit-inspired Shader Canvas (zero brain/orb graphic) */}
+        {mode !== "3d" && (
+          <canvas
+            ref={volumetric2DCanvasRef}
+            className="absolute inset-0 h-full w-full block transition-opacity duration-700"
+            style={{ opacity: webgl2DReady ? 1 : 0 }}
+          />
+        )}
+
+        {/* Subtle radial edge vignette for crisp foreground contrast */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_36%,rgba(2,3,8,0.44)_100%)]" />
 
         {/* Neutral top horizon hairline */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
@@ -801,13 +1175,13 @@ export function GlobalCyberBackground() {
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden"
+      className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-[#020308]"
     >
       {/* Three.js Canvas Container */}
-      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
+      <div ref={threeContainerRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Soft Ambient Cyber Vignette (Translucent edge-only softening) */}
-      <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#020306]/55 pointer-events-none" />
+      {/* Soft Ambient Vignette (Translucent edge-only softening) */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_42%,rgba(2,3,8,0.52)_100%)] pointer-events-none" />
 
       {/* Neutral Top Cyber Horizon Line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />

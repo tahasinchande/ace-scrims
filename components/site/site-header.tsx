@@ -323,9 +323,11 @@ export function SiteHeader({
 
           {currentUser ? (
             <div className="flex items-center gap-2">
-              {(currentUser.role === "admin" || currentUser.role === "moderator") && (
+              {(currentUser.role === "owner" || currentUser.role === "admin" || currentUser.role === "moderator") && (
                 <Button asChild variant="ghost" size="sm" className="whitespace-nowrap text-xs font-semibold text-zinc-300 hover:text-white">
-                  <Link href="/admin">{currentUser.role === "admin" ? "Admin" : "Mod Panel"}</Link>
+                  <Link href="/admin">
+                    {currentUser.role === "owner" ? "Owner" : currentUser.role === "admin" ? "Admin" : "Mod Panel"}
+                  </Link>
                 </Button>
               )}
               {/* Persistent User Balance Widget directly next to Dashboard */}
@@ -586,13 +588,13 @@ export function SiteHeader({
 
               {currentUser ? (
                 <div className="flex flex-col gap-2">
-                  {(currentUser.role === "admin" || currentUser.role === "moderator") && (
+                  {(currentUser.role === "owner" || currentUser.role === "admin" || currentUser.role === "moderator") && (
                     <Link
                       href="/admin"
                       className="rounded-xl px-3 py-2 text-sm font-semibold text-accent hover:bg-white/[0.06]"
                       onClick={() => setOpen(false)}
                     >
-                      {currentUser.role === "admin" ? "Admin Panel" : "Mod Panel"}
+                      {currentUser.role === "owner" ? "Owner Panel" : currentUser.role === "admin" ? "Admin Panel" : "Mod Panel"}
                     </Link>
                   )}
                   <Button asChild className="w-full rounded-xl font-semibold">

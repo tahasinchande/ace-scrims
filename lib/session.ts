@@ -2,6 +2,7 @@ import "server-only"
 
 import { headers } from "next/headers"
 import { auth, type SessionUser } from "@/lib/auth"
+import { isAdminOrOwner, isOwnerRole, isStaffRole } from "@/lib/roles"
 
 /** Returns the current session user merged with live DB account flags, or null when unauthenticated/trashed. */
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -68,17 +69,24 @@ export async function requireVerifiedUser(): Promise<SessionUser> {
   return u
 }
 
-/** Throws unless the user is a moderator or admin. */
+/** Throws unless the user is a moderator, admin, or owner. */
 export async function requireStaff(): Promise<SessionUser> {
   const u = await requireUser()
-  if (u.role !== "admin" && u.role !== "moderator") throw new Error("Forbidden")
+  if (!isStaffRole(u.role)) throw new Error("Forbidden")
   return u
 }
 
-/** Throws unless the user is an admin. */
+/** Throws unless the user is an admin or owner. */
 export async function requireAdmin(): Promise<SessionUser> {
   const u = await requireUser()
-  if (u.role !== "admin") throw new Error("Forbidden")
+  if (!isAdminOrOwner(u.role)) throw new Error("Forbidden")
+  return u
+}
+
+/** Throws unless the user is an owner. */
+export async function requireOwner(): Promise<SessionUser> {
+  const u = await requireUser()
+  if (!isOwnerRole(u.role)) throw new Error("Forbidden")
   return u
 }
 
@@ -136,7 +144,7 @@ export async function checkMaintenanceMode() {
     const isMaintenanceOn = rows[0]?.value === "true"
 
     const u = await getSessionUser().catch(() => null)
-    const isStaff = u?.role === "admin" || u?.role === "moderator"
+    const isStaff = isStaffRole(u?.role)
 
     if (isMaintenanceOn) {
       if (!isStaff && pathname !== "/maintenance") {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { logActivity } from "@/lib/notify"
 import {
   getAllEmailTemplates,
@@ -26,7 +27,7 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
     }
-    if (user.banned || user.role !== "admin") {
+    if (user.banned || !isAdminOrOwner(user.role)) {
       return NextResponse.json({ ok: false, error: "Forbidden. Admin access required." }, { status: 403 })
     }
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ ok: false, error: "Unauthorized. Please sign in as admin." }, { status: 401 })
     }
-    if (user.banned || user.role !== "admin") {
+    if (user.banned || !isAdminOrOwner(user.role)) {
       return NextResponse.json({ ok: false, error: "Forbidden. Admin privileges required." }, { status: 403 })
     }
 

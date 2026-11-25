@@ -5,6 +5,7 @@ import { FacebookIcon, DiscordIcon, WhatsAppIcon, YouTubeIcon, TelegramIcon, Ins
 import { useLanguage } from "@/lib/language"
 import { RushXBrandLogo } from "@/components/site/brand-logo"
 import { LiveSupportButton } from "@/components/site/live-support-button"
+import { Reveal } from "@/components/site/reveal"
 
 export type FooterSettings = {
   discordUrl?: string
@@ -34,7 +35,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
 
   return (
     <footer className="border-t border-white/[0.07] bg-[#050811]/72 backdrop-blur-xl">
-      <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
+      <Reveal y={14} duration={0.5} className="mx-auto max-w-6xl px-4 py-14 md:px-6">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="flex flex-col gap-3.5">
             <Link href="/" className="flex items-center gap-2" aria-label="RushX Organization home">
@@ -215,7 +216,7 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
           <p>© {new Date().getFullYear()} RushX Organization. All rights reserved.</p>
           <p>Built for Bangladesh Free Fire competitive esports community.</p>
         </div>
-      </div>
+      </Reveal>
     </footer>
   )
 }

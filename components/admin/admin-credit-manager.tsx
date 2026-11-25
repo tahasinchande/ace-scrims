@@ -119,7 +119,7 @@ export function AdminCreditManager({
 
     if (statusFilter === "positive") return u.balance > 0
     if (statusFilter === "zero") return u.balance === 0
-    if (statusFilter === "admin") return u.role === "admin" || u.role === "moderator"
+    if (statusFilter === "admin") return u.role === "owner" || u.role === "admin" || u.role === "moderator"
     return true
   })
 
@@ -438,6 +438,11 @@ export function AdminCreditManager({
                                 </Badge>
                               )}
 
+                              {u.role === "owner" && (
+                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[11px]">
+                                  Owner
+                                </Badge>
+                              )}
                               {u.role === "admin" && (
                                 <Badge className="bg-primary/20 text-primary border-primary/40 text-[11px]">
                                   Admin

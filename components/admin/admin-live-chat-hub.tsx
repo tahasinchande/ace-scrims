@@ -37,6 +37,13 @@ import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { MediaLightbox, type MediaLightboxItem } from "@/components/chat/media-lightbox"
 import { resolveImageUrl } from "@/lib/image-url"
+import {
+  isNonOwnerStaffRole,
+  isOwnerRole,
+  isStaffRole,
+  RUSHX_SUPPORT_AVATAR,
+  RUSHX_SUPPORT_NAME,
+} from "@/lib/roles"
 import { formatDate } from "@/lib/format"
 import {
   MessageSquare,
@@ -986,11 +993,19 @@ export function AdminLiveChatHub({
                         )
                       }
 
-                      const isStaff = m.senderRole === "admin" || m.senderRole === "moderator"
+                      const isOwner = isOwnerRole(m.senderRole)
+                      const isNonOwnerStaff = isNonOwnerStaffRole(m.senderRole)
+                      const isStaff = isStaffRole(m.senderRole)
                       const isAi = m.senderRole === "ai"
                       const isRightAligned = isStaff || isAi
-                      const prevSameSender = idx > 0 && messages[idx - 1].senderRole === m.senderRole
-                      const nextSameSender = idx < messages.length - 1 && messages[idx + 1].senderRole === m.senderRole
+                      const prevSameSender =
+                        idx > 0 &&
+                        messages[idx - 1].senderId === m.senderId &&
+                        messages[idx - 1].senderRole === m.senderRole
+                      const nextSameSender =
+                        idx < messages.length - 1 &&
+                        messages[idx + 1].senderId === m.senderId &&
+                        messages[idx + 1].senderRole === m.senderRole
                       const mediaKind = detectAttachmentKind(m)
                       const isDefaultCaption =
                         m.message === "📷 Photo" ||
@@ -1020,12 +1035,24 @@ export function AdminLiveChatHub({
                             {!prevSameSender && (
                               <div className="flex items-center gap-1.5 mb-0.5 px-1 text-[10px] text-zinc-400">
                                 {isAi && <Bot className="size-3 text-sky-400" />}
+                                {isNonOwnerStaff && (
+                                  <span className="flex size-4 items-center justify-center rounded-full bg-[#101830] border border-sky-400/35 p-0.5">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={RUSHX_SUPPORT_AVATAR}
+                                      alt={RUSHX_SUPPORT_NAME}
+                                      className="size-2.5 object-contain"
+                                    />
+                                  </span>
+                                )}
                                 <span className="font-semibold text-zinc-300">
                                   {isAi
                                     ? `${m.senderName} (${t("chat_ai_badge")})`
-                                    : isStaff
-                                      ? `${m.senderName} (${t("chat_staff_badge")})`
-                                      : m.senderName}
+                                    : isOwner
+                                      ? m.senderName
+                                      : isNonOwnerStaff
+                                        ? RUSHX_SUPPORT_NAME
+                                        : m.senderName}
                                 </span>
                               </div>
                             )}

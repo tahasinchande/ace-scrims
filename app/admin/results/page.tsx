@@ -2,6 +2,7 @@ import { getAdminResults, getAdminScrims, getHistoricalDates } from "@/lib/queri
 import { getBangladeshActiveDate } from "@/lib/queries/scrims"
 import { AdminResults } from "@/components/admin/admin-results"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Manage Results — RushX Organization" }
@@ -34,7 +35,7 @@ export default async function AdminResultsPage() {
         }))}
         availableDates={historicalDates}
         initialDate={activeDate}
-        isAdmin={user?.role === "admin"}
+        isAdmin={isAdminOrOwner(user?.role)}
       />
     </div>
   )

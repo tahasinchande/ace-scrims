@@ -8,7 +8,12 @@ import { requireAdmin } from "@/lib/session"
 import { logActivity } from "@/lib/notify"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
-import { escapeHtml, isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import {
+  escapeHtml,
+  isSafeHttpOrRelativeUrl,
+  isValidEmailAddress,
+  sanitizeEmailHtml,
+} from "@/lib/url-safety"
 import {
   normalizeMediaItems,
   normalizeVariablesHint,
@@ -110,7 +115,7 @@ export async function updateEmailTemplateAction(
         format: data.format,
         subject: data.subject,
         preheader: data.preheader?.trim() || null,
-        bodyHtml: data.bodyHtml,
+        bodyHtml: sanitizeEmailHtml(data.bodyHtml),
         bodyText: data.bodyText || "",
         ctaText: data.ctaText?.trim() || null,
         ctaUrl: trimmedCtaUrl,
@@ -221,7 +226,7 @@ export async function createCustomEmailTemplateAction(
     const newId = `tpl_${key}_${randomUUID().slice(0, 6)}`
     const safeDesc = escapeHtml(data.description?.trim() || "This is a custom operational email from RushX Organization.")
     const bodyHtml =
-      data.bodyHtml.trim() ||
+      sanitizeEmailHtml(data.bodyHtml.trim()) ||
       `<p style="margin:0 0 16px 0;color:#ffffff;font-size:15px;">Hello <strong>{{recipientName}}</strong>,</p><p style="margin:0;color:#94a3b8;line-height:1.65;">${safeDesc}</p>`
     const bodyText =
       data.bodyText.trim() ||
@@ -305,7 +310,7 @@ export async function sendTestEmailTemplateAction(
     await ensureSchemaReady()
 
     const cleanTo = toEmail.trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTo)) {
+    if (!isValidEmailAddress(cleanTo)) {
       return { ok: false, error: "Please provide a valid recipient email address." }
     }
 

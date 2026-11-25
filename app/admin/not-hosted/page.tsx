@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
+import { isAdminOrOwner } from "@/lib/roles"
 import { db } from "@/lib/db"
 import { notHostedTeams } from "@/lib/db/schema"
 import { desc } from "drizzle-orm"
@@ -11,7 +12,7 @@ export const metadata = { title: "Not Hosted & Refunds — RushX Organization Ad
 
 export default async function AdminNotHostedPage() {
   const user = await getSessionUser()
-  if (!user || user.role !== "admin") {
+  if (!user || !isAdminOrOwner(user.role)) {
     redirect("/admin/scrims")
   }
 
