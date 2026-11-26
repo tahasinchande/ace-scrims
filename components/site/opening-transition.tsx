@@ -93,9 +93,9 @@ export function OpeningStage({
 
   return (
     <motion.div
-      initial={{ opacity: 0.96, y: 10, scale: 1.008 }}
+      initial={{ opacity: 0.88, y: 14, scale: 1.012 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.68, ease: DEEPCHARTS_EASE }}
+      transition={{ duration: 0.72, ease: DEEPCHARTS_EASE }}
       className={className}
     >
       {children}

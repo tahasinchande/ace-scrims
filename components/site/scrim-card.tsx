@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { getRandomScrimImage } from "@/lib/scrim-images"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
+import { useReliableOnceReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
 
 const toneStyles: Record<string, string> = {
   open: "bg-emerald-500/14 text-emerald-300 border-emerald-400/35",
@@ -57,6 +58,7 @@ export function ScrimCard({
   const { t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
   const wrapRef = useRef<HTMLDivElement>(null)
+  const isVisible = useReliableOnceReveal(wrapRef, prefersReducedMotion, false)
 
   const status = scrimStatus(
     scrim.confirmedTeams,
@@ -131,20 +133,23 @@ export function ScrimCard({
     el.style.setProperty("--splash-y", "35%")
   }
 
-  const staggerDelay = Math.min(index, 7) * 0.085
+  const staggerDelay = Math.min(index, 7) * 0.08
 
   return (
     <motion.div
       ref={wrapRef}
       onMouseMove={handlePointerMove}
       onMouseLeave={handlePointerLeave}
-      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0.08, y: 16, scale: 0.99 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, amount: "some" }}
+      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 24, scale: 0.972 }}
+      animate={
+        isVisible || prefersReducedMotion
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0, y: 24, scale: 0.972 }
+      }
       transition={{
-        duration: prefersReducedMotion ? 0 : 0.44,
+        duration: prefersReducedMotion ? 0 : 0.62,
         delay: prefersReducedMotion ? 0 : staggerDelay,
-        ease: [0.16, 1, 0.3, 1],
+        ease: DEEPCHARTS_EASE,
       }}
       className="scrim-splash-wrap group relative flex flex-col"
     >
@@ -152,7 +157,7 @@ export function ScrimCard({
       <div className="scrim-splash-aura" aria-hidden />
       <div className="scrim-splash-ring" aria-hidden />
 
-      <article className="dc-surface relative z-10 flex h-full flex-col overflow-hidden rounded-2xl transition-transform duration-300 ease-out group-hover:-translate-y-0.5">
+      <article className="dc-surface relative z-10 flex h-full flex-col overflow-hidden rounded-2xl transition-transform duration-300 ease-out group-hover:-translate-y-1">
         {/* Top-edge precision accent beam (DeepCharts signature sheen) */}
         <div
           className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary/65 to-transparent opacity-65 transition-opacity duration-300 group-hover:opacity-100"
@@ -355,12 +360,12 @@ export function ScrimCard({
             {bookable ? (
               <Button
                 asChild
-                className="h-10 w-full rounded-xl font-semibold tracking-tight transition-all duration-200 glow-primary button-shimmer"
+                className="h-10 w-full rounded-xl font-semibold tracking-tight transition-all duration-200 glow-primary button-shimmer hover:-translate-y-0.5 active:scale-[0.98]"
                 variant="default"
               >
                 <Link href={`/book/${scrim.slug}`} className="inline-flex items-center justify-center gap-1.5">
                   <span>{t("book_now", "Book Spot")}</span>
-                  <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <ArrowUpRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </Link>
               </Button>
             ) : (

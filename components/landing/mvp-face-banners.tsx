@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/format"
 import { Flame, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Trophy, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Reveal, MaskedLineReveal, VisualReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
 
 export type MvpBannerItem = {
   id: string
@@ -24,6 +25,10 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
   if (!banners || banners.length === 0) {
     return null
   }
+  return <MvpFaceBannersInner banners={banners} />
+}
+
+function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
   const count = banners.length
 
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -75,22 +80,28 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Centered Heading */}
+      {/* Centered Heading with DeepCharts typography entrance */}
       <div className="flex flex-col items-center text-center max-w-2xl mb-8">
-        <div className="inline-flex items-center gap-2 text-primary text-xs font-display font-bold uppercase tracking-wider mb-2">
-          <Flame className="size-4 text-primary animate-pulse" />
-          <span>Tournament MVPs & Standout Fraggers</span>
-        </div>
-        <h2
-          id="mvp-banners-heading"
-          className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
-        >
-          MVP Face Banners
-        </h2>
-        <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
-          Spotlighting top fragging match champions and tournament MVPs with original high-resolution face banners.
-        </p>
-        <div className="mt-4 flex items-center justify-center gap-2">
+        <Reveal y={14} duration={0.55}>
+          <div className="inline-flex items-center gap-2 text-accent text-xs font-display font-bold uppercase tracking-wider mb-2">
+            <Flame className="size-4 text-accent animate-pulse" />
+            <span>Tournament MVPs &amp; Standout Fraggers</span>
+          </div>
+        </Reveal>
+        <MaskedLineReveal delay={0.06} duration={0.68}>
+          <h2
+            id="mvp-banners-heading"
+            className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
+          >
+            MVP Face Banners
+          </h2>
+        </MaskedLineReveal>
+        <Reveal delay={0.12} y={14} duration={0.56}>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
+            Spotlighting top fragging match champions and tournament MVPs with original high-resolution face banners.
+          </p>
+        </Reveal>
+        <Reveal delay={0.16} y={12} duration={0.5} className="mt-4 flex items-center justify-center gap-2">
           <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-semibold">
             {count} MVP Showcase{count > 1 ? "s" : ""}
           </Badge>
@@ -100,13 +111,19 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
               {isPaused ? <Pause className="size-2.5 text-primary" /> : <Play className="size-2.5 text-emerald-400 fill-emerald-400" />}
             </Badge>
           )}
-        </div>
+        </Reveal>
       </div>
 
-      {/* Centered Slideshow Stage */}
-      <div className="relative w-full max-w-4xl flex flex-col items-center">
+      {/* Centered Slideshow Stage with DeepCharts editorial visual reveal */}
+      <VisualReveal
+        delay={0.08}
+        duration={0.74}
+        y={20}
+        initialScale={1.035}
+        className="relative w-full max-w-4xl flex flex-col items-center"
+      >
         {/* Banner Slide Frame */}
-        <div className="relative w-full rounded-3xl border border-primary/30 bg-black/60 shadow-2xl p-3 sm:p-5 backdrop-blur-xl overflow-hidden flex flex-col items-center">
+        <div className="dc-surface relative w-full rounded-3xl shadow-2xl p-3 sm:p-5 overflow-hidden flex flex-col items-center">
           {/* 5-Second Animated Progress Bar */}
           {count > 1 && !isPaused && (
             <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 overflow-hidden z-30">
@@ -115,7 +132,12 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
                 transition={{ duration: 5, ease: "linear" }}
-                className="h-full bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-[0_0_8px_rgba(124,58,237,0.75)]"
+                className="h-full"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgb(var(--rushx-primary-rgb)) 0%, rgb(var(--rushx-accent-rgb)) 55%, rgb(var(--rushx-soft-rgb)) 100%)",
+                  boxShadow: "0 0 10px rgba(var(--rushx-accent-rgb), 0.75)",
+                }}
               />
             </div>
           )}
@@ -123,18 +145,19 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
           <AnimatePresence mode="wait">
             <motion.div
               key={currentItem.id || currentIndex}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.45, ease: "easeInOut" }}
+              initial={{ opacity: 0, scale: 0.975, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: -6 }}
+              transition={{ duration: 0.48, ease: DEEPCHARTS_EASE }}
               className="w-full flex flex-col items-center"
             >
               {/* Natural Dimension Image Container */}
               <div className="relative group flex items-center justify-center max-w-full min-h-[260px] sm:min-h-[340px] overflow-hidden rounded-2xl bg-black/50 p-2 sm:p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentImageSrc}
                   alt={`${currentItem.playerName || currentItem.teamName} MVP Face Banner`}
-                  className="max-h-[520px] w-auto max-w-full rounded-xl object-contain shadow-2xl transition-transform duration-300 group-hover:scale-[1.01]"
+                  className="max-h-[520px] w-auto max-w-full rounded-xl object-contain shadow-2xl transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                   loading="lazy"
                 />
 
@@ -143,10 +166,10 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                   type="button"
                   onClick={() => setActiveLightbox(currentImageSrc)}
                   aria-label={`View full resolution image for ${currentItem.playerName || currentItem.teamName}`}
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs rounded-xl cursor-pointer"
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-xs rounded-xl cursor-pointer"
                 >
-                  <span className="flex items-center gap-2 rounded-full bg-black/85 px-4 py-2 text-xs font-semibold text-white border border-white/20 shadow-xl">
-                    <ZoomIn className="size-4 text-primary" /> View Full Original Resolution
+                  <span className="flex items-center gap-2 rounded-full bg-black/85 px-4 py-2 text-xs font-semibold text-white border border-white/20 shadow-xl transition-transform duration-200 group-hover:scale-105">
+                    <ZoomIn className="size-4 text-accent" /> View Full Original Resolution
                   </span>
                 </button>
               </div>
@@ -195,7 +218,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                 type="button"
                 onClick={handlePrev}
                 aria-label="Previous MVP Banner"
-                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 cursor-pointer"
+                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 shadow-lg active:scale-95 cursor-pointer"
               >
                 <ChevronLeft className="size-5" />
               </button>
@@ -204,7 +227,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
                 type="button"
                 onClick={handleNext}
                 aria-label="Next MVP Banner"
-                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 cursor-pointer"
+                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white border border-white/20 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 shadow-lg active:scale-95 cursor-pointer"
               >
                 <ChevronRight className="size-5" />
               </button>
@@ -236,7 +259,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
           <Button
             asChild
             size="lg"
-            className="glow-primary px-7 py-6 font-display font-bold uppercase text-xs sm:text-sm tracking-wider gap-2 rounded-xl transition-transform hover:scale-105"
+            className="glow-primary px-7 py-6 font-display font-bold uppercase text-xs sm:text-sm tracking-wider gap-2 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
           >
             <Link href="/results">
               <Trophy className="size-4" />
@@ -244,7 +267,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
             </Link>
           </Button>
         </div>
-      </div>
+      </VisualReveal>
 
       {/* Fullscreen Lightbox Modal */}
       {activeLightbox && (
@@ -263,6 +286,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
             <X className="size-6" />
           </button>
           <div className="relative max-h-[92vh] max-w-[92vw] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={activeLightbox}
               alt="MVP Face Banner Full View"

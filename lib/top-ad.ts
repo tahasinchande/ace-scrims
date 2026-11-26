@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 
-export const TOP_AD_ACCENTS = ["violet", "cyan", "crimson", "amber", "emerald"] as const
+export const TOP_AD_ACCENTS = ["amber", "blue", "cyan", "violet", "crimson", "emerald"] as const
 export type TopAdAccent = (typeof TOP_AD_ACCENTS)[number]
 
 export interface TopAdConfig {
@@ -9,6 +9,7 @@ export interface TopAdConfig {
   badge: string
   accent: TopAdAccent
   text: string
+  highlightText: string
   ctaLabel: string
   ctaUrl: string
   countdownEnd: string
@@ -18,11 +19,20 @@ export interface TopAdConfig {
   version: number
 }
 
+export interface TopAdCountdownParts {
+  days: string
+  hours: string
+  minutes: string
+  seconds: string
+  hasDays: boolean
+}
+
 export const DEFAULT_TOP_AD_CONFIG: TopAdConfig = {
   enabled: false,
-  badge: "LIVE EVENT",
-  accent: "violet",
+  badge: "LIMITED OFFER",
+  accent: "amber",
   text: "",
+  highlightText: "",
   ctaLabel: "Book Now",
   ctaUrl: "/scrims",
   countdownEnd: "",
@@ -42,8 +52,13 @@ export const topAdConfigSchema = z
   .object({
     enabled: z.boolean(),
     badge: z.string().trim().max(32, "Badge must be 32 characters or less").default(""),
-    accent: z.enum(TOP_AD_ACCENTS).default("violet"),
+    accent: z.enum(TOP_AD_ACCENTS).default("amber"),
     text: z.string().trim().max(180, "Announcement text must be 180 characters or less").default(""),
+    highlightText: z
+      .string()
+      .trim()
+      .max(60, "Highlighted phrase must be 60 characters or less")
+      .default(""),
     ctaLabel: z.string().trim().max(32, "CTA label must be 32 characters or less").default(""),
     ctaUrl: z
       .string()
@@ -129,8 +144,9 @@ export function parseTopAdConfig(
       ...DEFAULT_TOP_AD_CONFIG,
       enabled: true,
       badge: "NOTICE",
-      accent: "cyan",
+      accent: "blue",
       text: legacyText.slice(0, 180),
+      highlightText: "",
       ctaLabel: "",
       ctaUrl: "",
       dismissible: true,
@@ -158,19 +174,35 @@ export function isTopAdActiveNow(config: TopAdConfig, nowMs: number = Date.now()
 }
 
 /**
+ * Splits remaining milliseconds into DeepCharts-style segmented tabular countdown parts.
+ * Returns null once expired.
+ */
+export function getTopAdCountdownParts(remainingMs: number): TopAdCountdownParts | null {
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null
+  const totalSeconds = Math.floor(remainingMs / 1000)
+  const daysNum = Math.floor(totalSeconds / 86400)
+  const hoursNum = Math.floor((totalSeconds % 86400) / 3600)
+  const minutesNum = Math.floor((totalSeconds % 3600) / 60)
+  const secondsNum = totalSeconds % 60
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return {
+    days: pad(daysNum),
+    hours: pad(hoursNum),
+    minutes: pad(minutesNum),
+    seconds: pad(secondsNum),
+    hasDays: daysNum > 0,
+  }
+}
+
+/**
  * Formats remaining milliseconds into a compact tabular countdown string.
  * Returns null once expired.
  */
 export function formatTopAdCountdown(remainingMs: number): string | null {
-  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null
-  const totalSeconds = Math.floor(remainingMs / 1000)
-  const days = Math.floor(totalSeconds / 86400)
-  const hours = Math.floor((totalSeconds % 86400) / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const pad = (n: number) => String(n).padStart(2, "0")
-  if (days > 0) {
-    return `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+  const parts = getTopAdCountdownParts(remainingMs)
+  if (!parts) return null
+  if (parts.hasDays) {
+    return `${parts.days}d ${parts.hours}:${parts.minutes}:${parts.seconds}`
   }
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+  return `${parts.hours}:${parts.minutes}:${parts.seconds}`
 }

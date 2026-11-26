@@ -25,26 +25,30 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}))
-    const { bookingId, scrimId } = body
+    const bookingId = typeof body?.bookingId === "string" ? body.bookingId.trim() : ""
+    const scrimId = typeof body?.scrimId === "string" ? body.scrimId.trim() : undefined
 
     if (!bookingId) {
       return NextResponse.json(
         { ok: false, error: "Missing bookingId in request body." },
-        { status: 400 }
+        { status: 400, headers: { "Cache-Control": "no-store, private" } }
       )
     }
 
     const result = await removeTeamFromScrimAction(bookingId, scrimId)
     if (!result.ok) {
-      return NextResponse.json(result, { status: 400 })
+      return NextResponse.json(result, {
+        status: 400,
+        headers: { "Cache-Control": "no-store, private" },
+      })
     }
 
-    return NextResponse.json(result)
-  } catch (err: any) {
+    return NextResponse.json(result, { headers: { "Cache-Control": "no-store, private" } })
+  } catch (err) {
     console.error("[API /api/admin/scrims/remove-team Error]:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Internal Server Error" },
-      { status: 500 }
+      { ok: false, error: "Internal Server Error" },
+      { status: 500, headers: { "Cache-Control": "no-store, private" } }
     )
   }
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 
 export const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
-export const INTRO_STORAGE_KEY = "rushx_intro_seen_v1"
 
 export type IntroTiming = {
   headerDelay: number
@@ -14,67 +13,53 @@ export type IntroTiming = {
   visualDuration: number
 }
 
-const FIRST_VISIT_TIMING: IntroTiming = {
-  headerDelay: 0.04,
-  heroBaseDelay: 0.08,
-  heroStagger: 0.085,
-  heroDuration: 0.68,
-  visualDelay: 0.16,
-  visualDuration: 0.78,
+// Fresh page-load choreography inspired by DeepCharts: crisp, smooth, unmistakable entrance
+const FRESH_LOAD_TIMING: IntroTiming = {
+  headerDelay: 0.03,
+  heroBaseDelay: 0.06,
+  heroStagger: 0.09,
+  heroDuration: 0.72,
+  visualDelay: 0.14,
+  visualDuration: 0.84,
 }
 
-const RETURN_VISIT_TIMING: IntroTiming = {
+// Slightly snappier timing when navigating back to Home via client-side routing within the same tab session
+const ROUTE_RETURN_TIMING: IntroTiming = {
   headerDelay: 0,
-  heroBaseDelay: 0.01,
-  heroStagger: 0.045,
-  heroDuration: 0.36,
-  visualDelay: 0.04,
-  visualDuration: 0.42,
+  heroBaseDelay: 0.04,
+  heroStagger: 0.065,
+  heroDuration: 0.56,
+  visualDelay: 0.08,
+  visualDuration: 0.64,
 }
 
-// Module-level latch prevents replaying the full cinematic intro across internal route switches.
+// Session-only module latch (never persisted to localStorage, so reloads always play crisp entrance choreography)
 let sessionIntroCompleted = false
 
 /**
- * Hydration-safe hook distinguishing true first-time site entry from returning visits
- * and internal route switches. Never reads localStorage during SSR/initial render.
+ * Hydration-safe hook providing DeepCharts-style choreography timing.
+ * - Fresh page loads always receive the full crisp entrance sequence.
+ * - In-app client-side route transitions stay smooth and snappy.
+ * - Does not reset or re-trigger animations on 2D/3D mode or language toggles.
  */
 export function useFirstVisitIntro(): {
   isFirstVisit: boolean
   introReady: boolean
   timing: IntroTiming
 } {
-  const [isFirstVisit, setIsFirstVisit] = useState(true)
+  const [isFirstVisit] = useState(() => !sessionIntroCompleted)
   const [introReady, setIntroReady] = useState(false)
 
   useEffect(() => {
-    let alreadySeen = sessionIntroCompleted
-    if (!alreadySeen) {
-      try {
-        alreadySeen = window.localStorage.getItem(INTRO_STORAGE_KEY) === "1"
-      } catch {
-        alreadySeen = false
-      }
-    }
+    setIntroReady(true)
 
-    if (alreadySeen) {
-      sessionIntroCompleted = true
-      setIsFirstVisit(false)
-      setIntroReady(true)
+    if (sessionIntroCompleted) {
       return
     }
 
-    setIsFirstVisit(true)
-    setIntroReady(true)
-
     const timer = window.setTimeout(() => {
       sessionIntroCompleted = true
-      try {
-        window.localStorage.setItem(INTRO_STORAGE_KEY, "1")
-      } catch {
-        // Ignore restricted storage contexts (private mode / sandboxed iframes).
-      }
-    }, 1400)
+    }, 1200)
 
     return () => window.clearTimeout(timer)
   }, [])
@@ -82,6 +67,6 @@ export function useFirstVisitIntro(): {
   return {
     isFirstVisit,
     introReady,
-    timing: isFirstVisit ? FIRST_VISIT_TIMING : RETURN_VISIT_TIMING,
+    timing: isFirstVisit ? FRESH_LOAD_TIMING : ROUTE_RETURN_TIMING,
   }
 }

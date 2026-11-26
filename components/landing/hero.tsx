@@ -115,12 +115,12 @@ export function Hero({
                 <button
                   type="button"
                   onClick={() => setMode("2d")}
-                  className={`rushx-btn-splash inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`rushx-btn-splash inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                     mode === "2d"
                       ? "rushx-primary-btn text-white"
                       : "text-slate-300 hover:text-white"
                   }`}
-                  title="Switch to 2D Dynamic Ambient Mode"
+                  title="Switch to 2D Ambient Mode (Color-Shifting Only)"
                 >
                   <Layers className="size-3.5" />
                   2D Ambient
@@ -128,7 +128,7 @@ export function Hero({
                 <button
                   type="button"
                   onClick={() => setMode("3d")}
-                  className={`rushx-btn-splash inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`rushx-btn-splash inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer ${
                     mode === "3d"
                       ? "rushx-primary-btn text-white"
                       : "text-slate-300 hover:text-white"
@@ -146,8 +146,8 @@ export function Hero({
               immediate
               delay={timing.visualDelay}
               duration={timing.visualDuration}
-              y={18}
-              initialScale={1.032}
+              y={22}
+              initialScale={1.045}
             >
               <h1 className="font-display font-black leading-none tracking-tight">
                 <span className="sr-only">{t("hero_title", BRAND.name)}</span>
@@ -156,7 +156,7 @@ export function Hero({
                   <img
                     src={BRAND.assets.fullWordmark}
                     alt={BRAND.name}
-                    className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none"
+                    className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none transition-transform duration-500 ease-out hover:scale-[1.01]"
                   />
                 </span>
               </h1>
@@ -178,8 +178,8 @@ export function Hero({
             <Reveal
               immediate
               delay={timing.heroBaseDelay + timing.heroStagger * 3}
-              y={14}
-              duration={timing.heroDuration * 0.9}
+              y={18}
+              duration={timing.heroDuration * 0.92}
             >
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg">
                 {t(
@@ -193,14 +193,14 @@ export function Hero({
             <Reveal
               immediate
               delay={timing.heroBaseDelay + timing.heroStagger * 4}
-              y={14}
-              duration={timing.heroDuration * 0.88}
+              y={18}
+              duration={timing.heroDuration * 0.9}
               className="mt-8 flex flex-wrap items-center gap-4"
             >
               <Button
                 asChild
                 size="lg"
-                className="h-12 px-8 font-display text-sm font-bold tracking-wide"
+                className="group h-12 px-8 font-display text-sm font-bold tracking-wide transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
               >
                 <Link
                   href="#schedule"
@@ -213,7 +213,7 @@ export function Hero({
                   }}
                 >
                   {t("browse_scrims", "Browse Scrims")}
-                  <ChevronRight className="size-4 ml-1" />
+                  <ChevronRight className="size-4 ml-1 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </Button>
 
@@ -221,7 +221,7 @@ export function Hero({
                 asChild
                 size="lg"
                 variant="outline"
-                className="glass h-12 px-8 font-semibold text-foreground transition-all duration-200"
+                className="glass h-12 px-8 font-semibold text-foreground transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
               >
                 <Link href="/results">{t("view_results", "View Results")}</Link>
               </Button>
@@ -229,7 +229,7 @@ export function Hero({
               <span className="text-xs text-slate-300/80 hidden sm:inline-flex items-center gap-1.5 pl-1">
                 Mode:{" "}
                 <strong className="font-semibold text-white">
-                  {mode === "2d" ? "2D Dynamic Ambient" : "3D Cyber Experience"}
+                  {mode === "2d" ? "2D Ambient (Color-Shift)" : "3D Cyber Experience"}
                 </strong>
               </span>
             </Reveal>

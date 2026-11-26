@@ -109,9 +109,9 @@ export function SiteHeader({
 
   return (
     <motion.header
-      initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0.94, y: -6 }}
+      initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: DEEPCHARTS_EASE }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.42, ease: DEEPCHARTS_EASE }}
       className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#050508]/82 backdrop-blur-2xl shadow-[0_14px_34px_-18px_rgba(0,0,0,0.9)] transition-colors duration-200"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">

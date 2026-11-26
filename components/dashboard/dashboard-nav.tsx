@@ -71,9 +71,9 @@ export function DashboardNav({
 
   return (
     <motion.aside
-      initial={prefersReducedMotion ? { opacity: 1, x: 0 } : { opacity: 0.92, x: -10 }}
+      initial={prefersReducedMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: -18 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.28, ease: DEEPCHARTS_EASE }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.44, ease: DEEPCHARTS_EASE }}
       className="w-full shrink-0 lg:w-62"
     >
       <div className="dc-surface lg:sticky lg:top-20 rounded-2xl p-4">

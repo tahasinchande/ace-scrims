@@ -9,11 +9,15 @@ import { DEEPCHARTS_EASE } from "@/lib/intro-motion"
 export { DEEPCHARTS_EASE }
 
 /**
- * Reliable first-time entrance visibility hook:
- * - Triggers as soon as ANY pixel enters the viewport (`amount: "some"`) so tall blocks never stall.
- * - Latches to `true` once triggered so unrelated parent re-renders never replay the entrance animation.
- * - Includes immediate viewport checks, passive scroll verification, and a hydration fail-safe
- *   so elements can NEVER remain stuck at `opacity: 0`.
+ * Reliable latched DeepCharts-style reveal hook:
+ * - For `immediate={true}` (hero / above-the-fold): starts unrevealed on mount and flips to `true`
+ *   on the next animation frame (with a guaranteed 260ms fail-safe), ensuring `initial -> animate`
+ *   genuinely plays on load instead of snapping statically during SSR hydration.
+ * - For scroll-revealed elements: triggers as soon as ANY pixel enters the viewport (`amount: "some"`),
+ *   backed by `getBoundingClientRect()` scroll/resize checks and a safety fail-safe so elements
+ *   can NEVER stay stuck at `opacity: 0`.
+ * - Latches permanently to `true` once triggered so toggling 2D/3D mode or language NEVER resets
+ *   or replays already-revealed content.
  */
 export function useReliableOnceReveal(
   ref: React.RefObject<HTMLDivElement | null>,
@@ -21,11 +25,35 @@ export function useReliableOnceReveal(
   immediate = false
 ) {
   const inView = useInView(ref, { once: true, amount: "some" })
-  const [revealed, setRevealed] = useState(Boolean(reduced) || immediate)
+  const [revealed, setRevealed] = useState(Boolean(reduced))
 
   useEffect(() => {
-    if (reduced || immediate || inView || revealed) {
+    if (reduced) {
       if (!revealed) setRevealed(true)
+      return
+    }
+
+    if (revealed) return
+
+    if (immediate) {
+      let raf2 = 0
+      const raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(() => {
+          setRevealed(true)
+        })
+      })
+      const safeTimer = window.setTimeout(() => {
+        setRevealed(true)
+      }, 260)
+      return () => {
+        window.cancelAnimationFrame(raf1)
+        if (raf2) window.cancelAnimationFrame(raf2)
+        window.clearTimeout(safeTimer)
+      }
+    }
+
+    if (inView) {
+      setRevealed(true)
       return
     }
 
@@ -33,7 +61,7 @@ export function useReliableOnceReveal(
       const el = ref.current
       if (!el || typeof window === "undefined") return
       const rect = el.getBoundingClientRect()
-      if (rect.top < window.innerHeight * 1.14 && rect.bottom > -48) {
+      if (rect.top < window.innerHeight * 1.12 && rect.bottom > -48) {
         setRevealed(true)
       }
     }
@@ -47,10 +75,10 @@ export function useReliableOnceReveal(
       const el = ref.current
       if (!el || typeof window === "undefined") return
       const rect = el.getBoundingClientRect()
-      if (rect.top <= window.innerHeight + 160) {
+      if (rect.top <= window.innerHeight + 220) {
         setRevealed(true)
       }
-    }, 850)
+    }, 900)
 
     return () => {
       window.cancelAnimationFrame(raf)
@@ -60,15 +88,15 @@ export function useReliableOnceReveal(
     }
   }, [inView, reduced, immediate, revealed, ref])
 
-  return Boolean(reduced) || immediate || revealed
+  return Boolean(reduced) || revealed
 }
 
 export function Reveal({
   children,
   className,
   delay = 0,
-  y = 18,
-  duration = 0.56,
+  y = 24,
+  duration = 0.64,
   immediate = false,
 }: {
   children: ReactNode
@@ -89,8 +117,8 @@ export function Reveal({
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y, scale: 0.988 }}
-      animate={isVisible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y, scale: 0.988 }}
+      initial={{ opacity: 0, y, scale: 0.974 }}
+      animate={isVisible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y, scale: 0.974 }}
       transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
       className={className}
     >
@@ -108,7 +136,7 @@ export function MaskedLineReveal({
   className,
   innerClassName,
   delay = 0,
-  duration = 0.64,
+  duration = 0.72,
   immediate = false,
 }: {
   children: ReactNode
@@ -129,8 +157,8 @@ export function MaskedLineReveal({
   return (
     <div ref={ref} className={cn("overflow-hidden", className)}>
       <motion.div
-        initial={{ opacity: 0, y: "102%" }}
-        animate={isVisible ? { opacity: 1, y: "0%" } : { opacity: 0, y: "102%" }}
+        initial={{ opacity: 0, y: "105%" }}
+        animate={isVisible ? { opacity: 1, y: "0%" } : { opacity: 0, y: "105%" }}
         transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
         className={innerClassName}
       >
@@ -142,15 +170,15 @@ export function MaskedLineReveal({
 
 /**
  * Editorial visual/media reveal for hero centerpiece, showcase photography, and victory banners.
- * Uses subtle scale settling + vertical glide for a crisp, hardware-accelerated feel.
+ * Uses smooth scale settling + vertical glide for a crisp, hardware-accelerated feel.
  */
 export function VisualReveal({
   children,
   className,
   delay = 0,
-  duration = 0.68,
-  y = 16,
-  initialScale = 1.038,
+  duration = 0.78,
+  y = 22,
+  initialScale = 1.055,
   immediate = false,
 }: {
   children: ReactNode
@@ -185,8 +213,8 @@ export function VisualReveal({
 export function RevealStagger({
   children,
   className,
-  stagger = 0.06,
-  delay = 0.02,
+  stagger = 0.08,
+  delay = 0.04,
   immediate = false,
 }: {
   children: ReactNode
@@ -227,8 +255,8 @@ export function RevealStagger({
 export function RevealItem({
   children,
   className,
-  y = 16,
-  duration = 0.5,
+  y = 22,
+  duration = 0.58,
 }: {
   children: ReactNode
   className?: string
@@ -244,7 +272,7 @@ export function RevealItem({
   return (
     <motion.div
       variants={{
-        hidden: { opacity: 0, y, scale: 0.986 },
+        hidden: { opacity: 0, y, scale: 0.974 },
         show: {
           opacity: 1,
           y: 0,
@@ -282,9 +310,9 @@ export function PageTransition({
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0.92, y: 8 }}
+      initial={{ opacity: 0.88, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.34, ease: DEEPCHARTS_EASE }}
+      transition={{ duration: 0.42, ease: DEEPCHARTS_EASE }}
       className={className}
     >
       {children}

@@ -28,11 +28,12 @@ export async function GET(req: Request) {
     }
 
     const result = await autoCancelUnderfilledScrims()
-    return NextResponse.json(result)
-  } catch (err: any) {
+    return NextResponse.json(result, { headers: { "Cache-Control": "no-store, private" } })
+  } catch (err) {
+    console.error("[API /api/cron/auto-cancel Error]:", err)
     return NextResponse.json(
-      { ok: false, error: err?.message || "Internal server error" },
-      { status: 500 }
+      { ok: false, error: "Internal server error" },
+      { status: 500, headers: { "Cache-Control": "no-store, private" } }
     )
   }
 }

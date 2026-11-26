@@ -13,6 +13,7 @@ import {
   Check,
   Clock,
   Eye,
+  Highlighter,
   Link2,
   Loader2,
   Megaphone,
@@ -20,6 +21,7 @@ import {
   Radio,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -32,10 +34,11 @@ const ACCENT_OPTIONS: Array<{
   swatch: string
   ring: string
 }> = [
-  { id: "violet", label: "Violet", swatch: "bg-[#9B5DE5]", ring: "ring-[#9B5DE5]/60" },
+  { id: "amber", label: "DeepCharts Amber", swatch: "bg-amber-400", ring: "ring-amber-400/60" },
+  { id: "blue", label: "Electric Blue", swatch: "bg-[#1f73ff]", ring: "ring-[#1f73ff]/60" },
   { id: "cyan", label: "Cyber Cyan", swatch: "bg-cyan-400", ring: "ring-cyan-400/60" },
+  { id: "violet", label: "Violet", swatch: "bg-[#9B5DE5]", ring: "ring-[#9B5DE5]/60" },
   { id: "crimson", label: "Crimson", swatch: "bg-[#D9536F]", ring: "ring-[#D9536F]/60" },
-  { id: "amber", label: "Amber", swatch: "bg-amber-400", ring: "ring-amber-400/60" },
   { id: "emerald", label: "Emerald", swatch: "bg-emerald-400", ring: "ring-emerald-400/60" },
 ]
 
@@ -68,9 +71,10 @@ export function AnnouncementManager({
   }
 
   const [enabled, setEnabled] = useState(baseConfig.enabled)
-  const [badge, setBadge] = useState(baseConfig.badge || "LIVE EVENT")
-  const [accent, setAccent] = useState<TopAdAccent>(baseConfig.accent || "violet")
+  const [badge, setBadge] = useState(baseConfig.badge || "LIMITED OFFER")
+  const [accent, setAccent] = useState<TopAdAccent>(baseConfig.accent || "amber")
   const [text, setText] = useState(baseConfig.text || "")
+  const [highlightText, setHighlightText] = useState(baseConfig.highlightText || "")
   const [ctaLabel, setCtaLabel] = useState(baseConfig.ctaLabel || "")
   const [ctaUrl, setCtaUrl] = useState(baseConfig.ctaUrl || "")
   const [countdownLocal, setCountdownLocal] = useState(() =>
@@ -93,14 +97,30 @@ export function AnnouncementManager({
     enabled,
     badge: badge.trim(),
     accent,
-    text: text.trim() || "Tonight's 9:00 PM Free Fire Scrim — Bonus prize pool open now!",
-    ctaLabel: ctaLabel.trim(),
-    ctaUrl: ctaUrl.trim(),
+    text: text.trim() || "Tonight's Champion Rush Scrim — Extra ৳1,000 Bonus Prize Pool ends soon!",
+    highlightText:
+      highlightText.trim() || (text.trim() ? "" : "Extra ৳1,000 Bonus Prize Pool"),
+    ctaLabel: ctaLabel.trim() || (ctaUrl.trim() ? "Book Slot" : ""),
+    ctaUrl: ctaUrl.trim() || (text.trim() ? "" : "/scrims"),
     countdownEnd: dateTimeLocalToIso(countdownLocal),
     startsAt: dateTimeLocalToIso(startsLocal),
     endsAt: dateTimeLocalToIso(endsLocal),
     dismissible,
     version,
+  }
+
+  function handleLoadDeepChartsPreset() {
+    const tomorrowIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    setEnabled(true)
+    setBadge("LIMITED OFFER")
+    setAccent("amber")
+    setText("Tonight's Champion Rush Scrim — Extra ৳1,000 Bonus Prize Pool ends soon!")
+    setHighlightText("Extra ৳1,000 Bonus Prize Pool")
+    setCtaLabel("Book Slot")
+    setCtaUrl("/scrims")
+    setCountdownLocal(isoToDateTimeLocal(tomorrowIso))
+    setDismissible(true)
+    toast.success("Loaded DeepCharts-style preset — customize and click Save & Publish!")
   }
 
   function handleSaveTopAd(overrideEnabled?: boolean) {
@@ -112,6 +132,7 @@ export function AnnouncementManager({
           badge: badge.trim(),
           accent,
           text: text.trim(),
+          highlightText: highlightText.trim(),
           ctaLabel: ctaLabel.trim(),
           ctaUrl: ctaUrl.trim(),
           countdownEnd: dateTimeLocalToIso(countdownLocal),
@@ -138,8 +159,10 @@ export function AnnouncementManager({
 
   function handleClearAll() {
     setEnabled(false)
-    setBadge("LIVE EVENT")
+    setBadge("LIMITED OFFER")
+    setAccent("amber")
     setText("")
+    setHighlightText("")
     setCtaLabel("")
     setCtaUrl("")
     setCountdownLocal("")
@@ -151,6 +174,7 @@ export function AnnouncementManager({
         ...DEFAULT_TOP_AD_CONFIG,
         enabled: false,
         text: "",
+        highlightText: "",
         ctaLabel: "",
         ctaUrl: "",
       })
@@ -173,25 +197,38 @@ export function AnnouncementManager({
               Top Ad &amp; Announcement Showcase
             </h2>
             <p className="text-xs text-muted-foreground">
-              Displayed above the main site navigation with optional highlighted badge, live countdown timer, CTA destination link, schedule window, and dismiss control.
+              DeepCharts-style top promo strip rendered above site navigation with customizable badge, inline highlighted text, segmented live countdown timer, CTA button, and schedule window.
             </p>
           </div>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            onClick={() => setEnabled((prev) => !prev)}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer",
-              enabled
-                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-xs"
-                : "border-white/10 bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.07]"
-            )}
-          >
-            <Power className="size-3.5" />
-            <span>{enabled ? "Showcase Active" : "Showcase Off"}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleLoadDeepChartsPreset}
+              className="gap-1.5 rounded-xl border-amber-400/35 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+            >
+              <Wand2 className="size-3.5" />
+              Load DeepCharts Preset
+            </Button>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              onClick={() => setEnabled((prev) => !prev)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer",
+                enabled
+                  ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-xs"
+                  : "border-white/10 bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.07]"
+              )}
+            >
+              <Power className="size-3.5" />
+              <span>{enabled ? "Showcase Active" : "Showcase Off"}</span>
+            </button>
+          </div>
         </div>
 
         {/* Live Preview */}
@@ -199,7 +236,7 @@ export function AnnouncementManager({
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Eye className="size-3.5 text-accent" />
-              Live Banner Preview
+              Live Top Banner Preview
             </span>
             <span className={enabled ? "text-emerald-400" : "text-zinc-500"}>
               {enabled ? "Visible to Visitors" : "Hidden (Toggle Active to Publish)"}
@@ -210,16 +247,16 @@ export function AnnouncementManager({
           </div>
         </div>
 
-        {/* Content & Highlighted Badge */}
+        {/* Content, Badge & Inline Highlight */}
         <div className="grid gap-4 md:grid-cols-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="top-ad-badge">Highlighted Keyword / Badge</Label>
+            <Label htmlFor="top-ad-badge">Badge / Pill Label</Label>
             <Input
               id="top-ad-badge"
               value={badge}
               onChange={(e) => setBadge(e.target.value)}
               maxLength={32}
-              placeholder="e.g. LIVE EVENT, FLASH SALE, TONIGHT"
+              placeholder="e.g. LIMITED OFFER, LIVE EVENT"
             />
           </div>
 
@@ -235,16 +272,30 @@ export function AnnouncementManager({
               value={text}
               onChange={(e) => setText(e.target.value)}
               maxLength={180}
-              placeholder="e.g. Tonight's 9 PM Purgatory Scrim — Extra ৳500 Bonus Prize Pool!"
+              placeholder="e.g. Tonight's Champion Rush Scrim — Extra ৳1,000 Bonus Prize Pool ends soon!"
             />
           </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="top-ad-highlight" className="flex items-center gap-1.5">
+            <Highlighter className="size-3.5 text-amber-400" />
+            Inline Highlighted Phrase (optional — bolded in accent color inside your promo text)
+          </Label>
+          <Input
+            id="top-ad-highlight"
+            value={highlightText}
+            onChange={(e) => setHighlightText(e.target.value)}
+            maxLength={60}
+            placeholder="e.g. Extra ৳1,000 Bonus Prize Pool"
+          />
         </div>
 
         {/* Accent Color Swatches */}
         <div className="flex flex-col gap-2">
           <Label className="flex items-center gap-1.5">
             <Sparkles className="size-3.5 text-primary" />
-            Badge &amp; Highlight Accent Color
+            Banner Accent Theme
           </Label>
           <div className="flex flex-wrap items-center gap-2">
             {ACCENT_OPTIONS.map((opt) => {
@@ -312,7 +363,7 @@ export function AnnouncementManager({
               onChange={(e) => setCountdownLocal(e.target.value)}
             />
             <span className="text-[11px] text-muted-foreground">
-              Displays a steady tabular countdown until this time.
+              Displays segmented tabular countdown boxes (d : h : m : s).
             </span>
           </div>
 
@@ -383,7 +434,7 @@ export function AnnouncementManager({
               </Button>
             )}
 
-            {(text || badge || ctaUrl || countdownLocal) && (
+            {(text || badge || highlightText || ctaUrl || countdownLocal) && (
               <Button
                 type="button"
                 variant="ghost"

@@ -24,8 +24,15 @@ export async function POST(req: NextRequest) {
     }
 
     const res = await wipeDeploymentData({ deleteNonAdminUsers })
-    return NextResponse.json(res, { status: res.ok ? 200 : 500 })
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || "Internal server error" }, { status: 500 })
+    return NextResponse.json(res, {
+      status: res.ok ? 200 : 500,
+      headers: { "Cache-Control": "no-store, private" },
+    })
+  } catch (err) {
+    console.error("[API /api/admin/wipe Error]:", err)
+    return NextResponse.json(
+      { ok: false, error: "Internal server error" },
+      { status: 500, headers: { "Cache-Control": "no-store, private" } }
+    )
   }
 }

@@ -2,148 +2,16 @@
 
 import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 import { useViewMode } from "@/lib/view-mode"
 import {
   applyAmbientThemeToRoot,
   getAmbientPhaseAt,
-  STAGE_BASE_2D_NORM,
+  STAGE_BASE_NORM,
 } from "@/lib/ambient-theme"
 
-const VOLUMETRIC_2D_VS = `
-  attribute vec2 aPos;
-  varying vec2 vUv;
-  void main() {
-    vUv = aPos * 0.5 + 0.5;
-    gl_Position = vec4(aPos, 0.0, 1.0);
-  }
-`
-
 /**
- * Controlled Low-Brightness Obsidian-Violet 2D Ambient Fragment Shader
- * Inspired by randomqbit.site:
- * - Deep obsidian / near-black base (#050508 -> #09070F)
- * - Strictly controlled radial violet/purple ambient glow (#6B2FA8 -> #3E1A6E -> #050508)
- * - Slow 8s–12s organic breathing drift & gentle pointer parallax
- * - High foreground legibility: never glaring or washed out.
- */
-const VOLUMETRIC_2D_FS = `
-  precision highp float;
-
-  varying vec2 vUv;
-  uniform float uTime;
-  uniform vec2 uRes;
-  uniform vec2 uPointer;
-  uniform float uScroll;
-  uniform vec3 uBgA;
-  uniform vec3 uBgB;
-  uniform vec3 uGlow;
-  uniform vec3 uC1;
-  uniform vec3 uC2;
-
-  float hash12(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-  }
-
-  float noise2D(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash12(i + vec2(0.0, 0.0)), hash12(i + vec2(1.0, 0.0)), u.x),
-      mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
-  }
-
-  float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
-    for (int i = 0; i < 3; i++) {
-      v += a * noise2D(p);
-      p = rot * p * 2.02 + vec2(11.3, 19.7);
-      a *= 0.5;
-    }
-    return v;
-  }
-
-  void main() {
-    vec2 uv = vUv;
-    float aspect = uRes.x / max(uRes.y, 1.0);
-    vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
-
-    vec2 drift = vec2(uPointer.x * 0.045, uPointer.y * 0.035 - uScroll * 0.06);
-    // Smooth 10s breathing rhythm
-    float t = uTime * 0.24;
-    float breathe = 0.88 + 0.12 * sin(uTime * 0.62);
-
-    // 1. Deep obsidian near-black base (#050508 -> #09070F)
-    vec3 obsidianDeep = uBgA;
-    vec3 obsidianMid = vec3(0.035, 0.027, 0.059); // #09070F
-    vec3 col = mix(obsidianDeep, obsidianMid, smoothstep(0.0, 1.0, uv.y * 0.85 + 0.1));
-
-    // 2. Subtle fbm silk texture for depth without glare
-    float silk = fbm(p * 1.45 + vec2(t * 0.35, -t * 0.22));
-    float silk2 = fbm(p * 2.1 - vec2(t * 0.26, t * 0.18));
-
-    // 3. Controlled radial violet ambient aura (#6B2FA8 -> #3E1A6E -> #050508)
-    vec2 coreCenter = vec2(
-      0.50 + sin(t * 0.72) * 0.09,
-      0.76 + cos(t * 0.58) * 0.06
-    ) + drift * 0.45;
-    float dCore = length((uv - coreCenter) * vec2(aspect * 0.66, 1.05));
-    float coreHalo = exp(-dCore * dCore * 2.35) * breathe;
-
-    vec2 rimCenter = vec2(
-      0.18 + cos(t * 0.52) * 0.08,
-      0.24 + sin(t * 0.46) * 0.07
-    ) - drift * 0.32;
-    float dRim = length((uv - rimCenter) * vec2(aspect * 0.62, 1.1));
-    float rimHalo = exp(-dRim * dRim * 2.65);
-
-    vec2 sideCenter = vec2(
-      0.84 + sin(t * 0.48 + 1.8) * 0.07,
-      0.44 + cos(t * 0.44 + 0.9) * 0.08
-    ) + drift * 0.28;
-    float dSide = length((uv - sideCenter) * vec2(aspect * 0.72, 1.1));
-    float sideHalo = exp(-dSide * dSide * 3.1);
-
-    // Strictly capped luminance so foreground cards & text remain crystal clear
-    col += uBgB * (coreHalo * (0.42 + silk * 0.14) + rimHalo * 0.26);
-    col += uGlow * (coreHalo * coreHalo * (0.28 + silk2 * 0.10) + sideHalo * 0.18);
-    col += uC2 * (pow(coreHalo, 3.0) * 0.10 * (0.7 + silk * 0.3));
-
-    // Gentle vignette anchoring the edges into #050508 obsidian
-    float vig = smoothstep(1.38, 0.22, length((uv - 0.5) * vec2(aspect * 0.78, 1.05)));
-    col = mix(obsidianDeep, col, mix(0.56, 1.0, vig));
-
-    // Filmic roll-off + strict brightness ceiling
-    col = col / (1.0 + col * 0.52);
-
-    // Subtle 8-bit dither to eliminate gradient banding
-    float dither = (hash12(gl_FragCoord.xy + fract(uTime * 11.3)) - 0.5) / 255.0;
-    col = clamp(col + dither, 0.0, 0.42);
-
-    gl_FragColor = vec4(col, 1.0);
-  }
-`
-
-function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
-  const shader = gl.createShader(type)
-  if (!shader) return null
-  gl.shaderSource(shader, source)
-  gl.compileShader(shader)
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    gl.deleteShader(shader)
-    return null
-  }
-  return shader
-}
-
-/**
- * Detect software WebGL (SwiftShader, llvmpipe, WARP) for frame pacing & DPR cost control.
+ * Detect software WebGL (SwiftShader, llvmpipe, WARP) for rendering cost & frame pacing.
  */
 function detectSoftwareWebGL(): boolean {
   if (typeof document === "undefined") return false
@@ -161,140 +29,34 @@ function detectSoftwareWebGL(): boolean {
   }
 }
 
-/** Deterministic PRNG so the skyline silhouette is architectural and consistent across renders */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
 /**
- * Procedural high-contrast building facade CanvasTexture:
- * Dark architectural obsidian concrete with crisp, selectively lit cyan / ice-white / subtle warm windows.
+ * Unified Ace Scrims / RushX Background Engine:
+ * - Recovers the ORIGINAL first 3D Cyber Monolith/Tower/Circuit-Grid/Laser-Ribbon/Ember scene
+ *   with all original orange accents converted into Electric Blue / Cyan-Blue on initial load.
+ * - Continuously shifts through smooth, balanced colors (starting on Blue for BOTH 2D & 3D).
+ * - In "3D" ("3D Cyber") mode: Full live 3D animation (undulating monolith terrain, breathing towers,
+ *   orbiting data cubes, pulsing circuit pads, sweeping laser ribbons, rising embers, camera & parallax).
+ * - In "2D" ("2D Ambient") mode: Built directly on the EXACT SAME 3D foundation where ONLY the
+ *   smooth continuous color-changing effect remains active with 100% identical colors (calm frozen
+ *   architecture + subtle contrast scrim so text, cards, and buttons remain crisp and never washed out).
+ * - Never recreates or resets WebGL context when switching between 2D and 3D modes!
  */
-function createCityWindowTextures(): {
-  map: THREE.CanvasTexture
-  emissiveMap: THREE.CanvasTexture
-} {
-  const width = 256
-  const height = 512
-
-  const diffuseCanvas = document.createElement("canvas")
-  diffuseCanvas.width = width
-  diffuseCanvas.height = height
-  const dCtx = diffuseCanvas.getContext("2d")
-
-  const emissiveCanvas = document.createElement("canvas")
-  emissiveCanvas.width = width
-  emissiveCanvas.height = height
-  const eCtx = emissiveCanvas.getContext("2d")
-
-  if (dCtx && eCtx) {
-    // Dark slate-obsidian skyscraper skin
-    const baseGrad = dCtx.createLinearGradient(0, 0, 0, height)
-    baseGrad.addColorStop(0, "#050914")
-    baseGrad.addColorStop(0.55, "#070f1f")
-    baseGrad.addColorStop(1, "#091829")
-    dCtx.fillStyle = baseGrad
-    dCtx.fillRect(0, 0, width, height)
-
-    eCtx.fillStyle = "#000000"
-    eCtx.fillRect(0, 0, width, height)
-
-    const rand = mulberry32(90210)
-    const cols = 12
-    const rows = 36
-    const padX = 5
-    const padY = 5
-    const cellW = width / cols
-    const cellH = height / rows
-
-    // Subtle structural mullion grooves
-    dCtx.fillStyle = "rgba(18, 42, 68, 0.25)"
-    for (let c = 0; c < cols; c++) {
-      dCtx.fillRect(Math.floor(c * cellW), 0, 1, height)
-    }
-
-    // Crisp architectural window grid (selective floors & suites lit)
-    for (let r = 1; r < rows - 1; r++) {
-      // Occasional dark mechanical floor
-      if (r % 9 === 0) continue
-      const floorActivity = 0.22 + rand() * 0.42
-
-      for (let c = 1; c < cols - 1; c++) {
-        const roll = rand()
-        const wx = Math.floor(c * cellW + padX * 0.5)
-        const wy = Math.floor(r * cellH + padY * 0.5)
-        const ww = Math.max(3, Math.floor(cellW - padX))
-        const wh = Math.max(3, Math.floor(cellH - padY))
-
-        if (roll < floorActivity) {
-          const tintRoll = rand()
-          let winColor: string
-          if (tintRoll < 0.58) {
-            // Crisp cyan-ice window
-            winColor = rand() < 0.45 ? "#cffafe" : "#67e8f9"
-          } else if (tintRoll < 0.86) {
-            // Bright ice-white office light
-            winColor = "#e0f2fe"
-          } else {
-            // Subtle pale cyan-teal glow
-            winColor = "#22d3ee"
-          }
-
-          dCtx.fillStyle = winColor
-          dCtx.fillRect(wx, wy, ww, wh)
-
-          eCtx.fillStyle = winColor
-          eCtx.fillRect(wx, wy, ww, wh)
-        } else {
-          // Subtle unlit glass reflection
-          dCtx.fillStyle = "#081426"
-          dCtx.fillRect(wx, wy, ww, wh)
-        }
-      }
-    }
-
-    // Subtle cyan roof trim line
-    dCtx.fillStyle = "rgba(103, 232, 249, 0.45)"
-    dCtx.fillRect(0, 0, width, 3)
-    eCtx.fillStyle = "rgba(56, 189, 248, 0.42)"
-    eCtx.fillRect(0, 0, width, 3)
-  }
-
-  const map = new THREE.CanvasTexture(diffuseCanvas)
-  map.wrapS = THREE.RepeatWrapping
-  map.wrapT = THREE.RepeatWrapping
-  map.colorSpace = THREE.SRGBColorSpace
-  map.needsUpdate = true
-
-  const emissiveMap = new THREE.CanvasTexture(emissiveCanvas)
-  emissiveMap.wrapS = THREE.RepeatWrapping
-  emissiveMap.wrapT = THREE.RepeatWrapping
-  emissiveMap.colorSpace = THREE.SRGBColorSpace
-  emissiveMap.needsUpdate = true
-
-  return { map, emissiveMap }
-}
-
 export function GlobalCyberBackground() {
   const threeContainerRef = useRef<HTMLDivElement>(null)
-  const volumetric2DCanvasRef = useRef<HTMLCanvasElement>(null)
   const sharedStartMsRef = useRef<number | null>(null)
   const { mode } = useViewMode()
-  const [webgl2DReady, setWebgl2DReady] = useState(false)
-  const [webgl3DFallback, setWebgl3DFallback] = useState(false)
+  const modeRef = useRef<"2d" | "3d">(mode)
+  const [webglUnavailable, setWebglUnavailable] = useState(false)
 
-  const effectiveMode: "2d" | "3d" = mode === "3d" && !webgl3DFallback ? "3d" : "2d"
+  // Keep live mode ref synchronized immediately without tearing down WebGL
+  useEffect(() => {
+    modeRef.current = mode
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.viewMode = mode
+    }
+  }, [mode])
 
-  // Mode-aware theme synchronizer:
-  // - "3d": Cyber Cyan Horizon accents (#06B6D4 / #38BDF8 / #CFFAFE)
-  // - "2d": Controlled Obsidian Violet accents (#8C44D4 / #9B5DE5 / #6B2FA8)
+  // Synchronized color-changing CSS variable engine (starts Electric Blue on both 2D & 3D)
   useEffect(() => {
     const prefersReducedMotion =
       typeof window !== "undefined" &&
@@ -304,23 +66,23 @@ export function GlobalCyberBackground() {
       sharedStartMsRef.current = performance.now()
     }
 
-    const activeElapsed = Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
-    applyAmbientThemeToRoot(getAmbientPhaseAt(activeElapsed, effectiveMode), effectiveMode)
+    const initPhase = getAmbientPhaseAt(0, modeRef.current)
+    applyAmbientThemeToRoot(initPhase, modeRef.current)
 
     let rafId = 0
     let lastAppliedKey = ""
-    const colorSpeed = prefersReducedMotion ? 0.35 : 1.0
+    const colorSpeed = prefersReducedMotion ? 0.45 : 1.0
 
     const tick = () => {
       rafId = window.requestAnimationFrame(tick)
       if (document.hidden) return
       const startMs = sharedStartMsRef.current ?? performance.now()
       const elapsedSec = ((performance.now() - startMs) / 1000) * colorSpeed
-      const state = getAmbientPhaseAt(elapsedSec, effectiveMode)
-      const key = `${effectiveMode}|${state.primaryRgb.join(",")}|${state.glowRgb.join(",")}|${state.accentRgb.join(",")}`
+      const state = getAmbientPhaseAt(elapsedSec, modeRef.current)
+      const key = `${modeRef.current}|${state.primaryRgb.join(",")}|${state.accentRgb.join(",")}|${state.glowRgb.join(",")}`
       if (key !== lastAppliedKey) {
         lastAppliedKey = key
-        applyAmbientThemeToRoot(state, effectiveMode)
+        applyAmbientThemeToRoot(state, modeRef.current)
       }
     }
 
@@ -328,214 +90,11 @@ export function GlobalCyberBackground() {
     return () => {
       window.cancelAnimationFrame(rafId)
     }
-  }, [effectiveMode])
+  }, [])
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 2D AMBIENT MODE: CONTROLLED OBSIDIAN-VIOLET GLOW (randomqbit.site direction)
-  // ─────────────────────────────────────────────────────────────────────────────
+  // Single unified Three.js scene backing BOTH "3D Cyber" (full motion + color-changing)
+  // and "2D Ambient" (exact same 3D foundation with ONLY color-changing active).
   useEffect(() => {
-    if (mode === "3d" && !webgl3DFallback) {
-      setWebgl2DReady(false)
-      return
-    }
-
-    const canvas = volumetric2DCanvasRef.current
-    if (!canvas) return
-
-    let gl: WebGLRenderingContext | null = null
-    try {
-      gl = canvas.getContext("webgl", {
-        alpha: false,
-        antialias: false,
-        depth: false,
-        stencil: false,
-        powerPreference: "high-performance",
-        preserveDrawingBuffer: false,
-      })
-    } catch {
-      gl = null
-    }
-
-    if (!gl) {
-      setWebgl2DReady(false)
-      return
-    }
-
-    const vs = compileShader(gl, gl.VERTEX_SHADER, VOLUMETRIC_2D_VS)
-    const fs = compileShader(gl, gl.FRAGMENT_SHADER, VOLUMETRIC_2D_FS)
-    if (!vs || !fs) {
-      if (vs) gl.deleteShader(vs)
-      if (fs) gl.deleteShader(fs)
-      setWebgl2DReady(false)
-      return
-    }
-
-    const program = gl.createProgram()
-    if (!program) {
-      gl.deleteShader(vs)
-      gl.deleteShader(fs)
-      setWebgl2DReady(false)
-      return
-    }
-
-    gl.attachShader(program, vs)
-    gl.attachShader(program, fs)
-    gl.linkProgram(program)
-
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      gl.deleteProgram(program)
-      gl.deleteShader(vs)
-      gl.deleteShader(fs)
-      setWebgl2DReady(false)
-      return
-    }
-
-    gl.useProgram(program)
-
-    const buffer = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      gl.STATIC_DRAW
-    )
-
-    const aPos = gl.getAttribLocation(program, "aPos")
-    gl.enableVertexAttribArray(aPos)
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
-
-    const uTime = gl.getUniformLocation(program, "uTime")
-    const uRes = gl.getUniformLocation(program, "uRes")
-    const uPointer = gl.getUniformLocation(program, "uPointer")
-    const uScroll = gl.getUniformLocation(program, "uScroll")
-    const uBgA = gl.getUniformLocation(program, "uBgA")
-    const uBgB = gl.getUniformLocation(program, "uBgB")
-    const uGlow = gl.getUniformLocation(program, "uGlow")
-    const uC1 = gl.getUniformLocation(program, "uC1")
-    const uC2 = gl.getUniformLocation(program, "uC2")
-
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const motionRate = prefersReducedMotion ? 0.35 : 1.0
-
-    let targetPtrX = 0
-    let targetPtrY = 0
-    let smoothPtrX = 0
-    let smoothPtrY = 0
-    let scrollRatio = 0
-    let contextLost = false
-    let isDisposed = false
-
-    const resize = () => {
-      if (!gl || contextLost || isDisposed) return
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-      const w = Math.max(1, Math.floor(window.innerWidth * dpr))
-      const h = Math.max(1, Math.floor(window.innerHeight * dpr))
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w
-        canvas.height = h
-      }
-      gl.viewport(0, 0, w, h)
-    }
-
-    const onPointerMove = (e: MouseEvent | TouchEvent) => {
-      const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : e.clientX
-      const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : e.clientY
-      targetPtrX = (clientX / Math.max(window.innerWidth, 1)) * 2 - 1
-      targetPtrY = -((clientY / Math.max(window.innerHeight, 1)) * 2 - 1)
-    }
-
-    const onScroll = () => {
-      const docHeight =
-        Math.max(
-          document.body.scrollHeight,
-          document.documentElement.scrollHeight,
-          window.innerHeight * 2
-        ) - window.innerHeight
-      const y = window.scrollY || document.documentElement.scrollTop || 0
-      scrollRatio = Math.max(0, Math.min(1, y / Math.max(docHeight, 1)))
-    }
-
-    const onContextLost = (e: Event) => {
-      e.preventDefault()
-      contextLost = true
-      if (!isDisposed) setWebgl2DReady(false)
-    }
-
-    resize()
-    window.addEventListener("resize", resize, { passive: true })
-    window.addEventListener("mousemove", onPointerMove, { passive: true })
-    window.addEventListener("touchmove", onPointerMove, { passive: true })
-    window.addEventListener("scroll", onScroll, { passive: true })
-    canvas.addEventListener("webglcontextlost", onContextLost)
-
-    const drawFrame = (elapsedSec: number) => {
-      if (!gl || contextLost || isDisposed) return
-      const phase = getAmbientPhaseAt(elapsedSec * motionRate, "2d")
-      smoothPtrX += (targetPtrX - smoothPtrX) * 0.04
-      smoothPtrY += (targetPtrY - smoothPtrY) * 0.04
-
-      gl.uniform1f(uTime, elapsedSec * motionRate)
-      gl.uniform2f(uRes, canvas.width, canvas.height)
-      gl.uniform2f(uPointer, smoothPtrX, smoothPtrY)
-      gl.uniform1f(uScroll, scrollRatio)
-      gl.uniform3f(uBgA, STAGE_BASE_2D_NORM[0], STAGE_BASE_2D_NORM[1], STAGE_BASE_2D_NORM[2])
-      gl.uniform3f(uBgB, phase.bgB[0], phase.bgB[1], phase.bgB[2])
-      gl.uniform3f(uGlow, phase.glow[0], phase.glow[1], phase.glow[2])
-      gl.uniform3f(uC1, phase.c1[0], phase.c1[1], phase.c1[2])
-      gl.uniform3f(uC2, phase.c2[0], phase.c2[1], phase.c2[2])
-
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-    }
-
-    const initStart = sharedStartMsRef.current ?? performance.now()
-    drawFrame((performance.now() - initStart) / 1000)
-    setWebgl2DReady(true)
-
-    let rafId = 0
-    const loop = () => {
-      if (isDisposed) return
-      rafId = window.requestAnimationFrame(loop)
-      if (document.hidden || contextLost) return
-      const startMs = sharedStartMsRef.current ?? performance.now()
-      drawFrame((performance.now() - startMs) / 1000)
-    }
-
-    rafId = window.requestAnimationFrame(loop)
-
-    return () => {
-      isDisposed = true
-      window.cancelAnimationFrame(rafId)
-      window.removeEventListener("resize", resize)
-      window.removeEventListener("mousemove", onPointerMove)
-      window.removeEventListener("touchmove", onPointerMove)
-      window.removeEventListener("scroll", onScroll)
-      canvas.removeEventListener("webglcontextlost", onContextLost)
-      if (gl && !contextLost) {
-        try {
-          if (buffer) gl.deleteBuffer(buffer)
-          gl.deleteProgram(program)
-          gl.deleteShader(vs)
-          gl.deleteShader(fs)
-        } catch {
-          // ignore cleanup errors
-        }
-      }
-    }
-  }, [mode, webgl3DFallback])
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 3D CYBER MODE: DEEP NIGHT SKY + SCATTERED STARS + EXTRUDED BLOCKY CITYSCAPE
-  // SILHOUETTE WITH CRISP LIT WINDOWS + BRIGHT CYAN/ICE-WHITE HORIZON LIGHT BAND
-  // + RECEDING PERSPECTIVE GRID PLANE (Recovered from previous Ace Scrims deploy)
-  // ─────────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mode !== "3d") {
-      setWebgl3DFallback(false)
-      return
-    }
-
     const container = threeContainerRef.current
     if (!container) return
 
@@ -562,30 +121,52 @@ export function GlobalCyberBackground() {
         depth: true,
       })
     } catch {
-      setWebgl3DFallback(true)
+      setWebglUnavailable(true)
       return
     }
 
-    setWebgl3DFallback(false)
+    setWebglUnavailable(false)
 
+    if (sharedStartMsRef.current === null) {
+      sharedStartMsRef.current = performance.now()
+    }
+    const initPhase = getAmbientPhaseAt(0, modeRef.current)
+
+    // 1. Scene, Deep Obsidian Blue Fog, Isometric Perspective Camera & Subtle Reflections
     const scene = new THREE.Scene()
-    const nightSkyHex = 0x020612
-    scene.background = new THREE.Color(nightSkyHex)
-    const fog = new THREE.FogExp2(0x031120, 0.0088)
+    const stageColor = new THREE.Color(
+      STAGE_BASE_NORM[0] + initPhase.bgB[0] * 0.24,
+      STAGE_BASE_NORM[1] + initPhase.bgB[1] * 0.24,
+      STAGE_BASE_NORM[2] + initPhase.bgB[2] * 0.28
+    )
+    scene.background = stageColor.clone()
+    const fog = new THREE.FogExp2(stageColor.getHex(), 0.017)
     scene.fog = fog
 
-    // Horizon-framing perspective camera looking straight across the grid toward the glowing skyline
-    const camera = new THREE.PerspectiveCamera(48, width / height, 0.2, 500)
-    camera.position.set(0, 8.2, 46)
-    camera.lookAt(0, 6.2, -90)
+    const baseCamX = 16.5
+    const baseCamY = 15.2
+    const baseCamZ = 27.0
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 360)
+    camera.position.set(baseCamX, baseCamY, baseCamZ)
+    camera.lookAt(0, 2.4, 0)
 
     const maxDPR = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 1.75)
     renderer.setPixelRatio(maxDPR)
     renderer.setSize(width, height)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.15
+    renderer.toneMappingExposure = 1.18
     renderer.shadowMap.enabled = false
+
+    try {
+      const pmremGenerator = new THREE.PMREMGenerator(renderer)
+      const envRT = pmremGenerator.fromScene(new RoomEnvironment(), 0.04)
+      scene.environment = envRT.texture
+      trackDisposable(envRT)
+      pmremGenerator.dispose()
+    } catch {
+      // Proceed cleanly if PMREM is restricted
+    }
 
     renderer.domElement.style.position = "absolute"
     renderer.domElement.style.top = "0"
@@ -600,397 +181,391 @@ export function GlobalCyberBackground() {
     const onWebglContextLost = (e: Event) => {
       e.preventDefault()
       contextLost = true
-      if (!isDisposed) {
-        setWebgl3DFallback(true)
-      }
+      if (!isDisposed) setWebglUnavailable(true)
     }
     renderer.domElement.addEventListener("webglcontextlost", onWebglContextLost)
 
-    // 1. Lighting Rig: Subtle cool rim & cyan horizon backlight spilling onto the skyline
-    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x020612, 0.72)
+    // 2. Blue-Anchored Multi-Point Lighting Rig (replaces legacy orange/amber rig)
+    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x04091a, 1.2)
     scene.add(hemiLight)
 
-    const horizonBackLight = new THREE.DirectionalLight(0x67e8f9, 1.85)
-    horizonBackLight.position.set(0, 12, -130)
-    scene.add(horizonBackLight)
+    const dirKey = new THREE.DirectionalLight(0x1f73ff, 2.7)
+    dirKey.position.set(24, 34, 20)
+    scene.add(dirKey)
 
-    const cyanFillLeft = new THREE.PointLight(0x06b6d4, 18, 120, 1.5)
-    cyanFillLeft.position.set(-28, 10, -56)
-    scene.add(cyanFillLeft)
+    const dirRim = new THREE.DirectionalLight(0x38bdf8, 2.0)
+    dirRim.position.set(-28, 22, -24)
+    scene.add(dirRim)
 
-    const cyanFillRight = new THREE.PointLight(0x22d3ee, 18, 120, 1.5)
-    cyanFillRight.position.set(28, 10, -56)
-    scene.add(cyanFillRight)
+    const coreLight1 = new THREE.PointLight(0x1f73ff, 11.0, 56, 1.45)
+    coreLight1.position.set(0, 6.5, 0)
+    scene.add(coreLight1)
 
-    // 2. DEEP NIGHT SKY + BRIGHT CYAN / ICE-WHITE HORIZON LIGHT BAND BACKDROP
-    const skyUniforms = {
-      uTime: { value: 0 },
-      uCyanGlow: { value: new THREE.Color(0x0ea5c6) },
-      uIceBand: { value: new THREE.Color(0xd8fbff) },
-      uTealSpill: { value: new THREE.Color(0x0b5f7a) },
-    }
-    const skyGeo = trackDisposable(new THREE.PlaneGeometry(520, 220, 1, 1))
-    const skyMat = trackDisposable(
-      new THREE.ShaderMaterial({
-        uniforms: skyUniforms,
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform float uTime;
-          uniform vec3 uCyanGlow;
-          uniform vec3 uIceBand;
-          uniform vec3 uTealSpill;
-          varying vec2 vUv;
+    const coreLight2 = new THREE.PointLight(0x38bdf8, 8.5, 48, 1.45)
+    coreLight2.position.set(15, 5.2, -10)
+    scene.add(coreLight2)
 
-          void main() {
-            // Horizon line sits at ~36% from bottom of sky plane (aligned with ground grid y=0)
-            float hY = 0.345;
-            float dy = vUv.y - hY;
+    const coreLight3 = new THREE.PointLight(0x2563eb, 8.0, 48, 1.45)
+    coreLight3.position.set(-16, 4.8, 12)
+    scene.add(coreLight3)
 
-            // Deep night sky zenith (#01040c) -> midnight slate-navy above horizon
-            vec3 zenith = vec3(0.008, 0.016, 0.044);
-            vec3 midSky = vec3(0.016, 0.046, 0.095);
-            vec3 col = mix(midSky, zenith, smoothstep(0.02, 0.62, max(0.0, dy)));
-
-            // Gentle 8s–12s atmospheric pulse along the horizon
-            float pulse = 0.90 + 0.10 * sin(uTime * 0.78);
-            float sweep = 0.86 + 0.14 * cos((vUv.x - 0.5) * 3.8 + uTime * 0.52);
-
-            // Wide atmospheric cyan-teal glow spilling upwards behind the skyline
-            float upperAura = exp(-pow(max(0.0, dy) * 5.2, 1.45)) * step(-0.02, dy);
-            col += uTealSpill * upperAura * 0.92 * pulse;
-
-            // Tighter bright cyan band hugging the horizon
-            float cyanBand = exp(-pow(dy * 15.5, 2.0)) * sweep;
-            col += uCyanGlow * cyanBand * 1.18 * pulse;
-
-            // Razor-crisp ice-white horizontal horizon light line
-            float iceCore = exp(-pow(dy * 54.0, 2.0)) * (0.92 + 0.08 * sin(uTime * 1.05));
-            col += uIceBand * iceCore * 1.42;
-
-            // Horizontal edge attenuation so the band feels vast & cinematic
-            float xFade = 1.0 - smoothstep(0.32, 0.52, abs(vUv.x - 0.5));
-            col = mix(zenith, col, 0.35 + 0.65 * xFade);
-
-            gl_FragColor = vec4(col, 1.0);
-          }
-        `,
-        depthWrite: false,
-        fog: false,
-      })
-    )
-    const skyBackdrop = new THREE.Mesh(skyGeo, skyMat)
-    skyBackdrop.position.set(0, 34, -210)
-    scene.add(skyBackdrop)
-
-    // 3. SCATTERED TWINKLING STARS & UPPER ATMOSPHERE PARTICLES
-    const starCount = isSoftwareGl ? 520 : 950
-    const starGeo = trackDisposable(new THREE.BufferGeometry())
-    const starPositions = new Float32Array(starCount * 3)
-    const starSizes = new Float32Array(starCount)
-    const starPhases = new Float32Array(starCount)
-    const starTints = new Float32Array(starCount)
-
-    const starRand = mulberry32(421337)
-    for (let i = 0; i < starCount; i++) {
-      // Spread across upper sky behind and above the skyline
-      const sx = (starRand() - 0.5) * 340
-      const sy = 10 + Math.pow(starRand(), 0.72) * 112
-      const sz = -70 - starRand() * 130
-      starPositions[i * 3] = sx
-      starPositions[i * 3 + 1] = sy
-      starPositions[i * 3 + 2] = sz
-      starSizes[i] = 1.2 + Math.pow(starRand(), 2.2) * 3.2
-      starPhases[i] = starRand() * Math.PI * 2
-      starTints[i] = starRand()
-    }
-    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3))
-    starGeo.setAttribute("aSize", new THREE.BufferAttribute(starSizes, 1))
-    starGeo.setAttribute("aPhase", new THREE.BufferAttribute(starPhases, 1))
-    starGeo.setAttribute("aTint", new THREE.BufferAttribute(starTints, 1))
-
-    const starUniforms = {
-      uTime: { value: 0 },
-      uPixelRatio: { value: maxDPR },
-    }
-    const starMat = trackDisposable(
-      new THREE.ShaderMaterial({
-        uniforms: starUniforms,
-        vertexShader: `
-          attribute float aSize;
-          attribute float aPhase;
-          attribute float aTint;
-          uniform float uTime;
-          uniform float uPixelRatio;
-          varying float vAlpha;
-          varying float vTint;
-
-          void main() {
-            vec3 pos = position;
-            // Subtle 10s–12s ambient particle drift
-            pos.x += sin(uTime * 0.18 + aPhase) * 1.4;
-            pos.y += cos(uTime * 0.14 + aPhase * 1.3) * 0.75;
-
-            float twinkle = 0.45 + 0.55 * sin(uTime * (0.75 + aTint * 0.9) + aPhase);
-            vAlpha = twinkle;
-            vTint = aTint;
-
-            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-            gl_PointSize = clamp(aSize * uPixelRatio * (185.0 / max(1.0, -mvPosition.z)), 1.0, 5.5);
-            gl_Position = projectionMatrix * mvPosition;
-          }
-        `,
-        fragmentShader: `
-          varying float vAlpha;
-          varying float vTint;
-
-          void main() {
-            float d = length(gl_PointCoord - vec2(0.5));
-            if (d > 0.5) discard;
-            float core = smoothstep(0.5, 0.08, d);
-            vec3 whiteStar = vec3(0.92, 0.97, 1.0);
-            vec3 cyanStar = vec3(0.45, 0.91, 0.99);
-            vec3 col = mix(whiteStar, cyanStar, step(0.58, vTint));
-            gl_FragColor = vec4(col, core * vAlpha * 0.92);
-          }
-        `,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        fog: false,
-      })
-    )
-    const starField = new THREE.Points(starGeo, starMat)
-    starField.frustumCulled = false
-    scene.add(starField)
-
-    // 4. PERSPECTIVE CYBER GRID PLANE RECEDING TOWARD THE HORIZON (Analytic anti-aliased — no fwidth!)
+    // 3. GLOWING CIRCUIT GRID FLOOR PLANE (Analytic anti-aliased — no fwidth)
     const gridUniforms = {
       uTime: { value: 0 },
-      uGridColor: { value: new THREE.Color(0x06b6d4) },
-      uGridAccent: { value: new THREE.Color(0x67e8f9) },
-      uHorizonGlow: { value: new THREE.Color(0x164e63) },
+      uPrimary: { value: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) },
+      uAccent: { value: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]) },
+      uSoft: { value: new THREE.Color(initPhase.c3[0], initPhase.c3[1], initPhase.c3[2]) },
     }
-    const gridGeo = trackDisposable(new THREE.PlaneGeometry(340, 220, 1, 1))
-    gridGeo.rotateX(-Math.PI / 2)
+    const circuitGeo = trackDisposable(new THREE.PlaneGeometry(110, 110, 1, 1))
+    circuitGeo.rotateX(-Math.PI / 2)
 
-    const gridMat = trackDisposable(
+    const circuitMat = trackDisposable(
       new THREE.ShaderMaterial({
         uniforms: gridUniforms,
         vertexShader: `
-          varying vec3 vWorldPos;
+          varying vec2 vWorldXZ;
           void main() {
-            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-            vWorldPos = worldPosition.xyz;
-            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldXZ = wp.xz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
           }
         `,
         fragmentShader: `
           uniform float uTime;
-          uniform vec3 uGridColor;
-          uniform vec3 uGridAccent;
-          uniform vec3 uHorizonGlow;
-          varying vec3 vWorldPos;
+          uniform vec3 uPrimary;
+          uniform vec3 uAccent;
+          uniform vec3 uSoft;
+          varying vec2 vWorldXZ;
 
           void main() {
-            // Smooth forward glide of perspective grid lines toward viewer
-            vec2 coord = vec2(vWorldPos.x * 0.24, (vWorldPos.z + uTime * 3.6) * 0.24);
-            vec2 cell = abs(fract(coord - 0.5) - 0.5);
+            vec2 g = vWorldXZ * 0.606;
+            vec2 f = abs(fract(g - 0.5) - 0.5);
+            float lineX = 1.0 - smoothstep(0.014, 0.048, f.x);
+            float lineZ = 1.0 - smoothstep(0.014, 0.048, f.y);
+            float line = max(lineX, lineZ);
 
-            // Analytic line thickness scaling slightly with distance to avoid shimmer
-            float depthFactor = clamp((-vWorldPos.z + 45.0) / 170.0, 0.0, 1.0);
-            float thickness = mix(0.014, 0.045, depthFactor);
-            float feather = mix(0.016, 0.055, depthFactor);
+            // Flowing radial energy ring sweeping across the circuit grid
+            float r = length(vWorldXZ);
+            float pulseRing = smoothstep(0.55, 1.0, sin(r * 0.24 - uTime * 1.45) * 0.5 + 0.5);
 
-            float lineX = 1.0 - smoothstep(thickness, thickness + feather, cell.x);
-            float lineZ = 1.0 - smoothstep(thickness, thickness + feather, cell.y);
-            float gridLine = max(lineX, lineZ);
+            vec3 col = mix(uPrimary, uAccent, pulseRing * 0.65) * line * (0.42 + pulseRing * 0.32);
+            col += uSoft * line * pulseRing * 0.22;
 
-            // Major structural grid lines every 4 cells
-            vec2 majorCoord = coord * 0.25;
-            vec2 majorCell = abs(fract(majorCoord - 0.5) - 0.5);
-            float majorLine = max(
-              1.0 - smoothstep(thickness * 0.7, thickness * 0.7 + feather * 0.85, majorCell.x),
-              1.0 - smoothstep(thickness * 0.7, thickness * 0.7 + feather * 0.85, majorCell.y)
-            );
-
-            // Subtle dark glossy obsidian ground base reflecting the cyan horizon spill
-            vec3 groundBase = vec3(0.008, 0.018, 0.036);
-            float horizonSpill = exp(-pow((vWorldPos.z + 82.0) / 56.0, 2.0));
-            float centerReflect = exp(-pow(vWorldPos.x / 58.0, 2.0));
-            vec3 col = groundBase + uHorizonGlow * horizonSpill * (0.45 + 0.55 * centerReflect);
-
-            // Luminous cyan-teal perspective lines brightening toward the horizon
-            float pulse = 0.88 + 0.12 * sin(uTime * 0.85 - vWorldPos.z * 0.04);
-            col += uGridColor * gridLine * (0.36 + 0.42 * horizonSpill) * pulse;
-            col += uGridAccent * majorLine * (0.38 + 0.45 * horizonSpill);
-
-            // Smooth lateral and near/far fade
-            float lateralFade = 1.0 - smoothstep(55.0, 155.0, abs(vWorldPos.x));
-            float farFade = 1.0 - smoothstep(-95.0, -142.0, vWorldPos.z);
-            float nearFade = smoothstep(54.0, 24.0, vWorldPos.z);
-            float alpha = clamp(lateralFade * farFade * nearFade, 0.0, 1.0);
-
+            float distFade = 1.0 - smoothstep(22.0, 52.0, r);
+            float alpha = clamp(line * distFade * (0.48 + pulseRing * 0.25), 0.0, 0.85);
             gl_FragColor = vec4(col, alpha);
           }
         `,
         transparent: true,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
       })
     )
-    const gridPlane = new THREE.Mesh(gridGeo, gridMat)
-    gridPlane.position.set(0, 0, -44)
-    scene.add(gridPlane)
+    const circuitMesh = new THREE.Mesh(circuitGeo, circuitMat)
+    circuitMesh.position.y = 0.06
+    scene.add(circuitMesh)
 
-    // 5. DARK EXTRUDED / BLOCKY CITYSCAPE SILHOUETTE WITH CRISP LIT WINDOWS
-    const { map: cityMap, emissiveMap: cityEmissiveMap } = createCityWindowTextures()
-    trackDisposable(cityMap)
-    trackDisposable(cityEmissiveMap)
+    // 4. ORIGINAL 32×32 (1,024) DARK METALLIC MONOLITH TERRAIN BLOCKS
+    const gridSize = 32
+    const monolithCount = gridSize * gridSize
+    const boxGeo = trackDisposable(new THREE.BoxGeometry(0.96, 1, 0.96))
+    boxGeo.translate(0, 0.5, 0)
 
-    const buildingGeo = trackDisposable(new THREE.BoxGeometry(1, 1, 1))
-    buildingGeo.translate(0, 0.5, 0)
-
-    // Foreground & mid-ground skyscraper material with crisp lit windows
-    const cityMat = trackDisposable(
+    const blockMat = trackDisposable(
       new THREE.MeshStandardMaterial({
-        color: 0x0b1629,
-        map: cityMap,
-        emissive: new THREE.Color(0x7dd3fc),
-        emissiveMap: cityEmissiveMap,
-        emissiveIntensity: 1.05,
-        roughness: 0.72,
-        metalness: 0.28,
+        color: 0x0d172e,
+        roughness: 0.28,
+        metalness: 0.84,
+        envMapIntensity: 1.25,
       })
     )
 
-    // Deep silhouette back-row towers (darker blocky silhouettes framing the glowing cyan band)
-    const silhouetteMat = trackDisposable(
-      new THREE.MeshStandardMaterial({
-        color: 0x040914,
-        emissive: new THREE.Color(0x0c4a6e),
-        emissiveIntensity: 0.22,
-        roughness: 0.85,
-        metalness: 0.15,
-      })
-    )
+    const instancedTerrain = new THREE.InstancedMesh(boxGeo, blockMat, monolithCount)
+    instancedTerrain.frustumCulled = false
+    const dummy = new THREE.Object3D()
+    const colorDummy = new THREE.Color()
 
-    const cityRand = mulberry32(202607)
-    type BuildingSpec = {
-      x: number
-      z: number
-      w: number
-      h: number
-      d: number
-    }
-    const litBuildings: BuildingSpec[] = []
-    const silhouetteBuildings: BuildingSpec[] = []
+    const monolithPosX = new Float32Array(monolithCount)
+    const monolithPosZ = new Float32Array(monolithCount)
+    const monolithBaseH = new Float32Array(monolithCount)
+    const monolithDist = new Float32Array(monolithCount)
 
-    // Multi-layered metropolitan skyline spanning left-to-right across the mid-ground horizon
-    const rows = [
-      { zBase: -64, count: 34, spreadX: 162, minH: 5.5, maxH: 22.0, lit: true },
-      { zBase: -80, count: 44, spreadX: 196, minH: 9.0, maxH: 32.0, lit: true },
-      { zBase: -98, count: 52, spreadX: 230, minH: 11.0, maxH: 38.0, lit: false },
-    ]
+    const halfGrid = gridSize / 2
+    let mIdx = 0
+    for (let x = 0; x < gridSize; x++) {
+      for (let z = 0; z < gridSize; z++) {
+        const px = (x - halfGrid) * 1.65
+        const pz = (z - halfGrid) * 1.65
+        const dist = Math.sqrt(px * px + pz * pz)
 
-    for (const row of rows) {
-      for (let i = 0; i < row.count; i++) {
-        const normX = (i / Math.max(1, row.count - 1)) * 2 - 1 // -1..1
-        const jitterX = (cityRand() - 0.5) * (row.spreadX / row.count) * 1.15
-        const x = normX * (row.spreadX * 0.5) + jitterX
-        const z = row.zBase + (cityRand() - 0.5) * 10
+        monolithPosX[mIdx] = px
+        monolithPosZ[mIdx] = pz
+        monolithDist[mIdx] = dist
+        monolithBaseH[mIdx] =
+          dist < 6.4
+            ? 2.1 + ((x * 7 + z * 13) % 10) * 0.24
+            : 0.5 + Math.abs(Math.sin(x * 0.34) * Math.cos(z * 0.34)) * 1.75
 
-        // Dramatic stepped downtown silhouette: slightly taller skyline clusters flanking a breathing center horizon vista
-        const clusterProfile =
-          0.62 +
-          0.42 * Math.abs(Math.sin(normX * Math.PI * 1.65)) +
-          0.26 * Math.exp(-Math.pow((Math.abs(normX) - 0.34) * 3.8, 2))
-        const w = 2.8 + cityRand() * 5.2
-        const d = 3.2 + cityRand() * 5.5
-        const h = (row.minH + cityRand() * (row.maxH - row.minH)) * clusterProfile
+        dummy.position.set(px, -0.42, pz)
+        dummy.rotation.set(0, 0, 0)
+        dummy.scale.set(1, monolithBaseH[mIdx], 1)
+        dummy.updateMatrix()
+        instancedTerrain.setMatrixAt(mIdx, dummy.matrix)
 
-        const spec = { x, z, w, h, d }
-        if (row.lit) {
-          litBuildings.push(spec)
-        } else {
-          silhouetteBuildings.push(spec)
-        }
+        colorDummy.setRGB(0.05, 0.1, 0.22)
+        instancedTerrain.setColorAt(mIdx, colorDummy)
+        mIdx++
       }
     }
+    instancedTerrain.instanceMatrix.needsUpdate = true
+    if (instancedTerrain.instanceColor) instancedTerrain.instanceColor.needsUpdate = true
+    scene.add(instancedTerrain)
 
-    const dummy = new THREE.Object3D()
-
-    const instancedLitCity = new THREE.InstancedMesh(buildingGeo, cityMat, litBuildings.length)
-    instancedLitCity.frustumCulled = false
-    litBuildings.forEach((b, idx) => {
-      dummy.position.set(b.x, 0, b.z)
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.set(b.w, b.h, b.d)
-      dummy.updateMatrix()
-      instancedLitCity.setMatrixAt(idx, dummy.matrix)
-    })
-    instancedLitCity.instanceMatrix.needsUpdate = true
-    scene.add(instancedLitCity)
-
-    const instancedSilhouetteCity = new THREE.InstancedMesh(
-      buildingGeo,
-      silhouetteMat,
-      silhouetteBuildings.length
+    // 5. 64 PULSING LUMINOUS FLOOR ENERGY PADS (converted from original orange to blue color-cycle)
+    const padCount = 64
+    const padGeo = trackDisposable(new THREE.PlaneGeometry(1.18, 1.18))
+    padGeo.rotateX(-Math.PI / 2)
+    const padMat = trackDisposable(
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
     )
-    instancedSilhouetteCity.frustumCulled = false
-    silhouetteBuildings.forEach((b, idx) => {
-      dummy.position.set(b.x, 0, b.z)
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.set(b.w, b.h, b.d)
-      dummy.updateMatrix()
-      instancedSilhouetteCity.setMatrixAt(idx, dummy.matrix)
-    })
-    instancedSilhouetteCity.instanceMatrix.needsUpdate = true
-    scene.add(instancedSilhouetteCity)
+    const instancedPads = new THREE.InstancedMesh(padGeo, padMat, padCount)
+    instancedPads.frustumCulled = false
 
-    // 6. ATMOSPHERIC CYAN-TEAL HORIZON GLOW SPILL PLANE (Soft volumetric bloom bridging skyline & grid)
-    const spillUniforms = {
-      uTime: { value: 0 },
-      uGlowColor: { value: new THREE.Color(0x22d3ee) },
+    const padCoords: Array<{ x: number; z: number; phase: number; h: number }> = []
+    for (let i = 0; i < padCount; i++) {
+      const gx = (i * 5 + 3) % gridSize
+      const gz = (i * 11 + 7) % gridSize
+      const idx = gx * gridSize + gz
+      const px = monolithPosX[idx]
+      const pz = monolithPosZ[idx]
+      const ph = monolithBaseH[idx]
+      padCoords.push({ x: px, z: pz, phase: i * 0.47, h: ph })
+      dummy.position.set(px, ph - 0.38, pz)
+      dummy.rotation.set(0, 0, 0)
+      dummy.scale.set(1, 1, 1)
+      dummy.updateMatrix()
+      instancedPads.setMatrixAt(i, dummy.matrix)
+      colorDummy.setRGB(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
+      instancedPads.setColorAt(i, colorDummy)
     }
-    const spillGeo = trackDisposable(new THREE.PlaneGeometry(280, 30, 1, 1))
-    const spillMat = trackDisposable(
+    instancedPads.instanceMatrix.needsUpdate = true
+    if (instancedPads.instanceColor) instancedPads.instanceColor.needsUpdate = true
+    scene.add(instancedPads)
+
+    // 6. 7 ORIGINAL CYBER TOWERS WITH GLOWING VERTICAL LASER SLITS & 42 ORBITING DATA CUBES
+    const towerConfigs = [
+      { x: 0, z: 0, s: 1.08, h: 7.6 },
+      { x: 15, z: -10, s: 0.86, h: 6.7 },
+      { x: -16, z: 12, s: 0.82, h: 6.2 },
+      { x: -14, z: -16, s: 0.74, h: 5.9 },
+      { x: 20, z: 14, s: 0.68, h: 5.5 },
+      { x: 6, z: 22, s: 0.62, h: 5.1 },
+      { x: -22, z: -4, s: 0.58, h: 4.9 },
+    ]
+    const towerCount = towerConfigs.length
+    const unitBoxGeo = trackDisposable(new THREE.BoxGeometry(1, 1, 1))
+
+    const towerNodeMat = trackDisposable(
+      new THREE.MeshStandardMaterial({
+        color: 0x071024,
+        roughness: 0.2,
+        metalness: 0.9,
+        envMapIntensity: 1.4,
+      })
+    )
+    const towerOuterGlowMat = trackDisposable(
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]),
+      })
+    )
+    const towerInnerGlowMat = trackDisposable(
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
+      })
+    )
+
+    const instancedPillars = new THREE.InstancedMesh(unitBoxGeo, towerNodeMat, towerCount)
+    const instancedOuterSlits = new THREE.InstancedMesh(unitBoxGeo, towerOuterGlowMat, towerCount)
+    const instancedInnerSlits = new THREE.InstancedMesh(unitBoxGeo, towerInnerGlowMat, towerCount)
+    instancedPillars.frustumCulled = false
+    instancedOuterSlits.frustumCulled = false
+    instancedInnerSlits.frustumCulled = false
+    scene.add(instancedPillars)
+    scene.add(instancedOuterSlits)
+    scene.add(instancedInnerSlits)
+
+    const totalSatelliteCubes = towerCount * 6
+    const satelliteMat = trackDisposable(new THREE.MeshBasicMaterial({ color: 0xffffff }))
+    const instancedSatelliteCubes = new THREE.InstancedMesh(
+      unitBoxGeo,
+      satelliteMat,
+      totalSatelliteCubes
+    )
+    instancedSatelliteCubes.frustumCulled = false
+
+    type SatelliteMeta = {
+      towerX: number
+      towerZ: number
+      towerScale: number
+      baseY: number
+      angle: number
+      radius: number
+      isGlow: boolean
+      accentMix: number
+      orbitSpeed: number
+    }
+    const satelliteMeta: SatelliteMeta[] = []
+    const darkSatColor = new THREE.Color(0x0a1630)
+
+    let satIdx = 0
+    towerConfigs.forEach((t, tIdx) => {
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2
+        const rad = (2.0 + (i % 2) * 0.65) * t.s
+        const isGlow = i % 2 === 0
+        const baseY = (t.h * 0.58 + (i % 3) * 0.85) * t.s
+        const accentMix = ((tIdx + i) % 3) * 0.35
+
+        satelliteMeta.push({
+          towerX: t.x,
+          towerZ: t.z,
+          towerScale: t.s,
+          baseY,
+          angle,
+          radius: rad,
+          isGlow,
+          accentMix,
+          orbitSpeed: (i % 2 === 0 ? 0.62 : -0.45) * (0.9 + (tIdx % 3) * 0.14),
+        })
+
+        if (isGlow) {
+          colorDummy.setRGB(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
+        } else {
+          colorDummy.copy(darkSatColor)
+        }
+        instancedSatelliteCubes.setColorAt(satIdx, colorDummy)
+        satIdx++
+      }
+    })
+    if (instancedSatelliteCubes.instanceColor) instancedSatelliteCubes.instanceColor.needsUpdate = true
+    scene.add(instancedSatelliteCubes)
+
+    // 7. ORIGINAL VOLUMETRIC LASER WALLS / ENERGY RIBBONS (blue-anchored, continuous color-shift)
+    const wallUniforms = {
+      uTime: { value: 0 },
+      uColorDark: {
+        value: new THREE.Color(initPhase.glow[0] * 1.35, initPhase.glow[1] * 1.35, initPhase.glow[2] * 1.35),
+      },
+      uColorMid: { value: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) },
+      uColorCore: { value: new THREE.Color(initPhase.c3[0], initPhase.c3[1], initPhase.c3[2]) },
+    }
+
+    const laserShaderMat = trackDisposable(
       new THREE.ShaderMaterial({
-        uniforms: spillUniforms,
+        uniforms: wallUniforms,
         vertexShader: `
           varying vec2 vUv;
+          uniform float uTime;
           void main() {
             vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            vec3 pos = position;
+            pos.y += sin(pos.x * 0.20 - uTime * 2.4) * 0.42;
+            pos.z += cos(pos.x * 0.15 - uTime * 1.8) * 0.36;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
           }
         `,
         fragmentShader: `
           uniform float uTime;
-          uniform vec3 uGlowColor;
+          uniform vec3 uColorDark;
+          uniform vec3 uColorMid;
+          uniform vec3 uColorCore;
           varying vec2 vUv;
+
           void main() {
-            float yBand = exp(-pow((vUv.y - 0.42) * 3.8, 2.0));
-            float xFade = 1.0 - smoothstep(0.18, 0.5, abs(vUv.x - 0.5));
-            float pulse = 0.84 + 0.16 * sin(uTime * 0.72 + vUv.x * 4.0);
-            float alpha = yBand * xFade * 0.34 * pulse;
-            gl_FragColor = vec4(uGlowColor, alpha);
+            float fastStreams = sin(vUv.x * 42.0 - uTime * 7.2) * 0.5 + 0.5;
+            float pulseWaves = sin(vUv.x * 9.0 - uTime * 2.8) * 0.5 + 0.5;
+
+            float beamCore = pow(sin(vUv.y * 3.14159), 2.1);
+            float thinIntense = pow(sin(vUv.y * 3.14159), 7.5) * 1.7;
+
+            vec3 col = mix(uColorDark, uColorMid, vUv.y);
+            col = mix(col, uColorCore, clamp(thinIntense + fastStreams * 0.28, 0.0, 1.0));
+
+            float alpha = (beamCore * 0.58 + fastStreams * 0.16) * (0.76 + pulseWaves * 0.24);
+            gl_FragColor = vec4(col * 1.25, alpha);
           }
         `,
         transparent: true,
-        depthWrite: false,
+        side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
-        fog: false,
+        depthWrite: false,
       })
     )
-    const horizonSpill = new THREE.Mesh(spillGeo, spillMat)
-    horizonSpill.position.set(0, 4.2, -74)
-    scene.add(horizonSpill)
 
-    // 7. PASSIVE POINTER & SCROLL PARALLAX INPUTS
+    const beamSpecs = [
+      { len: 54, h: 5.8, x: -12, y: 1.4, z: -6, rotY: -Math.PI * 0.22, scale: 1.0 },
+      { len: 46, h: 4.8, x: -16, y: 1.2, z: 10, rotY: Math.PI * 0.36, scale: 0.9 },
+      { len: 56, h: 4.4, x: -24, y: 1.0, z: -18, rotY: -Math.PI * 0.06, scale: 1.0 },
+      { len: 46, h: 4.8, x: -8, y: 2.0, z: 16, rotY: -Math.PI * 0.42, scale: 0.85 },
+    ]
+    const laserWalls: THREE.Mesh[] = []
+    for (const spec of beamSpecs) {
+      const geo = trackDisposable(new THREE.PlaneGeometry(spec.len, spec.h, 40, 1))
+      geo.translate(spec.len / 2, spec.h / 2, 0)
+      const mesh = new THREE.Mesh(geo, laserShaderMat)
+      mesh.position.set(spec.x, spec.y, spec.z)
+      mesh.rotation.y = spec.rotY
+      mesh.scale.set(spec.scale, spec.scale, 1)
+      scene.add(mesh)
+      laserWalls.push(mesh)
+    }
+
+    // 8. 760 RISING LUMINOUS EMBERS (converted from orange embers to blue/color-cycling embers)
+    const particleCount = isSoftwareGl ? 420 : 760
+    const particleGeo = trackDisposable(new THREE.BufferGeometry())
+    const particlePos = new Float32Array(particleCount * 3)
+    const particleBaseX = new Float32Array(particleCount)
+    const particleBaseY = new Float32Array(particleCount)
+    const particleBaseZ = new Float32Array(particleCount)
+    const particleSpeed = new Float32Array(particleCount)
+    const particleSeed = new Float32Array(particleCount)
+
+    for (let i = 0; i < particleCount; i++) {
+      const px = (Math.random() - 0.5) * 66
+      const py = Math.random() * 25
+      const pz = (Math.random() - 0.5) * 66
+      particlePos[i * 3] = px
+      particlePos[i * 3 + 1] = py
+      particlePos[i * 3 + 2] = pz
+      particleBaseX[i] = px
+      particleBaseY[i] = py
+      particleBaseZ[i] = pz
+      particleSpeed[i] = 1.2 + Math.random() * 2.0
+      particleSeed[i] = Math.random() * Math.PI * 2
+    }
+    particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3))
+
+    const particleMat = trackDisposable(
+      new THREE.PointsMaterial({
+        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
+        size: 0.22,
+        transparent: true,
+        opacity: 0.82,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    )
+    const particles = new THREE.Points(particleGeo, particleMat)
+    particles.frustumCulled = false
+    scene.add(particles)
+
+    // 9. PASSIVE POINTER & SCROLL INPUTS (applied only in 3D mode)
     let targetMouseX = 0
     let targetMouseY = 0
     let smoothMouseX = 0
@@ -1000,8 +575,8 @@ export function GlobalCyberBackground() {
     const onPointerMove = (e: MouseEvent | TouchEvent) => {
       const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : e.clientX
       const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : e.clientY
-      targetMouseX = (clientX / Math.max(window.innerWidth, 1)) * 2 - 1
-      targetMouseY = -((clientY / Math.max(window.innerHeight, 1)) * 2 - 1)
+      targetMouseX = ((clientX / Math.max(window.innerWidth, 1)) * 2 - 1) * 4.4
+      targetMouseY = -((clientY / Math.max(window.innerHeight, 1)) * 2 - 1) * 2.8
     }
 
     const onScroll = () => {
@@ -1012,30 +587,38 @@ export function GlobalCyberBackground() {
     window.addEventListener("touchmove", onPointerMove, { passive: true })
     window.addEventListener("scroll", onScroll, { passive: true })
 
-    // Tab visibility pause only (never IntersectionObserver on fixed inset-0)
+    // Tab visibility pause only
     let isTabActive = typeof document !== "undefined" ? !document.hidden : true
     const onVisibilityChange = () => {
       isTabActive = !document.hidden
-      if (isTabActive) {
-        lastFrameNow = performance.now()
-      }
+      if (isTabActive) lastFrameNow = performance.now()
     }
     document.addEventListener("visibilitychange", onVisibilityChange)
+
+    // Pre-allocated math objects
+    const rotationEuler = new THREE.Euler()
+    const rotQuat = new THREE.Quaternion()
+    const cubeScaleVec = new THREE.Vector3()
+    const c1Color = new THREE.Color()
+    const c2Color = new THREE.Color()
+    const c3Color = new THREE.Color()
+    const bgTintColor = new THREE.Color()
+    const tempBlockColor = new THREE.Color()
+    const tempPadColor = new THREE.Color()
+    const tempSatColor = new THREE.Color()
+    const baseDarkBlock = new THREE.Color(0x060d1f)
 
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const motionRate = prefersReducedMotion ? 0.3 : 1.0
-
-    const c1Color = new THREE.Color()
-    const c2Color = new THREE.Color()
-    const c3Color = new THREE.Color()
-    const glowColor = new THREE.Color()
 
     let frameId = 0
     let softwareTimerId = 0
     let lastFrameNow = performance.now()
+    // 3D geometric motion clock (advances in "3d" mode, pauses smoothly in "2d" mode!)
     let motionElapsed = 0
+    // Smooth transition blend: 1.0 = full 3D motion, 0.0 = 2D color-changing-only mode
+    let motionBlend = modeRef.current === "3d" ? 1 : 0
 
     function afterDraw(cb: () => void) {
       if (isDisposed || contextLost) return
@@ -1083,45 +666,196 @@ export function GlobalCyberBackground() {
         return
       }
 
-      motionElapsed += dt * motionRate
+      const is3D = modeRef.current === "3d"
+      const targetBlend = is3D ? 1 : 0
+      const blendRate = 1 - Math.exp(-4.5 * dt)
+      motionBlend += (targetBlend - motionBlend) * blendRate
+
+      // Advance 3D spatial motion clock ONLY proportional to motionBlend (0 in 2D mode!)
+      const spatialRate = (prefersReducedMotion ? 0.35 : 1.0) * motionBlend
+      motionElapsed += dt * spatialRate
+
+      // Color-changing clock ALWAYS runs smoothly across BOTH 2D & 3D modes (starts Electric Blue!)
       const colorElapsed =
         sharedStartMsRef.current !== null
-          ? Math.max(0, (now - sharedStartMsRef.current) / 1000) * (prefersReducedMotion ? 0.35 : 1.0)
-          : motionElapsed
-      const phase = getAmbientPhaseAt(colorElapsed, "3d")
+          ? Math.max(0, (now - sharedStartMsRef.current) / 1000) * (prefersReducedMotion ? 0.45 : 1.0)
+          : 0
+      const phase = getAmbientPhaseAt(colorElapsed, modeRef.current)
 
       c1Color.setRGB(phase.c1[0], phase.c1[1], phase.c1[2])
       c2Color.setRGB(phase.c2[0], phase.c2[1], phase.c2[2])
       c3Color.setRGB(phase.c3[0], phase.c3[1], phase.c3[2])
-      glowColor.setRGB(phase.glow[0], phase.glow[1], phase.glow[2])
 
-      // Synchronize horizon band, grid, and skyline glow smoothly (6s–12s breathing loops)
-      skyUniforms.uTime.value = motionElapsed
-      skyUniforms.uCyanGlow.value.copy(c1Color).lerp(c2Color, 0.35)
-      skyUniforms.uIceBand.value.copy(c3Color)
-      skyUniforms.uTealSpill.value.copy(glowColor)
+      // Background & Fog: controlled obsidian tinted with identical live color phase
+      bgTintColor.setRGB(
+        STAGE_BASE_NORM[0] + phase.bgB[0] * 0.24,
+        STAGE_BASE_NORM[1] + phase.bgB[1] * 0.24,
+        STAGE_BASE_NORM[2] + phase.bgB[2] * 0.28
+      )
+      if (scene.background instanceof THREE.Color) {
+        scene.background.copy(bgTintColor)
+      }
+      fog.color.copy(bgTintColor)
 
-      starUniforms.uTime.value = motionElapsed
+      // Synchronized lights (colors ALWAYS update; orbital motion only when in 3D mode)
+      hemiLight.color.copy(c2Color)
+      hemiLight.groundColor.copy(bgTintColor)
+      dirKey.color.copy(c1Color)
+      dirRim.color.copy(c2Color)
 
+      coreLight1.color.copy(c1Color)
+      coreLight1.intensity = 10.5 + Math.sin(motionElapsed * 2.2) * 2.6 * motionBlend
+      coreLight1.position.x = Math.sin(motionElapsed * 0.5) * 6.0 * motionBlend
+      coreLight1.position.z = Math.cos(motionElapsed * 0.45) * 6.0 * motionBlend
+
+      coreLight2.color.copy(c2Color)
+      coreLight2.intensity = 8.4 + Math.cos(motionElapsed * 1.9) * 2.2 * motionBlend
+      coreLight2.position.x = 15 + Math.cos(motionElapsed * 0.4) * 4.2 * motionBlend
+      coreLight2.position.z = -10 + Math.sin(motionElapsed * 0.45) * 4.2 * motionBlend
+
+      coreLight3.color.copy(c1Color).lerp(c2Color, 0.45)
+      coreLight3.intensity = 7.8 + Math.sin(motionElapsed * 1.7 + 1.2) * 2.0 * motionBlend
+
+      // Circuit Grid Floor: color updates in both modes, radial pulse moves only in 3D mode
       gridUniforms.uTime.value = motionElapsed
-      gridUniforms.uGridColor.value.copy(c1Color)
-      gridUniforms.uGridAccent.value.copy(c2Color).lerp(c3Color, 0.25)
-      gridUniforms.uHorizonGlow.value.copy(glowColor).multiplyScalar(0.55)
+      gridUniforms.uPrimary.value.copy(c1Color)
+      gridUniforms.uAccent.value.copy(c2Color)
+      gridUniforms.uSoft.value.copy(c3Color)
 
-      spillUniforms.uTime.value = motionElapsed
-      spillUniforms.uGlowColor.value.copy(c2Color)
+      // 1,024 Monolith Terrain Blocks: static architectural base in 2D, undulating wave in 3D, identical live color tint!
+      for (let i = 0; i < monolithCount; i++) {
+        const px = monolithPosX[i]
+        const pz = monolithPosZ[i]
+        const dist = monolithDist[i]
+        const wave =
+          motionBlend > 0.002
+            ? (Math.sin(px * 0.14 - motionElapsed * 1.35) *
+                Math.cos(pz * 0.14 - motionElapsed * 1.05) *
+                1.05 +
+                Math.sin(dist * 0.24 - motionElapsed * 1.75) * 0.55) *
+              motionBlend
+            : 0
 
-      cityMat.emissive.copy(c2Color).lerp(c3Color, 0.4)
-      cityMat.emissiveIntensity = 0.96 + 0.14 * Math.sin(motionElapsed * 0.72)
+        const h = Math.max(0.3, monolithBaseH[i] + wave)
+        dummy.position.set(px, -0.42, pz)
+        dummy.rotation.set(0, 0, 0)
+        dummy.scale.set(1, h, 1)
+        dummy.updateMatrix()
+        instancedTerrain.setMatrixAt(i, dummy.matrix)
 
-      cyanFillLeft.color.copy(c1Color)
-      cyanFillRight.color.copy(c2Color)
-      horizonBackLight.color.copy(c3Color)
+        const crest = Math.max(0, Math.min(1, (h - 1.0) / 3.2))
+        tempBlockColor
+          .copy(baseDarkBlock)
+          .lerp(c1Color, crest * 0.42)
+          .lerp(c2Color, crest * crest * 0.36)
+        instancedTerrain.setColorAt(i, tempBlockColor)
+      }
+      instancedTerrain.instanceMatrix.needsUpdate = true
+      if (instancedTerrain.instanceColor) instancedTerrain.instanceColor.needsUpdate = true
 
-      // Smooth autonomous camera drift (8s–12s loop) + gentle mouse & scroll parallax
-      const damp = 1 - Math.exp(-3.2 * dt)
-      smoothMouseX += (targetMouseX - smoothMouseX) * damp
-      smoothMouseY += (targetMouseY - smoothMouseY) * damp
+      // 64 Pulsing Floor Energy Pads: live color-shifting in both modes, height follows monoliths
+      for (let i = 0; i < padCount; i++) {
+        const pad = padCoords[i]
+        const glowMix = 0.45 + 0.55 * (Math.sin(colorElapsed * 1.2 + pad.phase) * 0.5 + 0.5)
+        tempPadColor.copy(c1Color).lerp(c2Color, glowMix).lerp(c3Color, 0.18)
+        instancedPads.setColorAt(i, tempPadColor)
+      }
+      if (instancedPads.instanceColor) instancedPads.instanceColor.needsUpdate = true
+
+      // 7 Cyber Towers + Glowing Vertical Laser Slits
+      towerOuterGlowMat.color.copy(c1Color)
+      towerInnerGlowMat.color.copy(c2Color).lerp(c3Color, 0.42)
+
+      for (let i = 0; i < towerCount; i++) {
+        const t = towerConfigs[i]
+        const breathe = 1 + Math.sin(motionElapsed * 1.5 + i * 0.9) * 0.07 * motionBlend
+        const th = t.h * t.s * breathe
+
+        dummy.position.set(t.x, th / 2, t.z)
+        dummy.rotation.set(0, 0, 0)
+        dummy.scale.set(1.45 * t.s, th, 1.45 * t.s)
+        dummy.updateMatrix()
+        instancedPillars.setMatrixAt(i, dummy.matrix)
+
+        dummy.position.set(t.x, th / 2, t.z)
+        dummy.scale.set(0.38 * t.s, th * 0.95, 1.54 * t.s)
+        dummy.updateMatrix()
+        instancedOuterSlits.setMatrixAt(i, dummy.matrix)
+
+        dummy.position.set(t.x, th / 2, t.z)
+        dummy.scale.set(0.15 * t.s, th * 0.95, 1.58 * t.s)
+        dummy.updateMatrix()
+        instancedInnerSlits.setMatrixAt(i, dummy.matrix)
+      }
+      instancedPillars.instanceMatrix.needsUpdate = true
+      instancedOuterSlits.instanceMatrix.needsUpdate = true
+      instancedInnerSlits.instanceMatrix.needsUpdate = true
+
+      // 42 Orbiting Satellite Data Cubes (orbit smoothly in 3D, hold composed frame in 2D, color-shift in both!)
+      for (let k = 0; k < totalSatelliteCubes; k++) {
+        const meta = satelliteMeta[k]
+        const orbitAngle = meta.angle + motionElapsed * meta.orbitSpeed
+        const cubeY = meta.baseY + Math.sin(motionElapsed * 2.1 + k) * 0.32 * motionBlend
+        const cubeX = meta.towerX + Math.cos(orbitAngle) * meta.radius
+        const cubeZ = meta.towerZ + Math.sin(orbitAngle) * meta.radius
+
+        rotationEuler.set(
+          motionElapsed * 0.75 + k * 0.3,
+          motionElapsed * 1.25 + k * 0.5,
+          0
+        )
+        rotQuat.setFromEuler(rotationEuler)
+        cubeScaleVec.set(0.66 * meta.towerScale, 0.66 * meta.towerScale, 0.66 * meta.towerScale)
+
+        dummy.position.set(cubeX, cubeY, cubeZ)
+        dummy.quaternion.copy(rotQuat)
+        dummy.scale.copy(cubeScaleVec)
+        dummy.updateMatrix()
+        instancedSatelliteCubes.setMatrixAt(k, dummy.matrix)
+
+        if (meta.isGlow) {
+          tempSatColor.copy(c1Color).lerp(c2Color, meta.accentMix).lerp(c3Color, 0.16)
+          instancedSatelliteCubes.setColorAt(k, tempSatColor)
+        }
+      }
+      instancedSatelliteCubes.instanceMatrix.needsUpdate = true
+      if (instancedSatelliteCubes.instanceColor) instancedSatelliteCubes.instanceColor.needsUpdate = true
+
+      // Sweeping Volumetric Laser Walls (color shifts continuously in BOTH modes; waves flow in 3D only)
+      wallUniforms.uTime.value = motionElapsed
+      wallUniforms.uColorDark.value.setRGB(
+        phase.glow[0] * 1.35,
+        phase.glow[1] * 1.35,
+        phase.glow[2] * 1.35
+      )
+      wallUniforms.uColorMid.value.copy(c1Color).lerp(c2Color, 0.45)
+      wallUniforms.uColorCore.value.copy(c3Color)
+      laserWalls.forEach((wall, idx) => {
+        wall.position.y =
+          1.1 + idx * 0.24 + Math.sin(motionElapsed * 0.8 + idx * 1.4) * 0.48 * motionBlend
+      })
+
+      // Rising Embers (live color-shift in BOTH modes; rise/swirl in 3D only)
+      particleMat.color.copy(c2Color).lerp(c3Color, 0.32)
+      if (motionBlend > 0.002) {
+        const positions = particleGeo.attributes.position.array as Float32Array
+        for (let i = 0; i < particleCount; i++) {
+          const yIndex = i * 3 + 1
+          let y = positions[yIndex] + particleSpeed[i] * dt * spatialRate
+          if (y > 25) y = 0.2
+          positions[yIndex] = y
+
+          const swirl = motionElapsed * 0.5 + particleSeed[i]
+          positions[i * 3] = particleBaseX[i] + Math.sin(swirl) * 1.2 * motionBlend
+          positions[i * 3 + 2] = particleBaseZ[i] + Math.cos(swirl) * 1.2 * motionBlend
+        }
+        particleGeo.attributes.position.needsUpdate = true
+      }
+
+      // Camera: calm architectural lock in 2D mode; smooth autonomous glide + pointer/scroll parallax in 3D mode
+      const damp = 1 - Math.exp(-3.4 * dt)
+      smoothMouseX += (targetMouseX * motionBlend - smoothMouseX) * damp
+      smoothMouseY += (targetMouseY * motionBlend - smoothMouseY) * damp
 
       const docHeight =
         Math.max(
@@ -1131,13 +865,22 @@ export function GlobalCyberBackground() {
         ) - window.innerHeight
       const scrollRatio = Math.min(1, Math.max(0, scrollY / Math.max(docHeight, 1)))
 
-      const autoSwayX = Math.sin(motionElapsed * 0.52) * 3.4
-      const autoBobY = Math.cos(motionElapsed * 0.68) * 0.58
+      const autoX = Math.sin(motionElapsed * 0.34) * 3.8 * motionBlend
+      const autoY = Math.cos(motionElapsed * 0.28) * 1.25 * motionBlend
+      const autoZ = Math.cos(motionElapsed * 0.24) * 2.4 * motionBlend
 
-      camera.position.x = autoSwayX + smoothMouseX * 3.2
-      camera.position.y = 8.2 + autoBobY + smoothMouseY * 1.15 - scrollRatio * 1.8
-      camera.position.z = 46 - scrollRatio * 6.0
-      camera.lookAt(smoothMouseX * 4.5, 6.4 + smoothMouseY * 1.4 - scrollRatio * 1.2, -90)
+      const targetCamX = baseCamX + autoX + smoothMouseX * 0.65
+      const targetCamY = baseCamY + autoY + smoothMouseY * 0.45 - scrollRatio * 3.2 * motionBlend
+      const targetCamZ = baseCamZ + autoZ - scrollRatio * 3.6 * motionBlend
+
+      camera.position.x += (targetCamX - camera.position.x) * damp
+      camera.position.y += (targetCamY - camera.position.y) * damp
+      camera.position.z += (targetCamZ - camera.position.z) * damp
+      camera.lookAt(
+        smoothMouseX * 0.28,
+        2.4 + smoothMouseY * 0.2 - scrollRatio * 1.2 * motionBlend,
+        0
+      )
 
       renderer.render(scene, camera)
       scheduleNext()
@@ -1151,13 +894,12 @@ export function GlobalCyberBackground() {
       camera.updateProjectionMatrix()
       const dpr = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 1.75)
       renderer.setPixelRatio(dpr)
-      starUniforms.uPixelRatio.value = dpr
       renderer.setSize(width, height)
     }
 
     window.addEventListener("resize", handleResize, { passive: true })
 
-    // Render first frame immediately
+    // Render initial Electric Blue frame immediately
     renderFrame()
 
     return () => {
@@ -1186,44 +928,33 @@ export function GlobalCyberBackground() {
         container.removeChild(renderer.domElement)
       }
     }
-  }, [mode])
-
-  const show2DLayer = mode === "2d" || webgl3DFallback
+  }, [])
 
   return (
     <div
-      className="fixed inset-0 z-0 pointer-events-none select-none overflow-hidden"
-      style={{ backgroundColor: show2DLayer ? "#050508" : "#020612" }}
+      className="fixed inset-0 z-0 pointer-events-none select-none overflow-hidden bg-[#030612]"
       aria-hidden="true"
     >
-      {/* 2D Ambient Layer: Controlled Low-Brightness Obsidian-Violet Glow */}
-      <div
-        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
-          show2DLayer ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div
-          className={`absolute inset-0 transition-opacity duration-500 ${
-            webgl2DReady ? "opacity-0" : "opacity-100"
-          }`}
-        >
+      {/* Safe CSS Color-Shifting Fallback if WebGL is unavailable on a device */}
+      {webglUnavailable && (
+        <div className="absolute inset-0">
           <div className="rushx-ambient-canvas absolute inset-0" />
           <div className="rushx-ambient-glow absolute -inset-[10%]" />
         </div>
+      )}
 
-        <canvas
-          ref={volumetric2DCanvasRef}
-          className={`absolute inset-0 h-full w-full block transition-opacity duration-500 ${
-            webgl2DReady ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      </div>
-
-      {/* 3D Cyber Cityscape & Horizon Grid Layer */}
+      {/* Unified Three.js Canvas backing BOTH 3D Cyber (motion + color shift) and 2D Ambient (color shift only) */}
       <div
         ref={threeContainerRef}
         className={`absolute inset-0 transition-opacity duration-500 ease-out ${
-          mode === "3d" && !webgl3DFallback ? "opacity-100" : "opacity-0"
+          webglUnavailable ? "opacity-0" : "opacity-100"
+        }`}
+      />
+
+      {/* Controlled contrast readability veil — slightly calmer in 2D mode while keeping identical colors */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
+          mode === "2d" ? "bg-[#030612]/38 opacity-100" : "bg-[#030612]/16 opacity-100"
         }`}
       />
     </div>

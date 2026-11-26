@@ -56,16 +56,16 @@
   color-scheme: dark;
   --font-heading: "Rajdhani";
   --font-body: "Plus Jakarta Sans";
-  /* Synchronized dynamic RGB channels (Default 3D Cyber Cyan Horizon; switches smoothly to Obsidian Violet in 2D) */
-  --rushx-primary-rgb: 6, 182, 212;
-  --rushx-soft-rgb: 207, 250, 254;
+  /* Synchronized dynamic RGB channels — ALWAYS starts on Electric Blue on initial load for both 2D & 3D */
+  --rushx-primary-rgb: 31, 115, 255;
+  --rushx-soft-rgb: 191, 240, 255;
   --rushx-accent-rgb: 56, 189, 248;
-  --rushx-deep-rgb: 3, 10, 24;
-  --rushx-bg-wash-rgb: 5, 24, 44;
-  --rushx-glow-rgb: 14, 116, 144;
+  --rushx-deep-rgb: 5, 16, 46;
+  --rushx-bg-wash-rgb: 7, 24, 68;
+  --rushx-glow-rgb: 16, 68, 164;
   --rushx-live-rgb: 217, 83, 111;
 
-  --background: oklch(0.105 0.014 265);
+  --background: oklch(0.105 0.014 258);
   --foreground: oklch(0.968 0.006 248);
   --card: oklch(0.15 0.022 252);
   --card-foreground: oklch(0.968 0.006 248);
@@ -487,15 +487,13 @@
   }
 }
 
-/* Controlled Low-Brightness Obsidian-Violet 2D atmospheric fallback (randomqbit.site direction).
-   Deep obsidian base (#050508 -> #09070F) with subtle radial violet aura (#6B2FA8 -> #3E1A6E -> #050508)
-   so foreground cards, lobby times, and headings remain crisp and never washed out. */
+/* Controlled dark obsidian CSS fallback synchronized directly with live --rushx-*-rgb color-changing phases */
 .rushx-ambient-canvas {
   background:
-    radial-gradient(58% 46% at 50% 14%, rgba(107, 47, 168, 0.26) 0%, rgba(62, 26, 110, 0.14) 44%, transparent 76%),
-    radial-gradient(52% 44% at 16% 78%, rgba(62, 26, 110, 0.18) 0%, transparent 72%),
-    radial-gradient(48% 40% at 84% 58%, rgba(107, 47, 168, 0.13) 0%, transparent 72%),
-    linear-gradient(165deg, #09070f 0%, #07050c 48%, #050508 100%);
+    radial-gradient(60% 48% at 50% 14%, rgba(var(--rushx-glow-rgb), 0.34) 0%, rgba(var(--rushx-primary-rgb), 0.14) 44%, transparent 76%),
+    radial-gradient(52% 44% at 16% 78%, rgba(var(--rushx-bg-wash-rgb), 0.36) 0%, transparent 72%),
+    radial-gradient(48% 40% at 84% 58%, rgba(var(--rushx-glow-rgb), 0.20) 0%, transparent 72%),
+    linear-gradient(165deg, rgba(var(--rushx-deep-rgb), 0.86) 0%, #040814 48%, #030612 100%);
   background-size: 120% 120%;
   animation: rushx-canvas-drift 12s ease-in-out infinite alternate;
   will-change: background-position;
@@ -503,8 +501,8 @@
 
 .rushx-ambient-glow {
   background:
-    radial-gradient(54% 40% at 52% 18%, rgba(140, 68, 212, 0.14) 0%, rgba(62, 26, 110, 0.08) 46%, transparent 74%),
-    radial-gradient(44% 38% at 78% 28%, rgba(107, 47, 168, 0.10) 0%, transparent 70%);
+    radial-gradient(54% 40% at 52% 18%, rgba(var(--rushx-primary-rgb), 0.18) 0%, rgba(var(--rushx-accent-rgb), 0.08) 46%, transparent 74%),
+    radial-gradient(44% 38% at 78% 28%, rgba(var(--rushx-accent-rgb), 0.12) 0%, transparent 70%);
   animation: rushx-glow-breathe 10s ease-in-out infinite alternate;
   will-change: transform, opacity;
 }
