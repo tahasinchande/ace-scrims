@@ -1292,6 +1292,7 @@ export async function setSetting(key: string, value: string): Promise<{ ok: bool
     const admin = await requireAdmin()
     const allowed = [
       "announcement",
+      "top_ad_config",
       "discord_url",
       "facebook_url",
       "youtube_url",
@@ -1329,10 +1330,66 @@ export async function setSetting(key: string, value: string): Promise<{ ok: bool
     await logActivity(admin.id, "admin", "update_setting", key)
     revalidatePath("/admin/settings")
     revalidatePath("/admin/scrims")
-    revalidatePath("/")
+    revalidatePath("/admin/announce")
+    revalidatePath("/admin/announcements")
+    revalidatePath("/", "layout")
     return { ok: true, error: null }
   } catch (err: any) {
     return { ok: false, error: err?.message || "Failed to update setting" }
+  }
+}
+
+export async function saveTopAdConfig(
+  input: Record<string, unknown>
+): Promise<{ ok: boolean; error: string | null; version?: number }> {
+  try {
+    const admin = await requireAdmin()
+    const { topAdConfigSchema } = await import("@/lib/top-ad")
+    const parsed = topAdConfigSchema.safeParse(input)
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message || "Invalid Top Ad configuration.",
+      }
+    }
+
+    const version = Date.now()
+    const payload = {
+      ...parsed.data,
+      version,
+    }
+
+    const serialized = JSON.stringify(payload)
+    await db
+      .insert(settings)
+      .values({ key: "top_ad_config", value: serialized, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: serialized, updatedAt: new Date() },
+      })
+
+    // Sync legacy plain-text announcement setting for backwards compatibility
+    const legacyText = payload.enabled ? payload.text : ""
+    await db
+      .insert(settings)
+      .values({ key: "announcement", value: legacyText, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: legacyText, updatedAt: new Date() },
+      })
+
+    await logActivity(
+      admin.id,
+      "admin",
+      "update_top_ad",
+      payload.enabled ? `enabled:${payload.badge || "ad"}` : "disabled"
+    )
+    revalidatePath("/", "layout")
+    revalidatePath("/admin/announce")
+    revalidatePath("/admin/announcements")
+    return { ok: true, error: null, version }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Failed to save Top Ad showcase." }
   }
 }
 

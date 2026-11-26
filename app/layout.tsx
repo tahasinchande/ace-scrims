@@ -1,32 +1,19 @@
+import { Suspense } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import type { Metadata, Viewport } from 'next'
-import { Rajdhani, Plus_Jakarta_Sans } from 'next/font/google'
 import { LanguageProvider } from '@/lib/language'
 import { ViewModeProvider } from '@/lib/view-mode'
 import { LiveChatWidget } from '@/components/site/live-chat'
 import { GlobalCyberBackground } from '@/components/site/global-cyber-background'
 import { GlobalSplashTracker } from '@/components/site/global-splash-tracker'
 import { OpeningTransition, OpeningStage } from '@/components/site/opening-transition'
+import { AnnouncementBanner } from '@/components/site/announcement-banner'
 import { Toaster } from 'sonner'
 import { BRAND } from '@/lib/brand'
 import './globals.css'
 
-const heading = Rajdhani({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-heading',
-  display: 'swap',
-})
-
-const body = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-body',
-  display: 'swap',
-})
-
 export const viewport: Viewport = {
-  themeColor: '#050811',
+  themeColor: '#050508',
   colorScheme: 'dark',
 }
 
@@ -88,8 +75,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark bg-[#04060d] overflow-x-hidden max-w-full w-full ${heading.variable} ${body.variable}`}
+      className="dark bg-[#050508] overflow-x-hidden max-w-full w-full"
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="antialiased font-sans relative min-h-screen bg-transparent text-foreground overflow-x-hidden max-w-full w-full selection:bg-primary/30 selection:text-foreground">
         <LanguageProvider>
           <ViewModeProvider>
@@ -97,6 +92,9 @@ export default function RootLayout({
             <GlobalSplashTracker />
             <OpeningTransition />
             <OpeningStage className="relative z-10 min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+              <Suspense fallback={null}>
+                <AnnouncementBanner />
+              </Suspense>
               {children}
             </OpeningStage>
             <LiveChatWidget />

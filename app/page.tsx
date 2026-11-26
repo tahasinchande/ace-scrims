@@ -8,7 +8,6 @@ import { buildShowcaseSummary } from "@/lib/queries/showcase"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { SupportKoriBanner } from "@/components/site/supportkori-banner"
-import { AnnouncementBanner } from "@/components/site/announcement-banner"
 import { Hero } from "@/components/landing/hero"
 import { Features, HowItWorks, WhyChooseUs, Faq, Contact, SectionHeading } from "@/components/landing/sections"
 import { Top3FaceBannersSection, type Top3BannerItem } from "@/components/landing/top3-face-banners"
@@ -103,9 +102,6 @@ export default async function HomePage() {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <AnnouncementBanner />
-      </Suspense>
       <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
       <main className="w-full max-w-full overflow-x-hidden flex-1">
         <Hero stats={stats} showcase={showcase} />

@@ -3,6 +3,7 @@ import "server-only"
 import { db } from "@/lib/db"
 import { settings } from "@/lib/db/schema"
 import { BRAND } from "@/lib/brand"
+import { DEFAULT_TOP_AD_CONFIG, parseTopAdConfig, type TopAdConfig } from "@/lib/top-ad"
 
 export type PublicSiteSettings = {
   discordUrl: string
@@ -19,6 +20,7 @@ export type PublicSiteSettings = {
   showRoom2: boolean
   maintenanceMode: boolean
   announcement: string
+  topAd: TopAdConfig
   logoUrl: string
   showcaseTimeWindow: string
   showcaseFormatLabel: string
@@ -33,6 +35,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
     const rawLogo = (map.site_logo_url || "").trim()
     const resolvedLogo =
       !rawLogo || rawLogo === "/icon.svg" ? BRAND.assets.symbol : rawLogo
+    const topAd = parseTopAdConfig(map.top_ad_config, map.announcement)
 
     return {
       discordUrl: map.discord_url || "https://discord.gg/aKF4hMuhmA",
@@ -49,6 +52,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       showRoom2: map.show_room2 === "true",
       maintenanceMode: map.maintenance_mode === "true",
       announcement: map.announcement || "",
+      topAd,
       logoUrl: resolvedLogo,
       showcaseTimeWindow: (map.showcase_time_window || "").trim(),
       showcaseFormatLabel: (map.showcase_format_label || "").trim(),
@@ -72,6 +76,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       showRoom2: false,
       maintenanceMode: false,
       announcement: "",
+      topAd: { ...DEFAULT_TOP_AD_CONFIG },
       logoUrl: BRAND.assets.symbol,
       showcaseTimeWindow: "",
       showcaseFormatLabel: "",

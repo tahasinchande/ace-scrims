@@ -4,17 +4,17 @@ export interface AmbientColorPhase {
   baseHue: number
   accentHue: number
   fillHue: number
-  /** Primary RGB (0..255) for UI accents & 3D key/core */
+  /** Primary RGB (0..255) for UI accents & primary glow */
   primaryRgb: [number, number, number]
-  /** Soft luminous highlight RGB (0..255) for borders/laser cores */
+  /** Soft luminous highlight RGB (0..255) for borders/rim highlights */
   softRgb: [number, number, number]
   /** Secondary/accent RGB (0..255) */
   accentRgb: [number, number, number]
   /** Deep atmospheric base RGB (0..255) for fog & shadow fills */
   deepRgb: [number, number, number]
-  /** Diagonal ambient wash RGB (0..255) */
+  /** Controlled ambient wash RGB (0..255) */
   bgWashRgb: [number, number, number]
-  /** Upper radiant bloom RGB (0..255) */
+  /** Atmospheric horizon/radial bloom RGB (0..255) */
   glowRgb: [number, number, number]
   /** Normalized 0..1 RGB floats for WebGL / Three.js shaders */
   c1: [number, number, number]
@@ -24,113 +24,146 @@ export interface AmbientColorPhase {
   bgB: [number, number, number]
 }
 
-/** Deep obsidian navy stage base (#020510) */
-export const STAGE_BASE_RGB: [number, number, number] = [2, 5, 16]
-export const STAGE_BASE_NORM: [number, number, number] = [0.008, 0.02, 0.062]
+/** 3D Cyber deep night sky base (#02050E) */
+export const STAGE_BASE_RGB: [number, number, number] = [2, 5, 14]
+export const STAGE_BASE_NORM: [number, number, number] = [0.008, 0.02, 0.055]
+
+/** 2D Obsidian near-black base (#050508) — controlled low glare like randomqbit.site */
+export const STAGE_BASE_2D_RGB: [number, number, number] = [5, 5, 8]
+export const STAGE_BASE_2D_NORM: [number, number, number] = [0.02, 0.02, 0.031]
 
 /**
- * Continuous Dynamic Blue-Spectrum Color Cycle:
- * Flows seamlessly across Electric Cobalt -> Electric Cyan -> Deep Royal Navy
- * -> Luminous Azure -> Hyper Sapphire -> Electric Cobalt.
- * Always alive, unmistakable, and harmonized across 3D lighting, wave shaders,
- * 2D volumetric fields, and synchronized UI accents.
+ * 3D Cyber Cityscape Palette:
+ * Deep night sky + bright cyan/ice-white horizon light band + atmospheric cyan-teal glow
+ * spilling softly across the blocky cityscape silhouette and receding perspective grid.
+ * Smooth 6s–12s breathing nuances while staying unmistakably true to the Cyber Horizon identity.
  */
-export const AMBIENT_PHASES: AmbientColorPhase[] = [
+export const AMBIENT_PHASES_3D: AmbientColorPhase[] = [
   {
-    // Phase 0: Electric Cobalt (#1F73FF / #40B8FF / #BFF0FF)
-    name: "electric-cobalt",
-    baseHue: 217 / 360,
-    accentHue: 200 / 360,
-    fillHue: 228 / 360,
-    primaryRgb: [31, 115, 255],
-    accentRgb: [64, 184, 255],
-    softRgb: [191, 240, 255],
-    deepRgb: [6, 20, 58],
-    glowRgb: [18, 72, 168],
-    bgWashRgb: [8, 28, 84],
-    c1: [0.122, 0.451, 1.0],
-    c2: [0.251, 0.722, 1.0],
-    c3: [0.749, 0.941, 1.0],
-    glow: [0.071, 0.282, 0.659],
-    bgB: [0.031, 0.11, 0.329],
-  },
-  {
-    // Phase 1: Electric Cyan / Arctic Surge (#06B6D4 / #22D3EE / #CFFAFE)
-    name: "electric-cyan",
+    // Phase 0: Ice Cyan Horizon (#06B6D4 / #38BDF8 / #CFFAFE)
+    name: "cyber-cyan-horizon",
     baseHue: 189 / 360,
-    accentHue: 186 / 360,
-    fillHue: 204 / 360,
+    accentHue: 196 / 360,
+    fillHue: 208 / 360,
     primaryRgb: [6, 182, 212],
-    accentRgb: [34, 211, 238],
-    softRgb: [207, 250, 254],
-    deepRgb: [5, 28, 48],
-    glowRgb: [12, 98, 138],
-    bgWashRgb: [6, 42, 74],
-    c1: [0.024, 0.714, 0.831],
-    c2: [0.133, 0.827, 0.933],
-    c3: [0.812, 0.98, 0.996],
-    glow: [0.047, 0.384, 0.541],
-    bgB: [0.024, 0.165, 0.29],
-  },
-  {
-    // Phase 2: Deep Royal Navy / Indigo Surge (#3B5BFF / #60A5FA / #DBEAFE)
-    name: "deep-royal-navy",
-    baseHue: 230 / 360,
-    accentHue: 213 / 360,
-    fillHue: 242 / 360,
-    primaryRgb: [59, 91, 255],
-    accentRgb: [96, 165, 250],
-    softRgb: [219, 234, 254],
-    deepRgb: [8, 14, 54],
-    glowRgb: [28, 52, 152],
-    bgWashRgb: [12, 22, 82],
-    c1: [0.231, 0.357, 1.0],
-    c2: [0.376, 0.647, 0.98],
-    c3: [0.859, 0.918, 0.996],
-    glow: [0.11, 0.204, 0.596],
-    bgB: [0.047, 0.086, 0.322],
-  },
-  {
-    // Phase 3: Luminous Azure / Sky Horizon (#0284C7 / #38BDF8 / #E0F2FE)
-    name: "luminous-azure",
-    baseHue: 200 / 360,
-    accentHue: 198 / 360,
-    fillHue: 214 / 360,
-    primaryRgb: [2, 132, 199],
     accentRgb: [56, 189, 248],
-    softRgb: [224, 242, 254],
-    deepRgb: [5, 22, 52],
-    glowRgb: [14, 86, 152],
-    bgWashRgb: [7, 34, 78],
-    c1: [0.008, 0.518, 0.78],
+    softRgb: [207, 250, 254],
+    deepRgb: [3, 10, 24],
+    glowRgb: [14, 116, 144],
+    bgWashRgb: [5, 24, 44],
+    c1: [0.024, 0.714, 0.831],
     c2: [0.22, 0.741, 0.973],
-    c3: [0.878, 0.949, 0.996],
-    glow: [0.055, 0.337, 0.596],
-    bgB: [0.027, 0.133, 0.306],
+    c3: [0.878, 0.984, 1.0],
+    glow: [0.055, 0.455, 0.565],
+    bgB: [0.02, 0.094, 0.173],
   },
   {
-    // Phase 4: Hyper Sapphire (#2563EB / #38E8FF / #BAE6FD)
-    name: "hyper-sapphire",
-    baseHue: 221 / 360,
-    accentHue: 188 / 360,
-    fillHue: 232 / 360,
-    primaryRgb: [37, 99, 235],
-    accentRgb: [56, 232, 255],
-    softRgb: [186, 230, 253],
-    deepRgb: [6, 18, 52],
-    glowRgb: [16, 68, 162],
-    bgWashRgb: [8, 26, 78],
-    c1: [0.145, 0.388, 0.922],
-    c2: [0.22, 0.91, 1.0],
-    c3: [0.729, 0.902, 0.992],
-    glow: [0.063, 0.267, 0.635],
-    bgB: [0.031, 0.102, 0.306],
+    // Phase 1: Arctic Teal Spill (#0891B2 / #22D3EE / #E0F9FF)
+    name: "arctic-teal-spill",
+    baseHue: 186 / 360,
+    accentHue: 190 / 360,
+    fillHue: 202 / 360,
+    primaryRgb: [8, 145, 178],
+    accentRgb: [34, 211, 238],
+    softRgb: [224, 249, 255],
+    deepRgb: [2, 12, 22],
+    glowRgb: [13, 132, 152],
+    bgWashRgb: [4, 28, 42],
+    c1: [0.031, 0.569, 0.698],
+    c2: [0.133, 0.827, 0.933],
+    c3: [0.878, 0.976, 1.0],
+    glow: [0.051, 0.518, 0.596],
+    bgB: [0.016, 0.11, 0.165],
+  },
+  {
+    // Phase 2: Midnight Azure Skyline (#0284C7 / #67E8F9 / #E0F2FE)
+    name: "midnight-azure-skyline",
+    baseHue: 199 / 360,
+    accentHue: 187 / 360,
+    fillHue: 215 / 360,
+    primaryRgb: [2, 132, 199],
+    accentRgb: [103, 232, 249],
+    softRgb: [224, 242, 254],
+    deepRgb: [4, 11, 28],
+    glowRgb: [14, 102, 156],
+    bgWashRgb: [6, 22, 48],
+    c1: [0.008, 0.518, 0.78],
+    c2: [0.404, 0.91, 0.976],
+    c3: [0.878, 0.949, 0.996],
+    glow: [0.055, 0.4, 0.612],
+    bgB: [0.024, 0.086, 0.188],
   },
 ]
 
-/** Continuous flowing cadence: brief 0.8s settle + 3.2s smoothstep glide (4.0s per phase, 20s full cycle). */
-export const PHASE_HOLD_SEC = 0.8
-export const PHASE_TRANSITION_SEC = 3.2
+/**
+ * 2D Ambient Mode Palette (randomqbit.site direction):
+ * Deep obsidian / near-black base (#050508 -> #09070F) with controlled, non-glaring
+ * radial violet/purple glow (#6B2FA8 -> #3E1A6E -> #050508) and crisp violet accents
+ * (#8C44D4 / #9B5DE5) so foreground text, lobby times, and cards stay razor-sharp.
+ */
+export const AMBIENT_PHASES_2D: AmbientColorPhase[] = [
+  {
+    // Phase 0: Controlled Obsidian Violet (#8C44D4 / #9B5DE5 / #DDD6FE)
+    name: "obsidian-violet",
+    baseHue: 270 / 360,
+    accentHue: 266 / 360,
+    fillHue: 275 / 360,
+    primaryRgb: [140, 68, 212], // #8C44D4
+    accentRgb: [155, 93, 229], // #9B5DE5
+    softRgb: [216, 196, 248],
+    deepRgb: [9, 7, 15], // #09070F
+    glowRgb: [107, 47, 168], // #6B2FA8
+    bgWashRgb: [62, 26, 110], // #3E1A6E
+    c1: [0.42, 0.184, 0.659], // #6B2FA8 controlled core
+    c2: [0.549, 0.267, 0.831], // #8C44D4 subtle highlight
+    c3: [0.608, 0.365, 0.898], // #9B5DE5 soft rim
+    glow: [0.42, 0.184, 0.659], // #6B2FA8
+    bgB: [0.243, 0.102, 0.431], // #3E1A6E
+  },
+  {
+    // Phase 1: Deep Amethyst Dusk (#7E3AF2 / #A76BF0 / #E5DCFA)
+    name: "deep-amethyst-dusk",
+    baseHue: 264 / 360,
+    accentHue: 272 / 360,
+    fillHue: 258 / 360,
+    primaryRgb: [132, 66, 218],
+    accentRgb: [162, 102, 236],
+    softRgb: [222, 204, 250],
+    deepRgb: [8, 6, 14],
+    glowRgb: [96, 42, 158],
+    bgWashRgb: [54, 24, 100],
+    c1: [0.376, 0.165, 0.62],
+    c2: [0.518, 0.259, 0.855],
+    c3: [0.635, 0.4, 0.925],
+    glow: [0.376, 0.165, 0.62],
+    bgB: [0.212, 0.094, 0.392],
+  },
+  {
+    // Phase 2: Velvet Indigo Obsidian (#9B5DE5 / #8C44D4 / #DDD6FE)
+    name: "velvet-indigo-obsidian",
+    baseHue: 274 / 360,
+    accentHue: 268 / 360,
+    fillHue: 280 / 360,
+    primaryRgb: [148, 76, 222],
+    accentRgb: [155, 93, 229],
+    softRgb: [218, 198, 248],
+    deepRgb: [9, 7, 15],
+    glowRgb: [112, 48, 174],
+    bgWashRgb: [66, 26, 114],
+    c1: [0.439, 0.188, 0.682],
+    c2: [0.58, 0.298, 0.871],
+    c3: [0.608, 0.365, 0.898],
+    glow: [0.439, 0.188, 0.682],
+    bgB: [0.259, 0.102, 0.447],
+  },
+]
+
+/** Backwards-compatible default export referencing 3D phases */
+export const AMBIENT_PHASES: AmbientColorPhase[] = AMBIENT_PHASES_3D
+
+/** Calm 6s–12s breathing loop cadence (3.5s settle + 4.5s smooth glide = 8s per phase) */
+export const PHASE_HOLD_SEC = 2.0
+export const PHASE_TRANSITION_SEC = 6.0
 export const PHASE_TOTAL_SEC = PHASE_HOLD_SEC + PHASE_TRANSITION_SEC
 
 function lerp(a: number, b: number, t: number): number {
@@ -164,7 +197,6 @@ function lerpVec3(
   return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]
 }
 
-/** Hermite smoothstep curve for organic, seamless hue glides */
 function smoothstep(t: number): number {
   const clamped = Math.max(0, Math.min(1, t))
   return clamped * clamped * (3 - 2 * clamped)
@@ -189,16 +221,20 @@ export interface InterpolatedAmbientState {
   phaseIndex: number
 }
 
-export function getAmbientPhaseAt(elapsedSec: number): InterpolatedAmbientState {
+export function getAmbientPhaseAt(
+  elapsedSec: number,
+  mode: "2d" | "3d" = "3d"
+): InterpolatedAmbientState {
+  const phases = mode === "2d" ? AMBIENT_PHASES_2D : AMBIENT_PHASES_3D
   const safeElapsed = Math.max(0, elapsedSec)
-  const count = AMBIENT_PHASES.length
+  const count = phases.length
   const totalCycle = PHASE_TOTAL_SEC * count
   const cyclePos = safeElapsed % totalCycle
   const phaseIndex = Math.floor(cyclePos / PHASE_TOTAL_SEC) % count
   const withinPhase = cyclePos - phaseIndex * PHASE_TOTAL_SEC
 
-  const current = AMBIENT_PHASES[phaseIndex]
-  const next = AMBIENT_PHASES[(phaseIndex + 1) % count]
+  const current = phases[phaseIndex]
+  const next = phases[(phaseIndex + 1) % count]
 
   if (withinPhase <= PHASE_HOLD_SEC) {
     return {
@@ -244,7 +280,10 @@ export function getAmbientPhaseAt(elapsedSec: number): InterpolatedAmbientState 
   }
 }
 
-export function applyAmbientThemeToRoot(state: InterpolatedAmbientState): void {
+export function applyAmbientThemeToRoot(
+  state: InterpolatedAmbientState,
+  mode: "2d" | "3d" = "3d"
+): void {
   if (typeof document === "undefined") return
   const root = document.documentElement
   const p = `${state.primaryRgb[0]}, ${state.primaryRgb[1]}, ${state.primaryRgb[2]}`
@@ -254,6 +293,7 @@ export function applyAmbientThemeToRoot(state: InterpolatedAmbientState): void {
   const w = `${state.bgWashRgb[0]}, ${state.bgWashRgb[1]}, ${state.bgWashRgb[2]}`
   const g = `${state.glowRgb[0]}, ${state.glowRgb[1]}, ${state.glowRgb[2]}`
 
+  root.dataset.viewMode = mode
   root.style.setProperty("--rushx-primary-rgb", p)
   root.style.setProperty("--rushx-soft-rgb", s)
   root.style.setProperty("--rushx-accent-rgb", a)

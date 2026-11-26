@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
+import { motion, useReducedMotion } from "motion/react"
+import { DEEPCHARTS_EASE } from "@/lib/intro-motion"
 import { isAdminOrOwner } from "@/lib/roles"
 import { cn } from "@/lib/utils"
 import { RushXBrandLogo } from "@/components/site/brand-logo"
@@ -75,13 +77,19 @@ const moderatorLinks: NavLink[] = [
 export function AdminNav({ role, name, logoUrl }: { role: string; name: string; logoUrl?: string }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const prefersReducedMotion = useReducedMotion()
   const tabParam = searchParams.get("tab")
   const links = isAdminOrOwner(role) ? adminLinks : moderatorLinks
 
   return (
-    <aside className="w-full shrink-0 md:w-60">
+    <motion.aside
+      initial={prefersReducedMotion ? { opacity: 1, x: 0 } : { opacity: 0.92, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.28, ease: DEEPCHARTS_EASE }}
+      className="w-full shrink-0 md:w-60"
+    >
       <div className="dc-surface sticky top-20 flex flex-col gap-4 rounded-2xl p-4">
-        <div className="flex items-center gap-3 border-b border-white/[0.07] pb-3.5">
+        <div className="flex items-center gap-3 border-b border-white/[0.08] pb-3.5">
           <RushXBrandLogo variant="symbol" size="sm" logoUrl={logoUrl} />
           <div className="min-w-0">
             <p className="truncate font-display text-sm font-semibold tracking-tight text-foreground">{name}</p>
@@ -107,15 +115,33 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition-all border border-transparent",
+                  "group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 border",
                   active
                     ? isRoom1Link
-                      ? "bg-blue-500/14 text-blue-300 border-blue-500/30 shadow-xs"
-                      : "bg-primary/14 text-primary border-primary/25 shadow-xs"
-                    : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
+                      ? "bg-cyan-500/14 text-cyan-200 border-cyan-400/30 shadow-xs"
+                      : "bg-[rgba(var(--rushx-primary-rgb),0.15)] text-white border-[rgba(var(--rushx-primary-rgb),0.32)] shadow-xs"
+                    : "border-transparent text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100 hover:translate-x-0.5 active:scale-[0.99]",
                 )}
               >
-                <Icon className="size-4 shrink-0" />
+                {active && (
+                  <span
+                    className={cn(
+                      "hidden md:block absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full",
+                      isRoom1Link ? "bg-cyan-400" : "bg-primary"
+                    )}
+                    aria-hidden="true"
+                  />
+                )}
+                <Icon
+                  className={cn(
+                    "size-4 shrink-0 transition-colors duration-200",
+                    active
+                      ? isRoom1Link
+                        ? "text-cyan-300"
+                        : "text-primary"
+                      : "text-zinc-400 group-hover:text-zinc-200"
+                  )}
+                />
                 <span className="truncate">{link.label}</span>
               </Link>
             )
@@ -124,12 +150,12 @@ export function AdminNav({ role, name, logoUrl }: { role: string; name: string; 
 
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 border-t border-white/[0.07] pt-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-2 border-t border-white/[0.08] pt-3.5 text-xs font-semibold text-zinc-400 transition-all duration-200 hover:text-white hover:translate-x-0.5"
         >
           <ArrowLeft className="size-3.5" />
           Back to dashboard
         </Link>
       </div>
-    </aside>
+    </motion.aside>
   )
 }

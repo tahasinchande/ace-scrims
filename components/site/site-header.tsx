@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
+import { DEEPCHARTS_EASE } from "@/lib/intro-motion"
 import { Button } from "@/components/ui/button"
 import { Menu, X, Globe, ChevronDown, Flame, Trophy, Calendar, Layers, Boxes, MoreVertical, Wallet, MessageSquare } from "lucide-react"
 import {
@@ -43,6 +44,7 @@ export function SiteHeader({
   const { lang, setLang, t } = useLanguage()
   const { mode, setMode } = useViewMode()
   const { data: sessionData } = useSession()
+  const prefersReducedMotion = useReducedMotion()
 
   const openScrimsMenu = () => {
     if (closeDropdownTimerRef.current) {
@@ -106,7 +108,12 @@ export function SiteHeader({
   const activeLogoUrl = liveSettings?.logoUrl || initialSettings?.logoUrl
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-[#050811]/72 backdrop-blur-2xl shadow-[0_12px_32px_-16px_rgba(0,0,0,0.85)]">
+    <motion.header
+      initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0.94, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: DEEPCHARTS_EASE }}
+      className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#050508]/82 backdrop-blur-2xl shadow-[0_14px_34px_-18px_rgba(0,0,0,0.9)] transition-colors duration-200"
+    >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         {/* Brand Logo (Left — 'R' mark beside stylized RushX wordmark) */}
         <Link href="/" className="flex shrink-0 items-center group transition-opacity hover:opacity-90" aria-label="RushX Organization Home">
@@ -621,6 +628,6 @@ export function SiteHeader({
           </motion.nav>
         )}
       </AnimatePresence>
-    </header>
+    </motion.header>
   )
 }

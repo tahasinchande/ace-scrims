@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 import { useViewMode } from "@/lib/view-mode"
 import {
   applyAmbientThemeToRoot,
   getAmbientPhaseAt,
-  STAGE_BASE_NORM,
+  STAGE_BASE_2D_NORM,
 } from "@/lib/ambient-theme"
 
 const VOLUMETRIC_2D_VS = `
@@ -20,10 +19,12 @@ const VOLUMETRIC_2D_VS = `
 `
 
 /**
- * Volumetric 2D Flowing Blue-Spectrum Atmospheric Fragment Shader
- * - Continuously flowing liquid-aurora ribbons & multi-depth domain-warped light fields
- * - Moves clearly and organically on its own over time, shifting across deep navy,
- *   electric cobalt, electric cyan, and luminous azure with smooth pointer/scroll parallax.
+ * Controlled Low-Brightness Obsidian-Violet 2D Ambient Fragment Shader
+ * Inspired by randomqbit.site:
+ * - Deep obsidian / near-black base (#050508 -> #09070F)
+ * - Strictly controlled radial violet/purple ambient glow (#6B2FA8 -> #3E1A6E -> #050508)
+ * - Slow 8s–12s organic breathing drift & gentle pointer parallax
+ * - High foreground legibility: never glaring or washed out.
  */
 const VOLUMETRIC_2D_FS = `
   precision highp float;
@@ -38,7 +39,6 @@ const VOLUMETRIC_2D_FS = `
   uniform vec3 uGlow;
   uniform vec3 uC1;
   uniform vec3 uC2;
-  uniform vec3 uC3;
 
   float hash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -61,9 +61,9 @@ const VOLUMETRIC_2D_FS = `
     float v = 0.0;
     float a = 0.5;
     mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
       v += a * noise2D(p);
-      p = rot * p * 2.04 + vec2(17.1, 31.7);
+      p = rot * p * 2.02 + vec2(11.3, 19.7);
       a *= 0.5;
     }
     return v;
@@ -74,71 +74,57 @@ const VOLUMETRIC_2D_FS = `
     float aspect = uRes.x / max(uRes.y, 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-    vec2 drift = vec2(uPointer.x * 0.07, uPointer.y * 0.055 - uScroll * 0.09);
-    float t = uTime * 0.42;
+    vec2 drift = vec2(uPointer.x * 0.045, uPointer.y * 0.035 - uScroll * 0.06);
+    // Smooth 10s breathing rhythm
+    float t = uTime * 0.24;
+    float breathe = 0.88 + 0.12 * sin(uTime * 0.62);
 
-    // 1. Deep navy obsidian base + sweeping top/diagonal ambient wash
-    vec3 col = uBgA;
-    float g1 = clamp(1.0 - length((uv - vec2(0.1 + sin(t * 0.45) * 0.12, 0.92) - drift * 0.35) * vec2(0.85, 1.1)), 0.0, 1.0);
-    col = mix(col, uBgB * 1.65, smoothstep(0.0, 1.0, g1) * 0.95);
+    // 1. Deep obsidian near-black base (#050508 -> #09070F)
+    vec3 obsidianDeep = uBgA;
+    vec3 obsidianMid = vec3(0.035, 0.027, 0.059); // #09070F
+    vec3 col = mix(obsidianDeep, obsidianMid, smoothstep(0.0, 1.0, uv.y * 0.85 + 0.1));
 
-    float g2 = clamp(1.0 - length((uv - vec2(0.88 + cos(t * 0.38) * 0.10, 0.72) + drift * 0.4) * vec2(1.15, 0.95)), 0.0, 1.0);
-    col += uGlow * 0.82 * pow(g2, 1.5);
+    // 2. Subtle fbm silk texture for depth without glare
+    float silk = fbm(p * 1.45 + vec2(t * 0.35, -t * 0.22));
+    float silk2 = fbm(p * 2.1 - vec2(t * 0.26, t * 0.18));
 
-    // 2. Flowing domain-warped liquid energy currents
-    vec2 q = vec2(
-      fbm(p * 1.45 + vec2(t * 0.65, -t * 0.42)),
-      fbm(p * 1.45 + vec2(-t * 0.52 + 4.3, t * 0.58 + 1.9))
-    );
-    float veilA = fbm(p * 1.65 + 1.75 * q + vec2(t * 0.36, -t * 0.24));
-    float veilB = fbm(p * 2.25 - 1.35 * q + vec2(-t * 0.42, t * 0.28));
+    // 3. Controlled radial violet ambient aura (#6B2FA8 -> #3E1A6E -> #050508)
+    vec2 coreCenter = vec2(
+      0.50 + sin(t * 0.72) * 0.09,
+      0.76 + cos(t * 0.58) * 0.06
+    ) + drift * 0.45;
+    float dCore = length((uv - coreCenter) * vec2(aspect * 0.66, 1.05));
+    float coreHalo = exp(-dCore * dCore * 2.35) * breathe;
 
-    // Undulating aurora wave ribbons sweeping continuously across the viewport
-    float waveY1 = 0.62 + sin(p.x * 2.1 - t * 1.05 + q.x * 2.4) * 0.14;
-    float ribbon1 = exp(-pow((uv.y - waveY1) * 4.4, 2.0)) * (0.55 + veilA * 0.75);
+    vec2 rimCenter = vec2(
+      0.18 + cos(t * 0.52) * 0.08,
+      0.24 + sin(t * 0.46) * 0.07
+    ) - drift * 0.32;
+    float dRim = length((uv - rimCenter) * vec2(aspect * 0.62, 1.1));
+    float rimHalo = exp(-dRim * dRim * 2.65);
 
-    float waveY2 = 0.36 + cos(p.x * 1.7 + t * 0.85 - q.y * 2.2) * 0.16;
-    float ribbon2 = exp(-pow((uv.y - waveY2) * 3.8, 2.0)) * (0.45 + veilB * 0.80);
+    vec2 sideCenter = vec2(
+      0.84 + sin(t * 0.48 + 1.8) * 0.07,
+      0.44 + cos(t * 0.44 + 0.9) * 0.08
+    ) + drift * 0.28;
+    float dSide = length((uv - sideCenter) * vec2(aspect * 0.72, 1.1));
+    float sideHalo = exp(-dSide * dSide * 3.1);
 
-    // Drifting radial bloom pools
-    vec2 field1Center = vec2(
-      0.26 + sin(t * 0.82) * 0.18,
-      0.74 + cos(t * 0.64) * 0.12
-    ) + drift * 0.5;
-    float f1 = exp(-pow(length((uv - field1Center) * vec2(aspect * 0.65, 1.0)), 2.0) * 1.55);
+    // Strictly capped luminance so foreground cards & text remain crystal clear
+    col += uBgB * (coreHalo * (0.42 + silk * 0.14) + rimHalo * 0.26);
+    col += uGlow * (coreHalo * coreHalo * (0.28 + silk2 * 0.10) + sideHalo * 0.18);
+    col += uC2 * (pow(coreHalo, 3.0) * 0.10 * (0.7 + silk * 0.3));
 
-    vec2 field2Center = vec2(
-      0.74 + cos(t * 0.74) * 0.16,
-      0.58 + sin(t * 0.62) * 0.14
-    ) - drift * 0.45;
-    float f2 = exp(-pow(length((uv - field2Center) * vec2(aspect * 0.68, 1.05)), 2.0) * 1.75);
+    // Gentle vignette anchoring the edges into #050508 obsidian
+    float vig = smoothstep(1.38, 0.22, length((uv - 0.5) * vec2(aspect * 0.78, 1.05)));
+    col = mix(obsidianDeep, col, mix(0.56, 1.0, vig));
 
-    vec2 field3Center = vec2(
-      0.50 + sin(t * 0.55 + 2.1) * 0.20,
-      0.22 + cos(t * 0.48 + 1.4) * 0.10
-    ) + drift * 0.3;
-    float f3 = exp(-pow(length((uv - field3Center) * vec2(aspect * 0.58, 1.1)), 2.0) * 1.55);
+    // Filmic roll-off + strict brightness ceiling
+    col = col / (1.0 + col * 0.52);
 
-    col += uC1 * (f1 * (0.34 + veilA * 0.28) + ribbon1 * 0.36);
-    col += uC2 * (f2 * (0.30 + veilB * 0.28) + ribbon2 * 0.32);
-    col += mix(uBgB, uC1, 0.55) * (f3 * (0.30 + veilA * 0.20));
-
-    // Luminous crest caustics gliding along the liquid waves
-    float caustic = smoothstep(0.42, 0.86, veilA * 0.58 + veilB * 0.42) * (ribbon1 * 0.75 + ribbon2 * 0.65 + f1 * 0.35);
-    col += mix(uC2, uC3, 0.52) * caustic * 0.32;
-
-    float upperLift = smoothstep(0.0, 0.94, uv.y);
-    col *= mix(0.82, 1.12, upperLift);
-
-    float vig = smoothstep(1.45, 0.24, length((uv - 0.5) * vec2(aspect * 0.76, 1.02)));
-    col *= mix(0.68, 1.0, vig);
-
-    // Smooth filmic roll-off
-    col = col / (1.0 + col * 0.34);
-
-    // Dither to prevent 8-bit banding
-    float dither = (hash12(gl_FragCoord.xy + fract(uTime * 13.7)) - 0.5) / 255.0;
-    col = clamp(col + dither, 0.0, 1.0);
+    // Subtle 8-bit dither to eliminate gradient banding
+    float dither = (hash12(gl_FragCoord.xy + fract(uTime * 11.3)) - 0.5) / 255.0;
+    col = clamp(col + dither, 0.0, 0.42);
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -157,8 +143,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string):
 }
 
 /**
- * Detect software WebGL (SwiftShader, llvmpipe, WARP) from the GPU renderer string.
- * Used strictly for rendering cost & frame pacing (never hides or alters the scene).
+ * Detect software WebGL (SwiftShader, llvmpipe, WARP) for frame pacing & DPR cost control.
  */
 function detectSoftwareWebGL(): boolean {
   if (typeof document === "undefined") return false
@@ -176,6 +161,127 @@ function detectSoftwareWebGL(): boolean {
   }
 }
 
+/** Deterministic PRNG so the skyline silhouette is architectural and consistent across renders */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Procedural high-contrast building facade CanvasTexture:
+ * Dark architectural obsidian concrete with crisp, selectively lit cyan / ice-white / subtle warm windows.
+ */
+function createCityWindowTextures(): {
+  map: THREE.CanvasTexture
+  emissiveMap: THREE.CanvasTexture
+} {
+  const width = 256
+  const height = 512
+
+  const diffuseCanvas = document.createElement("canvas")
+  diffuseCanvas.width = width
+  diffuseCanvas.height = height
+  const dCtx = diffuseCanvas.getContext("2d")
+
+  const emissiveCanvas = document.createElement("canvas")
+  emissiveCanvas.width = width
+  emissiveCanvas.height = height
+  const eCtx = emissiveCanvas.getContext("2d")
+
+  if (dCtx && eCtx) {
+    // Dark slate-obsidian skyscraper skin
+    const baseGrad = dCtx.createLinearGradient(0, 0, 0, height)
+    baseGrad.addColorStop(0, "#050914")
+    baseGrad.addColorStop(0.55, "#070f1f")
+    baseGrad.addColorStop(1, "#091829")
+    dCtx.fillStyle = baseGrad
+    dCtx.fillRect(0, 0, width, height)
+
+    eCtx.fillStyle = "#000000"
+    eCtx.fillRect(0, 0, width, height)
+
+    const rand = mulberry32(90210)
+    const cols = 12
+    const rows = 36
+    const padX = 5
+    const padY = 5
+    const cellW = width / cols
+    const cellH = height / rows
+
+    // Subtle structural mullion grooves
+    dCtx.fillStyle = "rgba(18, 42, 68, 0.25)"
+    for (let c = 0; c < cols; c++) {
+      dCtx.fillRect(Math.floor(c * cellW), 0, 1, height)
+    }
+
+    // Crisp architectural window grid (selective floors & suites lit)
+    for (let r = 1; r < rows - 1; r++) {
+      // Occasional dark mechanical floor
+      if (r % 9 === 0) continue
+      const floorActivity = 0.22 + rand() * 0.42
+
+      for (let c = 1; c < cols - 1; c++) {
+        const roll = rand()
+        const wx = Math.floor(c * cellW + padX * 0.5)
+        const wy = Math.floor(r * cellH + padY * 0.5)
+        const ww = Math.max(3, Math.floor(cellW - padX))
+        const wh = Math.max(3, Math.floor(cellH - padY))
+
+        if (roll < floorActivity) {
+          const tintRoll = rand()
+          let winColor: string
+          if (tintRoll < 0.58) {
+            // Crisp cyan-ice window
+            winColor = rand() < 0.45 ? "#cffafe" : "#67e8f9"
+          } else if (tintRoll < 0.86) {
+            // Bright ice-white office light
+            winColor = "#e0f2fe"
+          } else {
+            // Subtle pale cyan-teal glow
+            winColor = "#22d3ee"
+          }
+
+          dCtx.fillStyle = winColor
+          dCtx.fillRect(wx, wy, ww, wh)
+
+          eCtx.fillStyle = winColor
+          eCtx.fillRect(wx, wy, ww, wh)
+        } else {
+          // Subtle unlit glass reflection
+          dCtx.fillStyle = "#081426"
+          dCtx.fillRect(wx, wy, ww, wh)
+        }
+      }
+    }
+
+    // Subtle cyan roof trim line
+    dCtx.fillStyle = "rgba(103, 232, 249, 0.45)"
+    dCtx.fillRect(0, 0, width, 3)
+    eCtx.fillStyle = "rgba(56, 189, 248, 0.42)"
+    eCtx.fillRect(0, 0, width, 3)
+  }
+
+  const map = new THREE.CanvasTexture(diffuseCanvas)
+  map.wrapS = THREE.RepeatWrapping
+  map.wrapT = THREE.RepeatWrapping
+  map.colorSpace = THREE.SRGBColorSpace
+  map.needsUpdate = true
+
+  const emissiveMap = new THREE.CanvasTexture(emissiveCanvas)
+  emissiveMap.wrapS = THREE.RepeatWrapping
+  emissiveMap.wrapT = THREE.RepeatWrapping
+  emissiveMap.colorSpace = THREE.SRGBColorSpace
+  emissiveMap.needsUpdate = true
+
+  return { map, emissiveMap }
+}
+
 export function GlobalCyberBackground() {
   const threeContainerRef = useRef<HTMLDivElement>(null)
   const volumetric2DCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -184,8 +290,11 @@ export function GlobalCyberBackground() {
   const [webgl2DReady, setWebgl2DReady] = useState(false)
   const [webgl3DFallback, setWebgl3DFallback] = useState(false)
 
-  // Synchronized dynamic blue-spectrum color-shifting engine across BOTH 2D & 3D modes.
-  // Never freezes completely on reduced-motion; instead uses a calm 0.5x color glide speed.
+  const effectiveMode: "2d" | "3d" = mode === "3d" && !webgl3DFallback ? "3d" : "2d"
+
+  // Mode-aware theme synchronizer:
+  // - "3d": Cyber Cyan Horizon accents (#06B6D4 / #38BDF8 / #CFFAFE)
+  // - "2d": Controlled Obsidian Violet accents (#8C44D4 / #9B5DE5 / #6B2FA8)
   useEffect(() => {
     const prefersReducedMotion =
       typeof window !== "undefined" &&
@@ -195,23 +304,23 @@ export function GlobalCyberBackground() {
       sharedStartMsRef.current = performance.now()
     }
 
-    const initialPhase = getAmbientPhaseAt(0)
-    applyAmbientThemeToRoot(initialPhase)
+    const activeElapsed = Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
+    applyAmbientThemeToRoot(getAmbientPhaseAt(activeElapsed, effectiveMode), effectiveMode)
 
     let rafId = 0
     let lastAppliedKey = ""
-    const colorSpeed = prefersReducedMotion ? 0.5 : 1.0
+    const colorSpeed = prefersReducedMotion ? 0.35 : 1.0
 
     const tick = () => {
       rafId = window.requestAnimationFrame(tick)
       if (document.hidden) return
       const startMs = sharedStartMsRef.current ?? performance.now()
       const elapsedSec = ((performance.now() - startMs) / 1000) * colorSpeed
-      const state = getAmbientPhaseAt(elapsedSec)
-      const key = `${state.primaryRgb.join(",")}|${state.glowRgb.join(",")}|${state.accentRgb.join(",")}`
+      const state = getAmbientPhaseAt(elapsedSec, effectiveMode)
+      const key = `${effectiveMode}|${state.primaryRgb.join(",")}|${state.glowRgb.join(",")}|${state.accentRgb.join(",")}`
       if (key !== lastAppliedKey) {
         lastAppliedKey = key
-        applyAmbientThemeToRoot(state)
+        applyAmbientThemeToRoot(state, effectiveMode)
       }
     }
 
@@ -219,10 +328,10 @@ export function GlobalCyberBackground() {
     return () => {
       window.cancelAnimationFrame(rafId)
     }
-  }, [])
+  }, [effectiveMode])
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 2D MODE: FLOWING VOLUMETRIC WEBGL COLOR-FIELD SHADER (with animated CSS fallback)
+  // 2D AMBIENT MODE: CONTROLLED OBSIDIAN-VIOLET GLOW (randomqbit.site direction)
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mode === "3d" && !webgl3DFallback) {
@@ -304,12 +413,11 @@ export function GlobalCyberBackground() {
     const uGlow = gl.getUniformLocation(program, "uGlow")
     const uC1 = gl.getUniformLocation(program, "uC1")
     const uC2 = gl.getUniformLocation(program, "uC2")
-    const uC3 = gl.getUniformLocation(program, "uC3")
 
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const motionRate = prefersReducedMotion ? 0.4 : 1.0
+    const motionRate = prefersReducedMotion ? 0.35 : 1.0
 
     let targetPtrX = 0
     let targetPtrY = 0
@@ -364,20 +472,19 @@ export function GlobalCyberBackground() {
 
     const drawFrame = (elapsedSec: number) => {
       if (!gl || contextLost || isDisposed) return
-      const phase = getAmbientPhaseAt(elapsedSec * motionRate)
-      smoothPtrX += (targetPtrX - smoothPtrX) * 0.045
-      smoothPtrY += (targetPtrY - smoothPtrY) * 0.045
+      const phase = getAmbientPhaseAt(elapsedSec * motionRate, "2d")
+      smoothPtrX += (targetPtrX - smoothPtrX) * 0.04
+      smoothPtrY += (targetPtrY - smoothPtrY) * 0.04
 
       gl.uniform1f(uTime, elapsedSec * motionRate)
       gl.uniform2f(uRes, canvas.width, canvas.height)
       gl.uniform2f(uPointer, smoothPtrX, smoothPtrY)
       gl.uniform1f(uScroll, scrollRatio)
-      gl.uniform3f(uBgA, STAGE_BASE_NORM[0], STAGE_BASE_NORM[1], STAGE_BASE_NORM[2])
+      gl.uniform3f(uBgA, STAGE_BASE_2D_NORM[0], STAGE_BASE_2D_NORM[1], STAGE_BASE_2D_NORM[2])
       gl.uniform3f(uBgB, phase.bgB[0], phase.bgB[1], phase.bgB[2])
       gl.uniform3f(uGlow, phase.glow[0], phase.glow[1], phase.glow[2])
       gl.uniform3f(uC1, phase.c1[0], phase.c1[1], phase.c1[2])
       gl.uniform3f(uC2, phase.c2[0], phase.c2[1], phase.c2[2])
-      gl.uniform3f(uC3, phase.c3[0], phase.c3[1], phase.c3[2])
 
       gl.drawArrays(gl.TRIANGLES, 0, 6)
     }
@@ -419,8 +526,9 @@ export function GlobalCyberBackground() {
   }, [mode, webgl3DFallback])
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 3D MODE: CONTINUOUSLY FLOWING BLUE-SHIFTING 3D CYBER TERRAIN,
-  // UNDULATING ENERGY WAVES, REFLECTIVE MONOLITHS, BEAMS & PARTICLES
+  // 3D CYBER MODE: DEEP NIGHT SKY + SCATTERED STARS + EXTRUDED BLOCKY CITYSCAPE
+  // SILHOUETTE WITH CRISP LIT WINDOWS + BRIGHT CYAN/ICE-WHITE HORIZON LIGHT BAND
+  // + RECEDING PERSPECTIVE GRID PLANE (Recovered from previous Ace Scrims deploy)
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== "3d") {
@@ -460,44 +568,24 @@ export function GlobalCyberBackground() {
 
     setWebgl3DFallback(false)
 
-    const initialElapsed =
-      sharedStartMsRef.current !== null
-        ? Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
-        : 0
-    const initPhase = getAmbientPhaseAt(initialElapsed)
-
-    // 1. Scene, Fog, Camera & Studio Environment Map (so metallic blocks reflect rich blue light)
     const scene = new THREE.Scene()
-    const stageColor = new THREE.Color(
-      STAGE_BASE_NORM[0] + initPhase.bgB[0] * 0.42,
-      STAGE_BASE_NORM[1] + initPhase.bgB[1] * 0.42,
-      STAGE_BASE_NORM[2] + initPhase.bgB[2] * 0.48
-    )
-    scene.background = stageColor.clone()
-    const fog = new THREE.FogExp2(stageColor.getHex(), 0.0145)
+    const nightSkyHex = 0x020612
+    scene.background = new THREE.Color(nightSkyHex)
+    const fog = new THREE.FogExp2(0x031120, 0.0088)
     scene.fog = fog
 
-    const camera = new THREE.PerspectiveCamera(46, width / height, 0.1, 420)
-    camera.position.set(17, 15.5, 27)
-    camera.lookAt(0, 2.2, 0)
+    // Horizon-framing perspective camera looking straight across the grid toward the glowing skyline
+    const camera = new THREE.PerspectiveCamera(48, width / height, 0.2, 500)
+    camera.position.set(0, 8.2, 46)
+    camera.lookAt(0, 6.2, -90)
 
     const maxDPR = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 1.75)
     renderer.setPixelRatio(maxDPR)
     renderer.setSize(width, height)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.38
+    renderer.toneMappingExposure = 1.15
     renderer.shadowMap.enabled = false
-
-    try {
-      const pmremGenerator = new THREE.PMREMGenerator(renderer)
-      const envRT = pmremGenerator.fromScene(new RoomEnvironment(), 0.04)
-      scene.environment = envRT.texture
-      trackDisposable(envRT)
-      pmremGenerator.dispose()
-    } catch {
-      // Proceed cleanly without PMREM if restricted
-    }
 
     renderer.domElement.style.position = "absolute"
     renderer.domElement.style.top = "0"
@@ -518,392 +606,402 @@ export function GlobalCyberBackground() {
     }
     renderer.domElement.addEventListener("webglcontextlost", onWebglContextLost)
 
-    // 2. Dynamic Blue-Shifting Multi-Point Lighting Rig
-    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x050b24, 1.45)
+    // 1. Lighting Rig: Subtle cool rim & cyan horizon backlight spilling onto the skyline
+    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x020612, 0.72)
     scene.add(hemiLight)
 
-    const dirKey = new THREE.DirectionalLight(0x1f73ff, 3.2)
-    dirKey.position.set(24, 34, 20)
-    scene.add(dirKey)
+    const horizonBackLight = new THREE.DirectionalLight(0x67e8f9, 1.85)
+    horizonBackLight.position.set(0, 12, -130)
+    scene.add(horizonBackLight)
 
-    const dirRim = new THREE.DirectionalLight(0x22d3ee, 2.4)
-    dirRim.position.set(-28, 22, -24)
-    scene.add(dirRim)
+    const cyanFillLeft = new THREE.PointLight(0x06b6d4, 18, 120, 1.5)
+    cyanFillLeft.position.set(-28, 10, -56)
+    scene.add(cyanFillLeft)
 
-    const coreLight1 = new THREE.PointLight(0x1f73ff, 12.0, 58, 1.4)
-    coreLight1.position.set(0, 6.5, 0)
-    scene.add(coreLight1)
+    const cyanFillRight = new THREE.PointLight(0x22d3ee, 18, 120, 1.5)
+    cyanFillRight.position.set(28, 10, -56)
+    scene.add(cyanFillRight)
 
-    const coreLight2 = new THREE.PointLight(0x38bdf8, 9.5, 48, 1.4)
-    coreLight2.position.set(16, 5.0, -12)
-    scene.add(coreLight2)
-
-    const coreLight3 = new THREE.PointLight(0x2563eb, 8.8, 48, 1.4)
-    coreLight3.position.set(-16, 4.5, 11)
-    scene.add(coreLight3)
-
-    // 3. CONTINUOUS FLOWING 3D LIQUID-ENERGY WAVE SURFACE (Video-like undulating ocean of light)
-    const waveUniforms = {
+    // 2. DEEP NIGHT SKY + BRIGHT CYAN / ICE-WHITE HORIZON LIGHT BAND BACKDROP
+    const skyUniforms = {
       uTime: { value: 0 },
-      uDeepColor: { value: new THREE.Color(initPhase.bgB[0] * 1.4, initPhase.bgB[1] * 1.6, initPhase.bgB[2] * 1.9) },
-      uPrimaryColor: { value: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) },
-      uAccentColor: { value: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]) },
-      uCrestColor: { value: new THREE.Color(initPhase.c3[0], initPhase.c3[1], initPhase.c3[2]) },
+      uCyanGlow: { value: new THREE.Color(0x0ea5c6) },
+      uIceBand: { value: new THREE.Color(0xd8fbff) },
+      uTealSpill: { value: new THREE.Color(0x0b5f7a) },
     }
-
-    const waveGeo = trackDisposable(new THREE.PlaneGeometry(118, 118, 76, 76))
-    waveGeo.rotateX(-Math.PI / 2)
-
-    const waveMat = trackDisposable(
+    const skyGeo = trackDisposable(new THREE.PlaneGeometry(520, 220, 1, 1))
+    const skyMat = trackDisposable(
       new THREE.ShaderMaterial({
-        uniforms: waveUniforms,
+        uniforms: skyUniforms,
         vertexShader: `
-          uniform float uTime;
-          varying float vElevation;
-          varying vec2 vWorldXZ;
           varying vec2 vUv;
-
           void main() {
             vUv = uv;
-            vec3 pos = position;
-
-            float w1 = sin(pos.x * 0.11 - uTime * 1.35) * cos(pos.z * 0.09 - uTime * 0.95) * 1.35;
-            float w2 = sin((pos.x * 0.07 + pos.z * 0.08) + uTime * 1.1) * 0.85;
-            float w3 = cos(length(pos.xz) * 0.14 - uTime * 1.75) * 0.65;
-            float elevation = w1 + w2 + w3;
-
-            pos.y += elevation;
-            vElevation = elevation;
-            vWorldXZ = pos.xz;
-
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: `
           uniform float uTime;
-          uniform vec3 uDeepColor;
-          uniform vec3 uPrimaryColor;
-          uniform vec3 uAccentColor;
-          uniform vec3 uCrestColor;
-          varying float vElevation;
-          varying vec2 vWorldXZ;
+          uniform vec3 uCyanGlow;
+          uniform vec3 uIceBand;
+          uniform vec3 uTealSpill;
           varying vec2 vUv;
 
           void main() {
-            float h = clamp((vElevation + 2.4) / 4.8, 0.0, 1.0);
+            // Horizon line sits at ~36% from bottom of sky plane (aligned with ground grid y=0)
+            float hY = 0.345;
+            float dy = vUv.y - hY;
 
-            // Flowing cyan/cobalt/azure bands shifting along the moving terrain
-            float flowBand = sin(vWorldXZ.x * 0.12 - vWorldXZ.y * 0.08 - uTime * 1.6) * 0.5 + 0.5;
-            vec3 base = mix(uDeepColor, uPrimaryColor, smoothstep(0.18, 0.78, h));
-            base = mix(base, uAccentColor, smoothstep(0.45, 0.95, h) * (0.45 + 0.55 * flowBand));
+            // Deep night sky zenith (#01040c) -> midnight slate-navy above horizon
+            vec3 zenith = vec3(0.008, 0.016, 0.044);
+            vec3 midSky = vec3(0.016, 0.046, 0.095);
+            vec3 col = mix(midSky, zenith, smoothstep(0.02, 0.62, max(0.0, dy)));
 
-            // Glowing topographic grid lines moving smoothly across the 3D surface
-            vec2 gridCoord = (vWorldXZ + vec2(0.0, -uTime * 2.8)) * 0.38;
-            vec2 gridFrac = abs(fract(gridCoord - 0.5) - 0.5);
-            float lineX = 1.0 - smoothstep(0.012, 0.052, gridFrac.x);
-            float lineY = 1.0 - smoothstep(0.012, 0.052, gridFrac.y);
-            float line = max(lineX, lineY);
-            float crestGlow = smoothstep(0.62, 1.0, h);
+            // Gentle 8s–12s atmospheric pulse along the horizon
+            float pulse = 0.90 + 0.10 * sin(uTime * 0.78);
+            float sweep = 0.86 + 0.14 * cos((vUv.x - 0.5) * 3.8 + uTime * 0.52);
 
-            vec3 col = base * 0.82 + uAccentColor * line * 0.52 + uCrestColor * (crestGlow * 0.42 + line * crestGlow * 0.65);
+            // Wide atmospheric cyan-teal glow spilling upwards behind the skyline
+            float upperAura = exp(-pow(max(0.0, dy) * 5.2, 1.45)) * step(-0.02, dy);
+            col += uTealSpill * upperAura * 0.92 * pulse;
 
-            // Smooth radial horizon fade into fog
-            float dist = length(vWorldXZ) / 56.0;
-            float alpha = clamp((1.0 - smoothstep(0.55, 1.0, dist)) * (0.38 + h * 0.34 + line * 0.35), 0.0, 0.92);
+            // Tighter bright cyan band hugging the horizon
+            float cyanBand = exp(-pow(dy * 15.5, 2.0)) * sweep;
+            col += uCyanGlow * cyanBand * 1.18 * pulse;
+
+            // Razor-crisp ice-white horizontal horizon light line
+            float iceCore = exp(-pow(dy * 54.0, 2.0)) * (0.92 + 0.08 * sin(uTime * 1.05));
+            col += uIceBand * iceCore * 1.42;
+
+            // Horizontal edge attenuation so the band feels vast & cinematic
+            float xFade = 1.0 - smoothstep(0.32, 0.52, abs(vUv.x - 0.5));
+            col = mix(zenith, col, 0.35 + 0.65 * xFade);
+
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `,
+        depthWrite: false,
+        fog: false,
+      })
+    )
+    const skyBackdrop = new THREE.Mesh(skyGeo, skyMat)
+    skyBackdrop.position.set(0, 34, -210)
+    scene.add(skyBackdrop)
+
+    // 3. SCATTERED TWINKLING STARS & UPPER ATMOSPHERE PARTICLES
+    const starCount = isSoftwareGl ? 520 : 950
+    const starGeo = trackDisposable(new THREE.BufferGeometry())
+    const starPositions = new Float32Array(starCount * 3)
+    const starSizes = new Float32Array(starCount)
+    const starPhases = new Float32Array(starCount)
+    const starTints = new Float32Array(starCount)
+
+    const starRand = mulberry32(421337)
+    for (let i = 0; i < starCount; i++) {
+      // Spread across upper sky behind and above the skyline
+      const sx = (starRand() - 0.5) * 340
+      const sy = 10 + Math.pow(starRand(), 0.72) * 112
+      const sz = -70 - starRand() * 130
+      starPositions[i * 3] = sx
+      starPositions[i * 3 + 1] = sy
+      starPositions[i * 3 + 2] = sz
+      starSizes[i] = 1.2 + Math.pow(starRand(), 2.2) * 3.2
+      starPhases[i] = starRand() * Math.PI * 2
+      starTints[i] = starRand()
+    }
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3))
+    starGeo.setAttribute("aSize", new THREE.BufferAttribute(starSizes, 1))
+    starGeo.setAttribute("aPhase", new THREE.BufferAttribute(starPhases, 1))
+    starGeo.setAttribute("aTint", new THREE.BufferAttribute(starTints, 1))
+
+    const starUniforms = {
+      uTime: { value: 0 },
+      uPixelRatio: { value: maxDPR },
+    }
+    const starMat = trackDisposable(
+      new THREE.ShaderMaterial({
+        uniforms: starUniforms,
+        vertexShader: `
+          attribute float aSize;
+          attribute float aPhase;
+          attribute float aTint;
+          uniform float uTime;
+          uniform float uPixelRatio;
+          varying float vAlpha;
+          varying float vTint;
+
+          void main() {
+            vec3 pos = position;
+            // Subtle 10s–12s ambient particle drift
+            pos.x += sin(uTime * 0.18 + aPhase) * 1.4;
+            pos.y += cos(uTime * 0.14 + aPhase * 1.3) * 0.75;
+
+            float twinkle = 0.45 + 0.55 * sin(uTime * (0.75 + aTint * 0.9) + aPhase);
+            vAlpha = twinkle;
+            vTint = aTint;
+
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            gl_PointSize = clamp(aSize * uPixelRatio * (185.0 / max(1.0, -mvPosition.z)), 1.0, 5.5);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          varying float vAlpha;
+          varying float vTint;
+
+          void main() {
+            float d = length(gl_PointCoord - vec2(0.5));
+            if (d > 0.5) discard;
+            float core = smoothstep(0.5, 0.08, d);
+            vec3 whiteStar = vec3(0.92, 0.97, 1.0);
+            vec3 cyanStar = vec3(0.45, 0.91, 0.99);
+            vec3 col = mix(whiteStar, cyanStar, step(0.58, vTint));
+            gl_FragColor = vec4(col, core * vAlpha * 0.92);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+      })
+    )
+    const starField = new THREE.Points(starGeo, starMat)
+    starField.frustumCulled = false
+    scene.add(starField)
+
+    // 4. PERSPECTIVE CYBER GRID PLANE RECEDING TOWARD THE HORIZON (Analytic anti-aliased — no fwidth!)
+    const gridUniforms = {
+      uTime: { value: 0 },
+      uGridColor: { value: new THREE.Color(0x06b6d4) },
+      uGridAccent: { value: new THREE.Color(0x67e8f9) },
+      uHorizonGlow: { value: new THREE.Color(0x164e63) },
+    }
+    const gridGeo = trackDisposable(new THREE.PlaneGeometry(340, 220, 1, 1))
+    gridGeo.rotateX(-Math.PI / 2)
+
+    const gridMat = trackDisposable(
+      new THREE.ShaderMaterial({
+        uniforms: gridUniforms,
+        vertexShader: `
+          varying vec3 vWorldPos;
+          void main() {
+            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+            vWorldPos = worldPosition.xyz;
+            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform vec3 uGridColor;
+          uniform vec3 uGridAccent;
+          uniform vec3 uHorizonGlow;
+          varying vec3 vWorldPos;
+
+          void main() {
+            // Smooth forward glide of perspective grid lines toward viewer
+            vec2 coord = vec2(vWorldPos.x * 0.24, (vWorldPos.z + uTime * 3.6) * 0.24);
+            vec2 cell = abs(fract(coord - 0.5) - 0.5);
+
+            // Analytic line thickness scaling slightly with distance to avoid shimmer
+            float depthFactor = clamp((-vWorldPos.z + 45.0) / 170.0, 0.0, 1.0);
+            float thickness = mix(0.014, 0.045, depthFactor);
+            float feather = mix(0.016, 0.055, depthFactor);
+
+            float lineX = 1.0 - smoothstep(thickness, thickness + feather, cell.x);
+            float lineZ = 1.0 - smoothstep(thickness, thickness + feather, cell.y);
+            float gridLine = max(lineX, lineZ);
+
+            // Major structural grid lines every 4 cells
+            vec2 majorCoord = coord * 0.25;
+            vec2 majorCell = abs(fract(majorCoord - 0.5) - 0.5);
+            float majorLine = max(
+              1.0 - smoothstep(thickness * 0.7, thickness * 0.7 + feather * 0.85, majorCell.x),
+              1.0 - smoothstep(thickness * 0.7, thickness * 0.7 + feather * 0.85, majorCell.y)
+            );
+
+            // Subtle dark glossy obsidian ground base reflecting the cyan horizon spill
+            vec3 groundBase = vec3(0.008, 0.018, 0.036);
+            float horizonSpill = exp(-pow((vWorldPos.z + 82.0) / 56.0, 2.0));
+            float centerReflect = exp(-pow(vWorldPos.x / 58.0, 2.0));
+            vec3 col = groundBase + uHorizonGlow * horizonSpill * (0.45 + 0.55 * centerReflect);
+
+            // Luminous cyan-teal perspective lines brightening toward the horizon
+            float pulse = 0.88 + 0.12 * sin(uTime * 0.85 - vWorldPos.z * 0.04);
+            col += uGridColor * gridLine * (0.36 + 0.42 * horizonSpill) * pulse;
+            col += uGridAccent * majorLine * (0.38 + 0.45 * horizonSpill);
+
+            // Smooth lateral and near/far fade
+            float lateralFade = 1.0 - smoothstep(55.0, 155.0, abs(vWorldPos.x));
+            float farFade = 1.0 - smoothstep(-95.0, -142.0, vWorldPos.z);
+            float nearFade = smoothstep(54.0, 24.0, vWorldPos.z);
+            float alpha = clamp(lateralFade * farFade * nearFade, 0.0, 1.0);
 
             gl_FragColor = vec4(col, alpha);
           }
         `,
         transparent: true,
         depthWrite: false,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
       })
     )
+    const gridPlane = new THREE.Mesh(gridGeo, gridMat)
+    gridPlane.position.set(0, 0, -44)
+    scene.add(gridPlane)
 
-    const waveMesh = new THREE.Mesh(waveGeo, waveMat)
-    waveMesh.position.y = 0.55
-    scene.add(waveMesh)
+    // 5. DARK EXTRUDED / BLOCKY CITYSCAPE SILHOUETTE WITH CRISP LIT WINDOWS
+    const { map: cityMap, emissiveMap: cityEmissiveMap } = createCityWindowTextures()
+    trackDisposable(cityMap)
+    trackDisposable(cityEmissiveMap)
 
-    // 4. CONTINUOUSLY UNDULATING 3D MONOLITH TERRAIN (32 x 32 = 1,024 animated pillars)
-    const gridSize = 32
-    const monolithCount = gridSize * gridSize
-    const boxGeo = trackDisposable(new THREE.BoxGeometry(0.96, 1, 0.96))
-    boxGeo.translate(0, 0.5, 0)
+    const buildingGeo = trackDisposable(new THREE.BoxGeometry(1, 1, 1))
+    buildingGeo.translate(0, 0.5, 0)
 
-    const blockMat = trackDisposable(
+    // Foreground & mid-ground skyscraper material with crisp lit windows
+    const cityMat = trackDisposable(
       new THREE.MeshStandardMaterial({
-        color: 0x10203d,
-        roughness: 0.24,
-        metalness: 0.82,
-        envMapIntensity: 1.35,
+        color: 0x0b1629,
+        map: cityMap,
+        emissive: new THREE.Color(0x7dd3fc),
+        emissiveMap: cityEmissiveMap,
+        emissiveIntensity: 1.05,
+        roughness: 0.72,
+        metalness: 0.28,
       })
     )
 
-    const instancedTerrain = new THREE.InstancedMesh(boxGeo, blockMat, monolithCount)
-    instancedTerrain.frustumCulled = false
-    const dummy = new THREE.Object3D()
-    const colorDummy = new THREE.Color()
+    // Deep silhouette back-row towers (darker blocky silhouettes framing the glowing cyan band)
+    const silhouetteMat = trackDisposable(
+      new THREE.MeshStandardMaterial({
+        color: 0x040914,
+        emissive: new THREE.Color(0x0c4a6e),
+        emissiveIntensity: 0.22,
+        roughness: 0.85,
+        metalness: 0.15,
+      })
+    )
 
-    const monolithPosX = new Float32Array(monolithCount)
-    const monolithPosZ = new Float32Array(monolithCount)
-    const monolithBaseH = new Float32Array(monolithCount)
-    const monolithPhase = new Float32Array(monolithCount)
-    const monolithDist = new Float32Array(monolithCount)
-
-    const halfGrid = gridSize / 2
-    let mIdx = 0
-    for (let x = 0; x < gridSize; x++) {
-      for (let z = 0; z < gridSize; z++) {
-        const px = (x - halfGrid) * 1.65
-        const pz = (z - halfGrid) * 1.65
-        const dist = Math.sqrt(px * px + pz * pz)
-
-        monolithPosX[mIdx] = px
-        monolithPosZ[mIdx] = pz
-        monolithDist[mIdx] = dist
-        monolithPhase[mIdx] = x * 0.26 + z * 0.22
-        monolithBaseH[mIdx] =
-          dist < 6.2
-            ? 2.2 + ((x * 7 + z * 13) % 10) * 0.26
-            : 0.55 + Math.abs(Math.sin(x * 0.32) * Math.cos(z * 0.32)) * 1.85
-
-        dummy.position.set(px, -0.4, pz)
-        dummy.scale.set(1, monolithBaseH[mIdx], 1)
-        dummy.updateMatrix()
-        instancedTerrain.setMatrixAt(mIdx, dummy.matrix)
-
-        colorDummy.setRGB(0.06, 0.14, 0.28)
-        instancedTerrain.setColorAt(mIdx, colorDummy)
-        mIdx++
-      }
+    const cityRand = mulberry32(202607)
+    type BuildingSpec = {
+      x: number
+      z: number
+      w: number
+      h: number
+      d: number
     }
-    instancedTerrain.instanceMatrix.needsUpdate = true
-    if (instancedTerrain.instanceColor) instancedTerrain.instanceColor.needsUpdate = true
-    scene.add(instancedTerrain)
+    const litBuildings: BuildingSpec[] = []
+    const silhouetteBuildings: BuildingSpec[] = []
 
-    // 5. CYBER TOWERS WITH BREATHING LASER SLITS & 42 ORBITING DATA CUBES
-    const towerConfigs = [
-      { x: 0, z: 0, s: 1.05, h: 7.4 },
-      { x: 15, z: -10, s: 0.85, h: 6.6 },
-      { x: -16, z: 12, s: 0.8, h: 6.1 },
-      { x: -14, z: -16, s: 0.72, h: 5.8 },
-      { x: 20, z: 14, s: 0.68, h: 5.5 },
-      { x: 6, z: 22, s: 0.62, h: 5.0 },
-      { x: -22, z: -4, s: 0.58, h: 4.9 },
+    // Multi-layered metropolitan skyline spanning left-to-right across the mid-ground horizon
+    const rows = [
+      { zBase: -64, count: 34, spreadX: 162, minH: 5.5, maxH: 22.0, lit: true },
+      { zBase: -80, count: 44, spreadX: 196, minH: 9.0, maxH: 32.0, lit: true },
+      { zBase: -98, count: 52, spreadX: 230, minH: 11.0, maxH: 38.0, lit: false },
     ]
-    const towerCount = towerConfigs.length
-    const unitBoxGeo = trackDisposable(new THREE.BoxGeometry(1, 1, 1))
 
-    const towerNodeMat = trackDisposable(
-      new THREE.MeshStandardMaterial({
-        color: 0x091429,
-        roughness: 0.18,
-        metalness: 0.9,
-        envMapIntensity: 1.5,
-      })
-    )
-    const towerOuterGlowMat = trackDisposable(
-      new THREE.MeshBasicMaterial({
-        color: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]),
-      })
-    )
-    const towerInnerGlowMat = trackDisposable(
-      new THREE.MeshBasicMaterial({
-        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
-      })
-    )
+    for (const row of rows) {
+      for (let i = 0; i < row.count; i++) {
+        const normX = (i / Math.max(1, row.count - 1)) * 2 - 1 // -1..1
+        const jitterX = (cityRand() - 0.5) * (row.spreadX / row.count) * 1.15
+        const x = normX * (row.spreadX * 0.5) + jitterX
+        const z = row.zBase + (cityRand() - 0.5) * 10
 
-    const instancedPillars = new THREE.InstancedMesh(unitBoxGeo, towerNodeMat, towerCount)
-    const instancedOuterSlits = new THREE.InstancedMesh(unitBoxGeo, towerOuterGlowMat, towerCount)
-    const instancedInnerSlits = new THREE.InstancedMesh(unitBoxGeo, towerInnerGlowMat, towerCount)
-    instancedPillars.frustumCulled = false
-    instancedOuterSlits.frustumCulled = false
-    instancedInnerSlits.frustumCulled = false
+        // Dramatic stepped downtown silhouette: slightly taller skyline clusters flanking a breathing center horizon vista
+        const clusterProfile =
+          0.62 +
+          0.42 * Math.abs(Math.sin(normX * Math.PI * 1.65)) +
+          0.26 * Math.exp(-Math.pow((Math.abs(normX) - 0.34) * 3.8, 2))
+        const w = 2.8 + cityRand() * 5.2
+        const d = 3.2 + cityRand() * 5.5
+        const h = (row.minH + cityRand() * (row.maxH - row.minH)) * clusterProfile
 
-    scene.add(instancedPillars)
-    scene.add(instancedOuterSlits)
-    scene.add(instancedInnerSlits)
-
-    const totalSatelliteCubes = towerCount * 6
-    const satelliteMat = trackDisposable(
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-      })
-    )
-    const instancedSatelliteCubes = new THREE.InstancedMesh(
-      unitBoxGeo,
-      satelliteMat,
-      totalSatelliteCubes
-    )
-    instancedSatelliteCubes.frustumCulled = false
-
-    type SatelliteMeta = {
-      towerX: number
-      towerZ: number
-      towerScale: number
-      baseY: number
-      angle: number
-      radius: number
-      isGlow: boolean
-      accentMix: number
-      orbitSpeed: number
-    }
-    const satelliteMeta: SatelliteMeta[] = []
-    const darkSatColor = new THREE.Color(0x0b1a36)
-
-    let satIdx = 0
-    towerConfigs.forEach((t, tIdx) => {
-      for (let i = 0; i < 6; i++) {
-        const angle = (i / 6) * Math.PI * 2
-        const rad = (2.0 + (i % 2) * 0.65) * t.s
-        const isGlow = i % 2 === 0
-        const baseY = (t.h * 0.58 + (i % 3) * 0.85) * t.s
-        const accentMix = ((tIdx + i) % 3) * 0.35
-
-        satelliteMeta.push({
-          towerX: t.x,
-          towerZ: t.z,
-          towerScale: t.s,
-          baseY,
-          angle,
-          radius: rad,
-          isGlow,
-          accentMix,
-          orbitSpeed: (i % 2 === 0 ? 0.65 : -0.48) * (0.9 + (tIdx % 3) * 0.14),
-        })
-
-        if (isGlow) {
-          colorDummy.setRGB(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
+        const spec = { x, z, w, h, d }
+        if (row.lit) {
+          litBuildings.push(spec)
         } else {
-          colorDummy.copy(darkSatColor)
+          silhouetteBuildings.push(spec)
         }
-        instancedSatelliteCubes.setColorAt(satIdx, colorDummy)
-        satIdx++
       }
-    })
-    if (instancedSatelliteCubes.instanceColor) instancedSatelliteCubes.instanceColor.needsUpdate = true
-    scene.add(instancedSatelliteCubes)
-
-    // 6. VOLUMETRIC SWEEPING LIGHT BEAMS / ENERGY RIBBONS
-    const wallUniforms = {
-      uTime: { value: 0 },
-      uColorDark: {
-        value: new THREE.Color(initPhase.glow[0] * 1.4, initPhase.glow[1] * 1.4, initPhase.glow[2] * 1.4),
-      },
-      uColorMid: { value: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) },
-      uColorCore: { value: new THREE.Color(initPhase.c3[0], initPhase.c3[1], initPhase.c3[2]) },
     }
 
-    const laserShaderMat = trackDisposable(
+    const dummy = new THREE.Object3D()
+
+    const instancedLitCity = new THREE.InstancedMesh(buildingGeo, cityMat, litBuildings.length)
+    instancedLitCity.frustumCulled = false
+    litBuildings.forEach((b, idx) => {
+      dummy.position.set(b.x, 0, b.z)
+      dummy.rotation.set(0, 0, 0)
+      dummy.scale.set(b.w, b.h, b.d)
+      dummy.updateMatrix()
+      instancedLitCity.setMatrixAt(idx, dummy.matrix)
+    })
+    instancedLitCity.instanceMatrix.needsUpdate = true
+    scene.add(instancedLitCity)
+
+    const instancedSilhouetteCity = new THREE.InstancedMesh(
+      buildingGeo,
+      silhouetteMat,
+      silhouetteBuildings.length
+    )
+    instancedSilhouetteCity.frustumCulled = false
+    silhouetteBuildings.forEach((b, idx) => {
+      dummy.position.set(b.x, 0, b.z)
+      dummy.rotation.set(0, 0, 0)
+      dummy.scale.set(b.w, b.h, b.d)
+      dummy.updateMatrix()
+      instancedSilhouetteCity.setMatrixAt(idx, dummy.matrix)
+    })
+    instancedSilhouetteCity.instanceMatrix.needsUpdate = true
+    scene.add(instancedSilhouetteCity)
+
+    // 6. ATMOSPHERIC CYAN-TEAL HORIZON GLOW SPILL PLANE (Soft volumetric bloom bridging skyline & grid)
+    const spillUniforms = {
+      uTime: { value: 0 },
+      uGlowColor: { value: new THREE.Color(0x22d3ee) },
+    }
+    const spillGeo = trackDisposable(new THREE.PlaneGeometry(280, 30, 1, 1))
+    const spillMat = trackDisposable(
       new THREE.ShaderMaterial({
-        uniforms: wallUniforms,
+        uniforms: spillUniforms,
         vertexShader: `
           varying vec2 vUv;
-          uniform float uTime;
           void main() {
             vUv = uv;
-            vec3 pos = position;
-            pos.y += sin(pos.x * 0.22 - uTime * 3.1) * 0.48;
-            pos.z += cos(pos.x * 0.16 - uTime * 2.2) * 0.42;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: `
           uniform float uTime;
-          uniform vec3 uColorDark;
-          uniform vec3 uColorMid;
-          uniform vec3 uColorCore;
+          uniform vec3 uGlowColor;
           varying vec2 vUv;
-
           void main() {
-            float fastStreams = sin(vUv.x * 48.0 - uTime * 9.5) * 0.5 + 0.5;
-            float pulseWaves = sin(vUv.x * 10.0 - uTime * 3.8) * 0.5 + 0.5;
-
-            float beamCore = pow(sin(vUv.y * 3.14159), 2.0);
-            float thinIntense = pow(sin(vUv.y * 3.14159), 7.5) * 2.0;
-
-            vec3 col = mix(uColorDark, uColorMid, vUv.y);
-            col = mix(col, uColorCore, clamp(thinIntense + fastStreams * 0.36, 0.0, 1.0));
-
-            float alpha = (beamCore * 0.72 + fastStreams * 0.20) * (0.78 + pulseWaves * 0.22);
-            gl_FragColor = vec4(col * 1.5, alpha);
+            float yBand = exp(-pow((vUv.y - 0.42) * 3.8, 2.0));
+            float xFade = 1.0 - smoothstep(0.18, 0.5, abs(vUv.x - 0.5));
+            float pulse = 0.84 + 0.16 * sin(uTime * 0.72 + vUv.x * 4.0);
+            float alpha = yBand * xFade * 0.34 * pulse;
+            gl_FragColor = vec4(uGlowColor, alpha);
           }
         `,
         transparent: true,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
       })
     )
+    const horizonSpill = new THREE.Mesh(spillGeo, spillMat)
+    horizonSpill.position.set(0, 4.2, -74)
+    scene.add(horizonSpill)
 
-    const beamSpecs = [
-      { len: 54, h: 6.4, x: -12, y: 1.4, z: -6, rotY: -Math.PI * 0.22, scale: 1.0 },
-      { len: 46, h: 5.4, x: -16, y: 1.2, z: 10, rotY: Math.PI * 0.36, scale: 0.9 },
-      { len: 58, h: 4.8, x: -24, y: 1.0, z: -18, rotY: -Math.PI * 0.06, scale: 1.0 },
-      { len: 48, h: 5.2, x: -8, y: 2.2, z: 16, rotY: -Math.PI * 0.42, scale: 0.85 },
-    ]
-    const laserWalls: THREE.Mesh[] = []
-    for (const spec of beamSpecs) {
-      const geo = trackDisposable(new THREE.PlaneGeometry(spec.len, spec.h, 44, 1))
-      geo.translate(spec.len / 2, spec.h / 2, 0)
-      const mesh = new THREE.Mesh(geo, laserShaderMat)
-      mesh.position.set(spec.x, spec.y, spec.z)
-      mesh.rotation.y = spec.rotY
-      mesh.scale.set(spec.scale, spec.scale, 1)
-      scene.add(mesh)
-      laserWalls.push(mesh)
-    }
-
-    // 7. 900 FLOWING LUMINOUS PARTICLES / HELICAL RISING BLUE EMBERS
-    const particleCount = 900
-    const particleGeo = trackDisposable(new THREE.BufferGeometry())
-    const particlePos = new Float32Array(particleCount * 3)
-    const particleBaseX = new Float32Array(particleCount)
-    const particleBaseZ = new Float32Array(particleCount)
-    const particleSpeed = new Float32Array(particleCount)
-    const particleSeed = new Float32Array(particleCount)
-
-    for (let i = 0; i < particleCount; i++) {
-      const px = (Math.random() - 0.5) * 68
-      const py = Math.random() * 26
-      const pz = (Math.random() - 0.5) * 68
-      particlePos[i * 3] = px
-      particlePos[i * 3 + 1] = py
-      particlePos[i * 3 + 2] = pz
-      particleBaseX[i] = px
-      particleBaseZ[i] = pz
-      particleSpeed[i] = 1.4 + Math.random() * 2.2
-      particleSeed[i] = Math.random() * Math.PI * 2
-    }
-    particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3))
-
-    const particleMat = trackDisposable(
-      new THREE.PointsMaterial({
-        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
-        size: 0.24,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      })
-    )
-    const particles = new THREE.Points(particleGeo, particleMat)
-    particles.frustumCulled = false
-    scene.add(particles)
-
-    // 8. PASSIVE POINTER & SCROLL INPUTS
-    let mouseX = 0
-    let mouseY = 0
+    // 7. PASSIVE POINTER & SCROLL PARALLAX INPUTS
+    let targetMouseX = 0
+    let targetMouseY = 0
+    let smoothMouseX = 0
+    let smoothMouseY = 0
     let scrollY = 0
 
     const onPointerMove = (e: MouseEvent | TouchEvent) => {
       const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : e.clientX
       const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : e.clientY
-      const nx = (clientX / (window.innerWidth || 1)) * 2 - 1
-      const ny = -(clientY / (window.innerHeight || 1)) * 2 + 1
-      mouseX = nx * 5.2
-      mouseY = ny * 3.4
+      targetMouseX = (clientX / Math.max(window.innerWidth, 1)) * 2 - 1
+      targetMouseY = -((clientY / Math.max(window.innerHeight, 1)) * 2 - 1)
     }
 
     const onScroll = () => {
@@ -914,7 +1012,7 @@ export function GlobalCyberBackground() {
     window.addEventListener("touchmove", onPointerMove, { passive: true })
     window.addEventListener("scroll", onScroll, { passive: true })
 
-    // 9. TAB VISIBILITY PAUSE ONLY (NEVER use IntersectionObserver on fixed inset-0!)
+    // Tab visibility pause only (never IntersectionObserver on fixed inset-0)
     let isTabActive = typeof document !== "undefined" ? !document.hidden : true
     const onVisibilityChange = () => {
       isTabActive = !document.hidden
@@ -924,27 +1022,15 @@ export function GlobalCyberBackground() {
     }
     document.addEventListener("visibilitychange", onVisibilityChange)
 
-    // Pre-allocated math objects (zero GC churn inside render loop)
-    const rotationEuler = new THREE.Euler()
-    const rotQuat = new THREE.Quaternion()
-    const cubeScaleVec = new THREE.Vector3()
-    const c1Color = new THREE.Color()
-    const c2Color = new THREE.Color()
-    const c3Color = new THREE.Color()
-    const bgTintColor = new THREE.Color()
-    const deepTintColor = new THREE.Color()
-    const tempBlockColor = new THREE.Color()
-    const tempSatColor = new THREE.Color()
-    const baseDarkBlock = new THREE.Color(0x07132b)
-
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const motionRate = prefersReducedMotion ? 0.35 : 1.0
+    const motionRate = prefersReducedMotion ? 0.3 : 1.0
 
-    const baseCamX = 16.5
-    const baseCamY = 15.5
-    const baseCamZ = 27.0
+    const c1Color = new THREE.Color()
+    const c2Color = new THREE.Color()
+    const c3Color = new THREE.Color()
+    const glowColor = new THREE.Color()
 
     let frameId = 0
     let softwareTimerId = 0
@@ -967,12 +1053,12 @@ export function GlobalCyberBackground() {
             softwareTimerId = window.setTimeout(poll, 8)
           } else {
             if (sync) gl.deleteSync(sync)
-            softwareTimerId = window.setTimeout(cb, 60)
+            softwareTimerId = window.setTimeout(cb, 55)
           }
         }
         softwareTimerId = window.setTimeout(poll, 8)
       } else {
-        softwareTimerId = window.setTimeout(cb, 70)
+        softwareTimerId = window.setTimeout(cb, 65)
       }
     }
 
@@ -1000,310 +1086,146 @@ export function GlobalCyberBackground() {
       motionElapsed += dt * motionRate
       const colorElapsed =
         sharedStartMsRef.current !== null
-          ? Math.max(0, (now - sharedStartMsRef.current) / 1000) * (prefersReducedMotion ? 0.5 : 1.0)
+          ? Math.max(0, (now - sharedStartMsRef.current) / 1000) * (prefersReducedMotion ? 0.35 : 1.0)
           : motionElapsed
-
-      const phase = getAmbientPhaseAt(colorElapsed)
+      const phase = getAmbientPhaseAt(colorElapsed, "3d")
 
       c1Color.setRGB(phase.c1[0], phase.c1[1], phase.c1[2])
       c2Color.setRGB(phase.c2[0], phase.c2[1], phase.c2[2])
       c3Color.setRGB(phase.c3[0], phase.c3[1], phase.c3[2])
-      deepTintColor.setRGB(
-        phase.bgB[0] * 1.45,
-        phase.bgB[1] * 1.65,
-        phase.bgB[2] * 1.95
-      )
+      glowColor.setRGB(phase.glow[0], phase.glow[1], phase.glow[2])
 
-      // Atmospheric background & horizon fog shift seamlessly across blue tones
-      bgTintColor.setRGB(
-        STAGE_BASE_NORM[0] + phase.bgB[0] * 0.42,
-        STAGE_BASE_NORM[1] + phase.bgB[1] * 0.42,
-        STAGE_BASE_NORM[2] + phase.bgB[2] * 0.48
-      )
-      if (scene.background instanceof THREE.Color) {
-        scene.background.copy(bgTintColor)
-      }
-      fog.color.copy(bgTintColor)
+      // Synchronize horizon band, grid, and skyline glow smoothly (6s–12s breathing loops)
+      skyUniforms.uTime.value = motionElapsed
+      skyUniforms.uCyanGlow.value.copy(c1Color).lerp(c2Color, 0.35)
+      skyUniforms.uIceBand.value.copy(c3Color)
+      skyUniforms.uTealSpill.value.copy(glowColor)
 
-      // Synchronized blue-spectrum lights + orbital point-light movement
-      hemiLight.color.copy(c2Color)
-      hemiLight.groundColor.copy(bgTintColor)
-      dirKey.color.copy(c1Color)
-      dirRim.color.copy(c2Color)
+      starUniforms.uTime.value = motionElapsed
 
-      coreLight1.color.copy(c1Color)
-      coreLight1.intensity = 11.5 + Math.sin(motionElapsed * 2.6) * 3.4
-      coreLight1.position.x = Math.sin(motionElapsed * 0.55) * 6.5
-      coreLight1.position.z = Math.cos(motionElapsed * 0.48) * 6.5
+      gridUniforms.uTime.value = motionElapsed
+      gridUniforms.uGridColor.value.copy(c1Color)
+      gridUniforms.uGridAccent.value.copy(c2Color).lerp(c3Color, 0.25)
+      gridUniforms.uHorizonGlow.value.copy(glowColor).multiplyScalar(0.55)
 
-      coreLight2.color.copy(c2Color)
-      coreLight2.intensity = 9.2 + Math.cos(motionElapsed * 2.2) * 2.8
-      coreLight2.position.x = 14 + Math.cos(motionElapsed * 0.42) * 5.0
-      coreLight2.position.z = -10 + Math.sin(motionElapsed * 0.5) * 5.0
+      spillUniforms.uTime.value = motionElapsed
+      spillUniforms.uGlowColor.value.copy(c2Color)
 
-      coreLight3.color.copy(c1Color).lerp(c2Color, 0.45)
-      coreLight3.intensity = 8.4 + Math.sin(motionElapsed * 1.9 + 1.2) * 2.5
+      cityMat.emissive.copy(c2Color).lerp(c3Color, 0.4)
+      cityMat.emissiveIntensity = 0.96 + 0.14 * Math.sin(motionElapsed * 0.72)
 
-      // Update flowing 3D wave ocean shader
-      waveUniforms.uTime.value = motionElapsed
-      waveUniforms.uDeepColor.value.copy(deepTintColor)
-      waveUniforms.uPrimaryColor.value.copy(c1Color)
-      waveUniforms.uAccentColor.value.copy(c2Color)
-      waveUniforms.uCrestColor.value.copy(c3Color)
+      cyanFillLeft.color.copy(c1Color)
+      cyanFillRight.color.copy(c2Color)
+      horizonBackLight.color.copy(c3Color)
 
-      // Update undulating 3D monolith pillars every frame (genuinely alive terrain waves!)
-      for (let i = 0; i < monolithCount; i++) {
-        const px = monolithPosX[i]
-        const pz = monolithPosZ[i]
-        const dist = monolithDist[i]
-        const wave =
-          Math.sin(px * 0.14 - motionElapsed * 1.45) *
-            Math.cos(pz * 0.14 - motionElapsed * 1.15) *
-            1.15 +
-          Math.sin(dist * 0.24 - motionElapsed * 1.9) * 0.65
+      // Smooth autonomous camera drift (8s–12s loop) + gentle mouse & scroll parallax
+      const damp = 1 - Math.exp(-3.2 * dt)
+      smoothMouseX += (targetMouseX - smoothMouseX) * damp
+      smoothMouseY += (targetMouseY - smoothMouseY) * damp
 
-        const h = Math.max(0.28, monolithBaseH[i] + wave)
-        dummy.position.set(px, -0.4, pz)
-        dummy.rotation.set(0, 0, 0)
-        dummy.scale.set(1, h, 1)
-        dummy.updateMatrix()
-        instancedTerrain.setMatrixAt(i, dummy.matrix)
-
-        const crest = Math.max(0, Math.min(1, (h - 1.1) / 3.4))
-        tempBlockColor.copy(baseDarkBlock).lerp(c1Color, crest * 0.52).lerp(c2Color, crest * crest * 0.48)
-        instancedTerrain.setColorAt(i, tempBlockColor)
-      }
-      instancedTerrain.instanceMatrix.needsUpdate = true
-      if (instancedTerrain.instanceColor) instancedTerrain.instanceColor.needsUpdate = true
-
-      // Update breathing cyber towers & laser slits
-      towerOuterGlowMat.color.copy(c1Color)
-      towerInnerGlowMat.color.copy(c2Color).lerp(c3Color, 0.45)
-
-      for (let i = 0; i < towerCount; i++) {
-        const t = towerConfigs[i]
-        const breathe = 1 + Math.sin(motionElapsed * 1.6 + i * 0.9) * 0.08
-        const th = t.h * t.s * breathe
-
-        dummy.position.set(t.x, th / 2, t.z)
-        dummy.rotation.set(0, 0, 0)
-        dummy.scale.set(1.45 * t.s, th, 1.45 * t.s)
-        dummy.updateMatrix()
-        instancedPillars.setMatrixAt(i, dummy.matrix)
-
-        dummy.position.set(t.x, th / 2, t.z)
-        dummy.scale.set(0.38 * t.s, th * 0.95, 1.54 * t.s)
-        dummy.updateMatrix()
-        instancedOuterSlits.setMatrixAt(i, dummy.matrix)
-
-        dummy.position.set(t.x, th / 2, t.z)
-        dummy.scale.set(0.15 * t.s, th * 0.95, 1.58 * t.s)
-        dummy.updateMatrix()
-        instancedInnerSlits.setMatrixAt(i, dummy.matrix)
-      }
-      instancedPillars.instanceMatrix.needsUpdate = true
-      instancedOuterSlits.instanceMatrix.needsUpdate = true
-      instancedInnerSlits.instanceMatrix.needsUpdate = true
-
-      // Update 42 orbiting satellite data cubes
-      for (let k = 0; k < totalSatelliteCubes; k++) {
-        const meta = satelliteMeta[k]
-        const orbitAngle = meta.angle + motionElapsed * meta.orbitSpeed
-        const cubeY = meta.baseY + Math.sin(motionElapsed * 2.4 + k) * 0.35
-        const cubeX = meta.towerX + Math.cos(orbitAngle) * meta.radius
-        const cubeZ = meta.towerZ + Math.sin(orbitAngle) * meta.radius
-
-        rotationEuler.set(motionElapsed * 0.8 + k * 0.3, motionElapsed * 1.35 + k * 0.5, 0)
-        rotQuat.setFromEuler(rotationEuler)
-        cubeScaleVec.set(0.68 * meta.towerScale, 0.68 * meta.towerScale, 0.68 * meta.towerScale)
-
-        dummy.position.set(cubeX, cubeY, cubeZ)
-        dummy.quaternion.copy(rotQuat)
-        dummy.scale.copy(cubeScaleVec)
-        dummy.updateMatrix()
-
-        instancedSatelliteCubes.setMatrixAt(k, dummy.matrix)
-        if (meta.isGlow) {
-          tempSatColor.copy(c1Color).lerp(c2Color, meta.accentMix).lerp(c3Color, 0.18)
-          instancedSatelliteCubes.setColorAt(k, tempSatColor)
-        }
-      }
-      instancedSatelliteCubes.instanceMatrix.needsUpdate = true
-      if (instancedSatelliteCubes.instanceColor) instancedSatelliteCubes.instanceColor.needsUpdate = true
-
-      // Update sweeping volumetric energy beams
-      wallUniforms.uTime.value = motionElapsed
-      wallUniforms.uColorDark.value.setRGB(
-        phase.glow[0] * 1.5,
-        phase.glow[1] * 1.5,
-        phase.glow[2] * 1.5
-      )
-      wallUniforms.uColorMid.value.copy(c1Color).lerp(c2Color, 0.45)
-      wallUniforms.uColorCore.value.copy(c3Color)
-      laserWalls.forEach((wall, idx) => {
-        wall.position.y = 1.1 + idx * 0.25 + Math.sin(motionElapsed * 0.85 + idx * 1.4) * 0.55
-      })
-
-      // Update 900 helical rising blue embers
-      particleMat.color.copy(c2Color).lerp(c3Color, 0.38)
-      const positions = particleGeo.attributes.position.array as Float32Array
-      for (let i = 0; i < particleCount; i++) {
-        const yIndex = i * 3 + 1
-        let y = positions[yIndex] + particleSpeed[i] * dt * motionRate
-        if (y > 26) y = 0.2
-        positions[yIndex] = y
-
-        const swirl = motionElapsed * 0.55 + particleSeed[i]
-        positions[i * 3] = particleBaseX[i] + Math.sin(swirl) * 1.35
-        positions[i * 3 + 2] = particleBaseZ[i] + Math.cos(swirl) * 1.35
-      }
-      particleGeo.attributes.position.needsUpdate = true
-
-      // Autonomous cinematic figure-8 camera glide + exponential-damped mouse & scroll parallax
       const docHeight =
         Math.max(
           document.body.scrollHeight,
           document.documentElement.scrollHeight,
           window.innerHeight * 2
         ) - window.innerHeight
-      const scrollRatio = Math.min(scrollY / Math.max(docHeight, 1), 1)
+      const scrollRatio = Math.min(1, Math.max(0, scrollY / Math.max(docHeight, 1)))
 
-      const targetX =
-        baseCamX +
-        mouseX +
-        Math.sin(motionElapsed * 0.28) * 6.4 +
-        scrollRatio * 7.5
-      const targetY =
-        baseCamY +
-        mouseY -
-        scrollRatio * 6.2 +
-        Math.cos(motionElapsed * 0.22) * 2.4
-      const targetZ =
-        baseCamZ -
-        scrollRatio * 5.5 +
-        Math.cos(motionElapsed * 0.19) * 4.4
+      const autoSwayX = Math.sin(motionElapsed * 0.52) * 3.4
+      const autoBobY = Math.cos(motionElapsed * 0.68) * 0.58
 
-      camera.position.x = THREE.MathUtils.damp(camera.position.x, targetX, 3.2, dt)
-      camera.position.y = THREE.MathUtils.damp(camera.position.y, targetY, 3.2, dt)
-      camera.position.z = THREE.MathUtils.damp(camera.position.z, targetZ, 3.2, dt)
-      camera.lookAt(
-        Math.sin(motionElapsed * 0.18) * 2.2 + scrollRatio * 3.5,
-        2.0 + Math.cos(motionElapsed * 0.24) * 0.6,
-        Math.cos(motionElapsed * 0.16) * 2.0 - scrollRatio * 3.5
-      )
+      camera.position.x = autoSwayX + smoothMouseX * 3.2
+      camera.position.y = 8.2 + autoBobY + smoothMouseY * 1.15 - scrollRatio * 1.8
+      camera.position.z = 46 - scrollRatio * 6.0
+      camera.lookAt(smoothMouseX * 4.5, 6.4 + smoothMouseY * 1.4 - scrollRatio * 1.2, -90)
 
       renderer.render(scene, camera)
       scheduleNext()
     }
 
-    // Start animation immediately
-    renderFrame()
-
-    // Responsive resize handler
-    let resizeTimeout: ReturnType<typeof setTimeout>
     const handleResize = () => {
-      clearTimeout(resizeTimeout)
-      resizeTimeout = setTimeout(() => {
-        if (isDisposed || contextLost) return
-        width = Math.max(window.innerWidth, 1)
-        height = Math.max(window.innerHeight, 1)
-        camera.aspect = width / height
-        camera.updateProjectionMatrix()
-        renderer.setSize(width, height)
-      }, 60)
+      if (isDisposed || contextLost) return
+      width = Math.max(window.innerWidth, 1)
+      height = Math.max(window.innerHeight, 1)
+      camera.aspect = width / height
+      camera.updateProjectionMatrix()
+      const dpr = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 1.75)
+      renderer.setPixelRatio(dpr)
+      starUniforms.uPixelRatio.value = dpr
+      renderer.setSize(width, height)
     }
 
     window.addEventListener("resize", handleResize, { passive: true })
 
-    // Clean GPU & DOM disposal (never forces context loss during React remount)
+    // Render first frame immediately
+    renderFrame()
+
     return () => {
       isDisposed = true
-      clearTimeout(resizeTimeout)
-      clearTimeout(softwareTimerId)
       window.cancelAnimationFrame(frameId)
+      window.clearTimeout(softwareTimerId)
+      window.removeEventListener("resize", handleResize)
       window.removeEventListener("mousemove", onPointerMove)
       window.removeEventListener("touchmove", onPointerMove)
       window.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", handleResize)
       document.removeEventListener("visibilitychange", onVisibilityChange)
       renderer.domElement.removeEventListener("webglcontextlost", onWebglContextLost)
-
-      scene.environment = null
-      scene.traverse((obj) => {
-        if ((obj as THREE.Mesh).geometry) {
-          ;(obj as THREE.Mesh).geometry.dispose()
-        }
-        if ((obj as THREE.Mesh).material) {
-          const mat = (obj as THREE.Mesh).material
-          if (Array.isArray(mat)) {
-            mat.forEach((m) => m.dispose())
-          } else {
-            mat.dispose()
-          }
-        }
-      })
-
-      disposables.forEach((item) => {
+      for (const resource of disposables) {
         try {
-          item.dispose()
+          resource.dispose()
         } catch {
-          // ignore already disposed
+          // ignore disposal errors
         }
-      })
-      disposables.length = 0
-
+      }
       try {
         renderer.dispose()
       } catch {
-        // ignore disposal errors
+        // ignore renderer disposal errors
       }
-
-      if (container && renderer.domElement && container.contains(renderer.domElement)) {
+      if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
       }
     }
   }, [mode])
 
-  // Render 2D Volumetric Flowing Atmosphere (also serves as seamless animated fallback if 3D WebGL is unavailable)
-  if (mode !== "3d" || webgl3DFallback) {
-    return (
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-[#020510]"
-      >
-        {/* Animated CSS volumetric fallback layer */}
-        <div
-          className="rushx-ambient-canvas absolute inset-0 w-full h-full transition-opacity duration-700"
-          style={{ opacity: webgl2DReady ? 0.2 : 1 }}
-        >
-          <div className="rushx-ambient-glow absolute inset-0 w-full h-full" />
-        </div>
-
-        {/* GPU-accelerated Volumetric 2D Flowing Blue-Spectrum Shader Canvas */}
-        <canvas
-          ref={volumetric2DCanvasRef}
-          className="absolute inset-0 h-full w-full block transition-opacity duration-700"
-          style={{ opacity: webgl2DReady ? 1 : 0 }}
-        />
-
-        {/* Subtle radial edge vignette for crisp foreground readability */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(2,5,16,0.42)_100%)]" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-      </div>
-    )
-  }
+  const show2DLayer = mode === "2d" || webgl3DFallback
 
   return (
     <div
+      className="fixed inset-0 z-0 pointer-events-none select-none overflow-hidden"
+      style={{ backgroundColor: show2DLayer ? "#050508" : "#020612" }}
       aria-hidden="true"
-      className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-[#020510]"
     >
-      {/* Isolated Three.js Canvas Mount */}
-      <div ref={threeContainerRef} className="absolute inset-0 w-full h-full" />
+      {/* 2D Ambient Layer: Controlled Low-Brightness Obsidian-Violet Glow */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
+          show2DLayer ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div
+          className={`absolute inset-0 transition-opacity duration-500 ${
+            webgl2DReady ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          <div className="rushx-ambient-canvas absolute inset-0" />
+          <div className="rushx-ambient-glow absolute -inset-[10%]" />
+        </div>
 
-      {/* Soft edge vignette preserving foreground legibility while keeping 3D visuals vibrant */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_44%,rgba(2,5,16,0.48)_100%)] pointer-events-none" />
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+        <canvas
+          ref={volumetric2DCanvasRef}
+          className={`absolute inset-0 h-full w-full block transition-opacity duration-500 ${
+            webgl2DReady ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      </div>
+
+      {/* 3D Cyber Cityscape & Horizon Grid Layer */}
+      <div
+        ref={threeContainerRef}
+        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
+          mode === "3d" && !webgl3DFallback ? "opacity-100" : "opacity-0"
+        }`}
+      />
     </div>
   )
 }

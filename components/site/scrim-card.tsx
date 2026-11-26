@@ -15,16 +15,16 @@ import { getRandomScrimImage } from "@/lib/scrim-images"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
 
 const toneStyles: Record<string, string> = {
-  open: "bg-emerald-500/14 text-emerald-300 border-emerald-400/30",
-  filling: "bg-amber-500/14 text-amber-300 border-amber-400/30",
-  full: "bg-rose-500/14 text-rose-300 border-rose-400/30",
+  open: "bg-emerald-500/14 text-emerald-300 border-emerald-400/35",
+  filling: "bg-amber-500/14 text-amber-300 border-amber-400/35",
+  full: "bg-[#D9536F]/16 text-[#f8a5b5] border-[#D9536F]/45",
   closed: "bg-zinc-500/14 text-zinc-300 border-white/15",
 }
 
 const toneDots: Record<string, string> = {
   open: "bg-emerald-400",
   filling: "bg-amber-400",
-  full: "bg-rose-400",
+  full: "bg-[#D9536F]",
   closed: "bg-zinc-400",
 }
 
@@ -48,9 +48,11 @@ export type ScrimCardData = {
 export function ScrimCard({
   scrim,
   hideSingleMap = false,
+  index = 0,
 }: {
   scrim: ScrimCardData
   hideSingleMap?: boolean
+  index?: number
 }) {
   const { t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
@@ -129,15 +131,21 @@ export function ScrimCard({
     el.style.setProperty("--splash-y", "35%")
   }
 
+  const staggerDelay = Math.min(index, 7) * 0.085
+
   return (
     <motion.div
       ref={wrapRef}
       onMouseMove={handlePointerMove}
       onMouseLeave={handlePointerLeave}
-      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.988 }}
+      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0.08, y: 16, scale: 0.99 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, amount: "some" }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.48, ease: [0.16, 1, 0.3, 1] }}
+      transition={{
+        duration: prefersReducedMotion ? 0 : 0.44,
+        delay: prefersReducedMotion ? 0 : staggerDelay,
+        ease: [0.16, 1, 0.3, 1],
+      }}
       className="scrim-splash-wrap group relative flex flex-col"
     >
       {/* Dynamic outer hover splash layers (RandomQbit-inspired diffused outer halo + crisp edge bloom) */}

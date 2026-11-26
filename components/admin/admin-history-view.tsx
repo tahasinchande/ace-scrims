@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import {
   Calendar as CalendarIcon,
   Search,
@@ -611,8 +612,8 @@ export function AdminHistoryView({
                     )}
                   </div>
 
-                  {/* Google Drive Link if provided */}
-                  {b.teamMembersDriveLink && (
+                  {/* Google Drive Link if provided and safe */}
+                  {b.teamMembersDriveLink && isSafeHttpOrRelativeUrl(b.teamMembersDriveLink) && (
                     <Button asChild variant="outline" size="sm" className="h-7 text-xs gap-1 border-border">
                       <a href={b.teamMembersDriveLink} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="size-3" />

@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("[API Reports] Uncaught error handling report POST:", err)
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Internal server error submitting report" },
+      { ok: false, error: "Unable to submit report right now. Please try again." },
       { status: 500 }
     )
   }
@@ -327,15 +327,18 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
-      ok: true,
-      reports: userReports,
-      count: userReports.length,
-    })
+    return NextResponse.json(
+      {
+        ok: true,
+        reports: userReports,
+        count: userReports.length,
+      },
+      { headers: { "Cache-Control": "no-store, private" } }
+    )
   } catch (err: unknown) {
     console.error("[API GET /api/reports] Error fetching user reports:", err)
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Failed to fetch user reports." },
+      { ok: false, error: "Unable to load reports right now. Please try again." },
       { status: 500 }
     )
   }

@@ -16,7 +16,10 @@ export default async function AdminAnnouncePage() {
           Update the global site announcement bar and broadcast notifications directly to all registered users.
         </p>
       </div>
-      <AnnouncementManager currentBanner={settings?.announcement || ""} />
+      <AnnouncementManager
+        currentBanner={settings?.announcement || ""}
+        initialTopAd={settings?.topAd}
+      />
     </div>
   )
 }

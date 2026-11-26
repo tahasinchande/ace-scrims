@@ -538,18 +538,28 @@ export function AdminReports({
                           <Link2 className="size-4" /> External Video / Drive Links ({linkList.length})
                         </span>
                         <div className="flex flex-col gap-1.5">
-                          {linkList.map((lnk, lIdx) => (
-                            <a
-                              key={`${lnk}-${lIdx}`}
-                              href={lnk}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
-                            >
-                              <span className="truncate pr-2 font-mono">{lnk}</span>
-                              <ExternalLink className="size-3.5 shrink-0" />
-                            </a>
-                          ))}
+                          {linkList.map((lnk, lIdx) => {
+                            const safeLink = isSafeHttpOrRelativeUrl(lnk)
+                            return safeLink ? (
+                              <a
+                                key={`${lnk}-${lIdx}`}
+                                href={lnk}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
+                              >
+                                <span className="truncate pr-2 font-mono">{lnk}</span>
+                                <ExternalLink className="size-3.5 shrink-0" />
+                              </a>
+                            ) : (
+                              <span
+                                key={`${lnk}-${lIdx}`}
+                                className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-mono text-rose-300"
+                              >
+                                <span className="truncate pr-2">Blocked unsafe link</span>
+                              </span>
+                            )
+                          })}
                         </div>
                       </div>
                     )}

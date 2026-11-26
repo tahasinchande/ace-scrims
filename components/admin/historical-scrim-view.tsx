@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatTaka, formatDateTime, sortScrimsAscending } from "@/lib/format"
+import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import { cn } from "@/lib/utils"
 import {
   Calendar as CalendarIcon,
@@ -534,27 +535,29 @@ export function HistoricalScrimView({
                       </div>
                     </div>
 
-                    {/* Team photo or screenshot if present */}
-                    {team.teamLeaderImageUrl && (
-                      <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-background/50 p-2 text-xs">
-                        <img
-                          src={team.teamLeaderImageUrl}
-                          alt={`${team.captainName} proof`}
-                          className="size-10 rounded object-cover border border-border"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <span className="font-semibold text-foreground block">Proof / Leader Photo</span>
-                          <a
-                            href={team.teamLeaderImageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                          >
-                            <ExternalLink className="size-3" /> View full photo
-                          </a>
+                    {/* Team photo or screenshot if present and safe */}
+                    {team.teamLeaderImageUrl &&
+                      isSafeHttpOrRelativeUrl(team.teamLeaderImageUrl, { allowImageDataUri: true }) && (
+                        <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-background/50 p-2 text-xs">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={team.teamLeaderImageUrl}
+                            alt={`${team.captainName} proof`}
+                            className="size-10 rounded object-cover border border-border"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold text-foreground block">Proof / Leader Photo</span>
+                            <a
+                              href={team.teamLeaderImageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                            >
+                              <ExternalLink className="size-3" /> View full photo
+                            </a>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 )
               })}

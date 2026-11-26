@@ -50,19 +50,22 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* RushX Organization — Deep Obsidian Blue-Primary Esports Identity (Synchronized Dynamic Shift) */
+/* RushX Organization — Obsidian Dark Esports Identity (3D Cyber Horizon & 2D Obsidian Violet) */
 :root,
 .dark {
   color-scheme: dark;
-  /* Synchronized dynamic RGB channels (Verified Phase 0 Entrance: Electric Blue #1F73FF + Sky #40B8FF) */
-  --rushx-primary-rgb: 31, 115, 255;
-  --rushx-soft-rgb: 191, 240, 255;
-  --rushx-accent-rgb: 64, 184, 255;
-  --rushx-deep-rgb: 7, 22, 64;
-  --rushx-bg-wash-rgb: 5, 15, 51;
-  --rushx-glow-rgb: 10, 38, 97;
+  --font-heading: "Rajdhani";
+  --font-body: "Plus Jakarta Sans";
+  /* Synchronized dynamic RGB channels (Default 3D Cyber Cyan Horizon; switches smoothly to Obsidian Violet in 2D) */
+  --rushx-primary-rgb: 6, 182, 212;
+  --rushx-soft-rgb: 207, 250, 254;
+  --rushx-accent-rgb: 56, 189, 248;
+  --rushx-deep-rgb: 3, 10, 24;
+  --rushx-bg-wash-rgb: 5, 24, 44;
+  --rushx-glow-rgb: 14, 116, 144;
+  --rushx-live-rgb: 217, 83, 111;
 
-  --background: oklch(0.115 0.018 252);
+  --background: oklch(0.105 0.014 265);
   --foreground: oklch(0.968 0.006 248);
   --card: oklch(0.15 0.022 252);
   --card-foreground: oklch(0.968 0.006 248);
@@ -135,44 +138,52 @@
 }
 
 @layer utilities {
-  /* DeepCharts-inspired luminous obsidian surface synchronized with active ambient color.
+  /* DeepCharts-inspired dark translucent obsidian surface with high foreground contrast.
      NOTE: Intentionally omits `position: relative` so Tailwind `absolute`/`fixed` positioning is never overridden. */
   .dc-surface {
     background:
-      radial-gradient(125% 92% at 12% 0%, rgba(var(--rushx-primary-rgb), 0.17) 0%, transparent 56%),
-      radial-gradient(92% 76% at 88% 100%, rgba(var(--rushx-accent-rgb), 0.1) 0%, transparent 58%),
-      linear-gradient(160deg, rgba(14, 21, 40, 0.84) 0%, rgba(8, 13, 27, 0.91) 54%, rgba(5, 9, 19, 0.95) 100%);
+      radial-gradient(125% 92% at 12% 0%, rgba(var(--rushx-primary-rgb), 0.11) 0%, transparent 56%),
+      radial-gradient(92% 76% at 88% 100%, rgba(var(--rushx-accent-rgb), 0.07) 0%, transparent 58%),
+      linear-gradient(160deg, rgba(11, 13, 24, 0.88) 0%, rgba(7, 8, 16, 0.94) 54%, rgba(5, 5, 10, 0.97) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(var(--rushx-soft-rgb), 0.16);
+    border: 1px solid rgba(var(--rushx-soft-rgb), 0.14);
     box-shadow:
-      0 20px 48px -22px rgba(2, 5, 16, 0.9),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 20px 48px -22px rgba(2, 3, 10, 0.92),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .dc-card-hover {
     transition:
-      transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 260ms ease,
-      box-shadow 260ms ease;
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      background-color 220ms ease;
   }
 
   .dc-card-hover:hover {
     transform: translateY(-2px);
-    border-color: rgba(var(--rushx-soft-rgb), 0.38);
+    border-color: rgba(var(--rushx-soft-rgb), 0.34);
     box-shadow:
-      0 26px 58px -20px rgba(3, 6, 18, 0.92),
+      0 26px 58px -20px rgba(3, 4, 12, 0.94),
       0 0 0 1px rgba(var(--rushx-primary-rgb), 0.24),
-      0 0 34px -12px rgba(var(--rushx-primary-rgb), 0.36),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      0 0 32px -12px rgba(var(--rushx-primary-rgb), 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
 
   .dc-metric-cell {
     background:
-      radial-gradient(120% 100% at 0% 0%, rgba(var(--rushx-primary-rgb), 0.12) 0%, transparent 62%),
-      linear-gradient(180deg, rgba(17, 26, 50, 0.74) 0%, rgba(9, 15, 31, 0.86) 100%);
-    border: 1px solid rgba(var(--rushx-soft-rgb), 0.15);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      radial-gradient(120% 100% at 0% 0%, rgba(var(--rushx-primary-rgb), 0.09) 0%, transparent 62%),
+      linear-gradient(180deg, rgba(13, 16, 28, 0.82) 0%, rgba(8, 10, 19, 0.92) 100%);
+    border: 1px solid rgba(var(--rushx-soft-rgb), 0.13);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Coral/crimson live status highlight (#D9536F) */
+  .rushx-live-badge {
+    background-color: rgba(217, 83, 111, 0.16);
+    border-color: rgba(217, 83, 111, 0.42);
+    color: #f8a5b5;
   }
 
   /* Synchronized primary action button gradient (starts Blue, shifts harmoniously with background) */
@@ -476,26 +487,25 @@
   }
 }
 
-/* Flowing Blue-Spectrum 2D atmospheric fallback driven by --rushx-*-rgb phases.
-   Continuously drifts across deep navy, electric cobalt, cyan, and azure even without WebGL. */
+/* Controlled Low-Brightness Obsidian-Violet 2D atmospheric fallback (randomqbit.site direction).
+   Deep obsidian base (#050508 -> #09070F) with subtle radial violet aura (#6B2FA8 -> #3E1A6E -> #050508)
+   so foreground cards, lobby times, and headings remain crisp and never washed out. */
 .rushx-ambient-canvas {
   background:
-    radial-gradient(66% 56% at 86% 10%, rgba(var(--rushx-glow-rgb), 0.56) 0%, rgba(var(--rushx-primary-rgb), 0.24) 46%, transparent 78%),
-    radial-gradient(80% 60% at 50% 6%, rgba(var(--rushx-glow-rgb), 0.62) 0%, rgba(var(--rushx-accent-rgb), 0.22) 44%, transparent 78%),
-    radial-gradient(72% 60% at 14% 24%, rgba(var(--rushx-bg-wash-rgb), 0.78) 0%, rgba(var(--rushx-accent-rgb), 0.18) 48%, transparent 78%),
-    radial-gradient(64% 54% at 82% 84%, rgba(var(--rushx-bg-wash-rgb), 0.52) 0%, transparent 76%),
-    linear-gradient(155deg, rgba(var(--rushx-deep-rgb), 0.85) 0%, #03081a 48%, #020510 100%);
-  background-size: 130% 130%;
-  animation: rushx-canvas-drift 14s ease-in-out infinite alternate;
+    radial-gradient(58% 46% at 50% 14%, rgba(107, 47, 168, 0.26) 0%, rgba(62, 26, 110, 0.14) 44%, transparent 76%),
+    radial-gradient(52% 44% at 16% 78%, rgba(62, 26, 110, 0.18) 0%, transparent 72%),
+    radial-gradient(48% 40% at 84% 58%, rgba(107, 47, 168, 0.13) 0%, transparent 72%),
+    linear-gradient(165deg, #09070f 0%, #07050c 48%, #050508 100%);
+  background-size: 120% 120%;
+  animation: rushx-canvas-drift 12s ease-in-out infinite alternate;
   will-change: background-position;
 }
 
 .rushx-ambient-glow {
   background:
-    radial-gradient(64% 48% at 52% 16%, rgba(var(--rushx-soft-rgb), 0.30) 0%, rgba(var(--rushx-accent-rgb), 0.18) 44%, transparent 76%),
-    radial-gradient(52% 46% at 80% 24%, rgba(var(--rushx-primary-rgb), 0.26) 0%, transparent 72%),
-    radial-gradient(58% 42% at 22% 72%, rgba(var(--rushx-accent-rgb), 0.18) 0%, transparent 74%);
-  animation: rushx-glow-breathe 9s ease-in-out infinite alternate;
+    radial-gradient(54% 40% at 52% 18%, rgba(140, 68, 212, 0.14) 0%, rgba(62, 26, 110, 0.08) 46%, transparent 74%),
+    radial-gradient(44% 38% at 78% 28%, rgba(107, 47, 168, 0.10) 0%, transparent 70%);
+  animation: rushx-glow-breathe 10s ease-in-out infinite alternate;
   will-change: transform, opacity;
 }
 

@@ -67,8 +67,8 @@ export function HomeScrimsGrid({ initialScrims }: { initialScrims: ScrimCardData
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {scrims.map((s) => (
-        <ScrimCard key={s.slug} scrim={s} hideSingleMap />
+      {scrims.map((s, idx) => (
+        <ScrimCard key={s.slug} scrim={s} hideSingleMap index={idx} />
       ))}
     </div>
   )
