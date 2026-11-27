@@ -276,7 +276,12 @@ export function GlobalCyberBackground() {
       }
     }
 
-    rafId = window.requestAnimationFrame(render2D)
+    // Draw initial Electric Blue 2D frame synchronously so first paint is never blank
+    if (modeRef.current === "2d" || webglUnavailable) {
+      render2D()
+    } else {
+      rafId = window.requestAnimationFrame(render2D)
+    }
     return () => {
       isDisposed = true
       window.cancelAnimationFrame(rafId)
@@ -376,7 +381,16 @@ export function GlobalCyberBackground() {
       contextLost = true
       if (!isDisposed) setWebglUnavailable(true)
     }
+    const onWebglContextRestored = () => {
+      contextLost = false
+      if (!isDisposed) {
+        setWebglUnavailable(false)
+        lastFrameNow = performance.now()
+        scheduleNext()
+      }
+    }
     renderer.domElement.addEventListener("webglcontextlost", onWebglContextLost)
+    renderer.domElement.addEventListener("webglcontextrestored", onWebglContextRestored)
 
     // Lighting Rig — Opens in Electric Blue, shifts smoothly through Nov 23 Purple/Violet/Cyan
     const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x04091a, 1.15)
@@ -984,7 +998,13 @@ export function GlobalCyberBackground() {
         -24
       )
 
-      renderer.render(scene, camera)
+      try {
+        renderer.render(scene, camera)
+      } catch {
+        contextLost = true
+        if (!isDisposed) setWebglUnavailable(true)
+        return
+      }
       scheduleNext()
     }
 
@@ -1018,6 +1038,7 @@ export function GlobalCyberBackground() {
       window.removeEventListener("scroll", onScroll)
       document.removeEventListener("visibilitychange", onVisibilityChange)
       renderer.domElement.removeEventListener("webglcontextlost", onWebglContextLost)
+      renderer.domElement.removeEventListener("webglcontextrestored", onWebglContextRestored)
       for (const resource of disposables) {
         try {
           resource.dispose()

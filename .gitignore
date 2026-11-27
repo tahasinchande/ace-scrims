@@ -13,7 +13,32 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 dist/
+build/
+out/
+.turbo/
 .DS_Store
 *.tsbuildinfo
 .dev.pid
 .dev.env.json
+
+# AI Studio temporary chat attachments (never needed in git or production)
+public/assets/aistudio/
+
+# Auto-generated image copies & aliases rebuilt from src/assets/images by scripts/copy-assets.js
+# (Preserves public/images/squad.jpg, public/images/brand/, and public/images/partners/)
+public/images/scrim_*.jpg
+public/images/scrim-*.jpg
+public/images/sakura_*.jpg
+public/images/sakura-*.jpg
+public/images/sakura.jpg
+public/images/victory_trophy_*.jpg
+public/images/victory.jpg
+public/images/trophy.jpg
+public/images/hero-bg.jpg
+public/images/hero-warrior.jpg
+public/images/bermuda.jpg
+public/images/purgatory.jpg
+public/images/kalahari.jpg
+public/images/alpine.jpg
+public/images/nexterra.jpg
+public/images/map-*.jpg

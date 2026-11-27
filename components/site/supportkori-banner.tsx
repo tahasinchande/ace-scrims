@@ -1,22 +1,17 @@
 "use client"
 
-import { motion, useReducedMotion } from "motion/react"
 import { Coffee, ExternalLink } from "lucide-react"
 import { SupportKoriIcon } from "@/components/site/brand-icons"
-
-const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
+import { Reveal } from "@/components/site/reveal"
 
 export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string }) {
   const url = supportKoriUrl || "https://www.supportkori.com/ace_scrims"
-  const prefersReducedMotion = useReducedMotion()
 
   return (
     <section className="w-full py-8 px-4">
-      <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.988 }}
-        whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: true, amount: "some" }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.52, ease: DEEPCHARTS_EASE }}
+      <Reveal
+        y={18}
+        duration={0.62}
         className="dc-surface rushx-box-splash mx-auto max-w-5xl overflow-hidden rounded-3xl border-amber-400/25 p-6 sm:p-8 shadow-2xl relative group"
       >
         {/* Clean warm golden ambient accent — zero violet/indigo bleed */}
@@ -54,7 +49,7 @@ export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string 
             </a>
           </div>
         </div>
-      </motion.div>
+      </Reveal>
     </section>
   )
 }

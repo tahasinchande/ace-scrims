@@ -184,7 +184,7 @@ export function SiteHeader({
                     initial={{ opacity: 0, y: 6, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.18, ease: DEEPCHARTS_EASE }}
                     className="dc-surface w-80 rounded-2xl p-2 shadow-[0_24px_60px_-14px_rgba(2,6,20,0.95)] flex flex-col gap-1"
                   >
                     <Link
@@ -505,6 +505,7 @@ export function SiteHeader({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.24, ease: DEEPCHARTS_EASE }}
             className="overflow-hidden border-t border-white/[0.07] bg-[#040814]/95 px-4 pb-5 pt-3 backdrop-blur-2xl md:hidden"
             aria-label="Mobile Navigation"
           >

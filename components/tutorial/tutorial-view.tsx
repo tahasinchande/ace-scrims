@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Users, CreditCard, KeyRound, Trophy, ArrowRight, ShieldCheck } from "lucide-react"
 import { useLanguage } from "@/lib/language"
+import { Reveal, RevealStagger, RevealItem } from "@/components/site/reveal"
 import type { Tutorial } from "@/lib/db/schema"
 import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
 
@@ -72,7 +73,7 @@ export function TutorialView({
 
   return (
     <div className="mx-auto max-w-4xl px-4 md:px-6">
-      <div className="text-center">
+      <Reveal immediate y={16} duration={0.62} className="text-center">
         <span className="text-xs font-semibold uppercase tracking-wider text-accent">
           {isBn ? "সহজ নির্দেশিকা" : "Easy Guide"}
         </span>
@@ -84,17 +85,19 @@ export function TutorialView({
             ? "আজকের টুর্নামেন্টে খেলতে এবং আপনার স্কোয়াড রেজিস্টার করতে এই নির্দেশিকাটি অনুসরণ করুন।"
             : "Follow this step-by-step tutorial to book your Free Fire squad slot and compete tonight."}
         </p>
-      </div>
+      </Reveal>
 
       {/* Video Tutorials Section */}
       {tutorials.length > 0 && (
         <div className="mt-10 flex flex-col gap-6">
-          <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-center">
-            {isBn ? "ভিডিও টিউটোরিয়াল" : "Video Guides"}
-          </h2>
-          <div className="grid gap-6 sm:grid-cols-2">
+          <Reveal y={14} duration={0.56}>
+            <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-center">
+              {isBn ? "ভিডিও টিউটোরিয়াল" : "Video Guides"}
+            </h2>
+          </Reveal>
+          <RevealStagger stagger={0.08} className="grid gap-6 sm:grid-cols-2">
             {tutorials.map((v) => (
-              <div key={v.id} className="dc-surface flex flex-col gap-3 rounded-2xl p-4">
+              <RevealItem key={v.id} y={20} className="dc-surface flex flex-col gap-3 rounded-2xl p-4">
                 <h3 className="font-display text-base font-bold text-foreground">{v.title}</h3>
                 {v.description && <p className="text-xs text-muted-foreground">{v.description}</p>}
                 <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-black border border-border/80">
@@ -123,15 +126,15 @@ export function TutorialView({
                     )
                   })()}
                 </div>
-              </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealStagger>
         </div>
       )}
 
-      <div className="mt-12 flex flex-col gap-6">
+      <RevealStagger stagger={0.085} className="mt-12 flex flex-col gap-6">
         {steps.map((s) => (
-          <div key={s.num} className="dc-surface dc-card-hover rushx-box-splash flex flex-col sm:flex-row items-start gap-6 rounded-2xl p-6 sm:p-8">
+          <RevealItem key={s.num} y={20} className="dc-surface dc-card-hover rushx-box-splash flex flex-col sm:flex-row items-start gap-6 rounded-2xl p-6 sm:p-8">
             <div className="font-display text-3xl font-bold text-accent tabular-nums shrink-0 leading-none pt-1">
               {s.num}
             </div>
@@ -142,11 +145,11 @@ export function TutorialView({
               </div>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
             </div>
-          </div>
+          </RevealItem>
         ))}
-      </div>
+      </RevealStagger>
 
-      <div className="mt-12 dc-surface rounded-2xl p-6 text-center sm:p-8">
+      <Reveal y={18} duration={0.62} className="mt-12 dc-surface rounded-2xl p-6 text-center sm:p-8">
         <ShieldCheck className="mx-auto size-10 text-accent" />
         <h2 className="mt-3 font-display text-2xl font-bold uppercase">
           {isBn ? "বুয়াহ নিতে প্রস্তুত তো?" : "Ready to Booyah?"}
@@ -164,7 +167,7 @@ export function TutorialView({
             </Link>
           </Button>
         </div>
-      </div>
+      </Reveal>
     </div>
   )
 }

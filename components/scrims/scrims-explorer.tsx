@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react"
 import { Search, Flame, Trophy, Calendar, AlertCircle, Lock } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { ScrimCard, type ScrimCardData } from "@/components/site/scrim-card"
+import { Reveal } from "@/components/site/reveal"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { sortScrimsAscending } from "@/lib/format"
@@ -129,7 +130,7 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="mb-2 flex flex-col gap-2">
+      <Reveal immediate y={16} duration={0.62} className="mb-2 flex flex-col gap-2">
         <p className="font-display text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           {t("tonight_schedule_eyebrow", "Esports Scrims Lobbies")}
         </p>
@@ -147,10 +148,10 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
             ? "Ultimate Free Fire survival challenge! Up to 8 matches. Reach 80 points to unlock Champion Rush format, then conquer a BOOYAH to be crowned Champion Team."
             : t("todays_scrims_subtitle", "Competitive squad scrim lobbies with instant slot confirmation. Entry from ৳35 per squad, 12 teams max. Book your slot before the lobby fills.")}
         </p>
-      </div>
+      </Reveal>
 
       {/* Category Filter Navigation */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.07] pb-4">
+      <Reveal immediate delay={0.08} y={12} duration={0.54} className="flex flex-wrap items-center gap-2 border-b border-white/[0.07] pb-4">
         <button
           type="button"
           onClick={() => setSelectedCategory("all")}
@@ -192,11 +193,11 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
           <Trophy className="size-3.5" />
           10 PM CHAMPION RUSH
         </button>
-      </div>
+      </Reveal>
 
       {/* 10 PM Champion Rush Rules Notice Banner */}
       {selectedCategory === "champion-rush" && (
-        <div className="dc-surface flex flex-col gap-4 rounded-2xl border-emerald-500/25 p-5 sm:p-6">
+        <Reveal immediate y={14} duration={0.54} className="dc-surface flex flex-col gap-4 rounded-2xl border-emerald-500/25 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="flex size-9 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/15 text-emerald-400">
@@ -254,11 +255,11 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
               RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAN THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION.
             </p>
           </div>
-        </div>
+        </Reveal>
       )}
 
       {/* Search & Filters */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <Reveal immediate delay={0.12} y={12} duration={0.52} className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
@@ -269,17 +270,17 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
             aria-label="Search scrims"
           />
         </div>
-      </div>
+      </Reveal>
 
       {filtered.length === 0 ? (
-        <div className="dc-surface flex flex-col items-center gap-2 rounded-2xl py-16 text-center">
+        <Reveal y={14} duration={0.5} className="dc-surface flex flex-col items-center gap-2 rounded-2xl py-16 text-center">
           <p className="font-display text-xl font-semibold tracking-tight">No scrims found</p>
           <p className="text-sm text-muted-foreground">Try selecting &quot;All Scrims&quot; or adjust your search.</p>
-        </div>
+        </Reveal>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((scrim) => (
-            <ScrimCard key={scrim.slug} scrim={scrim} />
+          {filtered.map((scrim, idx) => (
+            <ScrimCard key={scrim.slug} scrim={scrim} index={idx} />
           ))}
         </div>
       )}

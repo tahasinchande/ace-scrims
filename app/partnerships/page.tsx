@@ -4,6 +4,7 @@ import { Handshake, ArrowUpRight, Sparkles } from "lucide-react"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { PartnershipTicker } from "@/components/site/partnership-ticker"
+import { Reveal, RevealStagger, RevealItem } from "@/components/site/reveal"
 import { Button } from "@/components/ui/button"
 import { getSessionUser } from "@/lib/session"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
@@ -34,10 +35,10 @@ export default async function PartnershipsPage() {
         user={user ? { name: user.name, role: user.role } : null}
         settings={siteSettings}
       />
-      <main className="flex-1 w-full overflow-x-hidden pt-20 pb-20">
+      <main className="flex-1 w-full overflow-x-clip pt-20 pb-20">
         {/* Hero */}
         <section className="mx-auto max-w-6xl px-4 md:px-6 pb-10">
-          <div className="max-w-3xl space-y-3">
+          <Reveal immediate y={16} duration={0.62} className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
               <span className="inline-block h-px w-6 bg-primary/80" aria-hidden />
               <span>RushX Organization Ecosystem</span>
@@ -49,7 +50,7 @@ export default async function PartnershipsPage() {
               {marqueeSettings.subheading ||
                 "Official esports communities, brands, and creators collaborating with RushX Organization across Bangladesh."}
             </p>
-          </div>
+          </Reveal>
         </section>
 
         {/* Continuous Borderless Infinite Marquee Showcase */}
@@ -75,7 +76,7 @@ export default async function PartnershipsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <RevealStagger stagger={0.08} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item) => {
                 const cardInner = (
                   <div className="dc-surface dc-card-hover flex h-full flex-col justify-between gap-4 rounded-2xl p-6">
@@ -125,30 +126,33 @@ export default async function PartnershipsPage() {
                 )
 
                 if (!item.linkUrl) {
-                  return <div key={item.id}>{cardInner}</div>
+                  return <RevealItem key={item.id} y={20}>{cardInner}</RevealItem>
                 }
                 const isExternal = /^https?:\/\//i.test(item.linkUrl)
                 return isExternal ? (
-                  <a
-                    key={item.id}
-                    href={item.linkUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block h-full"
-                  >
-                    {cardInner}
-                  </a>
+                  <RevealItem key={item.id} y={20}>
+                    <a
+                      href={item.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block h-full"
+                    >
+                      {cardInner}
+                    </a>
+                  </RevealItem>
                 ) : (
-                  <Link key={item.id} href={item.linkUrl} className="block h-full">
-                    {cardInner}
-                  </Link>
+                  <RevealItem key={item.id} y={20}>
+                    <Link href={item.linkUrl} className="block h-full">
+                      {cardInner}
+                    </Link>
+                  </RevealItem>
                 )
               })}
-            </div>
+            </RevealStagger>
           )}
 
           {/* Creator / Brand Collaboration CTA */}
-          <div className="dc-surface mt-12 flex flex-col items-start justify-between gap-5 rounded-3xl border-white/[0.1] p-6 sm:flex-row sm:items-center sm:p-8">
+          <Reveal y={18} duration={0.6} className="dc-surface mt-12 flex flex-col items-start justify-between gap-5 rounded-3xl border-white/[0.1] p-6 sm:flex-row sm:items-center sm:p-8">
             <div className="space-y-1.5">
               <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                 <Sparkles className="size-3.5" /> Partner With Us
@@ -163,7 +167,7 @@ export default async function PartnershipsPage() {
             <Button asChild size="lg" className="h-11 rounded-xl px-6 shrink-0 font-semibold">
               <Link href="/creators">Apply as Creator</Link>
             </Button>
-          </div>
+          </Reveal>
         </section>
       </main>
       <SiteFooter settings={siteSettings} />

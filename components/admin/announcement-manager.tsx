@@ -363,7 +363,7 @@ export function AnnouncementManager({
               onChange={(e) => setCountdownLocal(e.target.value)}
             />
             <span className="text-[11px] text-muted-foreground">
-              Displays clean stacked tabular countdown columns (Days / Hours / Min / Sec).
+              Displays clean 4-part tabular countdown (days : hours : minutes : seconds).
             </span>
           </div>
 

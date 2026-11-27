@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
 import { isStaffRole } from "@/lib/roles"
 import { AdminNav } from "@/components/admin/admin-nav"
+import { PageTransition } from "@/components/site/reveal"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 
 export const dynamic = "force-dynamic"
@@ -29,7 +30,7 @@ export default async function AdminLayout({
         />
       </Suspense>
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-7xl">{children}</div>
+        <PageTransition className="mx-auto max-w-7xl">{children}</PageTransition>
       </main>
     </div>
   )

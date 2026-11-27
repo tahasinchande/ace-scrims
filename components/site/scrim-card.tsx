@@ -142,16 +142,16 @@ export function ScrimCard({
       onMouseLeave={handlePointerLeave}
       initial={
         prefersReducedMotion
-          ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
-          : { opacity: 0, y: 26, scale: 0.975, filter: "blur(5px)" }
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0, y: 24, scale: 0.976 }
       }
       animate={
         isVisible || prefersReducedMotion
-          ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
-          : { opacity: 0, y: 26, scale: 0.975, filter: "blur(5px)" }
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0, y: 24, scale: 0.976 }
       }
       transition={{
-        duration: prefersReducedMotion ? 0 : 0.72,
+        duration: prefersReducedMotion ? 0 : 0.68,
         delay: prefersReducedMotion ? 0 : staggerDelay,
         ease: DEEPCHARTS_EASE,
       }}

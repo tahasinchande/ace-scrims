@@ -6,6 +6,7 @@ import { getUnreadCount } from "@/lib/queries/dashboard"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { getUserPendingImageRequests } from "@/app/actions/image-requests"
 import { DashboardNav } from "@/components/dashboard/dashboard-nav"
+import { PageTransition } from "@/components/site/reveal"
 
 export const dynamic = "force-dynamic"
 
@@ -39,7 +40,9 @@ export default async function DashboardLayout({
           pendingImageRequestsCount={pendingRequests.length}
           user={{ name: user.name, email: user.email, role: user.role, image: user.image }}
         />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </>
   )

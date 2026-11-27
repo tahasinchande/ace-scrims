@@ -21,56 +21,72 @@ const ACCENT_STYLES: Record<
   {
     glow: string
     mark: string
+    markDropShadow: string
     highlight: string
-    divider: string
+    colon: string
     ctaHover: string
   }
 > = {
   amber: {
-    glow: "radial-gradient(38% 150% at 50% 50%, rgba(245, 166, 35, 0.24) 0%, rgba(180, 92, 14, 0.08) 54%, transparent 100%)",
-    mark: "from-[#fff3d1] via-[#f5a623] to-[#b45309]",
+    glow: "radial-gradient(34% 160% at 50% 50%, rgba(245, 166, 35, 0.28) 0%, rgba(180, 92, 14, 0.1) 52%, transparent 100%)",
+    mark: "from-[#fff4d4] via-[#f5a623] to-[#c2610c]",
+    markDropShadow: "drop-shadow-[0_0_14px_rgba(245,166,35,0.34)]",
     highlight: "text-[#F5A623]",
-    divider: "bg-amber-400/20",
+    colon: "text-zinc-500",
     ctaHover: "hover:border-amber-300/35 hover:bg-amber-400/[0.10] hover:text-amber-100",
   },
   blue: {
-    glow: "radial-gradient(38% 150% at 50% 50%, rgba(31, 115, 255, 0.26) 0%, rgba(56, 189, 248, 0.08) 54%, transparent 100%)",
+    glow: "radial-gradient(34% 160% at 50% 50%, rgba(31, 115, 255, 0.28) 0%, rgba(56, 189, 248, 0.1) 52%, transparent 100%)",
     mark: "from-[#e0f2fe] via-[#60a5fa] to-[#1d4ed8]",
+    markDropShadow: "drop-shadow-[0_0_14px_rgba(56,189,248,0.34)]",
     highlight: "text-[#60A5FA]",
-    divider: "bg-sky-400/20",
+    colon: "text-zinc-500",
     ctaHover: "hover:border-sky-300/35 hover:bg-sky-400/[0.10] hover:text-sky-100",
   },
   cyan: {
-    glow: "radial-gradient(38% 150% at 50% 50%, rgba(6, 182, 212, 0.25) 0%, rgba(34, 211, 238, 0.08) 54%, transparent 100%)",
+    glow: "radial-gradient(34% 160% at 50% 50%, rgba(6, 182, 212, 0.28) 0%, rgba(34, 211, 238, 0.1) 52%, transparent 100%)",
     mark: "from-[#cffafe] via-[#22d3ee] to-[#0284c7]",
+    markDropShadow: "drop-shadow-[0_0_14px_rgba(34,211,238,0.34)]",
     highlight: "text-[#22D3EE]",
-    divider: "bg-cyan-400/20",
+    colon: "text-zinc-500",
     ctaHover: "hover:border-cyan-300/35 hover:bg-cyan-400/[0.10] hover:text-cyan-100",
   },
   violet: {
-    glow: "radial-gradient(38% 150% at 50% 50%, rgba(140, 68, 212, 0.28) 0%, rgba(107, 47, 168, 0.09) 54%, transparent 100%)",
+    glow: "radial-gradient(34% 160% at 50% 50%, rgba(140, 68, 212, 0.30) 0%, rgba(107, 47, 168, 0.1) 52%, transparent 100%)",
     mark: "from-[#f3e8ff] via-[#c084fc] to-[#7e22ce]",
+    markDropShadow: "drop-shadow-[0_0_14px_rgba(192,132,252,0.34)]",
     highlight: "text-[#C084FC]",
-    divider: "bg-purple-400/20",
+    colon: "text-zinc-500",
     ctaHover: "hover:border-purple-300/35 hover:bg-purple-400/[0.10] hover:text-purple-100",
   },
   crimson: {
-    glow: "radial-gradient(38% 150% at 50% 50%, rgba(217, 83, 111, 0.28) 0%, rgba(159, 18, 57, 0.09) 54%, transparent 100%)",
+    glow: "radial-gradient(34% 160% at 50% 50%, rgba(217, 83, 111, 0.30) 0%, rgba(159, 18, 57, 0.1) 52%, transparent 100%)",
     mark: "from-[#ffe4e6] via-[#fb7185] to-[#be123c]",
+    markDropShadow: "drop-shadow-[0_0_14px_rgba(251,113,133,0.34)]",
     highlight: "text-[#FB7185]",
-    divider: "bg-rose-400/20",
+    colon: "text-zinc-500",
     ctaHover: "hover:border-rose-300/35 hover:bg-rose-400/[0.10] hover:text-rose-100",
   },
   emerald: {
-    glow: "radial-gradient(38% 150% at 50% 50%, rgba(16, 185, 129, 0.24) 0%, rgba(5, 150, 105, 0.08) 54%, transparent 100%)",
+    glow: "radial-gradient(34% 160% at 50% 50%, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.1) 52%, transparent 100%)",
     mark: "from-[#d1fae5] via-[#34d399] to-[#047857]",
+    markDropShadow: "drop-shadow-[0_0_14px_rgba(52,211,153,0.34)]",
     highlight: "text-[#34D399]",
-    divider: "bg-emerald-400/20",
+    colon: "text-zinc-500",
     ctaHover: "hover:border-emerald-300/35 hover:bg-emerald-400/[0.10] hover:text-emerald-100",
   },
 }
 
 const HIDDEN_PATH_PREFIXES = ["/admin", "/maintenance", "/staff-login", "/sign-in", "/sign-up"]
+
+function splitTwoLineBadge(raw: string): [string, string | null] {
+  const clean = raw.trim()
+  if (!clean) return ["", null]
+  const words = clean.split(/\s+/)
+  if (words.length <= 1) return [clean, null]
+  const mid = Math.ceil(words.length / 2)
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")]
+}
 
 function renderHighlightedPromoText(
   text: string,
@@ -187,16 +203,18 @@ export function TopAdShowcase({
     }
   }
 
+  // Always show all 4 fixed-width units (days : hours : minutes : seconds) so numbers never jitter
   const countdownColumns = countdownParts
     ? [
-        ...(countdownParts.hasDays ? [{ value: countdownParts.days, label: "Days" }] : []),
-        { value: countdownParts.hours, label: "Hours" },
-        { value: countdownParts.minutes, label: "Min" },
-        { value: countdownParts.seconds, label: "Sec" },
+        { value: countdownParts.days, label: "days" },
+        { value: countdownParts.hours, label: "hours" },
+        { value: countdownParts.minutes, label: "minutes" },
+        { value: countdownParts.seconds, label: "seconds" },
       ]
     : []
 
-  const hasCenterMark = Boolean(config.badge.trim())
+  const [badgeLine1, badgeLine2] = splitTwoLineBadge(config.badge)
+  const hasCenterMark = Boolean(badgeLine1)
 
   return (
     <AnimatePresence initial={!preview}>
@@ -213,16 +231,16 @@ export function TopAdShowcase({
           preview && "rounded-xl border border-white/[0.09]"
         )}
       >
-        {/* Focused DeepCharts-style warm/accent radial glow centered behind the event mark */}
+        {/* Focused DeepCharts-style radial highlight centered behind the two-line promo mark */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{ background: accentStyle.glow }}
           aria-hidden="true"
         />
 
-        <div className="relative mx-auto flex min-h-[44px] max-w-7xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 py-2 sm:px-6 lg:justify-between pr-10 sm:pr-12">
-          {/* Left Zone: Sharp Unboxed Promo Copy */}
-          <p className="text-center lg:text-left text-[12px] sm:text-[13px] font-bold tracking-[0.025em] text-zinc-100/95 leading-snug text-pretty">
+        <div className="relative mx-auto flex min-h-[46px] max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-4 py-2 sm:px-6 lg:justify-between pr-10 sm:pr-12">
+          {/* Left Zone: Compact Bold Offer Statement */}
+          <p className="text-center lg:text-left text-[11px] sm:text-[12.5px] font-bold uppercase tracking-[0.04em] text-zinc-100/95 leading-snug text-pretty">
             {renderHighlightedPromoText(
               config.text,
               config.highlightText,
@@ -230,47 +248,81 @@ export function TopAdShowcase({
             )}
           </p>
 
-          {/* Center Zone: Unboxed Metallic Editorial Event Mark (DeepCharts centerpiece lockup) */}
+          {/* Center Zone: Highlighted Two-Line Stacked Promo Mark with Subtle Pulse Motion */}
           {hasCenterMark && (
-            <div className="flex shrink-0 items-center gap-3">
-              <span
-                className={cn("hidden lg:block h-3.5 w-px", accentStyle.divider)}
-                aria-hidden="true"
-              />
+            <motion.div
+              animate={
+                prefersReducedMotion
+                  ? undefined
+                  : {
+                      scale: [1, 1.035, 1],
+                      opacity: [0.92, 1, 0.92],
+                    }
+              }
+              transition={
+                prefersReducedMotion
+                  ? undefined
+                  : {
+                      duration: 3.4,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }
+              }
+              className={cn(
+                "flex shrink-0 flex-col items-center justify-center text-center select-none will-change-transform",
+                accentStyle.markDropShadow
+              )}
+            >
               <span
                 className={cn(
-                  "font-display text-[15px] sm:text-[17px] font-extrabold tracking-tight leading-none bg-gradient-to-b bg-clip-text text-transparent select-none",
+                  "font-display text-[13px] sm:text-[14px] font-extrabold italic tracking-tight leading-[0.95] bg-gradient-to-b bg-clip-text text-transparent",
                   accentStyle.mark
                 )}
               >
-                {config.badge.trim()}
+                {badgeLine1}
               </span>
-              <span
-                className={cn("hidden lg:block h-3.5 w-px", accentStyle.divider)}
-                aria-hidden="true"
-              />
-            </div>
+              {badgeLine2 && (
+                <span
+                  className={cn(
+                    "font-display text-[15px] sm:text-[17px] font-black italic tracking-tight leading-[0.95] bg-gradient-to-b bg-clip-text text-transparent",
+                    accentStyle.mark
+                  )}
+                >
+                  {badgeLine2}
+                </span>
+              )}
+            </motion.div>
           )}
 
-          {/* Right Zone: Stacked Unboxed Tabular Countdown + Understated Hairline Action */}
+          {/* Right Zone: Tabular 4-Unit Countdown (days : hours : minutes : seconds) + Hairline CTA */}
           {(countdownColumns.length > 0 || safeCtaUrl) && (
             <div className="flex shrink-0 flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
               {countdownColumns.length > 0 && (
                 <div
-                  className="inline-flex items-center gap-3.5 sm:gap-4"
+                  className="inline-flex items-start gap-1.5 sm:gap-2"
                   aria-label={countdownAria ? `Ends in ${countdownAria}` : "Countdown active"}
                 >
-                  {countdownColumns.map((col) => (
-                    <div
-                      key={col.label}
-                      className="flex flex-col items-center justify-center leading-none"
-                    >
-                      <span className="font-sans text-[15px] sm:text-[16px] font-bold tracking-tight text-white tabular-nums">
-                        {col.value}
-                      </span>
-                      <span className="mt-0.5 text-[9px] font-medium tracking-[0.04em] text-zinc-400">
-                        {col.label}
-                      </span>
+                  {countdownColumns.map((col, idx) => (
+                    <div key={col.label} className="inline-flex items-start gap-1.5 sm:gap-2">
+                      <div className="flex min-w-[2.15rem] sm:min-w-[2.4rem] flex-col items-center justify-center leading-none">
+                        <span className="font-sans text-[15px] sm:text-[16px] font-bold tracking-tight text-white tabular-nums">
+                          {col.value}
+                        </span>
+                        <span className="mt-1 text-[9px] font-medium tracking-[0.02em] text-zinc-400">
+                          {col.label}
+                        </span>
+                      </div>
+                      {idx < countdownColumns.length - 1 && (
+                        <span
+                          className={cn(
+                            "pt-[1px] font-sans text-[13px] sm:text-[14px] font-bold leading-none select-none",
+                            accentStyle.colon
+                          )}
+                          aria-hidden="true"
+                        >
+                          :
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/lib/language"
 import { resolveImageUrls } from "@/lib/image-url"
+import { Reveal } from "@/components/site/reveal"
 import type { ResultWithScrim } from "@/lib/queries/results"
 
 export type LeaderboardEntry = {
@@ -113,31 +114,33 @@ export function ResultsView({
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6">
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="font-display text-sm font-semibold uppercase tracking-widest text-primary flex items-center gap-1.5">
-            <Sparkles className="size-4" />
-            {t("results_eyebrow", "PROVED WINNERS & MATCH RESULTS")}
-          </p>
-          <h1 className="font-display text-3xl font-bold uppercase tracking-wide text-balance md:text-4xl text-foreground">
-            {t("results_title", "Match Results & Leaderboard")}
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            {t("results_subtitle", "Verified match results grouped under distinct scrim lobby headers with high-resolution screenshot proofs.")}
-          </p>
-        </div>
-        <Link
-          href="/scrims"
-          className="glow-primary inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-sm font-bold uppercase text-primary-foreground transition-transform hover:scale-105"
-        >
-          <Swords className="size-4" />
-          <span>{isBn ? "স্ক্রিমসমূহ ব্রাউজ করুন" : "Browse Scrims"}</span>
-        </Link>
-      </header>
+      <Reveal immediate y={16} duration={0.62}>
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-display text-sm font-semibold uppercase tracking-widest text-primary flex items-center gap-1.5">
+              <Sparkles className="size-4" />
+              {t("results_eyebrow", "PROVED WINNERS & MATCH RESULTS")}
+            </p>
+            <h1 className="font-display text-3xl font-bold uppercase tracking-wide text-balance md:text-4xl text-foreground">
+              {t("results_title", "Match Results & Leaderboard")}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {t("results_subtitle", "Verified match results grouped under distinct scrim lobby headers with high-resolution screenshot proofs.")}
+            </p>
+          </div>
+          <Link
+            href="/scrims"
+            className="glow-primary inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-display text-sm font-bold uppercase text-primary-foreground transition-transform hover:scale-105"
+          >
+            <Swords className="size-4" />
+            <span>{isBn ? "স্ক্রিমসমূহ ব্রাউজ করুন" : "Browse Scrims"}</span>
+          </Link>
+        </header>
+      </Reveal>
 
       {/* Lobby Filter Navigation Pills */}
       {lobbyGroups.length > 1 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Reveal immediate delay={0.08} y={12} duration={0.52} className="mb-6 flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
             <Layers className="size-3.5" /> Filter Lobby:
           </span>
@@ -165,14 +168,14 @@ export function ResultsView({
               </Button>
             )
           })}
-        </div>
+        </Reveal>
       )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px]">
         {/* Scrim Results Column — Grouped by Distinct Lobby Headers */}
         <section aria-label="Scrim match sectors" className="flex flex-col gap-8">
           {!hasResults ? (
-            <div className="glass flex flex-col items-center justify-center gap-4 rounded-2xl p-12 text-center border border-border/70">
+            <Reveal y={16} duration={0.58} className="glass flex flex-col items-center justify-center gap-4 rounded-2xl p-12 text-center border border-border/70">
               <Trophy className="size-12 text-muted-foreground/30" />
               <div>
                 <h3 className="font-display text-lg font-bold uppercase text-foreground">
@@ -184,12 +187,15 @@ export function ResultsView({
                     : "Once today matches conclude, official winner standings and verified proofs will be published here grouped by scrim lobby."}
                 </p>
               </div>
-            </div>
+            </Reveal>
           ) : (
             <div className="flex flex-col gap-8">
-              {filteredGroups.map((group) => (
-                <div
+              {filteredGroups.map((group, groupIdx) => (
+                <Reveal
                   key={group.key}
+                  delay={Math.min(groupIdx, 5) * 0.06}
+                  y={20}
+                  duration={0.62}
                   className="rounded-2xl border border-border/80 bg-secondary/10 overflow-hidden shadow-sm"
                 >
                   {/* Distinct Scrim Lobby Header */}
@@ -359,14 +365,15 @@ export function ResultsView({
                       )
                     })}
                   </div>
-                </div>
+                </Reveal>
               ))}
             </div>
           )}
         </section>
 
         {/* Leaderboard Column */}
-        <aside aria-label="Team leaderboard" className="flex flex-col gap-3">
+        <Reveal delay={0.1} y={18} duration={0.62}>
+          <aside aria-label="Team leaderboard" className="flex flex-col gap-3">
           <h2 className="font-display text-lg font-bold uppercase tracking-wide">
             {isBn ? "শীর্ষ বিজয়ী স্কোয়াড" : "Top Teams Leaderboard"}
           </h2>
@@ -414,6 +421,7 @@ export function ResultsView({
             )}
           </div>
         </aside>
+        </Reveal>
       </div>
     </main>
   )
