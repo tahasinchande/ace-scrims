@@ -13,13 +13,21 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
+  typescript: {
+    // Type-checking runs first as a standalone process (`tsc --noEmit`) in `package.json`'s build script
+    // so its memory is fully released before Turbopack allocates native build buffers.
+    ignoreBuildErrors: true,
+  },
+  outputFileTracingExcludes: {
+    "*": ["./restore-points/**", "./src/assets/**"],
+  },
   experimental: {
-    cpus: 2,
+    cpus: 1,
     workerThreads: false,
     webpackMemoryOptimizations: true,
     preloadEntriesOnStart: false,
-    turbopackFileSystemCacheForDev: true,
-    turbopackMemoryLimit: 768 * 1024 * 1024,
+    turbopackFileSystemCacheForDev: false,
+    turbopackMemoryLimit: 192 * 1024 * 1024,
     turbopackSourceMaps: false,
     optimizePackageImports: ["lucide-react", "motion"],
     serverActions: {

@@ -28,24 +28,24 @@ function isSafePathSegment(segment: string): boolean {
 }
 
 function resolveConfinedFile(baseDir: string, segments: string[]): string | null {
-  const resolvedBase = path.resolve(baseDir)
-  if (!fs.existsSync(resolvedBase)) return null
+  const resolvedBase = path.resolve(/*turbopackIgnore: true*/ baseDir)
+  if (!fs.existsSync(/*turbopackIgnore: true*/ resolvedBase)) return null
 
-  const candidate = path.resolve(resolvedBase, ...segments)
+  const candidate = path.resolve(/*turbopackIgnore: true*/ resolvedBase, ...segments)
   if (!candidate.startsWith(resolvedBase + path.sep)) {
     return null
   }
 
-  if (!fs.existsSync(candidate)) return null
+  if (!fs.existsSync(/*turbopackIgnore: true*/ candidate)) return null
 
   // Resolve symlinks and re-verify strict confinement within the uploads root
-  const realBase = fs.realpathSync(resolvedBase)
-  const realCandidate = fs.realpathSync(candidate)
+  const realBase = fs.realpathSync(/*turbopackIgnore: true*/ resolvedBase)
+  const realCandidate = fs.realpathSync(/*turbopackIgnore: true*/ candidate)
   if (!realCandidate.startsWith(realBase + path.sep)) {
     return null
   }
 
-  const stat = fs.statSync(realCandidate)
+  const stat = fs.statSync(/*turbopackIgnore: true*/ realCandidate)
   if (!stat.isFile()) return null
 
   return realCandidate
@@ -98,7 +98,7 @@ export async function GET(
       })
     }
 
-    const fileBuffer = await fs.promises.readFile(filePath)
+    const fileBuffer = await fs.promises.readFile(/*turbopackIgnore: true*/ filePath)
     const ext = path.extname(filePath).toLowerCase()
     const contentType = MIME_MAP[ext] ?? "application/octet-stream"
 
