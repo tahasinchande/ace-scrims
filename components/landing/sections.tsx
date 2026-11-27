@@ -1,7 +1,9 @@
 "use client"
 
+import { useRef, type ReactNode } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   Accordion,
@@ -23,14 +25,43 @@ import {
 import { WhatsAppIcon } from "@/components/site/brand-icons"
 import { useLanguage } from "@/lib/language"
 import { LiveSupportButton } from "@/components/site/live-support-button"
-import {
-  Reveal,
-  BlurTextReveal,
-  VisualReveal,
-  RevealStagger,
-  RevealItem,
-} from "@/components/site/reveal"
+import { useReliableOnceReveal } from "@/components/site/reveal"
 import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
+
+function CrispReveal({
+  children,
+  className,
+  initial,
+  animateTarget = { opacity: 1, x: 0, y: 0, scale: 1 },
+  duration = 0.45,
+  delay = 0,
+  whileHover,
+}: {
+  children: ReactNode
+  className?: string
+  initial: { opacity: number; x?: number; y?: number; scale?: number }
+  animateTarget?: { opacity: number; x?: number; y?: number; scale?: number }
+  duration?: number
+  delay?: number
+  whileHover?: { y?: number; scale?: number }
+}) {
+  const prefersReducedMotion = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const visible = useReliableOnceReveal(ref, prefersReducedMotion, false)
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={prefersReducedMotion ? animateTarget : initial}
+      animate={visible || prefersReducedMotion ? animateTarget : initial}
+      whileHover={prefersReducedMotion ? undefined : whileHover}
+      transition={{ duration: prefersReducedMotion ? 0 : duration, delay: prefersReducedMotion ? 0 : delay }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
 export function SectionHeading({
   eyebrow,
@@ -42,8 +73,12 @@ export function SectionHeading({
   subtitle?: string
 }) {
   return (
-    <div className="mx-auto mb-12 max-w-2xl text-center relative">
-      <Reveal y={12} duration={0.5} className="inline-flex items-center gap-2.5 mb-3">
+    <CrispReveal
+      initial={{ opacity: 0, y: 20 }}
+      duration={0.5}
+      className="mx-auto mb-12 max-w-2xl text-center relative"
+    >
+      <div className="inline-flex items-center gap-2.5 mb-3">
         <span
           className="h-px w-6"
           style={{
@@ -59,23 +94,16 @@ export function SectionHeading({
             background: "linear-gradient(to left, transparent, rgba(var(--rushx-accent-rgb), 0.85))",
           }}
         />
-      </Reveal>
-      <BlurTextReveal
-        as="h2"
-        text={title}
-        delay={0.05}
-        wordStagger={0.045}
-        duration={0.68}
-        className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground"
-      />
+      </div>
+      <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">
+        {title}
+      </h2>
       {subtitle && (
-        <Reveal delay={0.14} y={14} duration={0.62}>
-          <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">
-            {subtitle}
-          </p>
-        </Reveal>
+        <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">
+          {subtitle}
+        </p>
       )}
-    </div>
+    </CrispReveal>
   )
 }
 
@@ -145,16 +173,14 @@ export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
         title={t("features_title", "Built for serious squads")}
         subtitle={t("features_subtitle", "Everything a competitive Free Fire team needs — automated, transparent and fast.")}
       />
-      <RevealStagger
-        stagger={0.09}
-        delay={0.04}
-        className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 relative z-10"
-      >
-        {features.map((f) => (
-          <RevealItem
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 relative z-10">
+        {features.map((f, i) => (
+          <CrispReveal
             key={f.title}
-            y={24}
-            duration={0.7}
+            initial={{ opacity: 0, y: 25 }}
+            duration={0.4}
+            delay={i * 0.08}
+            whileHover={{ y: -4 }}
             className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 overflow-hidden"
           >
             <div
@@ -168,9 +194,9 @@ export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
             <f.icon className={`mb-4 size-5 ${f.color} transition-transform duration-200 group-hover:scale-110`} aria-hidden />
             <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">{f.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-          </RevealItem>
+          </CrispReveal>
         ))}
-      </RevealStagger>
+      </div>
     </section>
   )
 }
@@ -252,10 +278,11 @@ export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
         <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s, i) => (
             <li key={s.step} className="h-full">
-              <Reveal
-                delay={i * 0.09}
-                y={24}
-                duration={0.7}
+              <CrispReveal
+                initial={{ opacity: 0, y: 25 }}
+                duration={0.4}
+                delay={i * 0.1}
+                whileHover={{ y: -4 }}
                 className="dc-surface dc-card-hover rushx-box-splash group relative h-full rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div
@@ -286,7 +313,7 @@ export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
                   <span>{s.actionText}</span>
                   <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
                 </div>
-              </Reveal>
+              </CrispReveal>
             </li>
           ))}
         </ol>
@@ -310,10 +337,9 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="why-heading">
       <div className="grid items-center gap-10 lg:grid-cols-2">
-        <VisualReveal
-          duration={0.78}
-          y={22}
-          initialScale={0.965}
+        <CrispReveal
+          initial={{ opacity: 0, scale: 0.92 }}
+          duration={0.5}
           className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-[rgba(var(--rushx-soft-rgb),0.18)] bg-[#050a18] group"
         >
           <Image
@@ -339,22 +365,20 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
             </div>
             <ShieldCheck className="size-5 text-accent shrink-0" aria-hidden />
           </div>
-        </VisualReveal>
+        </CrispReveal>
 
-        <div className="order-1 lg:order-2">
-          <Reveal y={14} duration={0.5}>
-            <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-              {t("features_eyebrow", "Why Choose Us")}
-            </p>
-          </Reveal>
-          <BlurTextReveal
-            as="h2"
-            text={t("features_title", "The lobby where grinders become champions")}
-            delay={0.05}
-            wordStagger={0.045}
-            duration={0.68}
-            className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl"
-          />
+        <CrispReveal
+          initial={{ opacity: 0, x: 20 }}
+          duration={0.5}
+          delay={0.1}
+          className="order-1 lg:order-2"
+        >
+          <p className="mb-3 font-display text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+            {t("features_eyebrow", "Why Choose Us")}
+          </p>
+          <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
+            {t("features_title", "The lobby where grinders become champions")}
+          </h2>
           <ul className="mt-8 flex flex-col gap-5">
             {[
               [t("feat1_title", "Zero manual verification"), t("feat1_body", "Payments confirm instantly through automated gateway.")],
@@ -363,17 +387,22 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
               [t("feat4_title", "Moderated, competitive, clean"), t("feat4_body", "Dedicated moderators run every lobby so matches start on time.")],
             ].map(([title, body], i) => (
               <li key={title}>
-                <Reveal delay={0.06 * i} y={12} duration={0.46} className="flex gap-3.5">
+                <CrispReveal
+                  initial={{ opacity: 0, x: 15 }}
+                  duration={0.3}
+                  delay={0.1 * i}
+                  className="flex gap-3.5"
+                >
                   <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-accent" aria-hidden />
                   <div>
                     <h3 className="font-semibold text-foreground">{title}</h3>
                     <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
                   </div>
-                </Reveal>
+                </CrispReveal>
               </li>
             ))}
           </ul>
-        </div>
+        </CrispReveal>
       </div>
     </section>
   )
@@ -402,7 +431,7 @@ export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
         <SectionHeading eyebrow={t("faq_eyebrow", "FAQ")} title={t("faq_title", "Questions, answered")} />
         <Accordion multiple={false} className="flex flex-col gap-3">
           {faqs.map((f, i) => (
-            <Reveal key={f.q} delay={i * 0.045} y={12} duration={0.46}>
+            <CrispReveal key={f.q} initial={{ opacity: 0, y: 15 }} duration={0.35} delay={i * 0.05}>
               <AccordionItem
                 value={`item-${i}`}
                 className="dc-surface rushx-box-splash rounded-2xl px-5 last:border-b hover:border-[rgba(var(--rushx-soft-rgb),0.36)] transition-colors"
@@ -422,7 +451,7 @@ export function Faq({ showcase }: { showcase?: LiveShowcaseSummary }) {
                   )}
                 </AccordionContent>
               </AccordionItem>
-            </Reveal>
+            </CrispReveal>
           ))}
         </Accordion>
       </div>
@@ -438,9 +467,9 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
 
   return (
     <section id="contact" className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="contact-heading">
-      <Reveal
-        y={20}
-        duration={0.58}
+      <CrispReveal
+        initial={{ opacity: 0, y: 30 }}
+        duration={0.5}
         className="dc-surface rushx-box-splash relative overflow-hidden rounded-3xl p-8 md:p-12 shadow-2xl"
       >
         <div
@@ -466,34 +495,33 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
                 {t("contact_eyebrow", "Support")}
               </p>
             </div>
-            <BlurTextReveal
-              as="h2"
-              text={t("contact_title", "Need Help? Talk to RushX Support")}
-              delay={0.04}
-              wordStagger={0.045}
-              duration={0.68}
-              className="font-display text-3xl font-bold tracking-tight text-balance text-foreground"
-            />
+            <h2 className="font-display text-3xl font-bold tracking-tight text-balance text-foreground">
+              {t("contact_title", "Need Help? Talk to RushX Support")}
+            </h2>
             <p className="mt-3.5 text-sm sm:text-base leading-relaxed text-muted-foreground text-pretty">
               {t("contact_subtitle", "Connect with our team directly via Live Support or WhatsApp.")}
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            <LiveSupportButton
-              variant="cta"
-              label={t("live_support", "Live Support")}
-              className="w-full"
-            />
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <LiveSupportButton
+                variant="cta"
+                label={t("live_support", "Live Support")}
+                className="w-full"
+              />
+            </motion.div>
 
-            <Button asChild size="lg" className="h-11 w-full justify-center gap-2.5 rounded-full font-display font-bold uppercase tracking-wider text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
-              <a href={`https://wa.me/${cleanWaNumber || "8801831510108"}`} target="_blank" rel="noopener noreferrer">
-                <WhatsAppIcon className="size-4.5 text-white" />
-                <span>WhatsApp Support</span>
-              </a>
-            </Button>
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <Button asChild size="lg" className="h-11 w-full justify-center gap-2.5 rounded-full font-display font-bold uppercase tracking-wider text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20">
+                <a href={`https://wa.me/${cleanWaNumber || "8801831510108"}`} target="_blank" rel="noopener noreferrer">
+                  <WhatsAppIcon className="size-4.5 text-white" />
+                  <span>WhatsApp Support</span>
+                </a>
+              </Button>
+            </motion.div>
           </div>
         </div>
-      </Reveal>
+      </CrispReveal>
     </section>
   )
 }

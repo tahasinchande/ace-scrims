@@ -35,8 +35,8 @@ export const STAGE_BASE_2D_NORM: [number, number, number] = STAGE_BASE_NORM
 /**
  * Unified Dynamic Color-Changing Spectrum (Identical across BOTH 2D Ambient & 3D Cyber modes):
  * - Phase 0 (INITIAL OPENING COLOR for BOTH 2D & 3D): Electric Blue (#1F73FF / #38BDF8 / #BFF0FF).
- * - Transitions seamlessly into the signature November 23 Cyber Violet / Purple palette,
- *   then through Neon Orchid, Electric Cyan, and Luminous Sapphire before looping back to Electric Blue.
+ * - Smoothly glides into Cyber Violet, then the signature 88918cc Cyber Orange (#F97316 / #FF6A00 / #FBBF24),
+ *   followed by Neon Orchid and Electric Cyan before looping cleanly back to Electric Blue.
  * - Maintains controlled obsidian contrast across every phase so headings, cards, and buttons stay sharp.
  */
 export const AMBIENT_PHASES: AmbientColorPhase[] = [
@@ -77,25 +77,43 @@ export const AMBIENT_PHASES: AmbientColorPhase[] = [
     bgB: [0.118, 0.055, 0.267],
   },
   {
-    // Phase 2: Neon Orchid / Amethyst Magenta (#B43CE6 / #E879F9 / #FAE8FF)
+    // Phase 2 (88918cc Signature): Cyber Orange / Molten Amber (#F97316 / #FBBF24 / #FFF0AA)
+    name: "cyber-orange",
+    baseHue: 24 / 360,
+    accentHue: 36 / 360,
+    fillHue: 14 / 360,
+    primaryRgb: [249, 115, 22],
+    accentRgb: [251, 191, 36],
+    softRgb: [255, 237, 213],
+    deepRgb: [42, 14, 4],
+    glowRgb: [194, 65, 12],
+    bgWashRgb: [68, 22, 6],
+    c1: [0.976, 0.451, 0.086],
+    c2: [0.984, 0.749, 0.141],
+    c3: [1.0, 0.941, 0.667],
+    glow: [0.761, 0.255, 0.047],
+    bgB: [0.267, 0.086, 0.024],
+  },
+  {
+    // Phase 3: Neon Orchid / Amethyst Magenta (#C038E8 / #E879F9 / #FAE8FF)
     name: "neon-orchid",
-    baseHue: 285 / 360,
-    accentHue: 294 / 360,
-    fillHue: 272 / 360,
-    primaryRgb: [180, 60, 230],
+    baseHue: 294 / 360,
+    accentHue: 304 / 360,
+    fillHue: 278 / 360,
+    primaryRgb: [192, 56, 232],
     accentRgb: [232, 121, 249],
     softRgb: [250, 232, 255],
     deepRgb: [22, 8, 38],
-    glowRgb: [106, 32, 148],
+    glowRgb: [112, 32, 152],
     bgWashRgb: [40, 14, 64],
-    c1: [0.706, 0.235, 0.902],
+    c1: [0.753, 0.22, 0.91],
     c2: [0.91, 0.475, 0.976],
     c3: [0.98, 0.91, 1.0],
-    glow: [0.416, 0.125, 0.58],
+    glow: [0.439, 0.125, 0.596],
     bgB: [0.157, 0.055, 0.251],
   },
   {
-    // Phase 3: Electric Cyan / Arctic Horizon (#06B6D4 / #22D3EE / #CFFAFE)
+    // Phase 4: Electric Cyan / Arctic Horizon (#06B6D4 / #22D3EE / #CFFAFE)
     name: "electric-cyan",
     baseHue: 189 / 360,
     accentHue: 186 / 360,
@@ -111,24 +129,6 @@ export const AMBIENT_PHASES: AmbientColorPhase[] = [
     c3: [0.812, 0.98, 0.996],
     glow: [0.055, 0.4, 0.557],
     bgB: [0.024, 0.141, 0.243],
-  },
-  {
-    // Phase 4: Luminous Sapphire / Cobalt Indigo (#2563EB / #60A5FA / #DBEAFE)
-    name: "luminous-sapphire",
-    baseHue: 221 / 360,
-    accentHue: 213 / 360,
-    fillHue: 232 / 360,
-    primaryRgb: [37, 99, 235],
-    accentRgb: [96, 165, 250],
-    softRgb: [219, 234, 254],
-    deepRgb: [6, 16, 48],
-    glowRgb: [22, 68, 168],
-    bgWashRgb: [10, 26, 72],
-    c1: [0.145, 0.388, 0.922],
-    c2: [0.376, 0.647, 0.98],
-    c3: [0.859, 0.918, 0.996],
-    glow: [0.086, 0.267, 0.659],
-    bgB: [0.039, 0.102, 0.282],
   },
 ]
 

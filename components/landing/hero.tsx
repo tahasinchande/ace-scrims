@@ -14,14 +14,6 @@ import {
 import { useLanguage } from "@/lib/language"
 import { useViewMode } from "@/lib/view-mode"
 import { BRAND } from "@/lib/brand"
-import { useFirstVisitIntro } from "@/lib/intro-motion"
-import {
-  Reveal,
-  BlurTextReveal,
-  VisualReveal,
-  RevealStagger,
-  RevealItem,
-} from "@/components/site/reveal"
 import type { LiveShowcaseSummary } from "@/lib/queries/showcase"
 
 export function Hero({
@@ -34,24 +26,44 @@ export function Hero({
   const { t } = useLanguage()
   const { mode, setMode } = useViewMode()
   const prefersReducedMotion = useReducedMotion()
-  const { timing } = useFirstVisitIntro()
 
   const activeScrims = stats.scrimsTonight ?? 0
   const totalSlots = stats.totalTeams ?? 0
   const formatLine = showcase?.timeWindow || t("matches_per_scrim", "Live Daily Format")
 
+  // Recovered 88918cc first-visit staggered entrance choreography
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: prefersReducedMotion ? 0 : mode === "3d" ? 0.1 : 0.05,
+        delayChildren: prefersReducedMotion ? 0 : 0.05,
+      },
+    },
+  }
+
+  const itemFadeUp = {
+    hidden: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: prefersReducedMotion ? 0 : 0.3 },
+    },
+  }
+
   return (
     <section className="relative min-h-[88svh] w-full max-w-full overflow-x-clip overflow-hidden bg-transparent">
-      {/* 3D Mode atmospheric sweep framing */}
+      {/* 3D Mode specific laser sweepers and kinetic glow (recovered from 88918cc, synced with live color palette) */}
       {mode === "3d" && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden w-full max-w-full">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#040814]/54 via-transparent to-transparent z-[1]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#040814]/38 via-transparent to-transparent z-[1]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#040814]/56 via-transparent to-transparent z-[1]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#040814]/54 via-transparent to-transparent z-[1]" />
           <div
             className="absolute top-0 left-0 right-0 h-px z-[2]"
             style={{
               background:
-                "linear-gradient(to right, transparent, rgba(var(--rushx-soft-rgb), 0.35), transparent)",
+                "linear-gradient(to right, transparent, rgba(var(--rushx-accent-rgb), 0.5), transparent)",
             }}
           />
           {!prefersReducedMotion && (
@@ -67,10 +79,16 @@ export function Hero({
               className="absolute top-1/3 left-0 w-1/3 h-[2px] blur-sm z-[2]"
               style={{
                 background:
-                  "linear-gradient(to right, transparent, rgba(var(--rushx-accent-rgb), 0.42), transparent)",
+                  "linear-gradient(to right, transparent, rgba(var(--rushx-primary-rgb), 0.85), transparent)",
               }}
             />
           )}
+          <div
+            className="absolute -left-20 top-1/4 size-96 rounded-full blur-[100px] z-[1]"
+            style={{
+              background: "rgba(var(--rushx-primary-rgb), 0.2)",
+            }}
+          />
         </div>
       )}
 
@@ -81,13 +99,15 @@ export function Hero({
 
       <div className="relative z-10 mx-auto flex min-h-[86svh] max-w-6xl items-center px-4 py-16 md:px-6 w-full overflow-hidden">
         <div className="w-full max-w-full">
-          <div className="flex max-w-4xl flex-col justify-center w-full">
-            {/* Phase 1: Clean editorial metadata line + segmented 2D / 3D switch */}
-            <Reveal
-              immediate
-              delay={timing.heroBaseDelay}
-              y={14}
-              duration={timing.heroDuration * 0.85}
+          <motion.div
+            variants={container}
+            initial={prefersReducedMotion ? "show" : "hidden"}
+            animate="show"
+            className="flex max-w-4xl flex-col justify-center w-full"
+          >
+            {/* Top Status & 2D / 3D Selection Toggle */}
+            <motion.div
+              variants={itemFadeUp}
               className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-6"
             >
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-[13px] font-medium text-slate-200/90 tabular-nums">
@@ -139,61 +159,46 @@ export function Hero({
                   3D Cyber
                 </button>
               </div>
-            </Reveal>
+            </motion.div>
 
-            {/* Phase 2: Primary H1 — Oversized RushX ORGANIZATION brand centerpiece with editorial blur-to-sharp settle */}
-            <VisualReveal
-              immediate
-              delay={timing.visualDelay}
-              duration={timing.visualDuration}
-              y={22}
-              initialScale={0.965}
+            {/* Primary H1 — Oversized RushX ORGANIZATION brand centerpiece */}
+            <motion.h1
+              variants={itemFadeUp}
+              className="font-display font-black leading-none tracking-tight"
             >
-              <h1 className="font-display font-black leading-none tracking-tight">
-                <span className="sr-only">{t("hero_title", BRAND.name)}</span>
-                <span className="relative block w-full max-w-[440px] sm:max-w-[680px] md:max-w-[820px] lg:max-w-[880px] -ml-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={BRAND.assets.fullWordmark}
-                    alt={BRAND.name}
-                    className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none transition-transform duration-500 ease-out hover:scale-[1.01]"
-                  />
-                </span>
-              </h1>
-            </VisualReveal>
+              <span className="sr-only">{t("hero_title", BRAND.name)}</span>
+              <span className="relative block w-full max-w-[440px] sm:max-w-[680px] md:max-w-[820px] lg:max-w-[880px] -ml-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={BRAND.assets.fullWordmark}
+                  alt={BRAND.name}
+                  className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none transition-transform duration-500 ease-out hover:scale-[1.01]"
+                />
+              </span>
+            </motion.h1>
 
-            {/* Phase 3: DeepCharts-style blur-to-sharp staggered word reveal on Subheadline H2 */}
-            <BlurTextReveal
-              immediate
-              as="h2"
-              text={t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
-              delay={timing.heroBaseDelay + timing.heroStagger * 1.8}
-              wordStagger={0.045}
-              duration={timing.heroDuration}
+            {/* Subheadline H2 */}
+            <motion.h2
+              variants={itemFadeUp}
               className="mt-3 font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]"
-            />
-
-            {/* Phase 4: Body copy */}
-            <Reveal
-              immediate
-              delay={timing.heroBaseDelay + timing.heroStagger * 3}
-              y={18}
-              duration={timing.heroDuration * 0.92}
             >
-              <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg">
-                {t(
-                  "hero_subtitle",
-                  "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pools. Your squad vs the best."
-                )}
-              </p>
-            </Reveal>
+              {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
+            </motion.h2>
 
-            {/* Phase 5: Action Buttons */}
-            <Reveal
-              immediate
-              delay={timing.heroBaseDelay + timing.heroStagger * 4}
-              y={18}
-              duration={timing.heroDuration * 0.9}
+            {/* Subtitle Body Copy */}
+            <motion.p
+              variants={itemFadeUp}
+              className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg"
+            >
+              {t(
+                "hero_subtitle",
+                "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pools. Your squad vs the best."
+              )}
+            </motion.p>
+
+            {/* Action Buttons */}
+            <motion.div
+              variants={itemFadeUp}
               className="mt-8 flex flex-wrap items-center gap-4"
             >
               <Button
@@ -231,48 +236,44 @@ export function Hero({
                   {mode === "2d" ? "2D Ambient" : "3D Cyber Experience"}
                 </strong>
               </span>
-            </Reveal>
+            </motion.div>
 
-            {/* Phase 6: Staggered Live Admin-Synced Stats Strip */}
-            <RevealStagger
-              immediate
-              delay={timing.heroBaseDelay + timing.heroStagger * 4.6}
-              stagger={0.09}
-              className="mt-10 max-w-xl"
+            {/* Cyber Stats Strip */}
+            <motion.dl
+              variants={itemFadeUp}
+              className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4"
             >
-              <dl className="grid grid-cols-3 gap-3 sm:gap-4">
-                <RevealItem y={16} className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                  <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                    <Zap className="size-3.5 text-accent" aria-hidden />
-                    {t("scrims_tonight", "Active Lobbies")}
-                  </dt>
-                  <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
-                    {activeScrims > 0 ? activeScrims : "Live"}
-                  </dd>
-                </RevealItem>
+              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Zap className="size-3.5 text-accent" aria-hidden />
+                  {t("scrims_tonight", "Active Lobbies")}
+                </dt>
+                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
+                  {activeScrims > 0 ? activeScrims : "Live"}
+                </dd>
+              </div>
 
-                <RevealItem y={16} className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                  <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                    <Users className="size-3.5 text-accent" aria-hidden />
-                    {t("team_slots", "Team Slots")}
-                  </dt>
-                  <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
-                    {totalSlots > 0 ? totalSlots : "Open"}
-                  </dd>
-                </RevealItem>
+              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Users className="size-3.5 text-accent" aria-hidden />
+                  {t("team_slots", "Team Slots")}
+                </dt>
+                <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
+                  {totalSlots > 0 ? totalSlots : "Open"}
+                </dd>
+              </div>
 
-                <RevealItem y={16} className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
-                  <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                    <Trophy className="size-3.5 text-accent" aria-hidden />
-                    {showcase?.timeWindow ? "Schedule" : t("scrim_format", "Format")}
-                  </dt>
-                  <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
-                    {formatLine}
-                  </dd>
-                </RevealItem>
-              </dl>
-            </RevealStagger>
-          </div>
+              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+                <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Trophy className="size-3.5 text-accent" aria-hidden />
+                  {showcase?.timeWindow ? "Schedule" : t("scrim_format", "Format")}
+                </dt>
+                <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
+                  {formatLine}
+                </dd>
+              </div>
+            </motion.dl>
+          </motion.div>
         </div>
       </div>
     </section>

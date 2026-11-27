@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { getRandomScrimImage } from "@/lib/scrim-images"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
-import { useReliableOnceReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
+import { useReliableOnceReveal } from "@/components/site/reveal"
 
 const toneStyles: Record<string, string> = {
   open: "bg-emerald-500/14 text-emerald-300 border-emerald-400/35",
@@ -133,7 +133,7 @@ export function ScrimCard({
     el.style.setProperty("--splash-y", "35%")
   }
 
-  const staggerDelay = Math.min(index, 7) * 0.095
+  const staggerDelay = Math.min(index, 7) * 0.06
 
   return (
     <motion.div
@@ -143,18 +143,24 @@ export function ScrimCard({
       initial={
         prefersReducedMotion
           ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y: 24, scale: 0.976 }
+          : { opacity: 0, y: 30, scale: 0.96 }
       }
       animate={
         isVisible || prefersReducedMotion
           ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y: 24, scale: 0.976 }
+          : { opacity: 0, y: 30, scale: 0.96 }
       }
-      transition={{
-        duration: prefersReducedMotion ? 0 : 0.68,
-        delay: prefersReducedMotion ? 0 : staggerDelay,
-        ease: DEEPCHARTS_EASE,
-      }}
+      transition={
+        prefersReducedMotion
+          ? { duration: 0 }
+          : {
+              duration: 0.4,
+              delay: staggerDelay,
+              type: "spring",
+              stiffness: 200,
+              damping: 22,
+            }
+      }
       className="scrim-splash-wrap group relative flex flex-col"
     >
       {/* Dynamic outer hover splash layers (RandomQbit-inspired diffused outer halo + crisp edge bloom) */}
@@ -337,8 +343,8 @@ export function ScrimCard({
             >
               <motion.div
                 initial={{ width: prefersReducedMotion ? `${fillPercent}%` : 0 }}
-                animate={{ width: `${fillPercent}%` }}
-                transition={{ duration: prefersReducedMotion ? 0 : 0.64, ease: DEEPCHARTS_EASE }}
+                animate={{ width: isVisible || prefersReducedMotion ? `${fillPercent}%` : 0 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.8, ease: "easeOut" }}
                 className={cn(
                   "h-full rounded-full",
                   status.tone === "full"
