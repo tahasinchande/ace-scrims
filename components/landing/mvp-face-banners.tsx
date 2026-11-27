@@ -8,7 +8,7 @@ import { formatDate } from "@/lib/format"
 import { Flame, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Trophy, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Reveal, MaskedLineReveal, VisualReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
+import { Reveal, BlurTextReveal, VisualReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
 
 export type MvpBannerItem = {
   id: string
@@ -84,19 +84,20 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
       <div className="flex flex-col items-center text-center max-w-2xl mb-8">
         <Reveal y={14} duration={0.55}>
           <div className="inline-flex items-center gap-2 text-accent text-xs font-display font-bold uppercase tracking-wider mb-2">
-            <Flame className="size-4 text-accent animate-pulse" />
+            <Flame className="size-4 text-accent" />
             <span>Tournament MVPs &amp; Standout Fraggers</span>
           </div>
         </Reveal>
-        <MaskedLineReveal delay={0.06} duration={0.68}>
-          <h2
-            id="mvp-banners-heading"
-            className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
-          >
-            MVP Face Banners
-          </h2>
-        </MaskedLineReveal>
-        <Reveal delay={0.12} y={14} duration={0.56}>
+        <BlurTextReveal
+          as="h2"
+          id="mvp-banners-heading"
+          text="MVP Face Banners"
+          delay={0.05}
+          wordStagger={0.045}
+          duration={0.68}
+          className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
+        />
+        <Reveal delay={0.14} y={14} duration={0.62}>
           <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
             Spotlighting top fragging match champions and tournament MVPs with original high-resolution face banners.
           </p>
@@ -117,9 +118,9 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
       {/* Centered Slideshow Stage with DeepCharts editorial visual reveal */}
       <VisualReveal
         delay={0.08}
-        duration={0.74}
-        y={20}
-        initialScale={1.035}
+        duration={0.78}
+        y={22}
+        initialScale={0.965}
         className="relative w-full max-w-4xl flex flex-col items-center"
       >
         {/* Banner Slide Frame */}

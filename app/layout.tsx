@@ -75,7 +75,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="dark bg-[#050508] overflow-x-hidden max-w-full w-full"
+      className="dark bg-[#050508] overflow-x-clip max-w-full w-full"
     >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -85,13 +85,13 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased font-sans relative min-h-screen bg-transparent text-foreground overflow-x-hidden max-w-full w-full selection:bg-primary/30 selection:text-foreground">
+      <body className="antialiased font-sans relative min-h-screen bg-transparent text-foreground overflow-x-clip max-w-full w-full selection:bg-primary/30 selection:text-foreground">
         <LanguageProvider>
           <ViewModeProvider>
             <GlobalCyberBackground />
             <GlobalSplashTracker />
             <OpeningTransition />
-            <OpeningStage className="relative z-10 min-h-screen flex flex-col w-full max-w-full overflow-x-hidden">
+            <OpeningStage className="relative z-10 min-h-screen flex flex-col w-full max-w-full overflow-x-clip">
               <Suspense fallback={null}>
                 <AnnouncementBanner />
               </Suspense>

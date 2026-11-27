@@ -71,7 +71,7 @@
   --card-foreground: oklch(0.968 0.006 248);
   --popover: oklch(0.14 0.02 252);
   --popover-foreground: oklch(0.968 0.006 248);
-  --primary: rgb(37, 99, 235);
+  --primary: rgb(31, 115, 255);
   --primary-foreground: oklch(0.985 0.004 250);
   --secondary: oklch(0.2 0.024 252);
   --secondary-foreground: oklch(0.96 0.006 248);
@@ -82,11 +82,11 @@
   --destructive: oklch(0.62 0.22 22);
   --border: oklch(0.27 0.026 252);
   --input: oklch(0.22 0.022 252);
-  --ring: rgb(96, 165, 250);
+  --ring: rgb(191, 240, 255);
   --success: oklch(0.72 0.17 155);
   --warning: oklch(0.8 0.15 84);
   --info: oklch(0.75 0.14 215);
-  --chart-1: rgb(37, 99, 235);
+  --chart-1: rgb(31, 115, 255);
   --chart-2: rgb(56, 189, 248);
   --chart-3: oklch(0.72 0.17 155);
   --chart-4: rgb(96, 165, 250);
@@ -94,12 +94,12 @@
   --radius: 0.75rem;
   --sidebar: oklch(0.13 0.018 252);
   --sidebar-foreground: oklch(0.965 0.006 248);
-  --sidebar-primary: rgb(37, 99, 235);
+  --sidebar-primary: rgb(31, 115, 255);
   --sidebar-primary-foreground: oklch(0.985 0.004 250);
   --sidebar-accent: oklch(0.2 0.024 252);
   --sidebar-accent-foreground: oklch(0.965 0.006 248);
   --sidebar-border: oklch(0.25 0.024 252);
-  --sidebar-ring: rgb(96, 165, 250);
+  --sidebar-ring: rgb(191, 240, 255);
 }
 
 @layer base {
@@ -108,15 +108,15 @@
     box-sizing: border-box;
   }
   html {
-    background-color: #040814;
-    overflow-x: hidden;
+    background-color: #040712;
+    overflow-x: clip;
     max-width: 100vw;
     width: 100%;
     font-family: var(--font-sans);
   }
   body {
     background-color: transparent;
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
     width: 100%;
     position: relative;

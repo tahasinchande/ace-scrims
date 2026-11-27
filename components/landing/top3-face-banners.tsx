@@ -8,7 +8,7 @@ import { formatDate, bdt } from "@/lib/format"
 import { Trophy, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Reveal, MaskedLineReveal, VisualReveal } from "@/components/site/reveal"
+import { Reveal, BlurTextReveal, VisualReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
 
 export type Top3BannerItem = {
   id: string
@@ -86,15 +86,16 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
           <Trophy className="size-4 text-amber-400" />
           <span>Official Victory Gallery</span>
         </Reveal>
-        <MaskedLineReveal delay={0.05} duration={0.6}>
-          <h2
-            id="top3-banners-heading"
-            className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
-          >
-            Top 3 Face Banners
-          </h2>
-        </MaskedLineReveal>
-        <Reveal delay={0.1} y={12} duration={0.5}>
+        <BlurTextReveal
+          as="h2"
+          id="top3-banners-heading"
+          text="Top 3 Face Banners"
+          delay={0.05}
+          wordStagger={0.045}
+          duration={0.68}
+          className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
+        />
+        <Reveal delay={0.14} y={14} duration={0.62}>
           <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
             Celebrating podium-winning squads from daily scrims with high-resolution original team face banners.
           </p>
@@ -115,9 +116,9 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
       {/* Centered Slideshow Stage */}
       <VisualReveal
         delay={0.08}
-        y={18}
-        duration={0.64}
-        initialScale={1.025}
+        y={22}
+        duration={0.78}
+        initialScale={0.965}
         className="relative w-full max-w-4xl flex flex-col items-center"
       >
         {/* Banner Slide Frame */}
@@ -138,10 +139,10 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentItem.id || currentIndex}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.45, ease: "easeInOut" }}
+              initial={{ opacity: 0, scale: 0.975, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: -6 }}
+              transition={{ duration: 0.48, ease: DEEPCHARTS_EASE }}
               className="w-full flex flex-col items-center"
             >
               {/* Natural Dimension Image Container */}

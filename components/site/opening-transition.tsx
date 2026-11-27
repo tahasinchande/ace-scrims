@@ -74,9 +74,9 @@ export function OpeningTransition() {
 }
 
 /**
- * Depth-settle page shell inspired by DeepCharts' crisp entrance choreography.
- * Starts at `opacity: 0.96` (never `0`) so SSR HTML is immediately legible and
- * can never stall invisible while settling cleanly in scale and Y depth.
+ * Crisp page shell inspired by DeepCharts' entrance choreography.
+ * Uses opacity-only (never `transform`) so `position: sticky` on the top navbar
+ * and Admin/Dashboard sidebars works reliably in every browser.
  */
 export function OpeningStage({
   children,
@@ -93,9 +93,9 @@ export function OpeningStage({
 
   return (
     <motion.div
-      initial={{ opacity: 0.88, y: 14, scale: 1.012 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.72, ease: DEEPCHARTS_EASE }}
+      initial={{ opacity: 0.9 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.65, ease: DEEPCHARTS_EASE }}
       className={className}
     >
       {children}

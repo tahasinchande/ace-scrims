@@ -24,24 +24,24 @@ export interface AmbientColorPhase {
   bgB: [number, number, number]
 }
 
-/** Deep obsidian night stage base (#030612) — crisp foreground readability */
-export const STAGE_BASE_RGB: [number, number, number] = [3, 6, 18]
-export const STAGE_BASE_NORM: [number, number, number] = [0.012, 0.024, 0.071]
+/** Deep obsidian night stage base (#040712) — crisp foreground readability */
+export const STAGE_BASE_RGB: [number, number, number] = [4, 7, 18]
+export const STAGE_BASE_NORM: [number, number, number] = [0.016, 0.027, 0.071]
 
 /** Alias kept for backwards compatibility */
 export const STAGE_BASE_2D_RGB: [number, number, number] = STAGE_BASE_RGB
 export const STAGE_BASE_2D_NORM: [number, number, number] = STAGE_BASE_NORM
 
 /**
- * Unified Color-Changing Spectrum (Identical across BOTH 2D & 3D modes):
- * - ALWAYS starts on Electric Blue / Cyan-Blue (Phase 0) on initial page load.
- * - Replaces all legacy orange/amber tones with blue-anchored cyber illumination.
- * - Smoothly cycles through Electric Blue -> Electric Cyan -> Cyber Violet -> Neon Orchid -> Luminous Azure -> Electric Blue
- *   while maintaining controlled obsidian contrast so text, lobby cards, and buttons stay sharp.
+ * Unified Dynamic Color-Changing Spectrum (Identical across BOTH 2D Ambient & 3D Cyber modes):
+ * - Phase 0 (INITIAL OPENING COLOR for BOTH 2D & 3D): Electric Blue (#1F73FF / #38BDF8 / #BFF0FF).
+ * - Transitions seamlessly into the signature November 23 Cyber Violet / Purple palette,
+ *   then through Neon Orchid, Electric Cyan, and Luminous Sapphire before looping back to Electric Blue.
+ * - Maintains controlled obsidian contrast across every phase so headings, cards, and buttons stay sharp.
  */
 export const AMBIENT_PHASES: AmbientColorPhase[] = [
   {
-    // Phase 0 (INITIAL LOAD DEFAULT): Electric Blue / Cyan-Blue (#1F73FF / #38BDF8 / #BFF0FF)
+    // Phase 0 (INITIAL LOAD DEFAULT — BLUE): Electric Blue / Ice Cyan (#1F73FF / #38BDF8 / #BFF0FF)
     name: "electric-blue",
     baseHue: 217 / 360,
     accentHue: 199 / 360,
@@ -50,16 +50,52 @@ export const AMBIENT_PHASES: AmbientColorPhase[] = [
     accentRgb: [56, 189, 248],
     softRgb: [191, 240, 255],
     deepRgb: [5, 16, 46],
-    glowRgb: [16, 68, 164],
-    bgWashRgb: [7, 24, 68],
+    glowRgb: [18, 72, 174],
+    bgWashRgb: [8, 26, 74],
     c1: [0.122, 0.451, 1.0],
     c2: [0.22, 0.741, 0.973],
     c3: [0.749, 0.941, 1.0],
-    glow: [0.063, 0.267, 0.643],
-    bgB: [0.027, 0.094, 0.267],
+    glow: [0.071, 0.282, 0.682],
+    bgB: [0.031, 0.102, 0.29],
   },
   {
-    // Phase 1: Electric Cyan / Arctic Teal (#06B6D4 / #22D3EE / #CFFAFE)
+    // Phase 1 (Nov 23 Signature): Cyber Violet / Deep Purple (#8C44D4 / #A78BFA / #E9D5FF)
+    name: "cyber-violet",
+    baseHue: 268 / 360,
+    accentHue: 255 / 360,
+    fillHue: 274 / 360,
+    primaryRgb: [140, 68, 212],
+    accentRgb: [167, 139, 250],
+    softRgb: [233, 213, 255],
+    deepRgb: [16, 8, 40],
+    glowRgb: [92, 42, 166],
+    bgWashRgb: [30, 14, 68],
+    c1: [0.549, 0.267, 0.831],
+    c2: [0.655, 0.545, 0.98],
+    c3: [0.914, 0.835, 1.0],
+    glow: [0.361, 0.165, 0.651],
+    bgB: [0.118, 0.055, 0.267],
+  },
+  {
+    // Phase 2: Neon Orchid / Amethyst Magenta (#B43CE6 / #E879F9 / #FAE8FF)
+    name: "neon-orchid",
+    baseHue: 285 / 360,
+    accentHue: 294 / 360,
+    fillHue: 272 / 360,
+    primaryRgb: [180, 60, 230],
+    accentRgb: [232, 121, 249],
+    softRgb: [250, 232, 255],
+    deepRgb: [22, 8, 38],
+    glowRgb: [106, 32, 148],
+    bgWashRgb: [40, 14, 64],
+    c1: [0.706, 0.235, 0.902],
+    c2: [0.91, 0.475, 0.976],
+    c3: [0.98, 0.91, 1.0],
+    glow: [0.416, 0.125, 0.58],
+    bgB: [0.157, 0.055, 0.251],
+  },
+  {
+    // Phase 3: Electric Cyan / Arctic Horizon (#06B6D4 / #22D3EE / #CFFAFE)
     name: "electric-cyan",
     baseHue: 189 / 360,
     accentHue: 186 / 360,
@@ -68,76 +104,40 @@ export const AMBIENT_PHASES: AmbientColorPhase[] = [
     accentRgb: [34, 211, 238],
     softRgb: [207, 250, 254],
     deepRgb: [4, 22, 38],
-    glowRgb: [12, 96, 134],
-    bgWashRgb: [6, 36, 60],
+    glowRgb: [14, 102, 142],
+    bgWashRgb: [6, 36, 62],
     c1: [0.024, 0.714, 0.831],
     c2: [0.133, 0.827, 0.933],
     c3: [0.812, 0.98, 0.996],
-    glow: [0.047, 0.376, 0.525],
-    bgB: [0.024, 0.141, 0.235],
+    glow: [0.055, 0.4, 0.557],
+    bgB: [0.024, 0.141, 0.243],
   },
   {
-    // Phase 2: Cyber Indigo / Electric Violet (#6366F1 / #A78BFA / #E0E7FF)
-    name: "cyber-violet",
-    baseHue: 245 / 360,
-    accentHue: 262 / 360,
-    fillHue: 235 / 360,
-    primaryRgb: [99, 102, 241],
-    accentRgb: [167, 139, 250],
-    softRgb: [224, 231, 255],
-    deepRgb: [12, 10, 42],
-    glowRgb: [56, 44, 152],
-    bgWashRgb: [22, 18, 72],
-    c1: [0.388, 0.4, 0.945],
-    c2: [0.655, 0.545, 0.98],
-    c3: [0.878, 0.906, 1.0],
-    glow: [0.22, 0.173, 0.596],
-    bgB: [0.086, 0.071, 0.282],
-  },
-  {
-    // Phase 3: Neon Orchid / Deep Magenta (#B832E8 / #E879F9 / #FAE8FF)
-    name: "neon-orchid",
-    baseHue: 286 / 360,
-    accentHue: 294 / 360,
-    fillHue: 274 / 360,
-    primaryRgb: [184, 50, 232],
-    accentRgb: [232, 121, 249],
-    softRgb: [250, 232, 255],
-    deepRgb: [22, 8, 38],
-    glowRgb: [96, 28, 132],
-    bgWashRgb: [40, 14, 62],
-    c1: [0.722, 0.196, 0.91],
-    c2: [0.91, 0.475, 0.976],
-    c3: [0.98, 0.91, 1.0],
-    glow: [0.376, 0.11, 0.518],
-    bgB: [0.157, 0.055, 0.243],
-  },
-  {
-    // Phase 4: Luminous Azure / Hyper Sapphire (#0284C7 / #60A5FA / #DBEAFE)
-    name: "luminous-azure",
-    baseHue: 205 / 360,
+    // Phase 4: Luminous Sapphire / Cobalt Indigo (#2563EB / #60A5FA / #DBEAFE)
+    name: "luminous-sapphire",
+    baseHue: 221 / 360,
     accentHue: 213 / 360,
-    fillHue: 222 / 360,
-    primaryRgb: [2, 132, 199],
+    fillHue: 232 / 360,
+    primaryRgb: [37, 99, 235],
     accentRgb: [96, 165, 250],
     softRgb: [219, 234, 254],
-    deepRgb: [5, 18, 46],
-    glowRgb: [14, 78, 148],
-    bgWashRgb: [8, 28, 68],
-    c1: [0.008, 0.518, 0.78],
+    deepRgb: [6, 16, 48],
+    glowRgb: [22, 68, 168],
+    bgWashRgb: [10, 26, 72],
+    c1: [0.145, 0.388, 0.922],
     c2: [0.376, 0.647, 0.98],
     c3: [0.859, 0.918, 0.996],
-    glow: [0.055, 0.306, 0.58],
-    bgB: [0.031, 0.11, 0.267],
+    glow: [0.086, 0.267, 0.659],
+    bgB: [0.039, 0.102, 0.282],
   },
 ]
 
 export const AMBIENT_PHASES_3D = AMBIENT_PHASES
 export const AMBIENT_PHASES_2D = AMBIENT_PHASES
 
-/** Smooth continuous cadence: 1.6s blue settle + 3.6s Hermite glide (5.2s per phase, 26s full loop). */
-export const PHASE_HOLD_SEC = 1.6
-export const PHASE_TRANSITION_SEC = 3.6
+/** Smooth continuous cadence: 2.2s Blue initial hold + 4.2s smoothstep glide (6.4s per phase, 32s full cycle). */
+export const PHASE_HOLD_SEC = 2.2
+export const PHASE_TRANSITION_SEC = 4.2
 export const PHASE_TOTAL_SEC = PHASE_HOLD_SEC + PHASE_TRANSITION_SEC
 
 function lerp(a: number, b: number, t: number): number {
@@ -197,7 +197,7 @@ export interface InterpolatedAmbientState {
 
 /**
  * Returns the synchronized color-changing phase at `elapsedSec`.
- * Identical across BOTH "2d" and "3d" modes, always starting on Electric Blue at elapsedSec = 0.
+ * Identical across BOTH "2d" and "3d" modes, always opening on Electric Blue at elapsedSec = 0.
  */
 export function getAmbientPhaseAt(
   elapsedSec: number,

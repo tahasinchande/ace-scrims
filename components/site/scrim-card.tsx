@@ -133,21 +133,25 @@ export function ScrimCard({
     el.style.setProperty("--splash-y", "35%")
   }
 
-  const staggerDelay = Math.min(index, 7) * 0.08
+  const staggerDelay = Math.min(index, 7) * 0.095
 
   return (
     <motion.div
       ref={wrapRef}
       onMouseMove={handlePointerMove}
       onMouseLeave={handlePointerLeave}
-      initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 24, scale: 0.972 }}
+      initial={
+        prefersReducedMotion
+          ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
+          : { opacity: 0, y: 26, scale: 0.975, filter: "blur(5px)" }
+      }
       animate={
         isVisible || prefersReducedMotion
-          ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y: 24, scale: 0.972 }
+          ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
+          : { opacity: 0, y: 26, scale: 0.975, filter: "blur(5px)" }
       }
       transition={{
-        duration: prefersReducedMotion ? 0 : 0.62,
+        duration: prefersReducedMotion ? 0 : 0.72,
         delay: prefersReducedMotion ? 0 : staggerDelay,
         ease: DEEPCHARTS_EASE,
       }}
@@ -334,7 +338,7 @@ export function ScrimCard({
               <motion.div
                 initial={{ width: prefersReducedMotion ? `${fillPercent}%` : 0 }}
                 animate={{ width: `${fillPercent}%` }}
-                transition={{ duration: prefersReducedMotion ? 0 : 0.6, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.64, ease: DEEPCHARTS_EASE }}
                 className={cn(
                   "h-full rounded-full",
                   status.tone === "full"

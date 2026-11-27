@@ -97,9 +97,9 @@ export function AnnouncementManager({
     enabled,
     badge: badge.trim(),
     accent,
-    text: text.trim() || "Tonight's Champion Rush Scrim — Extra ৳1,000 Bonus Prize Pool ends soon!",
+    text: text.trim() || "UP TO 40% BONUS PRIZE POOL ON TONIGHT'S CHAMPION RUSH",
     highlightText:
-      highlightText.trim() || (text.trim() ? "" : "Extra ৳1,000 Bonus Prize Pool"),
+      highlightText.trim() || (text.trim() ? "" : "40% BONUS"),
     ctaLabel: ctaLabel.trim() || (ctaUrl.trim() ? "Book Slot" : ""),
     ctaUrl: ctaUrl.trim() || (text.trim() ? "" : "/scrims"),
     countdownEnd: dateTimeLocalToIso(countdownLocal),
@@ -112,10 +112,10 @@ export function AnnouncementManager({
   function handleLoadDeepChartsPreset() {
     const tomorrowIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     setEnabled(true)
-    setBadge("LIMITED OFFER")
+    setBadge("Special Event")
     setAccent("amber")
-    setText("Tonight's Champion Rush Scrim — Extra ৳1,000 Bonus Prize Pool ends soon!")
-    setHighlightText("Extra ৳1,000 Bonus Prize Pool")
+    setText("UP TO 40% BONUS PRIZE POOL ON TONIGHT'S CHAMPION RUSH")
+    setHighlightText("40% BONUS")
     setCtaLabel("Book Slot")
     setCtaUrl("/scrims")
     setCountdownLocal(isoToDateTimeLocal(tomorrowIso))
@@ -197,7 +197,7 @@ export function AnnouncementManager({
               Top Ad &amp; Announcement Showcase
             </h2>
             <p className="text-xs text-muted-foreground">
-              DeepCharts-style top promo strip rendered above site navigation with customizable badge, inline highlighted text, segmented live countdown timer, CTA button, and schedule window.
+              Clean DeepCharts-style editorial promo bar rendered above site navigation with metallic event mark, inline highlighted text, stacked tabular countdown columns, understated CTA link, and schedule window.
             </p>
           </div>
 
@@ -250,13 +250,13 @@ export function AnnouncementManager({
         {/* Content, Badge & Inline Highlight */}
         <div className="grid gap-4 md:grid-cols-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="top-ad-badge">Badge / Pill Label</Label>
+            <Label htmlFor="top-ad-badge">Center Event Mark</Label>
             <Input
               id="top-ad-badge"
               value={badge}
               onChange={(e) => setBadge(e.target.value)}
               maxLength={32}
-              placeholder="e.g. LIMITED OFFER, LIVE EVENT"
+              placeholder="e.g. Special Event, Champion Rush"
             />
           </div>
 
@@ -363,7 +363,7 @@ export function AnnouncementManager({
               onChange={(e) => setCountdownLocal(e.target.value)}
             />
             <span className="text-[11px] text-muted-foreground">
-              Displays segmented tabular countdown boxes (d : h : m : s).
+              Displays clean stacked tabular countdown columns (Days / Hours / Min / Sec).
             </span>
           </div>
 

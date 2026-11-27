@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence, useReducedMotion } from "motion/react"
-import { ArrowRight, Megaphone, X } from "lucide-react"
+import { ChevronRight, X } from "lucide-react"
 import {
   formatTopAdCountdown,
   getTopAdCountdownParts,
@@ -19,95 +19,54 @@ import { cn } from "@/lib/utils"
 const ACCENT_STYLES: Record<
   TopAdAccent,
   {
-    bar: string
-    sheen: string
-    badge: string
-    dot: string
+    glow: string
+    mark: string
     highlight: string
-    chip: string
-    chipUnit: string
-    colon: string
-    cta: string
-    glowLine: string
+    divider: string
+    ctaHover: string
   }
 > = {
   amber: {
-    bar: "border-amber-400/25 bg-[#0d0a06]/96",
-    sheen:
-      "radial-gradient(65% 180% at 50% 0%, rgba(245, 158, 11, 0.17) 0%, rgba(180, 83, 9, 0.06) 55%, transparent 100%)",
-    badge: "border-amber-400/45 bg-amber-500/18 text-amber-200 shadow-[0_0_16px_rgba(245,158,11,0.16)]",
-    dot: "bg-amber-400",
-    highlight: "text-amber-300",
-    chip: "border-amber-400/28 bg-[#1b1409]/95 text-amber-100",
-    chipUnit: "text-amber-300/75",
-    colon: "text-amber-400/65",
-    cta: "border-amber-300/50 bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 hover:from-amber-300 hover:to-amber-400 shadow-[0_6px_18px_-6px_rgba(245,158,11,0.65)]",
-    glowLine: "from-transparent via-amber-400/85 to-transparent",
+    glow: "radial-gradient(38% 150% at 50% 50%, rgba(245, 166, 35, 0.24) 0%, rgba(180, 92, 14, 0.08) 54%, transparent 100%)",
+    mark: "from-[#fff3d1] via-[#f5a623] to-[#b45309]",
+    highlight: "text-[#F5A623]",
+    divider: "bg-amber-400/20",
+    ctaHover: "hover:border-amber-300/35 hover:bg-amber-400/[0.10] hover:text-amber-100",
   },
   blue: {
-    bar: "border-blue-400/28 bg-[#050a18]/96",
-    sheen:
-      "radial-gradient(65% 180% at 50% 0%, rgba(31, 115, 255, 0.22) 0%, rgba(56, 189, 248, 0.08) 55%, transparent 100%)",
-    badge: "border-blue-400/45 bg-blue-500/20 text-blue-100 shadow-[0_0_16px_rgba(31,115,255,0.22)]",
-    dot: "bg-sky-400",
-    highlight: "text-sky-300",
-    chip: "border-blue-400/30 bg-[#08132b]/95 text-blue-50",
-    chipUnit: "text-sky-300/80",
-    colon: "text-sky-400/65",
-    cta: "border-sky-300/45 bg-gradient-to-r from-[#1f73ff] to-[#38bdf8] text-white hover:brightness-110 shadow-[0_6px_18px_-6px_rgba(31,115,255,0.72)]",
-    glowLine: "from-transparent via-sky-400/85 to-transparent",
+    glow: "radial-gradient(38% 150% at 50% 50%, rgba(31, 115, 255, 0.26) 0%, rgba(56, 189, 248, 0.08) 54%, transparent 100%)",
+    mark: "from-[#e0f2fe] via-[#60a5fa] to-[#1d4ed8]",
+    highlight: "text-[#60A5FA]",
+    divider: "bg-sky-400/20",
+    ctaHover: "hover:border-sky-300/35 hover:bg-sky-400/[0.10] hover:text-sky-100",
   },
   cyan: {
-    bar: "border-cyan-400/28 bg-[#050e17]/96",
-    sheen:
-      "radial-gradient(65% 180% at 50% 0%, rgba(6, 182, 212, 0.20) 0%, rgba(34, 211, 238, 0.06) 55%, transparent 100%)",
-    badge: "border-cyan-400/45 bg-cyan-500/20 text-cyan-100",
-    dot: "bg-cyan-400",
-    highlight: "text-cyan-300",
-    chip: "border-cyan-400/30 bg-[#071926]/95 text-cyan-50",
-    chipUnit: "text-cyan-300/80",
-    colon: "text-cyan-400/65",
-    cta: "border-cyan-300/45 bg-gradient-to-r from-cyan-400 to-sky-400 text-slate-950 hover:brightness-105 shadow-[0_6px_18px_-6px_rgba(34,211,238,0.62)]",
-    glowLine: "from-transparent via-cyan-400/85 to-transparent",
+    glow: "radial-gradient(38% 150% at 50% 50%, rgba(6, 182, 212, 0.25) 0%, rgba(34, 211, 238, 0.08) 54%, transparent 100%)",
+    mark: "from-[#cffafe] via-[#22d3ee] to-[#0284c7]",
+    highlight: "text-[#22D3EE]",
+    divider: "bg-cyan-400/20",
+    ctaHover: "hover:border-cyan-300/35 hover:bg-cyan-400/[0.10] hover:text-cyan-100",
   },
   violet: {
-    bar: "border-[#9B5DE5]/30 bg-[#0a0714]/96",
-    sheen:
-      "radial-gradient(65% 180% at 50% 0%, rgba(139, 92, 246, 0.22) 0%, rgba(107, 47, 168, 0.08) 55%, transparent 100%)",
-    badge: "border-[#9B5DE5]/45 bg-[#6B2FA8]/30 text-[#efe4ff]",
-    dot: "bg-[#c084fc]",
-    highlight: "text-[#d8b4fe]",
-    chip: "border-[#8C44D4]/32 bg-[#160d29]/95 text-[#f3e8ff]",
-    chipUnit: "text-[#c4b5fd]/80",
-    colon: "text-[#a78bfa]/70",
-    cta: "border-[#c084fc]/45 bg-gradient-to-r from-[#7c3aed] to-[#9b5de5] text-white hover:brightness-110 shadow-[0_6px_18px_-6px_rgba(139,92,246,0.68)]",
-    glowLine: "from-transparent via-[#a855f7]/85 to-transparent",
+    glow: "radial-gradient(38% 150% at 50% 50%, rgba(140, 68, 212, 0.28) 0%, rgba(107, 47, 168, 0.09) 54%, transparent 100%)",
+    mark: "from-[#f3e8ff] via-[#c084fc] to-[#7e22ce]",
+    highlight: "text-[#C084FC]",
+    divider: "bg-purple-400/20",
+    ctaHover: "hover:border-purple-300/35 hover:bg-purple-400/[0.10] hover:text-purple-100",
   },
   crimson: {
-    bar: "border-[#D9536F]/32 bg-[#12070c]/96",
-    sheen:
-      "radial-gradient(65% 180% at 50% 0%, rgba(217, 83, 111, 0.22) 0%, rgba(159, 18, 57, 0.08) 55%, transparent 100%)",
-    badge: "border-[#D9536F]/50 bg-[#D9536F]/22 text-[#ffe4e6]",
-    dot: "bg-[#fb7185]",
-    highlight: "text-[#fda4af]",
-    chip: "border-[#D9536F]/35 bg-[#220c14]/95 text-[#ffe4e6]",
-    chipUnit: "text-[#fda4af]/80",
-    colon: "text-[#fb7185]/70",
-    cta: "border-rose-300/45 bg-gradient-to-r from-[#e11d48] to-[#f43f5e] text-white hover:brightness-110 shadow-[0_6px_18px_-6px_rgba(244,63,94,0.65)]",
-    glowLine: "from-transparent via-[#fb7185]/85 to-transparent",
+    glow: "radial-gradient(38% 150% at 50% 50%, rgba(217, 83, 111, 0.28) 0%, rgba(159, 18, 57, 0.09) 54%, transparent 100%)",
+    mark: "from-[#ffe4e6] via-[#fb7185] to-[#be123c]",
+    highlight: "text-[#FB7185]",
+    divider: "bg-rose-400/20",
+    ctaHover: "hover:border-rose-300/35 hover:bg-rose-400/[0.10] hover:text-rose-100",
   },
   emerald: {
-    bar: "border-emerald-400/28 bg-[#06110d]/96",
-    sheen:
-      "radial-gradient(65% 180% at 50% 0%, rgba(16, 185, 129, 0.20) 0%, rgba(5, 150, 105, 0.06) 55%, transparent 100%)",
-    badge: "border-emerald-400/45 bg-emerald-500/20 text-emerald-100",
-    dot: "bg-emerald-400",
-    highlight: "text-emerald-300",
-    chip: "border-emerald-400/30 bg-[#081d16]/95 text-emerald-50",
-    chipUnit: "text-emerald-300/80",
-    colon: "text-emerald-400/65",
-    cta: "border-emerald-300/45 bg-gradient-to-r from-emerald-400 to-teal-400 text-zinc-950 hover:brightness-105 shadow-[0_6px_18px_-6px_rgba(16,185,129,0.62)]",
-    glowLine: "from-transparent via-emerald-400/85 to-transparent",
+    glow: "radial-gradient(38% 150% at 50% 50%, rgba(16, 185, 129, 0.24) 0%, rgba(5, 150, 105, 0.08) 54%, transparent 100%)",
+    mark: "from-[#d1fae5] via-[#34d399] to-[#047857]",
+    highlight: "text-[#34D399]",
+    divider: "bg-emerald-400/20",
+    ctaHover: "hover:border-emerald-300/35 hover:bg-emerald-400/[0.10] hover:text-emerald-100",
   },
 }
 
@@ -130,7 +89,7 @@ function renderHighlightedPromoText(
     return (
       <>
         <span>{cleanText}</span>{" "}
-        <strong className={cn("font-bold", highlightClass)}>{cleanHighlight}</strong>
+        <span className={cn("font-extrabold", highlightClass)}>{cleanHighlight}</span>
       </>
     )
   }
@@ -142,7 +101,7 @@ function renderHighlightedPromoText(
   return (
     <>
       {before}
-      <strong className={cn("font-bold", highlightClass)}>{match}</strong>
+      <span className={cn("font-extrabold", highlightClass)}>{match}</span>
       {after}
     </>
   )
@@ -228,14 +187,16 @@ export function TopAdShowcase({
     }
   }
 
-  const countdownSegments = countdownParts
+  const countdownColumns = countdownParts
     ? [
-        ...(countdownParts.hasDays ? [{ value: countdownParts.days, unit: "d" }] : []),
-        { value: countdownParts.hours, unit: "h" },
-        { value: countdownParts.minutes, unit: "m" },
-        { value: countdownParts.seconds, unit: "s" },
+        ...(countdownParts.hasDays ? [{ value: countdownParts.days, label: "Days" }] : []),
+        { value: countdownParts.hours, label: "Hours" },
+        { value: countdownParts.minutes, label: "Min" },
+        { value: countdownParts.seconds, label: "Sec" },
       ]
     : []
+
+  const hasCenterMark = Boolean(config.badge.trim())
 
   return (
     <AnimatePresence initial={!preview}>
@@ -243,50 +204,25 @@ export function TopAdShowcase({
         key={`top-ad-${config.version}`}
         role="region"
         aria-label="Site announcement"
-        initial={prefersReducedMotion || preview ? { opacity: 1, y: 0 } : { opacity: 0, y: -12 }}
+        initial={prefersReducedMotion || preview ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.36, ease: DEEPCHARTS_EASE }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.42, ease: DEEPCHARTS_EASE }}
         className={cn(
-          "relative z-50 w-full border-b backdrop-blur-2xl transition-colors duration-200 overflow-hidden",
-          accentStyle.bar,
-          preview && "rounded-xl border"
+          "relative z-50 w-full border-b border-white/[0.08] bg-[#050507]/96 text-zinc-100 backdrop-blur-xl overflow-hidden",
+          preview && "rounded-xl border border-white/[0.09]"
         )}
       >
-        {/* DeepCharts-style radial luminous sheen */}
+        {/* Focused DeepCharts-style warm/accent radial glow centered behind the event mark */}
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: accentStyle.sheen }}
+          style={{ background: accentStyle.glow }}
           aria-hidden="true"
         />
 
-        {/* Subtle top shimmer accent hairline */}
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r",
-            accentStyle.glowLine
-          )}
-          aria-hidden="true"
-        />
-
-        <div className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-2 sm:px-6 pr-10 sm:pr-12">
-          {/* Highlighted Keyword / Badge */}
-          {config.badge.trim() ? (
-            <span
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.09em]",
-                accentStyle.badge
-              )}
-            >
-              <span className={cn("size-1.5 rounded-full animate-pulse", accentStyle.dot)} aria-hidden="true" />
-              {config.badge.trim()}
-            </span>
-          ) : (
-            <Megaphone className="size-3.5 shrink-0 text-slate-300" aria-hidden="true" />
-          )}
-
-          {/* Promo / Announcement Text with DeepCharts-style inline highlighted phrase */}
-          <p className="text-center text-xs sm:text-[13px] font-medium text-slate-100/95 leading-snug text-pretty">
+        <div className="relative mx-auto flex min-h-[44px] max-w-7xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 py-2 sm:px-6 lg:justify-between pr-10 sm:pr-12">
+          {/* Left Zone: Sharp Unboxed Promo Copy */}
+          <p className="text-center lg:text-left text-[12px] sm:text-[13px] font-bold tracking-[0.025em] text-zinc-100/95 leading-snug text-pretty">
             {renderHighlightedPromoText(
               config.text,
               config.highlightText,
@@ -294,72 +230,95 @@ export function TopAdShowcase({
             )}
           </p>
 
-          {/* DeepCharts-style Segmented Tabular Countdown Boxes */}
-          {countdownSegments.length > 0 && (
-            <div
-              className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] font-semibold tabular-nums"
-              aria-label={countdownAria ? `Ends in ${countdownAria}` : "Countdown active"}
-            >
-              {countdownSegments.map((seg, i) => (
-                <span key={seg.unit} className="inline-flex items-center gap-1">
-                  <span
-                    className={cn(
-                      "inline-flex items-baseline gap-0.5 rounded-md border px-1.5 py-0.5 leading-none shadow-inner",
-                      accentStyle.chip
-                    )}
-                  >
-                    <span>{seg.value}</span>
-                    <span className={cn("text-[9px] font-bold uppercase", accentStyle.chipUnit)}>
-                      {seg.unit}
-                    </span>
-                  </span>
-                  {i < countdownSegments.length - 1 && (
-                    <span className={cn("text-[10px] font-bold", accentStyle.colon)} aria-hidden="true">
-                      :
-                    </span>
-                  )}
-                </span>
-              ))}
+          {/* Center Zone: Unboxed Metallic Editorial Event Mark (DeepCharts centerpiece lockup) */}
+          {hasCenterMark && (
+            <div className="flex shrink-0 items-center gap-3">
+              <span
+                className={cn("hidden lg:block h-3.5 w-px", accentStyle.divider)}
+                aria-hidden="true"
+              />
+              <span
+                className={cn(
+                  "font-display text-[15px] sm:text-[17px] font-extrabold tracking-tight leading-none bg-gradient-to-b bg-clip-text text-transparent select-none",
+                  accentStyle.mark
+                )}
+              >
+                {config.badge.trim()}
+              </span>
+              <span
+                className={cn("hidden lg:block h-3.5 w-px", accentStyle.divider)}
+                aria-hidden="true"
+              />
             </div>
           )}
 
-          {/* Compact High-Contrast Action CTA Link */}
-          {safeCtaUrl && (
-            isExternalCta ? (
-              <a
-                href={safeCtaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  "group inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold tracking-tight transition-all duration-200 hover:-translate-y-px active:scale-[0.97]",
-                  accentStyle.cta
-                )}
-              >
-                <span>{config.ctaLabel.trim() || "Learn More"}</span>
-                <ArrowRight className="size-3 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-              </a>
-            ) : (
-              <Link
-                href={safeCtaUrl}
-                className={cn(
-                  "group inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold tracking-tight transition-all duration-200 hover:-translate-y-px active:scale-[0.97]",
-                  accentStyle.cta
-                )}
-              >
-                <span>{config.ctaLabel.trim() || "Learn More"}</span>
-                <ArrowRight className="size-3 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-            )
+          {/* Right Zone: Stacked Unboxed Tabular Countdown + Understated Hairline Action */}
+          {(countdownColumns.length > 0 || safeCtaUrl) && (
+            <div className="flex shrink-0 flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
+              {countdownColumns.length > 0 && (
+                <div
+                  className="inline-flex items-center gap-3.5 sm:gap-4"
+                  aria-label={countdownAria ? `Ends in ${countdownAria}` : "Countdown active"}
+                >
+                  {countdownColumns.map((col) => (
+                    <div
+                      key={col.label}
+                      className="flex flex-col items-center justify-center leading-none"
+                    >
+                      <span className="font-sans text-[15px] sm:text-[16px] font-bold tracking-tight text-white tabular-nums">
+                        {col.value}
+                      </span>
+                      <span className="mt-0.5 text-[9px] font-medium tracking-[0.04em] text-zinc-400">
+                        {col.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {safeCtaUrl &&
+                (isExternalCta ? (
+                  <a
+                    href={safeCtaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "group inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold tracking-tight text-zinc-100 transition-all duration-200 active:scale-[0.98]",
+                      accentStyle.ctaHover
+                    )}
+                  >
+                    <span>{config.ctaLabel.trim() || "Learn More"}</span>
+                    <ChevronRight
+                      className="size-3 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-current"
+                      aria-hidden="true"
+                    />
+                  </a>
+                ) : (
+                  <Link
+                    href={safeCtaUrl}
+                    className={cn(
+                      "group inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold tracking-tight text-zinc-100 transition-all duration-200 active:scale-[0.98]",
+                      accentStyle.ctaHover
+                    )}
+                  >
+                    <span>{config.ctaLabel.trim() || "Learn More"}</span>
+                    <ChevronRight
+                      className="size-3 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-current"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                ))}
+            </div>
           )}
         </div>
 
-        {/* Dismiss Button */}
+        {/* Quiet Dismiss Button */}
         {config.dismissible && !preview && (
           <button
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss announcement"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex size-6 items-center justify-center rounded-md text-slate-400 hover:bg-white/[0.08] hover:text-white transition-colors duration-150 cursor-pointer"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex size-6 items-center justify-center rounded-md text-zinc-500 hover:bg-white/[0.07] hover:text-zinc-200 transition-colors duration-150 cursor-pointer"
           >
             <X className="size-3.5" />
           </button>

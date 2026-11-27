@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-export const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
+export const DEEPCHARTS_EASE = [0.22, 1, 0.36, 1] as const
 
 export type IntroTiming = {
   headerDelay: number
@@ -13,12 +13,12 @@ export type IntroTiming = {
   visualDuration: number
 }
 
-// Fresh page-load choreography inspired by DeepCharts: crisp, smooth, unmistakable entrance
+// Fresh page-load choreography matching DeepCharts: crisp, smooth, unmistakable blur-to-sharp entrance
 const FRESH_LOAD_TIMING: IntroTiming = {
   headerDelay: 0.03,
-  heroBaseDelay: 0.06,
-  heroStagger: 0.09,
-  heroDuration: 0.72,
+  heroBaseDelay: 0.05,
+  heroStagger: 0.095,
+  heroDuration: 0.74,
   visualDelay: 0.14,
   visualDuration: 0.84,
 }

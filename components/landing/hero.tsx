@@ -17,7 +17,7 @@ import { BRAND } from "@/lib/brand"
 import { useFirstVisitIntro } from "@/lib/intro-motion"
 import {
   Reveal,
-  MaskedLineReveal,
+  BlurTextReveal,
   VisualReveal,
   RevealStagger,
   RevealItem,
@@ -120,7 +120,7 @@ export function Hero({
                       ? "rushx-primary-btn text-white"
                       : "text-slate-300 hover:text-white"
                   }`}
-                  title="Switch to 2D Ambient Mode (Color-Shifting Only)"
+                  title="Switch to 2D Ambient Mode"
                 >
                   <Layers className="size-3.5" />
                   2D Ambient
@@ -141,13 +141,13 @@ export function Hero({
               </div>
             </Reveal>
 
-            {/* Phase 2: Primary H1 — Oversized RushX ORGANIZATION brand centerpiece with editorial scale settle */}
+            {/* Phase 2: Primary H1 — Oversized RushX ORGANIZATION brand centerpiece with editorial blur-to-sharp settle */}
             <VisualReveal
               immediate
               delay={timing.visualDelay}
               duration={timing.visualDuration}
               y={22}
-              initialScale={1.045}
+              initialScale={0.965}
             >
               <h1 className="font-display font-black leading-none tracking-tight">
                 <span className="sr-only">{t("hero_title", BRAND.name)}</span>
@@ -162,17 +162,16 @@ export function Hero({
               </h1>
             </VisualReveal>
 
-            {/* Phase 3: Masked typography slide-up on Subheadline H2 */}
-            <MaskedLineReveal
+            {/* Phase 3: DeepCharts-style blur-to-sharp staggered word reveal on Subheadline H2 */}
+            <BlurTextReveal
               immediate
-              delay={timing.heroBaseDelay + timing.heroStagger * 2}
+              as="h2"
+              text={t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
+              delay={timing.heroBaseDelay + timing.heroStagger * 1.8}
+              wordStagger={0.045}
               duration={timing.heroDuration}
-              className="mt-3"
-            >
-              <h2 className="font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]">
-                {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
-              </h2>
-            </MaskedLineReveal>
+              className="mt-3 font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]"
+            />
 
             {/* Phase 4: Body copy */}
             <Reveal
@@ -229,7 +228,7 @@ export function Hero({
               <span className="text-xs text-slate-300/80 hidden sm:inline-flex items-center gap-1.5 pl-1">
                 Mode:{" "}
                 <strong className="font-semibold text-white">
-                  {mode === "2d" ? "2D Ambient (Color-Shift)" : "3D Cyber Experience"}
+                  {mode === "2d" ? "2D Ambient" : "3D Cyber Experience"}
                 </strong>
               </span>
             </Reveal>
@@ -237,8 +236,8 @@ export function Hero({
             {/* Phase 6: Staggered Live Admin-Synced Stats Strip */}
             <RevealStagger
               immediate
-              delay={timing.heroBaseDelay + timing.heroStagger * 4.8}
-              stagger={0.075}
+              delay={timing.heroBaseDelay + timing.heroStagger * 4.6}
+              stagger={0.09}
               className="mt-10 max-w-xl"
             >
               <dl className="grid grid-cols-3 gap-3 sm:gap-4">

@@ -91,12 +91,80 @@ export function useReliableOnceReveal(
   return Boolean(reduced) || revealed
 }
 
+/**
+ * DeepCharts-style blur-to-sharp word-by-word heading reveal
+ * (matching the crisp staggered text resolution in deepcharts.com).
+ */
+export function BlurTextReveal({
+  text,
+  as = "h2",
+  id,
+  className,
+  delay = 0,
+  wordStagger = 0.045,
+  duration = 0.68,
+  immediate = false,
+}: {
+  text: string
+  as?: "h1" | "h2" | "h3" | "p" | "span"
+  id?: string
+  className?: string
+  delay?: number
+  wordStagger?: number
+  duration?: number
+  immediate?: boolean
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = useReducedMotion()
+  const isVisible = useReliableOnceReveal(ref, prefersReducedMotion, immediate)
+  const Tag = as
+  const words = text.trim().split(/\s+/).filter(Boolean)
+
+  if (prefersReducedMotion || words.length === 0) {
+    return (
+      <div ref={ref}>
+        <Tag id={id} className={className}>
+          {text}
+        </Tag>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={ref}>
+      <Tag id={id} className={className}>
+        {words.map((word, index) => (
+          <span key={`${word}-${index}`} className="inline-block whitespace-pre">
+            <motion.span
+              className="inline-block will-change-[transform,opacity,filter]"
+              initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
+              animate={
+                isVisible
+                  ? { opacity: 1, y: 0, filter: "blur(0px)" }
+                  : { opacity: 0, y: 14, filter: "blur(8px)" }
+              }
+              transition={{
+                duration,
+                delay: delay + Math.min(index, 12) * wordStagger,
+                ease: DEEPCHARTS_EASE,
+              }}
+            >
+              {word}
+            </motion.span>
+            {index < words.length - 1 ? " " : ""}
+          </span>
+        ))}
+      </Tag>
+    </div>
+  )
+}
+
 export function Reveal({
   children,
   className,
   delay = 0,
-  y = 24,
-  duration = 0.64,
+  y = 18,
+  duration = 0.68,
   immediate = false,
 }: {
   children: ReactNode
@@ -117,8 +185,12 @@ export function Reveal({
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y, scale: 0.974 }}
-      animate={isVisible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y, scale: 0.974 }}
+      initial={{ opacity: 0, y, scale: 0.985, filter: "blur(5px)" }}
+      animate={
+        isVisible
+          ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
+          : { opacity: 0, y, scale: 0.985, filter: "blur(5px)" }
+      }
       transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
       className={className}
     >
@@ -128,8 +200,8 @@ export function Reveal({
 }
 
 /**
- * DeepCharts-inspired masked typography slide-up reveal.
- * Clips vertical overflow while sliding headlines cleanly into place without bounce.
+ * DeepCharts-inspired masked typography slide-up + blur-resolve reveal.
+ * Clips vertical overflow while sliding headlines cleanly into sharp focus without bounce.
  */
 export function MaskedLineReveal({
   children,
@@ -155,10 +227,14 @@ export function MaskedLineReveal({
   }
 
   return (
-    <div ref={ref} className={cn("overflow-hidden", className)}>
+    <div ref={ref} className={cn("overflow-hidden py-0.5", className)}>
       <motion.div
-        initial={{ opacity: 0, y: "105%" }}
-        animate={isVisible ? { opacity: 1, y: "0%" } : { opacity: 0, y: "105%" }}
+        initial={{ opacity: 0, y: "104%", filter: "blur(6px)" }}
+        animate={
+          isVisible
+            ? { opacity: 1, y: "0%", filter: "blur(0px)" }
+            : { opacity: 0, y: "104%", filter: "blur(6px)" }
+        }
         transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
         className={innerClassName}
       >
@@ -170,7 +246,7 @@ export function MaskedLineReveal({
 
 /**
  * Editorial visual/media reveal for hero centerpiece, showcase photography, and victory banners.
- * Uses smooth scale settling + vertical glide for a crisp, hardware-accelerated feel.
+ * Uses smooth blur-to-sharp depth-scale settling + vertical glide matching DeepCharts.
  */
 export function VisualReveal({
   children,
@@ -178,7 +254,7 @@ export function VisualReveal({
   delay = 0,
   duration = 0.78,
   y = 22,
-  initialScale = 1.055,
+  initialScale = 0.965,
   immediate = false,
 }: {
   children: ReactNode
@@ -200,8 +276,12 @@ export function VisualReveal({
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y, scale: initialScale }}
-      animate={isVisible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y, scale: initialScale }}
+      initial={{ opacity: 0, y, scale: initialScale, filter: "blur(6px)" }}
+      animate={
+        isVisible
+          ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
+          : { opacity: 0, y, scale: initialScale, filter: "blur(6px)" }
+      }
       transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
       className={className}
     >
@@ -213,7 +293,7 @@ export function VisualReveal({
 export function RevealStagger({
   children,
   className,
-  stagger = 0.08,
+  stagger = 0.095,
   delay = 0.04,
   immediate = false,
 }: {
@@ -255,8 +335,8 @@ export function RevealStagger({
 export function RevealItem({
   children,
   className,
-  y = 22,
-  duration = 0.58,
+  y = 24,
+  duration = 0.72,
 }: {
   children: ReactNode
   className?: string
@@ -272,11 +352,12 @@ export function RevealItem({
   return (
     <motion.div
       variants={{
-        hidden: { opacity: 0, y, scale: 0.974 },
+        hidden: { opacity: 0, y, scale: 0.975, filter: "blur(5px)" },
         show: {
           opacity: 1,
           y: 0,
           scale: 1,
+          filter: "blur(0px)",
           transition: {
             duration,
             ease: DEEPCHARTS_EASE,
@@ -310,9 +391,9 @@ export function PageTransition({
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0.88, y: 12 }}
+      initial={{ opacity: 0.9, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.42, ease: DEEPCHARTS_EASE }}
+      transition={{ duration: 0.44, ease: DEEPCHARTS_EASE }}
       className={className}
     >
       {children}

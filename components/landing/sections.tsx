@@ -25,7 +25,7 @@ import { useLanguage } from "@/lib/language"
 import { LiveSupportButton } from "@/components/site/live-support-button"
 import {
   Reveal,
-  MaskedLineReveal,
+  BlurTextReveal,
   VisualReveal,
   RevealStagger,
   RevealItem,
@@ -60,13 +60,16 @@ export function SectionHeading({
           }}
         />
       </Reveal>
-      <MaskedLineReveal delay={0.05} duration={0.6}>
-        <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground">
-          {title}
-        </h2>
-      </MaskedLineReveal>
+      <BlurTextReveal
+        as="h2"
+        text={title}
+        delay={0.05}
+        wordStagger={0.045}
+        duration={0.68}
+        className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl text-foreground"
+      />
       {subtitle && (
-        <Reveal delay={0.1} y={12} duration={0.52}>
+        <Reveal delay={0.14} y={14} duration={0.62}>
           <p className="mt-3.5 text-sm sm:text-base text-muted-foreground leading-relaxed text-pretty">
             {subtitle}
           </p>
@@ -143,14 +146,15 @@ export function Features({ showcase }: { showcase?: LiveShowcaseSummary }) {
         subtitle={t("features_subtitle", "Everything a competitive Free Fire team needs — automated, transparent and fast.")}
       />
       <RevealStagger
-        stagger={0.055}
+        stagger={0.09}
         delay={0.04}
         className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 relative z-10"
       >
         {features.map((f) => (
           <RevealItem
             key={f.title}
-            y={18}
+            y={24}
+            duration={0.7}
             className="dc-surface dc-card-hover rushx-box-splash group relative rounded-2xl p-6 overflow-hidden"
           >
             <div
@@ -249,9 +253,9 @@ export function HowItWorks({ showcase }: { showcase?: LiveShowcaseSummary }) {
           {steps.map((s, i) => (
             <li key={s.step} className="h-full">
               <Reveal
-                delay={i * 0.065}
-                y={18}
-                duration={0.52}
+                delay={i * 0.09}
+                y={24}
+                duration={0.7}
                 className="dc-surface dc-card-hover rushx-box-splash group relative h-full rounded-2xl p-6 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div
@@ -307,9 +311,9 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
     <section className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="why-heading">
       <div className="grid items-center gap-10 lg:grid-cols-2">
         <VisualReveal
-          duration={0.68}
-          y={18}
-          initialScale={1.035}
+          duration={0.78}
+          y={22}
+          initialScale={0.965}
           className="relative order-2 h-96 sm:h-[460px] md:h-[520px] lg:h-[560px] overflow-hidden rounded-3xl lg:order-1 shadow-2xl border border-[rgba(var(--rushx-soft-rgb),0.18)] bg-[#050a18] group"
         >
           <Image
@@ -343,11 +347,14 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
               {t("features_eyebrow", "Why Choose Us")}
             </p>
           </Reveal>
-          <MaskedLineReveal delay={0.05} duration={0.62}>
-            <h2 className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl">
-              {t("features_title", "The lobby where grinders become champions")}
-            </h2>
-          </MaskedLineReveal>
+          <BlurTextReveal
+            as="h2"
+            text={t("features_title", "The lobby where grinders become champions")}
+            delay={0.05}
+            wordStagger={0.045}
+            duration={0.68}
+            className="font-display text-3xl font-bold tracking-tight text-balance md:text-4xl"
+          />
           <ul className="mt-8 flex flex-col gap-5">
             {[
               [t("feat1_title", "Zero manual verification"), t("feat1_body", "Payments confirm instantly through automated gateway.")],
@@ -459,9 +466,14 @@ export function Contact({ settings }: { settings?: { discordUrl?: string; facebo
                 {t("contact_eyebrow", "Support")}
               </p>
             </div>
-            <h2 className="font-display text-3xl font-bold tracking-tight text-balance text-foreground">
-              {t("contact_title", "Need Help? Talk to RushX Support")}
-            </h2>
+            <BlurTextReveal
+              as="h2"
+              text={t("contact_title", "Need Help? Talk to RushX Support")}
+              delay={0.04}
+              wordStagger={0.045}
+              duration={0.68}
+              className="font-display text-3xl font-bold tracking-tight text-balance text-foreground"
+            />
             <p className="mt-3.5 text-sm sm:text-base leading-relaxed text-muted-foreground text-pretty">
               {t("contact_subtitle", "Connect with our team directly via Live Support or WhatsApp.")}
             </p>

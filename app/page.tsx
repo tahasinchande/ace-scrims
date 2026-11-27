@@ -103,7 +103,7 @@ export default async function HomePage() {
   return (
     <>
       <SiteHeader user={user ? { name: user.name, role: user.role } : null} settings={settings} />
-      <main className="w-full max-w-full overflow-x-hidden flex-1">
+      <main className="w-full max-w-full overflow-x-clip flex-1">
         <Hero stats={stats} showcase={showcase} />
 
         <section id="schedule" className="mx-auto max-w-6xl px-4 py-20 md:px-6 scroll-mt-20" aria-labelledby="tonight-heading">
