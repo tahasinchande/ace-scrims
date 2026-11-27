@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 import { useViewMode } from "@/lib/view-mode"
 import {
   applyAmbientThemeToRoot,
@@ -146,27 +145,8 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string):
 }
 
 /**
- * Detect software WebGL (SwiftShader, llvmpipe, WARP) for rendering cost & frame pacing.
- */
-function detectSoftwareWebGL(): boolean {
-  if (typeof document === "undefined") return false
-  try {
-    const probeCanvas = document.createElement("canvas")
-    const gl = probeCanvas.getContext("webgl2") || probeCanvas.getContext("webgl")
-    if (!gl) return true
-    const ext = gl.getExtension("WEBGL_debug_renderer_info")
-    const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER
-    const gpu = String(gl.getParameter(param) || "")
-    gl.getExtension("WEBGL_lose_context")?.loseContext()
-    return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu)
-  } catch {
-    return false
-  }
-}
-
-/**
  * Deterministic PRNG so the recovered 992e9d3 monolith terrain, floor pads, and embers
- * render identically and smoothly across sessions.
+ * render consistently across sessions.
  */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -182,14 +162,14 @@ function mulberry32(seed: number): () => number {
 /**
  * Unified RushX / Ace Scrims Background Engine:
  *
- * 1. 3D Cyber Mode ("3d") — Exact Recovery from commit 992e9d3 (Nov 23):
- *    - Expansive 48x48 isometric monolith terrain (2,304 instanced metallic blocks),
+ * 1. 3D Cyber Mode ("3d") — Exact 1:1 Recovery from commit 992e9d3 (Nov 23):
+ *    - Expansive 48x48 isometric dark obsidian monolith terrain (2,304 instanced blocks),
  *      infinite cyber circuit floor grid matrix + 64 pulsing neon floor pads,
- *      7 cyber monolith towers with dual vertical laser slits + 42 orbiting satellite data cubes,
+ *      7 jet-black cyber monolith towers with dual vertical laser slits + 42 orbiting satellite data cubes,
  *      3 volumetric undulating laser energy walls (ShaderMaterial), and 700 rising cyber embers.
- *    - Upgraded with the current live dynamic color-changing spectrum (opening in Electric Blue,
- *      then shifting seamlessly through Cyber Violet -> Neon Orchid -> Electric Cyan -> Sapphire),
- *      RoomEnvironment metallic reflections, software-WebGL pacing, and safe WebGL fallbacks.
+ *    - Driven by the current live synchronized color-changing spectrum (opening in Electric Blue,
+ *      then smoothly shifting through Cyber Violet -> Neon Orchid -> Electric Cyan -> Sapphire)
+ *      using 992e9d3's exact multi-layered HSL cyber lighting and shader colors, with safe WebGL fallbacks.
  *
  * 2. 2D Ambient Mode ("2d") — Exact Recovery from commit fba1383 (Nov 27):
  *    - Volumetric WebGL obsidian FBM silk & radial ambient halo shader with gentle pointer/scroll
@@ -446,6 +426,7 @@ export function GlobalCyberBackground() {
           gl.deleteProgram(program)
           gl.deleteShader(vs)
           gl.deleteShader(fs)
+          gl.getExtension("WEBGL_lose_context")?.loseContext()
         } catch {
           // ignore cleanup errors
         }
@@ -454,7 +435,7 @@ export function GlobalCyberBackground() {
   }, [mode, webgl3DFallback])
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 3. RECOVERED 3D ANIMATION (commit 992e9d3) + CURRENT COLOR-CHANGING EFFECT
+  // 3. EXACT RECOVERED 3D ANIMATION (commit 992e9d3) + LIVE COLOR-CHANGING EFFECT
   // ───────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== "3d") {
@@ -470,7 +451,6 @@ export function GlobalCyberBackground() {
     let isDisposed = false
     let contextLost = false
 
-    const isSoftwareGl = detectSoftwareWebGL()
     const rand = mulberry32(992932026)
 
     // Track all disposable Three.js resources to prevent WebGL memory leaks
@@ -484,7 +464,7 @@ export function GlobalCyberBackground() {
     try {
       renderer = new THREE.WebGLRenderer({
         powerPreference: "high-performance",
-        antialias: !isSoftwareGl,
+        antialias: true,
         alpha: true,
         stencil: false,
         depth: true,
@@ -502,7 +482,7 @@ export function GlobalCyberBackground() {
     const initElapsed = Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
     const initPhase = getAmbientPhaseAt(initElapsed, "3d")
 
-    // 1. THREE.JS SCENE & RENDERER SETUP (Exact 992e9d3 framing + DPR cap + Studio PMREM)
+    // 1. THREE.JS SCENE & RENDERER SETUP (Exact 992e9d3 obsidian scene — NO RoomEnvironment white-out)
     const scene = new THREE.Scene()
     const initBgColor = new THREE.Color().setHSL(initPhase.baseHue, 0.45, 0.042)
     scene.background = initBgColor
@@ -513,24 +493,12 @@ export function GlobalCyberBackground() {
     camera.position.set(16, 18, 28)
     camera.lookAt(0, 1.5, 0)
 
-    const maxDPR = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
+    const maxDPR = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 1.5)
     renderer.setPixelRatio(maxDPR)
     renderer.setSize(width, height)
-    renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.45
     renderer.shadowMap.enabled = false
-
-    // Procedural studio reflections so high-metalness monoliths & cyber towers look razor sharp
-    try {
-      const pmremGenerator = new THREE.PMREMGenerator(renderer)
-      const envRT = pmremGenerator.fromScene(new RoomEnvironment(), 0.04)
-      scene.environment = envRT.texture
-      trackDisposable(envRT)
-      pmremGenerator.dispose()
-    } catch {
-      // Proceed cleanly if PMREM is unavailable
-    }
 
     renderer.domElement.style.position = "absolute"
     renderer.domElement.style.top = "0"
@@ -551,8 +519,7 @@ export function GlobalCyberBackground() {
       contextLost = false
       if (!isDisposed) {
         setWebgl3DFallback(false)
-        lastFrameNow = performance.now()
-        scheduleNext()
+        frameId = window.requestAnimationFrame(renderLoop)
       }
     }
     renderer.domElement.addEventListener("webglcontextlost", onWebglContextLost)
@@ -589,11 +556,11 @@ export function GlobalCyberBackground() {
     scene.add(coreLight3)
 
     const coreLight4 = new THREE.PointLight(0x60a5fa, 4.5, 35, 1.5)
-    coreLight4.color.setHSL((initPhase.baseHue + 0.08) % 1, 0.9, 0.58)
+    coreLight4.color.setHSL((initPhase.baseHue + 0.32) % 1, 0.9, 0.58)
     coreLight4.position.set(-12, 3.0, -18)
     scene.add(coreLight4)
 
-    // 3. EXPANSIVE ISOMETRIC MONOLITH TERRAIN (48 x 48 = 2,304 InstancedMesh monoliths)
+    // 3. EXPANSIVE ISOMETRIC MONOLITH TERRAIN (Exact 992e9d3 48 x 48 = 2,304 InstancedMesh)
     const gridSize = 48
     const count = gridSize * gridSize
     const boxGeo = trackDisposable(new THREE.BoxGeometry(0.94, 1, 0.94))
@@ -604,12 +571,11 @@ export function GlobalCyberBackground() {
         color: 0x0f1520,
         roughness: 0.18,
         metalness: 0.88,
-        envMapIntensity: 0.85,
       })
     )
 
     const instancedTerrain = new THREE.InstancedMesh(boxGeo, blockMat, count)
-    instancedTerrain.frustumCulled = false
+    instancedTerrain.frustumCulled = true
     const dummy = new THREE.Object3D()
     const colorDummy = new THREE.Color()
 
@@ -647,7 +613,7 @@ export function GlobalCyberBackground() {
         instancedTerrain.setMatrixAt(idx, dummy.matrix)
 
         if (isCrevice) {
-          colorDummy.setHex(0x070d1c)
+          colorDummy.setHex(0x190b05)
         } else if (isCoreArea || isSecondaryCore || isTertiaryCore) {
           colorDummy.setHex(0x141a24)
         } else {
@@ -663,10 +629,11 @@ export function GlobalCyberBackground() {
     instancedTerrain.computeBoundingSphere()
     scene.add(instancedTerrain)
 
-    // 4. INFINITE CYBER CIRCUIT FLOOR GRID MATRIX & 64 INSTANCED NEON PADS
-    const gridHelper = new THREE.GridHelper(120, 80, 0x38bdf8, 0x262f42)
+    // 4. INFINITE CYBER CIRCUIT FLOOR GRID MATRIX & 64 INSTANCED NEON PADS (Exact 992e9d3)
+    const gridHelper = new THREE.GridHelper(120, 80, 0x9ca3af, 0x262f42)
     gridHelper.position.y = 0.08
-    if (gridHelper.material instanceof THREE.Material) {
+    if (gridHelper.material instanceof THREE.LineBasicMaterial) {
+      gridHelper.material.color.setHSL(initPhase.accentHue, 0.76, 0.54)
       trackDisposable(gridHelper.material)
     }
     trackDisposable(gridHelper.geometry)
@@ -686,9 +653,9 @@ export function GlobalCyberBackground() {
     )
 
     const instancedFloorTiles = new THREE.InstancedMesh(tileGeo, floorTileMat, tileCount)
-    instancedFloorTiles.frustumCulled = false
+    instancedFloorTiles.frustumCulled = true
 
-    const tileBaseColor = new THREE.Color().setRGB(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
+    const tileBaseColor = new THREE.Color().setHSL(initPhase.baseHue, 0.94, 0.52)
     for (let i = 0; i < tileCount; i++) {
       const rx = (Math.floor(rand() * 44) - 22) * 1.12
       const rz = (Math.floor(rand() * 44) - 22) * 1.12
@@ -705,7 +672,7 @@ export function GlobalCyberBackground() {
     instancedFloorTiles.computeBoundingSphere()
     scene.add(instancedFloorTiles)
 
-    // 5. 7 SHARED CYBER TOWERS & 42 INSTANCED ORBITING SATELLITE CUBES
+    // 5. 7 SHARED CYBER TOWERS & 42 INSTANCED ORBITING SATELLITE CUBES (Exact 992e9d3)
     const towerConfigs = [
       { x: 0, z: 0, s: 1.0, h: 7.2 },
       { x: 15, z: -10, s: 0.8, h: 6.5 },
@@ -724,28 +691,27 @@ export function GlobalCyberBackground() {
         color: 0x06080d,
         roughness: 0.12,
         metalness: 0.96,
-        envMapIntensity: 0.95,
       })
     )
     const towerOuterGlowMat = trackDisposable(
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]),
+        color: new THREE.Color().setHSL(initPhase.baseHue, 0.96, 0.54),
       })
     )
     const towerHotGlowMat = trackDisposable(
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
+        color: new THREE.Color().setHSL(initPhase.accentHue, 0.95, 0.74),
       })
     )
 
     const instancedPillars = new THREE.InstancedMesh(unitBoxGeo, towerNodeMat, towerCount)
-    instancedPillars.frustumCulled = false
+    instancedPillars.frustumCulled = true
 
     const instancedOuterSlits = new THREE.InstancedMesh(unitBoxGeo, towerOuterGlowMat, towerCount)
-    instancedOuterSlits.frustumCulled = false
+    instancedOuterSlits.frustumCulled = true
 
     const instancedInnerSlits = new THREE.InstancedMesh(unitBoxGeo, towerHotGlowMat, towerCount)
-    instancedInnerSlits.frustumCulled = false
+    instancedInnerSlits.frustumCulled = true
 
     towerConfigs.forEach((t, i) => {
       dummy.position.set(t.x, (t.h * t.s) / 2, t.z)
@@ -788,7 +754,7 @@ export function GlobalCyberBackground() {
       satelliteMat,
       totalSatelliteCubes
     )
-    instancedSatelliteCubes.frustumCulled = false
+    instancedSatelliteCubes.frustumCulled = true
 
     type SatelliteMeta = {
       towerX: number
@@ -820,7 +786,7 @@ export function GlobalCyberBackground() {
         })
 
         if (isGlow) {
-          colorDummy.setRGB(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2])
+          colorDummy.setHSL(initPhase.baseHue, 0.95, 0.54)
         } else {
           colorDummy.setHex(0x06080d)
         }
@@ -832,12 +798,12 @@ export function GlobalCyberBackground() {
     instancedSatelliteCubes.computeBoundingSphere()
     scene.add(instancedSatelliteCubes)
 
-    // 6. VOLUMETRIC LASER ENERGY WALLS (Exact 992e9d3 Shader Ribbons, synced to live color-shift)
+    // 6. VOLUMETRIC LASER ENERGY WALLS (Exact 992e9d3 Shader Ribbons + Exact HSL Color Shifting)
     const wallUniforms = {
       uTime: { value: 0 },
-      uColorDark: { value: new THREE.Color(initPhase.glow[0], initPhase.glow[1], initPhase.glow[2]) },
-      uColorMid: { value: new THREE.Color(initPhase.c1[0], initPhase.c1[1], initPhase.c1[2]) },
-      uColorCore: { value: new THREE.Color(initPhase.c3[0], initPhase.c3[1], initPhase.c3[2]) },
+      uColorDark: { value: new THREE.Color().setHSL(initPhase.baseHue, 0.94, 0.38) },
+      uColorMid: { value: new THREE.Color().setHSL(initPhase.accentHue, 0.96, 0.56) },
+      uColorCore: { value: new THREE.Color().setHSL(initPhase.fillHue, 0.9, 0.84) },
     }
 
     const laserShaderMat = trackDisposable(
@@ -907,8 +873,8 @@ export function GlobalCyberBackground() {
     laserWall3.rotation.y = -Math.PI * 0.05
     scene.add(laserWall3)
 
-    // 7. ASCENDING DATA PARTICLES & CYBER EMBERS (700 particles)
-    const particleCount = isSoftwareGl ? 360 : 700
+    // 7. ASCENDING DATA PARTICLES & CYBER EMBERS (Exact 992e9d3 700 particles)
+    const particleCount = 700
     const particleGeo = trackDisposable(new THREE.BufferGeometry())
     const particlePos = new Float32Array(particleCount * 3)
 
@@ -921,19 +887,18 @@ export function GlobalCyberBackground() {
 
     const particleMat = trackDisposable(
       new THREE.PointsMaterial({
-        color: new THREE.Color(initPhase.c2[0], initPhase.c2[1], initPhase.c2[2]),
+        color: new THREE.Color().setHSL(initPhase.accentHue, 0.92, 0.72),
         size: 0.18,
         transparent: true,
         opacity: 0.9,
         blending: THREE.AdditiveBlending,
-        depthWrite: false,
       })
     )
     const particles = new THREE.Points(particleGeo, particleMat)
-    particles.frustumCulled = false
+    particles.frustumCulled = true
     scene.add(particles)
 
-    // 8. INTERACTION CONTROLLER (Passive Mouse, Touch & Scroll)
+    // 8. INTERACTION CONTROLLER (Exact 992e9d3 Passive Mouse, Touch & Scroll)
     let mouseX = 0
     let mouseY = 0
     let scrollY = 0
@@ -971,11 +936,13 @@ export function GlobalCyberBackground() {
 
     const onVisibilityChange = () => {
       isTabActive = !document.hidden
-      if (isTabActive) lastFrameNow = performance.now()
     }
     document.addEventListener("visibilitychange", onVisibilityChange)
 
-    // 10. ANIMATION RENDERING LOOP (Zero GC allocations, Software-WebGL paced)
+    // 10. EXACT 992e9d3 ANIMATION RENDERING LOOP + LIVE BLUE-OPENING COLOR-CHANGING EFFECT
+    const clock = new THREE.Clock()
+    let frameId = 0
+
     const baseCamX = 16
     const baseCamY = 18
     const baseCamZ = 28
@@ -983,69 +950,20 @@ export function GlobalCyberBackground() {
     const rotationEuler = new THREE.Euler()
     const rotQuat = new THREE.Quaternion()
     const cubeScaleVec = new THREE.Vector3()
-    const c1Color = new THREE.Color()
-    const c2Color = new THREE.Color()
-    const c3Color = new THREE.Color()
-    const glowColor = new THREE.Color()
-
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const motionRate = prefersReducedMotion ? 0.3 : 1.0
     const colorSpeed = prefersReducedMotion ? 0.4 : 1.0
-
-    let frameId = 0
-    let softwareTimerId = 0
-    let lastFrameNow = performance.now()
-    let elapsed = 0
-
-    function afterDraw(cb: () => void) {
-      if (isDisposed || contextLost) return
-      const gl = renderer.getContext()
-      if (typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext) {
-        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
-        gl.flush()
-        const poll = () => {
-          if (isDisposed || contextLost) {
-            if (sync) gl.deleteSync(sync)
-            return
-          }
-          const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS)
-          if (state === gl.UNSIGNALED) {
-            softwareTimerId = window.setTimeout(poll, 8)
-          } else {
-            if (sync) gl.deleteSync(sync)
-            softwareTimerId = window.setTimeout(cb, 55)
-          }
-        }
-        softwareTimerId = window.setTimeout(poll, 8)
-      } else {
-        softwareTimerId = window.setTimeout(cb, 65)
-      }
-    }
-
-    const scheduleNext = () => {
-      if (isDisposed || contextLost) return
-      if (isSoftwareGl) {
-        afterDraw(renderLoop)
-      } else {
-        frameId = window.requestAnimationFrame(renderLoop)
-      }
-    }
 
     const renderLoop = () => {
       if (isDisposed || contextLost) return
-
-      const now = performance.now()
-      const dt = Math.min(0.05, Math.max(0.001, (now - lastFrameNow) / 1000))
-      lastFrameNow = now
+      frameId = window.requestAnimationFrame(renderLoop)
 
       if (!isVisible || !isTabActive) {
-        frameId = window.requestAnimationFrame(renderLoop)
         return
       }
 
-      elapsed += dt * motionRate
+      const elapsed = clock.getElapsedTime()
 
       // Shader time update
       wallUniforms.uTime.value = elapsed
@@ -1059,18 +977,17 @@ export function GlobalCyberBackground() {
         ) - window.innerHeight
       const scrollRatio = Math.min(scrollY / Math.max(docHeight, 1), 1)
 
-      // Smooth camera orbit + scroll panning (exact 992e9d3 trajectory)
+      // Smooth camera orbit + scroll panning (Exact 992e9d3)
       const targetX = baseCamX + mouseX + Math.sin(elapsed * 0.14) * 2.2 + scrollRatio * 8.0
       const targetY = baseCamY + mouseY - scrollRatio * 7.0 + Math.cos(elapsed * 0.12) * 1.5
       const targetZ = baseCamZ - scrollRatio * 6.0 + Math.sin(elapsed * 0.1) * 2.0
 
-      const camDamp = 1 - Math.exp(-2.4 * dt)
-      camera.position.x += (targetX - camera.position.x) * camDamp
-      camera.position.y += (targetY - camera.position.y) * camDamp
-      camera.position.z += (targetZ - camera.position.z) * camDamp
+      camera.position.x += (targetX - camera.position.x) * 0.04
+      camera.position.y += (targetY - camera.position.y) * 0.04
+      camera.position.z += (targetZ - camera.position.z) * 0.04
       camera.lookAt(scrollRatio * 4.0, 1.8, -scrollRatio * 4.0)
 
-      // Animate Orbiting Satellite Cubes
+      // Animate Orbiting Satellite Cubes (Exact 992e9d3)
       for (let k = 0; k < totalSatelliteCubes; k++) {
         const meta = satelliteMeta[k]
         const cubeY = meta.baseY + Math.sin(elapsed * 2.5 + k) * 0.15
@@ -1090,40 +1007,35 @@ export function GlobalCyberBackground() {
       }
       instancedSatelliteCubes.instanceMatrix.needsUpdate = true
 
-      // Synchronized current version color-changing spectrum (opens in Electric Blue at t=0)
+      // Synchronized current live color-changing spectrum (opens in Electric Blue at t=0)
       const colorElapsed =
         sharedStartMsRef.current !== null
-          ? Math.max(0, (now - sharedStartMsRef.current) / 1000) * colorSpeed
+          ? Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000) * colorSpeed
           : 0
       const phase = getAmbientPhaseAt(colorElapsed, "3d")
       const { baseHue, accentHue, fillHue } = phase
 
-      c1Color.setRGB(phase.c1[0], phase.c1[1], phase.c1[2])
-      c2Color.setRGB(phase.c2[0], phase.c2[1], phase.c2[2])
-      c3Color.setRGB(phase.c3[0], phase.c3[1], phase.c3[2])
-      glowColor.setRGB(phase.glow[0], phase.glow[1], phase.glow[2])
-
-      // Luminous obsidian-tinted backdrop & fog matched to active live phase
+      // Luminous obsidian-tinted backdrop & fog matched to active shift (Exact 992e9d3 HSL)
       if (scene.background instanceof THREE.Color) {
         scene.background.setHSL(baseHue, 0.45, 0.042)
       }
       fog.color.setHSL(baseHue, 0.42, 0.042)
       ambientLight.color.setHSL(accentHue, 0.45, 0.18)
 
-      // Multi-layered harmonic lights synchronized with live spectrum
-      dirKey.color.copy(c1Color)
+      // Multi-layered harmonic lights shifting together over time (Exact 992e9d3 HSL)
+      dirKey.color.setHSL(baseHue, 0.94, 0.56)
       dirFill.color.setHSL(fillHue, 0.78, 0.36)
-      coreLight1.color.copy(c1Color)
-      coreLight2.color.copy(c2Color)
+      coreLight1.color.setHSL(baseHue, 0.96, 0.54)
+      coreLight2.color.setHSL(accentHue, 0.94, 0.56)
       coreLight3.color.setHSL(fillHue, 0.92, 0.52)
-      coreLight4.color.copy(c1Color).lerp(c2Color, 0.55)
+      coreLight4.color.setHSL((baseHue + 0.32) % 1, 0.9, 0.58)
 
-      towerOuterGlowMat.color.copy(c1Color)
-      towerHotGlowMat.color.copy(c2Color).lerp(c3Color, 0.38)
-      wallUniforms.uColorDark.value.copy(glowColor)
-      wallUniforms.uColorMid.value.copy(c1Color).lerp(c2Color, 0.45)
-      wallUniforms.uColorCore.value.copy(c3Color)
-      particleMat.color.copy(c2Color).lerp(c3Color, 0.32)
+      towerOuterGlowMat.color.setHSL(baseHue, 0.96, 0.54)
+      towerHotGlowMat.color.setHSL(accentHue, 0.95, 0.74)
+      wallUniforms.uColorDark.value.setHSL(baseHue, 0.94, 0.38)
+      wallUniforms.uColorMid.value.setHSL(accentHue, 0.96, 0.56)
+      wallUniforms.uColorCore.value.setHSL(fillHue, 0.9, 0.84)
+      particleMat.color.setHSL(accentHue, 0.92, 0.72)
 
       if (gridHelper.material instanceof THREE.LineBasicMaterial) {
         gridHelper.material.color.setHSL(accentHue, 0.76, 0.54)
@@ -1141,13 +1053,13 @@ export function GlobalCyberBackground() {
         instancedSatelliteCubes.instanceColor.needsUpdate = true
       }
 
-      // Dynamic light pulsations
+      // Dynamic light pulsations (Exact 992e9d3)
       coreLight1.intensity = 8.4 + Math.sin(elapsed * 3.2) * 3.0
       coreLight2.intensity = 5.8 + Math.cos(elapsed * 2.7) * 2.0
       coreLight3.intensity = 5.4 + Math.sin(elapsed * 2.3) * 1.8
       coreLight4.intensity = 4.8 + Math.cos(elapsed * 2.0) * 1.6
 
-      // Pulsing Floor Pads via Instanced Color Update (harmonized with live color phase)
+      // Pulsing Floor Pads via Instanced Color Update (Exact 992e9d3)
       for (let i = 0; i < tileCount; i++) {
         const pulse = 0.3 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
         const tileHue = i % 3 === 0 ? accentHue : i % 3 === 1 ? baseHue : fillHue
@@ -1156,11 +1068,10 @@ export function GlobalCyberBackground() {
       }
       if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true
 
-      // Upward drifting cyber embers (frame-rate independent)
+      // Upward drifting cyber embers (Exact 992e9d3)
       const positions = particleGeo.attributes.position.array as Float32Array
-      const emberStep = 2.4 * dt * motionRate
       for (let i = 0; i < particleCount; i++) {
-        positions[i * 3 + 1] += emberStep
+        positions[i * 3 + 1] += 0.04
         if (positions[i * 3 + 1] > 25) {
           positions[i * 3 + 1] = 0.1
         }
@@ -1172,12 +1083,12 @@ export function GlobalCyberBackground() {
       } catch {
         contextLost = true
         if (!isDisposed) setWebgl3DFallback(true)
-        return
       }
-      scheduleNext()
     }
 
-    // Debounced resize listener
+    renderLoop()
+
+    // 11. DEBOUNCED RESIZE LISTENER
     let resizeTimeout: ReturnType<typeof setTimeout> | undefined
     const handleResize = () => {
       if (resizeTimeout) clearTimeout(resizeTimeout)
@@ -1187,22 +1098,17 @@ export function GlobalCyberBackground() {
         height = Math.max(window.innerHeight, 1)
         camera.aspect = width / height
         camera.updateProjectionMatrix()
-        const dpr = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
-        renderer.setPixelRatio(dpr)
         renderer.setSize(width, height)
       }, 50)
     }
 
     window.addEventListener("resize", handleResize, { passive: true })
 
-    // Render first Electric Blue frame immediately
-    renderLoop()
-
+    // 12. CLEANUP & MEMORY DISPOSAL (Zero Memory Leaks on Unmount / Mode Switch)
     return () => {
       isDisposed = true
       if (resizeTimeout) clearTimeout(resizeTimeout)
       window.cancelAnimationFrame(frameId)
-      window.clearTimeout(softwareTimerId)
       window.removeEventListener("mousemove", onPointerMove)
       window.removeEventListener("touchmove", onPointerMove)
       window.removeEventListener("scroll", onScroll)
@@ -1212,17 +1118,32 @@ export function GlobalCyberBackground() {
       renderer.domElement.removeEventListener("webglcontextrestored", onWebglContextRestored)
       observer.disconnect()
 
+      scene.traverse((obj) => {
+        if ((obj as THREE.Mesh).geometry) {
+          ;(obj as THREE.Mesh).geometry.dispose()
+        }
+        if ((obj as THREE.Mesh).material) {
+          const mat = (obj as THREE.Mesh).material
+          if (Array.isArray(mat)) {
+            mat.forEach((m) => m.dispose())
+          } else {
+            mat.dispose()
+          }
+        }
+      })
+
       for (const item of disposables) {
         try {
           item.dispose()
         } catch {
-          // ignore disposal errors
+          // ignore already disposed
         }
       }
       disposables.length = 0
 
       try {
         renderer.dispose()
+        renderer.forceContextLoss()
       } catch {
         // ignore renderer disposal errors
       }
@@ -1242,40 +1163,34 @@ export function GlobalCyberBackground() {
       aria-hidden="true"
     >
       {/* Recovered 2D Volumetric Ambient Layer (commit fba1383) + Live Color-Changing Effect */}
-      <div
-        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
-          show2DLayer ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div
-          className={`absolute inset-0 transition-opacity duration-500 ${
-            webgl2DReady ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          <div className="rushx-ambient-canvas absolute inset-0" />
-          <div className="rushx-ambient-glow absolute -inset-[10%]" />
+      {show2DLayer && (
+        <div className="absolute inset-0">
+          <div
+            className={`absolute inset-0 transition-opacity duration-500 ${
+              webgl2DReady ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <div className="rushx-ambient-canvas absolute inset-0" />
+            <div className="rushx-ambient-glow absolute -inset-[10%]" />
+          </div>
+
+          <canvas
+            ref={volumetric2DCanvasRef}
+            className={`absolute inset-0 h-full w-full block transition-opacity duration-500 ${
+              webgl2DReady ? "opacity-100" : "opacity-0"
+            }`}
+          />
         </div>
+      )}
 
-        <canvas
-          ref={volumetric2DCanvasRef}
-          className={`absolute inset-0 h-full w-full block transition-opacity duration-500 ${
-            webgl2DReady ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      </div>
-
-      {/* Recovered 3D Cyber Monolith, Towers & Laser Walls Layer (commit 992e9d3) + Live Color-Changing Effect */}
-      <div
-        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
-          mode === "3d" && !webgl3DFallback ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div ref={threeContainerRef} className="absolute inset-0 h-full w-full" />
-        {/* Soft Ambient Cyber Vignette (exact 992e9d3 edge softening) */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_36%,rgba(2,3,6,0.55)_100%)] pointer-events-none" />
-        {/* Neutral Top Cyber Horizon Line */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
-      </div>
+      {/* Exact Recovered 3D Cyber Monolith, Towers & Laser Walls Layer (commit 992e9d3) + Live Color-Changing Effect */}
+      {!show2DLayer && (
+        <div className="absolute inset-0">
+          <div ref={threeContainerRef} className="absolute inset-0 h-full w-full" />
+          {/* Neutral Top Cyber Horizon Line (exact 992e9d3) */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+        </div>
+      )}
     </div>
   )
 }
