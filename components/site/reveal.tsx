@@ -24,7 +24,7 @@ export function useReliableOnceReveal(
   reduced: boolean | null,
   immediate = false
 ) {
-  const inView = useInView(ref, { once: true, amount: "some" })
+  const inView = useInView(ref, { once: true, margin: "-40px" })
   const [revealed, setRevealed] = useState(Boolean(reduced))
 
   useEffect(() => {
@@ -61,7 +61,8 @@ export function useReliableOnceReveal(
       const el = ref.current
       if (!el || typeof window === "undefined") return
       const rect = el.getBoundingClientRect()
-      if (rect.top < window.innerHeight * 1.12 && rect.bottom > -48) {
+      // Only trigger once element has genuinely entered the visible viewport (never off-screen below the fold)
+      if (rect.top < window.innerHeight - 40 && rect.bottom > 20) {
         setRevealed(true)
       }
     }
@@ -71,20 +72,10 @@ export function useReliableOnceReveal(
     window.addEventListener("scroll", checkRect, { passive: true })
     window.addEventListener("resize", checkRect, { passive: true })
 
-    const fallbackTimer = window.setTimeout(() => {
-      const el = ref.current
-      if (!el || typeof window === "undefined") return
-      const rect = el.getBoundingClientRect()
-      if (rect.top <= window.innerHeight + 220) {
-        setRevealed(true)
-      }
-    }, 900)
-
     return () => {
       window.cancelAnimationFrame(raf)
       window.removeEventListener("scroll", checkRect)
       window.removeEventListener("resize", checkRect)
-      window.clearTimeout(fallbackTimer)
     }
   }, [inView, reduced, immediate, revealed, ref])
 

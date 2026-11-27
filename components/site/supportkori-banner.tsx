@@ -1,17 +1,20 @@
 "use client"
 
+import { motion, useReducedMotion } from "motion/react"
 import { Coffee, ExternalLink } from "lucide-react"
 import { SupportKoriIcon } from "@/components/site/brand-icons"
-import { Reveal } from "@/components/site/reveal"
 
 export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string }) {
   const url = supportKoriUrl || "https://www.supportkori.com/ace_scrims"
+  const prefersReducedMotion = useReducedMotion()
 
   return (
     <section className="w-full py-8 px-4">
-      <Reveal
-        y={18}
-        duration={0.62}
+      <motion.div
+        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-50px" }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
         className="dc-surface rushx-box-splash mx-auto max-w-5xl overflow-hidden rounded-3xl border-amber-400/25 p-6 sm:p-8 shadow-2xl relative group"
       >
         {/* Clean warm golden ambient accent — zero violet/indigo bleed */}
@@ -49,7 +52,7 @@ export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string 
             </a>
           </div>
         </div>
-      </Reveal>
+      </motion.div>
     </section>
   )
 }

@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
 import { formatDate, bdt } from "@/lib/format"
 import { Trophy, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Reveal, BlurTextReveal, VisualReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
 
 export type Top3BannerItem = {
   id: string
@@ -30,6 +29,7 @@ export function Top3FaceBannersSection({ banners }: { banners: Top3BannerItem[] 
 
 function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
   const count = banners.length
+  const prefersReducedMotion = useReducedMotion()
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -81,26 +81,27 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Centered Heading */}
-      <div className="flex flex-col items-center text-center max-w-2xl mb-8">
-        <Reveal y={12} duration={0.48} className="inline-flex items-center gap-2 text-amber-400 text-xs font-display font-bold uppercase tracking-wider mb-2">
+      <motion.div
+        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
+        className="flex flex-col items-center text-center max-w-2xl mb-8"
+      >
+        <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-display font-bold uppercase tracking-wider mb-2">
           <Trophy className="size-4 text-amber-400" />
           <span>Official Victory Gallery</span>
-        </Reveal>
-        <BlurTextReveal
-          as="h2"
+        </div>
+        <h2
           id="top3-banners-heading"
-          text="Top 3 Face Banners"
-          delay={0.05}
-          wordStagger={0.045}
-          duration={0.68}
           className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
-        />
-        <Reveal delay={0.14} y={14} duration={0.62}>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
-            Celebrating podium-winning squads from daily scrims with high-resolution original team face banners.
-          </p>
-        </Reveal>
-        <Reveal delay={0.14} y={10} duration={0.46} className="mt-4 flex items-center justify-center gap-2">
+        >
+          Top 3 Face Banners
+        </h2>
+        <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
+          Celebrating podium-winning squads from daily scrims with high-resolution original team face banners.
+        </p>
+        <div className="mt-4 flex items-center justify-center gap-2">
           <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-300 font-semibold">
             {count} Showcase{count > 1 ? "s" : ""}
           </Badge>
@@ -110,15 +111,15 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
               {isPaused ? <Pause className="size-2.5 text-amber-400" /> : <Play className="size-2.5 text-emerald-400 fill-emerald-400" />}
             </Badge>
           )}
-        </Reveal>
-      </div>
+        </div>
+      </motion.div>
 
       {/* Centered Slideshow Stage */}
-      <VisualReveal
-        delay={0.08}
-        y={22}
-        duration={0.78}
-        initialScale={0.965}
+      <motion.div
+        initial={prefersReducedMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.95, y: 22 }}
+        whileInView={{ opacity: 1, scale: 1, y: 0 }}
+        viewport={{ once: true, margin: "-50px" }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
         className="relative w-full max-w-4xl flex flex-col items-center"
       >
         {/* Banner Slide Frame */}
@@ -139,10 +140,10 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentItem.id || currentIndex}
-              initial={{ opacity: 0, scale: 0.975, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: -6 }}
-              transition={{ duration: 0.48, ease: DEEPCHARTS_EASE }}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.45, ease: "easeInOut" }}
               className="w-full flex flex-col items-center"
             >
               {/* Natural Dimension Image Container */}
@@ -260,7 +261,7 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
             </Link>
           </Button>
         </div>
-      </VisualReveal>
+      </motion.div>
 
       {/* Fullscreen Lightbox Modal */}
       {activeLightbox && (

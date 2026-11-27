@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,31 @@ export function Hero({
   const { mode, setMode } = useViewMode()
   const prefersReducedMotion = useReducedMotion()
 
+  // Wait for first hydrated paint frame before starting the 88918cc first-visit cascade
+  // so WebGL/hydration work never swallows the opening animation.
+  const [introActive, setIntroActive] = useState(false)
+
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      setIntroActive(true)
+      return
+    }
+    let raf2 = 0
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        setIntroActive(true)
+      })
+    })
+    const safetyTimer = window.setTimeout(() => {
+      setIntroActive(true)
+    }, 140)
+    return () => {
+      window.cancelAnimationFrame(raf1)
+      if (raf2) window.cancelAnimationFrame(raf2)
+      window.clearTimeout(safetyTimer)
+    }
+  }, [prefersReducedMotion])
+
   const activeScrims = stats.scrimsTonight ?? 0
   const totalSlots = stats.totalTeams ?? 0
   const formatLine = showcase?.timeWindow || t("matches_per_scrim", "Live Daily Format")
@@ -37,18 +63,51 @@ export function Hero({
     show: {
       opacity: 1,
       transition: {
-        staggerChildren: prefersReducedMotion ? 0 : mode === "3d" ? 0.1 : 0.05,
-        delayChildren: prefersReducedMotion ? 0 : 0.05,
+        staggerChildren: prefersReducedMotion ? 0 : mode === "3d" ? 0.1 : 0.07,
+        delayChildren: prefersReducedMotion ? 0 : 0.06,
       },
     },
   }
 
   const itemFadeUp = {
-    hidden: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 },
+    hidden: prefersReducedMotion
+      ? { opacity: 1, y: 0, scale: 1 }
+      : { opacity: 0, y: 20, scale: 0.985 },
     show: {
       opacity: 1,
       y: 0,
-      transition: { duration: prefersReducedMotion ? 0 : 0.3 },
+      scale: 1,
+      transition: {
+        duration: prefersReducedMotion ? 0 : 0.42,
+        ease: "easeOut" as const,
+      },
+    },
+  }
+
+  const statsContainer = {
+    hidden: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: prefersReducedMotion ? 0 : 0.35,
+        staggerChildren: prefersReducedMotion ? 0 : 0.08,
+      },
+    },
+  }
+
+  const statCardFadeUp = {
+    hidden: prefersReducedMotion
+      ? { opacity: 1, y: 0, scale: 1 }
+      : { opacity: 0, y: 18, scale: 0.97 },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: prefersReducedMotion ? 0 : 0.38,
+        ease: "easeOut" as const,
+      },
     },
   }
 
@@ -102,7 +161,7 @@ export function Hero({
           <motion.div
             variants={container}
             initial={prefersReducedMotion ? "show" : "hidden"}
-            animate="show"
+            animate={introActive || prefersReducedMotion ? "show" : "hidden"}
             className="flex max-w-4xl flex-col justify-center w-full"
           >
             {/* Top Status & 2D / 3D Selection Toggle */}
@@ -240,10 +299,14 @@ export function Hero({
 
             {/* Cyber Stats Strip */}
             <motion.dl
-              variants={itemFadeUp}
+              variants={statsContainer}
               className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4"
             >
-              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+              <motion.div
+                variants={statCardFadeUp}
+                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+                className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4"
+              >
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Zap className="size-3.5 text-accent" aria-hidden />
                   {t("scrims_tonight", "Active Lobbies")}
@@ -251,9 +314,13 @@ export function Hero({
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
                   {activeScrims > 0 ? activeScrims : "Live"}
                 </dd>
-              </div>
+              </motion.div>
 
-              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+              <motion.div
+                variants={statCardFadeUp}
+                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+                className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4"
+              >
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Users className="size-3.5 text-accent" aria-hidden />
                   {t("team_slots", "Team Slots")}
@@ -261,9 +328,13 @@ export function Hero({
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
                   {totalSlots > 0 ? totalSlots : "Open"}
                 </dd>
-              </div>
+              </motion.div>
 
-              <div className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4">
+              <motion.div
+                variants={statCardFadeUp}
+                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+                className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4"
+              >
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Trophy className="size-3.5 text-accent" aria-hidden />
                   {showcase?.timeWindow ? "Schedule" : t("scrim_format", "Format")}
@@ -271,7 +342,7 @@ export function Hero({
                 <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
                   {formatLine}
                 </dd>
-              </div>
+              </motion.div>
             </motion.dl>
           </motion.div>
         </div>

@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
 import { formatDate } from "@/lib/format"
 import { Flame, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Trophy, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Reveal, BlurTextReveal, VisualReveal, DEEPCHARTS_EASE } from "@/components/site/reveal"
 
 export type MvpBannerItem = {
   id: string
@@ -30,6 +29,7 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
 
 function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
   const count = banners.length
+  const prefersReducedMotion = useReducedMotion()
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -80,29 +80,28 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Centered Heading with DeepCharts typography entrance */}
-      <div className="flex flex-col items-center text-center max-w-2xl mb-8">
-        <Reveal y={14} duration={0.55}>
-          <div className="inline-flex items-center gap-2 text-accent text-xs font-display font-bold uppercase tracking-wider mb-2">
-            <Flame className="size-4 text-accent" />
-            <span>Tournament MVPs &amp; Standout Fraggers</span>
-          </div>
-        </Reveal>
-        <BlurTextReveal
-          as="h2"
+      {/* Centered Heading */}
+      <motion.div
+        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
+        className="flex flex-col items-center text-center max-w-2xl mb-8"
+      >
+        <div className="inline-flex items-center gap-2 text-accent text-xs font-display font-bold uppercase tracking-wider mb-2">
+          <Flame className="size-4 text-accent animate-pulse" />
+          <span>Tournament MVPs &amp; Standout Fraggers</span>
+        </div>
+        <h2
           id="mvp-banners-heading"
-          text="MVP Face Banners"
-          delay={0.05}
-          wordStagger={0.045}
-          duration={0.68}
           className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-foreground"
-        />
-        <Reveal delay={0.14} y={14} duration={0.62}>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
-            Spotlighting top fragging match champions and tournament MVPs with original high-resolution face banners.
-          </p>
-        </Reveal>
-        <Reveal delay={0.16} y={12} duration={0.5} className="mt-4 flex items-center justify-center gap-2">
+        >
+          MVP Face Banners
+        </h2>
+        <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-xl">
+          Spotlighting top fragging match champions and tournament MVPs with original high-resolution face banners.
+        </p>
+        <div className="mt-4 flex items-center justify-center gap-2">
           <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-semibold">
             {count} MVP Showcase{count > 1 ? "s" : ""}
           </Badge>
@@ -112,15 +111,15 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
               {isPaused ? <Pause className="size-2.5 text-primary" /> : <Play className="size-2.5 text-emerald-400 fill-emerald-400" />}
             </Badge>
           )}
-        </Reveal>
-      </div>
+        </div>
+      </motion.div>
 
-      {/* Centered Slideshow Stage with DeepCharts editorial visual reveal */}
-      <VisualReveal
-        delay={0.08}
-        duration={0.78}
-        y={22}
-        initialScale={0.965}
+      {/* Centered Slideshow Stage */}
+      <motion.div
+        initial={prefersReducedMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.95, y: 22 }}
+        whileInView={{ opacity: 1, scale: 1, y: 0 }}
+        viewport={{ once: true, margin: "-50px" }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
         className="relative w-full max-w-4xl flex flex-col items-center"
       >
         {/* Banner Slide Frame */}
@@ -146,10 +145,10 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentItem.id || currentIndex}
-              initial={{ opacity: 0, scale: 0.975, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: -6 }}
-              transition={{ duration: 0.48, ease: DEEPCHARTS_EASE }}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.45, ease: "easeInOut" }}
               className="w-full flex flex-col items-center"
             >
               {/* Natural Dimension Image Container */}
@@ -268,7 +267,7 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
             </Link>
           </Button>
         </div>
-      </VisualReveal>
+      </motion.div>
 
       {/* Fullscreen Lightbox Modal */}
       {activeLightbox && (

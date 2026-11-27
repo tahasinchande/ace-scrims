@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { getRandomScrimImage } from "@/lib/scrim-images"
 import { getScrimPrizeBreakdown } from "@/lib/prizepool"
-import { useReliableOnceReveal } from "@/components/site/reveal"
 
 const toneStyles: Record<string, string> = {
   open: "bg-emerald-500/14 text-emerald-300 border-emerald-400/35",
@@ -58,7 +57,6 @@ export function ScrimCard({
   const { t } = useLanguage()
   const prefersReducedMotion = useReducedMotion()
   const wrapRef = useRef<HTMLDivElement>(null)
-  const isVisible = useReliableOnceReveal(wrapRef, prefersReducedMotion, false)
 
   const status = scrimStatus(
     scrim.confirmedTeams,
@@ -133,7 +131,7 @@ export function ScrimCard({
     el.style.setProperty("--splash-y", "35%")
   }
 
-  const staggerDelay = Math.min(index, 7) * 0.06
+  const rowDelay = (index % 3) * 0.08
 
   return (
     <motion.div
@@ -145,20 +143,17 @@ export function ScrimCard({
           ? { opacity: 1, y: 0, scale: 1 }
           : { opacity: 0, y: 30, scale: 0.96 }
       }
-      animate={
-        isVisible || prefersReducedMotion
-          ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y: 30, scale: 0.96 }
-      }
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, margin: "-50px" }}
       transition={
         prefersReducedMotion
           ? { duration: 0 }
           : {
-              duration: 0.4,
-              delay: staggerDelay,
+              duration: 0.45,
+              delay: rowDelay,
               type: "spring",
               stiffness: 200,
-              damping: 22,
+              damping: 20,
             }
       }
       className="scrim-splash-wrap group relative flex flex-col"
@@ -343,7 +338,8 @@ export function ScrimCard({
             >
               <motion.div
                 initial={{ width: prefersReducedMotion ? `${fillPercent}%` : 0 }}
-                animate={{ width: isVisible || prefersReducedMotion ? `${fillPercent}%` : 0 }}
+                whileInView={{ width: `${fillPercent}%` }}
+                viewport={{ once: true }}
                 transition={{ duration: prefersReducedMotion ? 0 : 0.8, ease: "easeOut" }}
                 className={cn(
                   "h-full rounded-full",
