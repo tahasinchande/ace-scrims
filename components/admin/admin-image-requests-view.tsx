@@ -45,7 +45,8 @@ import {
   UserX,
 } from "lucide-react"
 import type { Booking, Scrim, ImageRequest } from "@/lib/db/schema"
-import { formatDateTime, timeAgo } from "@/lib/format"
+import { formatDateTime, sortScrimsAscending, timeAgo } from "@/lib/format"
+import { CascadingScrimSelector } from "@/components/site/cascading-scrim-selector"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -94,10 +95,11 @@ export function AdminImageRequestsView({
     router.push(`/admin/image-requests?date=${encodeURIComponent(selectedDate)}&scrim=${encodeURIComponent(scrimId)}`)
   }
 
-  const selectedScrim = scrims.find((s) => s.id === selectedScrimId || s.slug === selectedScrimId)
+  const sortedScrims = sortScrimsAscending(scrims)
+  const selectedScrim = sortedScrims.find((s) => s.id === selectedScrimId || s.slug === selectedScrimId)
   const roster = selectedScrimId ? (bookingsByScrim[selectedScrimId] || []) : []
 
-  const filteredScrims = scrims.filter((s) =>
+  const filteredScrims = sortedScrims.filter((s) =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.startTime.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -204,75 +206,92 @@ export function AdminImageRequestsView({
   return (
     <div className="flex flex-col gap-6">
       {/* Top Toolbar: Date Selector & Seamless History Switcher */}
-      <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/80 p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="size-4 text-primary" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Match Date:</span>
+      <div className="dc-surface rushx-box-splash flex flex-col gap-3 rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="size-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Match Date:</span>
+            </div>
+
+            <Select value={selectedDate} onValueChange={(val) => val && handleDateChange(val)}>
+              <SelectTrigger className="w-[200px] h-9 text-xs font-semibold bg-[#060b1a] border-white/15">
+                <SelectValue placeholder="Select Match Date" />
+              </SelectTrigger>
+              <SelectContent>
+                {todayDate && (
+                  <SelectItem value={todayDate} className="text-xs font-bold text-emerald-400">
+                    Today ({todayDate}) · Live
+                  </SelectItem>
+                )}
+                {dates
+                  .filter((d) => d !== todayDate)
+                  .map((d) => (
+                    <SelectItem key={d} value={d} className="text-xs">
+                      {d} (Historical Archive)
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs font-mono",
+                isToday
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : "bg-primary/10 text-primary border-primary/30"
+              )}
+            >
+              {isToday ? "Live Active Scrims" : `Archived Date: ${selectedDate}`}
+            </Badge>
           </div>
 
-          <Select value={selectedDate} onValueChange={(val) => val && handleDateChange(val)}>
-            <SelectTrigger className="w-[200px] h-9 text-xs font-semibold bg-background/80">
-              <SelectValue placeholder="Select Match Date" />
-            </SelectTrigger>
-            <SelectContent>
-              {todayDate && (
-                <SelectItem value={todayDate} className="text-xs font-bold text-emerald-400">
-                  Today ({todayDate}) · Live
-                </SelectItem>
-              )}
-              {dates
-                .filter((d) => d !== todayDate)
-                .map((d) => (
-                  <SelectItem key={d} value={d} className="text-xs">
-                    {d} (Historical Archive)
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs font-mono",
-              isToday
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                : "bg-primary/10 text-primary border-primary/30"
-            )}
-          >
-            {isToday ? "Live Active Scrims" : `Archived Date: ${selectedDate}`}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold">
+              <Link href={`/admin/history?date=${encodeURIComponent(selectedDate)}&scrim=${encodeURIComponent(selectedScrimId)}`}>
+                <History className="size-3.5 text-primary" />
+                Open in Match History Archive →
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold">
-            <Link href={`/admin/history?date=${encodeURIComponent(selectedDate)}&scrim=${encodeURIComponent(selectedScrimId)}`}>
-              <History className="size-3.5 text-primary" />
-              Open in Match History Archive →
-            </Link>
-          </Button>
+        {/* Quick Cascading Scrim Selector (Schedule -> Category -> Ascending Room) */}
+        <div className="border-t border-white/[0.06] pt-3">
+          <CascadingScrimSelector
+            idPrefix="image-requests-scrim"
+            scrims={sortedScrims}
+            value={selectedScrimId}
+            formatRoomLabel={(s) =>
+              `${s.startTime} · ${s.title} (${(bookingsByScrim[s.id] || []).length} teams)`
+            }
+            onChange={(nextId) => {
+              if (nextId) handleScrimSelect(nextId)
+            }}
+          />
         </div>
       </div>
 
       {/* Top Banner Stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="glass rounded-xl p-4 border border-border/80">
+        <div className="dc-surface rounded-xl p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground uppercase font-semibold">
               {isToday ? "Active Scrims" : "Archived Scrims"}
             </span>
             <Users className="size-4 text-primary" />
           </div>
-          <p className="mt-2 font-display text-2xl font-bold">{scrims.length}</p>
+          <p className="mt-2 font-display text-2xl font-bold">{sortedScrims.length}</p>
         </div>
-        <div className="glass rounded-xl p-4 border border-amber-500/30 bg-amber-500/5">
+        <div className="dc-surface rounded-xl p-4 border-amber-500/30">
           <div className="flex items-center justify-between">
             <span className="text-xs text-amber-300 uppercase font-semibold">Pending Submissions</span>
             <Clock className="size-4 text-amber-400" />
           </div>
           <p className="mt-2 font-display text-2xl font-bold text-amber-400">{pendingRequests.length}</p>
         </div>
-        <div className="glass rounded-xl p-4 border border-emerald-500/30 bg-emerald-500/5">
+        <div className="dc-surface rounded-xl p-4 border-emerald-500/30">
           <div className="flex items-center justify-between">
             <span className="text-xs text-emerald-300 uppercase font-semibold">Photos Received</span>
             <CheckCircle2 className="size-4 text-emerald-400" />

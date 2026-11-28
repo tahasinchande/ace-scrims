@@ -277,7 +277,7 @@ function authEmailShell({
     url: appUrl,
     logo: senderAvatarUrl,
     image: symbolLogoUrl,
-  })
+  }).replace(/</g, "\\u003c")
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -425,7 +425,7 @@ function emailShell({
     url: appUrl,
     logo: senderAvatarUrl,
     image: symbolLogoUrl,
-  })
+  }).replace(/</g, "\\u003c")
 
   return `<!DOCTYPE html>
 <html lang="en">

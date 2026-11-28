@@ -1,24 +1,29 @@
 "use client"
 
-import { motion, useReducedMotion } from "motion/react"
 import { Coffee, ExternalLink } from "lucide-react"
 import { SupportKoriIcon } from "@/components/site/brand-icons"
+import { Reveal } from "@/components/site/reveal"
 
 export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string }) {
-  const url = supportKoriUrl || "https://www.supportkori.com/ace_scrims"
-  const prefersReducedMotion = useReducedMotion()
+  // If settings explicitly cleared SupportKori URL to "", hide the banner for visitors
+  if (supportKoriUrl !== undefined && !supportKoriUrl.trim()) {
+    return null
+  }
+  const url = (supportKoriUrl ?? "https://www.supportkori.com/acescrims").trim()
+  if (!url) return null
 
   return (
     <section className="w-full py-8 px-4">
-      <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-50px" }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
+      <Reveal
+        y={22}
+        duration={0.62}
         className="dc-surface rushx-box-splash mx-auto max-w-5xl overflow-hidden rounded-3xl border-amber-400/25 p-6 sm:p-8 shadow-2xl relative group"
       >
-        {/* Clean warm golden ambient accent — zero violet/indigo bleed */}
-        <div className="absolute -right-20 -top-20 size-60 rounded-full bg-amber-400/12 blur-3xl pointer-events-none" />
+        {/* Clean warm golden ambient accent — pure radial gradient (zero blur-3xl over WebGL) */}
+        <div
+          className="absolute -right-12 -top-12 size-64 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(251,191,36,0.14) 0%, transparent 70%)" }}
+        />
 
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-4 text-center md:text-left">
@@ -52,7 +57,7 @@ export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string 
             </a>
           </div>
         </div>
-      </motion.div>
+      </Reveal>
     </section>
   )
 }

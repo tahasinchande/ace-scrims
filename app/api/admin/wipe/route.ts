@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
-import { isAdminOrOwner } from "@/lib/roles"
+import { isOwnerRole } from "@/lib/roles"
 import { wipeDeploymentData } from "@/app/actions/admin"
 
 export const dynamic = "force-dynamic"
@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ ok: false, error: "Unauthorized: Valid session token required." }, { status: 401 })
     }
-    if (user.banned || !isAdminOrOwner(user.role)) {
-      return NextResponse.json({ ok: false, error: "Forbidden: Admin privileges required." }, { status: 403 })
+    if (user.banned || !isOwnerRole(user.role)) {
+      return NextResponse.json({ ok: false, error: "Forbidden: Owner privileges required." }, { status: 403 })
     }
 
     let deleteNonAdminUsers = false

@@ -16,18 +16,33 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Invalid url", { status: 400 })
   }
 
-  // Restrict to HTTPS and our own blob store host.
+  // Restrict strictly to HTTPS, no embedded credentials/custom ports, and our own Vercel Blob store host.
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim() || ""
+  const tokenStoreMatch = token.match(/^vercel_blob_rw_([a-z0-9]+)_/i)
+  const allowedStoreId = tokenStoreMatch?.[1]?.toLowerCase() || null
+  const host = parsed.hostname.toLowerCase()
+
+  const isVercelBlobHost =
+    host.endsWith(".blob.vercel-storage.com") || host.endsWith(".vercel-storage.com")
+  const matchesOwnStore =
+    !allowedStoreId ||
+    host === `${allowedStoreId}.public.blob.vercel-storage.com` ||
+    host === `${allowedStoreId}.private.blob.vercel-storage.com` ||
+    host.startsWith(`${allowedStoreId}.`)
+
   if (
     parsed.protocol !== "https:" ||
-    (!parsed.hostname.endsWith(".blob.vercel-storage.com") &&
-      !parsed.hostname.endsWith(".vercel-storage.com"))
+    parsed.username ||
+    parsed.password ||
+    parsed.port ||
+    !isVercelBlobHost ||
+    !matchesOwnStore
   ) {
     return new NextResponse("Forbidden", { status: 403 })
   }
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN
   const headers: Record<string, string> = {}
-  if (token) {
+  if (token && allowedStoreId && matchesOwnStore) {
     headers["authorization"] = `Bearer ${token}`
   }
 

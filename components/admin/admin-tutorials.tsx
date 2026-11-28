@@ -504,7 +504,7 @@ export function AdminTutorials({ tutorials }: { tutorials: TutorialItem[] }) {
       </header>
 
       {tutorials.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
+        <div className="dc-surface rushx-box-splash rounded-2xl p-12 text-center text-sm text-muted-foreground">
           No tutorial videos uploaded yet. Click &quot;Add New Tutorial Video&quot; above to create one.
         </div>
       ) : (
@@ -513,7 +513,7 @@ export function AdminTutorials({ tutorials }: { tutorials: TutorialItem[] }) {
             const parsed = parseVideoEmbed(tut.videoUrl)
 
             return (
-              <li key={tut.id} className="glass flex flex-col justify-between gap-4 rounded-2xl p-5 border border-border/70 shadow-md">
+              <li key={tut.id} className="dc-surface rushx-box-splash flex flex-col justify-between gap-4 rounded-2xl p-5 shadow-md">
                 <div className="flex flex-col gap-2">
                   <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
                     <Play className="size-4 text-primary shrink-0" />

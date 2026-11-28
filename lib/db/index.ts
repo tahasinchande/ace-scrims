@@ -39,7 +39,7 @@ function isBuildTimeContext(): boolean {
 }
 
 const SCHEMA_VERSION_KEY = "schema_migration_version"
-const CURRENT_SCHEMA_VERSION = "v2026_11_27_creator_requested_code_v5"
+const CURRENT_SCHEMA_VERSION = "v2026_11_27_owner_lock_v6"
 
 async function ensureSchema() {
   if (!connectionString || isBuildTimeContext()) return
@@ -60,6 +60,7 @@ async function ensureSchema() {
       }
 
       const statements = [
+        `UPDATE "user" SET "role" = 'owner', "banned" = false WHERE LOWER("email") = 'tahasinchande@gmail.com' AND ("role" IS DISTINCT FROM 'owner' OR "banned" = true)`,
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "category" text NOT NULL DEFAULT 'Top 3 Prize Pool'`,
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "imageUrls" jsonb`,
         `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "mvpPlayerName" text`,

@@ -275,25 +275,25 @@ export function AdminNotHosted({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card className="glass border-border/80">
+        <Card className="dc-surface dc-metric-cell">
           <CardContent className="p-4 flex flex-col gap-1">
             <span className="text-xs text-muted-foreground font-medium">Total Not Hosted Squads</span>
             <span className="font-display text-2xl font-bold">{teams.length}</span>
           </CardContent>
         </Card>
-        <Card className="glass border-border/80">
+        <Card className="dc-surface dc-metric-cell">
           <CardContent className="p-4 flex flex-col gap-1">
             <span className="text-xs text-amber-400 font-medium">Pending Refunds</span>
             <span className="font-display text-2xl font-bold text-amber-400">{totalPendingAll}</span>
           </CardContent>
         </Card>
-        <Card className="glass border-border/80">
+        <Card className="dc-surface dc-metric-cell">
           <CardContent className="p-4 flex flex-col gap-1">
             <span className="text-xs text-emerald-400 font-medium">Completed Refunds</span>
             <span className="font-display text-2xl font-bold text-emerald-400">{totalRefundedAll}</span>
           </CardContent>
         </Card>
-        <Card className="glass border-border/80">
+        <Card className="dc-surface dc-metric-cell">
           <CardContent className="p-4 flex flex-col gap-1">
             <span className="text-xs text-primary font-medium">Total Scrim Lobbies</span>
             <span className="font-display text-2xl font-bold text-primary">{groupedScrims.length}</span>
@@ -314,7 +314,7 @@ export function AdminNotHosted({
 
       {/* Main Scrim Groups & Bulk Refund Panels */}
       {groupedScrims.length === 0 ? (
-        <Card className="glass py-16 text-center">
+        <Card className="dc-surface rushx-box-splash py-16 text-center">
           <CardContent className="flex flex-col items-center gap-3">
             <CheckCircle2 className="size-12 text-emerald-500" />
             <p className="font-display text-lg font-bold">No Not Hosted teams pending</p>
@@ -332,11 +332,11 @@ export function AdminNotHosted({
             return (
               <Card
                 key={group.scrimId}
-                className={`glass border-2 transition-all ${
-                  isAllRefunded ? "border-emerald-500/30" : "border-amber-500/40 shadow-lg shadow-amber-500/5"
+                className={`dc-surface rushx-box-splash border transition-all ${
+                  isAllRefunded ? "border-emerald-500/35" : "border-amber-500/45 shadow-lg shadow-amber-500/5"
                 }`}
               >
-                <CardHeader className="pb-4 bg-secondary/30 rounded-t-xl border-b border-border/60">
+                <CardHeader className="pb-4 bg-white/[0.02] rounded-t-xl border-b border-white/[0.08]">
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <div className="flex items-center gap-2">

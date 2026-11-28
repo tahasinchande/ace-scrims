@@ -206,19 +206,45 @@ export function resolveAmbientPhases(
   if (!config) return AMBIENT_PHASES
 
   const enabledSet = new Set(config.enabledBuiltInPhases || [])
-  const resolved: AmbientColorPhase[] = AMBIENT_PHASES.filter((phase) =>
-    enabledSet.has(phase.name as any)
-  )
+  const resolvedWithIds: Array<{ id: string; phase: AmbientColorPhase }> = []
+
+  for (const phase of AMBIENT_PHASES) {
+    if (enabledSet.has(phase.name as any)) {
+      resolvedWithIds.push({ id: phase.name, phase })
+    }
+  }
 
   if (Array.isArray(config.customColors)) {
     for (const c of config.customColors) {
       if (c && c.hex) {
-        resolved.push(buildAmbientPhaseFromHex(c.name || c.id || c.hex, c.hex))
+        const id = c.id || c.name || c.hex
+        resolvedWithIds.push({
+          id,
+          phase: buildAmbientPhaseFromHex(c.name || c.id || c.hex, c.hex),
+        })
       }
     }
   }
 
-  return resolved.length > 0 ? resolved : [AMBIENT_PHASES[0]]
+  if (resolvedWithIds.length === 0) {
+    return [AMBIENT_PHASES[0]]
+  }
+
+  const desiredId = (config.initialPrimaryColorId || "").trim()
+  if (desiredId) {
+    const startIdx = resolvedWithIds.findIndex(
+      (entry) => entry.id === desiredId || entry.phase.name === desiredId
+    )
+    if (startIdx > 0) {
+      const rotated = [
+        ...resolvedWithIds.slice(startIdx),
+        ...resolvedWithIds.slice(0, startIdx),
+      ]
+      return rotated.map((entry) => entry.phase)
+    }
+  }
+
+  return resolvedWithIds.map((entry) => entry.phase)
 }
 
 /**

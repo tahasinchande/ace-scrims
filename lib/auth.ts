@@ -100,6 +100,22 @@ export const auth = betterAuth({
       create: {
         after: async (createdUser) => {
           try {
+            // Auto-assign Owner role to the primary Owner email on account creation
+            try {
+              const { isPrimaryOwnerEmail } = await import("@/lib/roles")
+              if (isPrimaryOwnerEmail(createdUser.email)) {
+                const { db } = await import("@/lib/db")
+                const { user: userTable } = await import("@/lib/db/schema")
+                const { eq } = await import("drizzle-orm")
+                await db
+                  .update(userTable)
+                  .set({ role: "owner", banned: false, updatedAt: new Date() })
+                  .where(eq(userTable.id, createdUser.id))
+              }
+            } catch (ownerErr) {
+              console.error("[Better Auth Hook] Primary owner assignment error:", ownerErr)
+            }
+
             // Read staged referral cookie (works seamlessly for both Email/Password & Google OAuth sign-ups)
             let stagedRefCode: string | null = null
             try {

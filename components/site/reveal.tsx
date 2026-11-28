@@ -2,86 +2,128 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
-import { motion, useInView, useReducedMotion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { cn } from "@/lib/utils"
 import { DEEPCHARTS_EASE } from "@/lib/intro-motion"
 
 export { DEEPCHARTS_EASE }
 
 /**
- * Reliable latched DeepCharts-style reveal hook:
- * - For `immediate={true}` (hero / above-the-fold): starts unrevealed on mount and flips to `true`
- *   on the next animation frame (with a guaranteed 260ms fail-safe), ensuring `initial -> animate`
- *   genuinely plays on load instead of snapping statically during SSR hydration.
- * - For scroll-revealed elements: triggers as soon as ANY pixel enters the viewport (`amount: "some"`),
- *   backed by `getBoundingClientRect()` scroll/resize checks and a safety fail-safe so elements
- *   can NEVER stay stuck at `opacity: 0`.
- * - Latches permanently to `true` once triggered so toggling 2D/3D mode or language NEVER resets
- *   or replays already-revealed content.
+ * Reliable latched Fade-In reveal hook (Initial Load + Scroll Reveal):
+ * - For `immediate={true}` (hero / above-the-fold): waits until first paint settles (~90ms after RAF)
+ *   so initial Three.js/WebGL initialization doesn't swallow the transition frames, then smoothly fades in.
+ * - For scroll-revealed elements: uses native IntersectionObserver (threshold: 0.01) backed by
+ *   passive scroll/resize bounding-rect checks so tall sections, cards, images, and headings reliably
+ *   fade in once as the user scrolls downward and NEVER remain stuck at opacity 0.
+ * - Latches permanently to `true` once revealed so mode/language toggles or re-renders never reset it.
  */
 export function useReliableOnceReveal(
   ref: React.RefObject<HTMLDivElement | null>,
   reduced: boolean | null,
   immediate = false
 ) {
-  const inView = useInView(ref, { once: true, amount: "some", margin: "0px 0px -16px 0px" })
   const [revealed, setRevealed] = useState(Boolean(reduced))
+  const latchedRef = useRef(Boolean(reduced))
 
   useEffect(() => {
     if (reduced) {
-      if (!revealed) setRevealed(true)
-      return
-    }
-
-    if (revealed) return
-
-    if (immediate) {
-      let raf2 = 0
-      const raf1 = window.requestAnimationFrame(() => {
-        raf2 = window.requestAnimationFrame(() => {
-          setRevealed(true)
-        })
-      })
-      const safeTimer = window.setTimeout(() => {
-        setRevealed(true)
-      }, 240)
-      return () => {
-        window.cancelAnimationFrame(raf1)
-        if (raf2) window.cancelAnimationFrame(raf2)
-        window.clearTimeout(safeTimer)
-      }
-    }
-
-    if (inView) {
+      latchedRef.current = true
       setRevealed(true)
       return
     }
 
-    const checkRect = () => {
-      const el = ref.current
-      if (!el || typeof window === "undefined") return
-      const rect = el.getBoundingClientRect()
-      // Reveal cleanly once the element enters the viewport (or if user already scrolled past it)
-      if (rect.top <= window.innerHeight - 12 && rect.bottom >= 0) {
-        setRevealed(true)
-      } else if (rect.bottom < 0) {
-        setRevealed(true)
+    if (latchedRef.current) {
+      if (!revealed) setRevealed(true)
+      return
+    }
+
+    const triggerReveal = () => {
+      if (latchedRef.current) return
+      latchedRef.current = true
+      setRevealed(true)
+    }
+
+    if (immediate) {
+      let settleTimer = 0
+      let raf2 = 0
+      const raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(() => {
+          // Small 70ms settle prevents WebGL canvas initialization from eating the first fade-in frames
+          settleTimer = window.setTimeout(triggerReveal, 70)
+        })
+      })
+      const hardFailSafe = window.setTimeout(triggerReveal, 360)
+      return () => {
+        window.cancelAnimationFrame(raf1)
+        if (raf2) window.cancelAnimationFrame(raf2)
+        if (settleTimer) window.clearTimeout(settleTimer)
+        window.clearTimeout(hardFailSafe)
       }
     }
 
-    checkRect()
-    const raf = window.requestAnimationFrame(checkRect)
-    const settleTimer = window.setTimeout(checkRect, 350)
+    const el = ref.current
+    if (!el || typeof window === "undefined") {
+      const fallback = window.setTimeout(triggerReveal, 250)
+      return () => window.clearTimeout(fallback)
+    }
+
+    const checkRect = () => {
+      if (latchedRef.current) return
+      const node = ref.current
+      if (!node) return
+      const rect = node.getBoundingClientRect()
+      const vh = window.innerHeight || document.documentElement.clientHeight || 800
+      // Trigger smoothly once the top enters the bottom 96% of viewport, or if already scrolled past
+      if ((rect.top <= vh * 0.96 && rect.bottom >= 0) || rect.bottom < 0) {
+        triggerReveal()
+      }
+    }
+
+    let io: IntersectionObserver | null = null
+    if (typeof IntersectionObserver !== "undefined") {
+      io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting || entry.boundingClientRect.top <= window.innerHeight * 0.96) {
+              triggerReveal()
+              io?.disconnect()
+              break
+            }
+          }
+        },
+        {
+          threshold: 0.01,
+          rootMargin: "0px 0px -24px 0px",
+        }
+      )
+      io.observe(el)
+    }
+
+    // Immediate check for elements already inside the initial viewport (with tiny paint delay so fade-in is visible)
+    const initialRaf = window.requestAnimationFrame(() => {
+      const node = ref.current
+      if (!node) return
+      const rect = node.getBoundingClientRect()
+      const vh = window.innerHeight || 800
+      if (rect.top <= vh * 0.96 && rect.bottom >= 0) {
+        window.setTimeout(triggerReveal, 90)
+      } else if (rect.bottom < 0) {
+        triggerReveal()
+      }
+    })
+
+    const settleTimer = window.setTimeout(checkRect, 450)
     window.addEventListener("scroll", checkRect, { passive: true })
     window.addEventListener("resize", checkRect, { passive: true })
 
     return () => {
-      window.cancelAnimationFrame(raf)
+      io?.disconnect()
+      window.cancelAnimationFrame(initialRaf)
       window.clearTimeout(settleTimer)
       window.removeEventListener("scroll", checkRect)
       window.removeEventListener("resize", checkRect)
     }
-  }, [inView, reduced, immediate, revealed, ref])
+  }, [reduced, immediate, revealed, ref])
 
   return Boolean(reduced) || revealed
 }

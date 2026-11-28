@@ -33,12 +33,18 @@ export function AuthShell({
       {/* Subtle atmospheric ambient backdrop synchronized with dynamic Blue-primary phase */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#040814]/50 via-[#040814]/65 to-[#030610]/85" />
       <div
-        className="pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 h-80 w-[560px] rounded-full blur-[110px]"
-        style={{ background: "rgba(var(--rushx-primary-rgb), 0.22)" }}
+        className="pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 h-96 w-[620px] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(var(--rushx-primary-rgb), 0.24) 0%, rgba(var(--rushx-primary-rgb), 0) 70%)",
+        }}
       />
       <div
-        className="pointer-events-none absolute -bottom-24 right-1/4 h-72 w-96 rounded-full blur-[110px]"
-        style={{ background: "rgba(var(--rushx-accent-rgb), 0.14)" }}
+        className="pointer-events-none absolute -bottom-24 right-1/4 h-80 w-[28rem] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(var(--rushx-accent-rgb), 0.16) 0%, rgba(var(--rushx-accent-rgb), 0) 70%)",
+        }}
       />
 
       {/* ──────────────────────────────────────────────────────────────────────
@@ -67,20 +73,14 @@ export function AuthShell({
         <div className="mb-6 flex flex-col items-center text-center">
           <Link
             href="/"
-            className="group mb-4 flex flex-col items-center gap-2.5"
+            className="group mb-4 flex flex-col items-center"
             aria-label="RushX Organization home"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={BRAND.assets.symbol}
-              alt={BRAND.name}
-              className="size-12 object-contain drop-shadow-[0_6px_18px_rgba(var(--rushx-primary-rgb),0.45)] transition-transform duration-200 group-hover:scale-105"
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
               src={BRAND.assets.fullWordmark}
               alt={BRAND.name}
-              className="h-8 w-auto object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.18)]"
+              className="h-9 w-auto object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.18)] transition-transform duration-200 group-hover:scale-105"
             />
           </Link>
           <h1 className="font-display text-2xl font-bold tracking-tight text-white text-balance">
@@ -176,12 +176,6 @@ export function AuthShell({
               <ArrowLeft className="size-3.5" />
               <span>Back to site</span>
             </Link>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={BRAND.assets.symbol}
-              alt={BRAND.name}
-              className="size-7 object-contain opacity-90"
-            />
           </div>
 
           <div className="mb-7">

@@ -104,11 +104,11 @@ export function AdminPaymentsView({ payments }: { payments: PaymentItem[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
+        <div className="dc-surface rushx-box-splash rounded-2xl p-12 text-center text-sm text-muted-foreground">
           {payments.length === 0 ? "No payments yet." : "No payments match your search."}
         </div>
       ) : (
-        <div className="glass overflow-x-auto rounded-2xl border border-border/60">
+        <div className="dc-surface rushx-box-splash overflow-x-auto rounded-2xl">
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">

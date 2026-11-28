@@ -73,11 +73,11 @@ export function SiteHeader({
 
   const [liveSettings, setLiveSettings] = useState<HeaderSettings | undefined>(initialSettings)
 
-  // Fetch settings dynamically if not provided via props or to keep state fresh
+  // Fetch settings dynamically only if not provided via server props
   useEffect(() => {
     let isMounted = true
-    if (!initialSettings?.supportWhatsapp && !initialWa) {
-      fetch("/api/settings")
+    if (initialSettings === undefined && initialWa === undefined) {
+      fetch("/api/settings", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (isMounted && data) {
@@ -91,14 +91,17 @@ export function SiteHeader({
     }
   }, [initialSettings, initialWa])
 
-  // Support link calculation from dynamic Admin data
+  // Support link calculation from dynamic Admin data (respects explicit empty string)
   const rawSupportWa =
-    initialWa ||
-    liveSettings?.supportWhatsapp ||
-    initialSettings?.supportWhatsapp ||
-    "+8801831510108"
+    initialWa !== undefined
+      ? initialWa
+      : liveSettings?.supportWhatsapp !== undefined
+        ? liveSettings.supportWhatsapp
+        : initialSettings?.supportWhatsapp !== undefined
+          ? initialSettings.supportWhatsapp
+          : "+8801831510108"
   const cleanWaNumber = rawSupportWa.replace(/[^0-9]/g, "")
-  const supportUrl = `https://wa.me/${cleanWaNumber || "8801831510108"}`
+  const supportUrl = cleanWaNumber ? `https://wa.me/${cleanWaNumber}` : ""
 
   // Use client session or server initialUser
   const currentUser = sessionData?.user
@@ -115,9 +118,9 @@ export function SiteHeader({
       className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#050508]/82 backdrop-blur-2xl shadow-[0_14px_34px_-18px_rgba(0,0,0,0.9)] transition-colors duration-200"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        {/* Brand Logo (Left — 'R' mark beside stylized RushX wordmark) */}
+        {/* Clean Primary Brand Wordmark (no duplicate small side icon) */}
         <Link href="/" className="flex shrink-0 items-center group transition-opacity hover:opacity-90" aria-label="RushX Organization Home">
-          <RushXBrandLogo size="md" variant="lockup" logoUrl={activeLogoUrl} />
+          <RushXBrandLogo size="md" variant="wordmark" logoUrl={activeLogoUrl} />
         </Link>
 
         {/* Central Navigation Links */}
@@ -269,14 +272,16 @@ export function SiteHeader({
             {t("nav_tutorial", "Tutorial")}
           </Link>
 
-          <a
-            href={supportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whitespace-nowrap rounded-lg border border-transparent px-3 py-1.5 text-sm font-semibold tracking-tight text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.05] transition-all"
-          >
-            {t("nav_support", "Support")}
-          </a>
+          {supportUrl && (
+            <a
+              href={supportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="whitespace-nowrap rounded-lg border border-transparent px-3 py-1.5 text-sm font-semibold tracking-tight text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.05] transition-all"
+            >
+              {t("nav_support", "Support")}
+            </a>
+          )}
         </nav>
 
         {/* Right Side Header Controls */}
@@ -383,13 +388,17 @@ export function SiteHeader({
                       <span>Tutorial Video</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/[0.07]" />
-                  <DropdownMenuItem className="p-0">
-                    <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-emerald-400">
-                      <MessageSquare className="size-4 text-emerald-400" />
-                      <span>WhatsApp Support</span>
-                    </a>
-                  </DropdownMenuItem>
+                  {supportUrl && (
+                    <>
+                      <DropdownMenuSeparator className="bg-white/[0.07]" />
+                      <DropdownMenuItem className="p-0">
+                        <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-emerald-400">
+                          <MessageSquare className="size-4 text-emerald-400" />
+                          <span>WhatsApp Support</span>
+                        </a>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -460,13 +469,17 @@ export function SiteHeader({
                   <span>Results &amp; Leaderboard</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/[0.07]" />
-              <DropdownMenuItem className="p-0">
-                <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-emerald-400">
-                  <MessageSquare className="size-4 text-emerald-400" />
-                  <span>WhatsApp Support</span>
-                </a>
-              </DropdownMenuItem>
+              {supportUrl && (
+                <>
+                  <DropdownMenuSeparator className="bg-white/[0.07]" />
+                  <DropdownMenuItem className="p-0">
+                    <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer text-emerald-400">
+                      <MessageSquare className="size-4 text-emerald-400" />
+                      <span>WhatsApp Support</span>
+                    </a>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -583,14 +596,16 @@ export function SiteHeader({
               >
                 {t("nav_tutorial", "How to Play Tutorial")}
               </Link>
-              <a
-                href={supportUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white"
-              >
-                {t("nav_support", "WhatsApp Support")}
-              </a>
+              {supportUrl && (
+                <a
+                  href={supportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                >
+                  {t("nav_support", "WhatsApp Support")}
+                </a>
+              )}
 
               <div className="my-2 h-px bg-white/[0.08]" />
 

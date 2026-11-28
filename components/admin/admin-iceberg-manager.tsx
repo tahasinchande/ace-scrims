@@ -452,7 +452,7 @@ export function AdminIcebergManager({
     <div className="flex flex-col gap-6">
       {/* KPI Overview */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="glass rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-4">
+        <div className="dc-surface dc-metric-cell rounded-2xl border-cyan-500/25 p-4">
           <div className="flex items-center justify-between text-xs text-cyan-300 font-semibold">
             <span>Active Icebergs</span>
             <Snowflake className="size-4" />
@@ -467,7 +467,7 @@ export function AdminIcebergManager({
           </p>
         </div>
 
-        <div className="glass rounded-2xl border border-border/60 p-4">
+        <div className="dc-surface dc-metric-cell rounded-2xl p-4">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
             <span>Real Confirmed Slots</span>
             <Users className="size-4 text-emerald-400" />
@@ -478,7 +478,7 @@ export function AdminIcebergManager({
           <p className="mt-1 text-[11px] text-muted-foreground">Actual booked squads today</p>
         </div>
 
-        <div className="glass rounded-2xl border border-border/60 p-4">
+        <div className="dc-surface dc-metric-cell rounded-2xl p-4">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
             <span>Public Displayed Slots</span>
             <Flame className="size-4 text-primary" />
@@ -489,7 +489,7 @@ export function AdminIcebergManager({
           <p className="mt-1 text-[11px] text-muted-foreground">Shown across public cards</p>
         </div>
 
-        <div className="glass rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+        <div className="dc-surface dc-metric-cell rounded-2xl border-amber-500/25 p-4">
           <div className="flex items-center justify-between text-xs text-amber-300 font-semibold">
             <span>Safety Override (12/12)</span>
             <ShieldAlert className="size-4" />
@@ -502,7 +502,7 @@ export function AdminIcebergManager({
       </div>
 
       {/* Main Automation & Multi-Scrim Batch Control Card */}
-      <section className="glass rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-card/70 to-card p-5 sm:p-6 space-y-5">
+      <section className="dc-surface rushx-box-splash rounded-2xl border-cyan-500/30 p-5 sm:p-6 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 pb-4">
           <div>
             <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-cyan-300">

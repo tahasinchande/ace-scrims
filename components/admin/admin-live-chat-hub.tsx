@@ -41,7 +41,6 @@ import {
   isNonOwnerStaffRole,
   isOwnerRole,
   isStaffRole,
-  RUSHX_SUPPORT_AVATAR,
   RUSHX_SUPPORT_NAME,
 } from "@/lib/roles"
 import { formatDate } from "@/lib/format"
@@ -210,7 +209,7 @@ export function AdminLiveChatHub({
     (initialHubData?.humanChats?.[0]?.userId ?? initialHubData?.aiChats?.[0]?.userId) || null
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(defaultSelected)
-  const [mobileShowThread, setMobileShowThread] = useState(Boolean(defaultSelected))
+  const [mobileShowThread, setMobileShowThread] = useState(false)
   const [search, setSearch] = useState("")
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [loadingThread, setLoadingThread] = useState(false)
@@ -567,14 +566,19 @@ export function AdminLiveChatHub({
   const unresolvedModCount = moderationLogs.filter((l) => l.currentBanned || !l.isResolved).length
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 sm:space-y-5">
       {/* Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+      <div
+        className={cn(
+          "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3",
+          mobileShowThread && selectedUserId && "hidden md:flex"
+        )}
+      >
+        <div className="flex flex-col gap-0.5 sm:gap-1">
+          <h1 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-wide">
             {t("admin_chat_title", "Live Support Hub")}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {t("admin_chat_sub")}
           </p>
         </div>
@@ -592,20 +596,21 @@ export function AdminLiveChatHub({
       </div>
 
       {/* Dual-Section + Moderation Tab Switcher */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/80 bg-secondary/40 p-1.5">
+      <div className="dc-surface flex items-center gap-1.5 overflow-x-auto rounded-2xl p-1.5 sm:flex-wrap">
         <button
           type="button"
           onClick={() => {
             setActiveTab("human")
+            setMobileShowThread(false)
             if (humanChats.length > 0 && !humanChats.some((c) => c.userId === selectedUserId)) {
               setSelectedUserId(humanChats[0].userId)
             }
           }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
+            "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
             activeTab === "human"
               ? "bg-[#0084FF] text-white shadow"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
           )}
         >
           <Headset className="size-4" />
@@ -624,15 +629,16 @@ export function AdminLiveChatHub({
           type="button"
           onClick={() => {
             setActiveTab("ai")
+            setMobileShowThread(false)
             if (aiChats.length > 0 && !aiChats.some((c) => c.userId === selectedUserId)) {
               setSelectedUserId(aiChats[0].userId)
             }
           }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
+            "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
             activeTab === "ai"
               ? "bg-indigo-600 text-white shadow"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
           )}
         >
           <Bot className="size-4" />
@@ -644,12 +650,15 @@ export function AdminLiveChatHub({
 
         <button
           type="button"
-          onClick={() => setActiveTab("moderation")}
+          onClick={() => {
+            setActiveTab("moderation")
+            setMobileShowThread(false)
+          }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
+            "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
             activeTab === "moderation"
               ? "bg-rose-600 text-white shadow"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
           )}
         >
           <ShieldAlert className="size-4" />
@@ -664,7 +673,7 @@ export function AdminLiveChatHub({
 
       {/* Tab 3: Moderation & Bans */}
       {activeTab === "moderation" ? (
-        <div className="glass rounded-2xl border border-border/80 overflow-hidden">
+        <div className="dc-surface rushx-box-splash rounded-2xl overflow-hidden">
           {moderationLogs.length === 0 ? (
             <div className="p-12 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
               <ShieldAlert className="size-10 opacity-30 text-rose-400" />
@@ -753,15 +762,22 @@ export function AdminLiveChatHub({
         </div>
       ) : (
         /* Tabs 1 & 2: Two-Pane Messenger Thread View */
-        <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-[#18191A] flex flex-col md:flex-row h-[720px] max-h-[82vh] shadow-xl">
+        <div
+          className={cn(
+            "dc-surface rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-[430px] max-h-[780px] md:h-[min(740px,calc(100dvh-9.5rem))] shadow-xl",
+            mobileShowThread && selectedUserId
+              ? "h-[calc(100dvh-9rem)]"
+              : "h-[calc(100dvh-13.5rem)]"
+          )}
+        >
           {/* Left Pane */}
           <div
             className={cn(
-              "w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col bg-[#242526] shrink-0",
+              "w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-[#111728]/90 shrink-0 min-h-0 overflow-hidden",
               mobileShowThread && selectedUserId ? "hidden md:flex" : "flex flex-1 md:flex-none"
             )}
           >
-            <div className="p-4 border-b border-zinc-800 flex flex-col gap-3">
+            <div className="p-3.5 sm:p-4 border-b border-white/10 flex flex-col gap-3 shrink-0">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-zinc-100">
                   {activeTab === "human" ? (
@@ -773,7 +789,7 @@ export function AdminLiveChatHub({
                     ? t("admin_chat_tab_human")
                     : t("admin_chat_tab_ai")}
                 </h2>
-                <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-mono font-bold text-zinc-300">
+                <span className="rounded-md bg-white/[0.08] px-2 py-0.5 text-xs font-mono font-bold text-zinc-300">
                   {currentTabConversations.length}
                 </span>
               </div>
@@ -784,12 +800,12 @@ export function AdminLiveChatHub({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("admin_chat_search_placeholder")}
-                  className="pl-8 h-9 rounded-full text-xs bg-[#3A3B3C] border-zinc-700 text-zinc-100 placeholder:text-zinc-400"
+                  className="pl-8 h-9 rounded-full text-sm sm:text-xs bg-white/[0.06] border-white/10 text-zinc-100 placeholder:text-zinc-400"
                 />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-1">
               {filteredConversations.length === 0 ? (
                 <div className="p-8 text-center text-xs text-zinc-400">
                   <MessageSquare className="size-8 mx-auto mb-2 opacity-30" />
@@ -865,18 +881,18 @@ export function AdminLiveChatHub({
           {/* Right Pane */}
           <div
             className={cn(
-              "flex-1 flex flex-col bg-[#18191A] min-w-0",
+              "flex-1 flex flex-col bg-[#0c1120]/95 min-w-0 min-h-0 overflow-hidden",
               mobileShowThread && selectedUserId ? "flex" : "hidden md:flex"
             )}
           >
             {selectedUserId ? (
               <>
-                <div className="p-3.5 px-4 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2 bg-[#242526] shrink-0">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 sm:p-3.5 sm:px-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-2 bg-[#111728] shrink-0">
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                     <button
                       type="button"
                       onClick={() => setMobileShowThread(false)}
-                      className="md:hidden rounded-full p-1.5 text-zinc-300 hover:bg-zinc-700"
+                      className="md:hidden rounded-full p-1.5 text-zinc-200 bg-white/[0.06] hover:bg-white/[0.12] shrink-0 cursor-pointer"
                       aria-label="Back to conversations"
                     >
                       <ChevronLeft className="size-5" />
@@ -966,7 +982,7 @@ export function AdminLiveChatHub({
                   ref={containerRef}
                   onScroll={handleScroll}
                   onClick={() => openPickerId && setOpenPickerId(null)}
-                  className="flex-1 overflow-y-auto p-4 flex flex-col gap-1.5 relative bg-[#18191A]"
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 flex flex-col gap-1.5 relative bg-[#0c1120]/95"
                 >
                   {loadingThread ? (
                     <div className="flex items-center justify-center h-full text-xs text-zinc-400 gap-2">
@@ -1035,16 +1051,6 @@ export function AdminLiveChatHub({
                             {!prevSameSender && (
                               <div className="flex items-center gap-1.5 mb-0.5 px-1 text-[10px] text-zinc-400">
                                 {isAi && <Bot className="size-3 text-sky-400" />}
-                                {isNonOwnerStaff && (
-                                  <span className="flex size-4 items-center justify-center rounded-full bg-[#101830] border border-sky-400/35 p-0.5">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={RUSHX_SUPPORT_AVATAR}
-                                      alt={RUSHX_SUPPORT_NAME}
-                                      className="size-2.5 object-contain"
-                                    />
-                                  </span>
-                                )}
                                 <span className="font-semibold text-zinc-300">
                                   {isAi
                                     ? `${m.senderName} (${t("chat_ai_badge")})`
@@ -1235,7 +1241,7 @@ export function AdminLiveChatHub({
                 </div>
 
                 {/* Quick Replies Bar */}
-                <div className="px-4 py-2 border-t border-zinc-800 bg-[#242526]/70 flex items-center gap-1.5 overflow-x-auto text-[11px] shrink-0">
+                <div className="px-3 sm:px-4 py-1.5 sm:py-2 border-t border-white/10 bg-[#111728]/80 flex items-center gap-1.5 overflow-x-auto text-[11px] shrink-0">
                   <span className="text-zinc-400 font-semibold flex items-center gap-1 shrink-0">
                     <Sparkles className="size-3 text-[#0084FF]" />
                     {lang === "bn" ? "দ্রুত উত্তর:" : "Quick:"}
@@ -1245,7 +1251,7 @@ export function AdminLiveChatHub({
                       key={idx}
                       type="button"
                       onClick={() => setInputText(reply)}
-                      className="px-2.5 py-1 rounded-full border border-zinc-700 bg-[#3A3B3C] text-zinc-100 hover:bg-[#0084FF]/20 hover:border-[#0084FF]/50 transition-colors whitespace-nowrap cursor-pointer shrink-0"
+                      className="px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.06] text-zinc-100 hover:bg-[#0084FF]/20 hover:border-[#0084FF]/50 transition-colors whitespace-nowrap cursor-pointer shrink-0"
                     >
                       {reply.slice(0, 32)}...
                     </button>
@@ -1253,9 +1259,9 @@ export function AdminLiveChatHub({
                 </div>
 
                 {attachedUrl && (
-                  <div className="px-4 py-1.5 border-t border-zinc-800 bg-[#242526] flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <Paperclip className="size-3.5 text-[#0084FF]" />
+                  <div className="px-3 sm:px-4 py-1.5 border-t border-white/10 bg-[#111728] flex items-center justify-between text-xs shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Paperclip className="size-3.5 text-[#0084FF] shrink-0" />
                       <span className="font-mono text-[11px] text-zinc-200 truncate max-w-xs">{attachedName || "Ready to send"}</span>
                     </div>
                     <button
@@ -1265,7 +1271,7 @@ export function AdminLiveChatHub({
                         setAttachedType(null)
                         setAttachedName(null)
                       }}
-                      className="text-zinc-400 hover:text-white"
+                      className="text-zinc-400 hover:text-white shrink-0"
                     >
                       <X className="size-3.5" />
                     </button>
@@ -1281,7 +1287,10 @@ export function AdminLiveChatHub({
                 )}
 
                 {/* Composer */}
-                <form onSubmit={handleSend} className="p-3 border-t border-zinc-800 bg-[#242526] flex items-end gap-2 shrink-0">
+                <form
+                  onSubmit={handleSend}
+                  className="p-2.5 sm:p-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#111728] flex items-end gap-2 shrink-0"
+                >
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1296,7 +1305,7 @@ export function AdminLiveChatHub({
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading || isSending}
                     title={lang === "bn" ? "ছবি, ভিডিও বা ফাইল যুক্ত করুন" : "Attach photo, video, or file"}
-                    className="size-9 p-0 shrink-0 rounded-full text-[#0084FF] hover:bg-zinc-700/50"
+                    className="size-9 p-0 shrink-0 rounded-full text-[#0084FF] hover:bg-white/[0.08]"
                   >
                     {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4.5" />}
                   </Button>
@@ -1313,7 +1322,7 @@ export function AdminLiveChatHub({
                     }}
                     placeholder={t("chat_composer_placeholder", "Write a reply...")}
                     rows={1}
-                    className="min-h-[38px] max-h-32 text-[13px] resize-none rounded-2xl bg-[#3A3B3C] border-zinc-700 text-zinc-100 placeholder:text-zinc-400"
+                    className="min-h-[38px] max-h-28 text-base sm:text-[13px] resize-none rounded-2xl bg-white/[0.07] border-white/12 text-zinc-100 placeholder:text-zinc-400"
                   />
 
                   <Button

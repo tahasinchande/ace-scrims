@@ -54,7 +54,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { formatTaka, formatDateTime } from "@/lib/format"
+import { formatTaka, formatDateTime, sortScrimsAscending } from "@/lib/format"
+import { CascadingScrimSelector } from "@/components/site/cascading-scrim-selector"
 import { cn } from "@/lib/utils"
 import { publishResult, markPrizeSent, deleteResult } from "@/app/actions/staff"
 import { requestTeamImage } from "@/app/actions/image-requests"
@@ -100,8 +101,10 @@ export type HistoricalBookingItem = {
 
 export type ScrimOption = {
   id: string
+  slug?: string | null
   title: string
   startTime: string
+  category?: string | null
   prizePoolBdt?: number
 }
 
@@ -213,17 +216,17 @@ export function AdminHistoryView({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header controls: Date Picker, Scrim Selector, Copy Action */}
-      <div className="glass rounded-2xl border border-border/80 p-5 flex flex-col gap-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
+      {/* Header controls: Date Picker, Cascading Scrim Selector, Copy Action */}
+      <div className="dc-surface rushx-box-splash rounded-2xl p-4 sm:p-5 flex flex-col gap-4 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             {/* Date Selector */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="history-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <CalendarIcon className="size-3.5 text-primary" />
                 Select Match Date
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   id="history-date"
                   type="date"
@@ -232,7 +235,7 @@ export function AdminHistoryView({
                     setDateInput(e.target.value)
                     applyFilters(e.target.value, scrimFilter)
                   }}
-                  className="w-44 bg-background font-mono text-sm"
+                  className="w-40 sm:w-44 bg-[#060b1a] border-white/15 font-mono text-sm"
                 />
                 {dates.length > 0 && (
                   <Select
@@ -244,7 +247,7 @@ export function AdminHistoryView({
                       }
                     }}
                   >
-                    <SelectTrigger className="w-36 text-xs bg-background">
+                    <SelectTrigger className="w-36 text-xs bg-[#060b1a] border-white/15">
                       <SelectValue placeholder="Quick dates" />
                     </SelectTrigger>
                     <SelectContent>
@@ -259,68 +262,60 @@ export function AdminHistoryView({
               </div>
             </div>
 
-            {/* Scrim Selector */}
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="history-scrim" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Users className="size-3.5 text-primary" />
-                Filter by Scrim Lobby
-              </label>
-              <Select
-                value={scrimFilter}
-                onValueChange={(val) => {
-                  const safeVal = (val as string) || "all"
-                  setScrimFilter(safeVal)
-                  applyFilters(dateInput, safeVal)
-                }}
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <PublishHistoryResultDialog
+                selectedDate={dateInput}
+                scrims={sortScrimsAscending(scrims)}
+                confirmedTeams={filteredBookings
+                  .filter((b) => b.status === "confirmed")
+                  .map((b) => ({ teamName: b.teamName, captainName: b.captainName, captainUid: b.captainUid }))}
+                defaultScrimId={scrimFilter}
+              />
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyFullRoster}
+                disabled={filteredBookings.length === 0}
+                className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
               >
-                <SelectTrigger id="history-scrim" className="w-56 bg-background text-sm">
-                  <SelectValue placeholder="All Scrim Lobbies" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Scrim Lobbies</SelectItem>
-                  {scrims.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.title} ({s.startTime})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {copiedRoster ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                {copiedRoster ? "Roster Copied!" : "Copy Team List"}
+              </Button>
+
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="gap-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <Link href={`/admin/image-requests?date=${encodeURIComponent(dateInput)}&scrim=${encodeURIComponent(scrimFilter)}`}>
+                  <Camera className="size-4" />
+                  Image Requests Hub →
+                </Link>
+              </Button>
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
-            <PublishHistoryResultDialog
-              selectedDate={dateInput}
+          {/* Cascading Scrim Selector */}
+          <div className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Users className="size-3.5 text-primary" />
+              Filter by Scrim Lobby (Schedule → Category → Ascending Room)
+            </span>
+            <CascadingScrimSelector
+              idPrefix="history-scrim"
               scrims={scrims}
-              confirmedTeams={filteredBookings
-                .filter((b) => b.status === "confirmed")
-                .map((b) => ({ teamName: b.teamName, captainName: b.captainName, captainUid: b.captainUid }))}
-              defaultScrimId={scrimFilter}
+              value={scrimFilter}
+              allowAll
+              allLabel="All Scrim Lobbies"
+              onChange={(safeVal) => {
+                const next = safeVal || "all"
+                setScrimFilter(next)
+                applyFilters(dateInput, next)
+              }}
             />
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyFullRoster}
-              disabled={filteredBookings.length === 0}
-              className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-            >
-              {copiedRoster ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
-              {copiedRoster ? "Roster Copied!" : "Copy Team List"}
-            </Button>
-
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="gap-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-            >
-              <Link href={`/admin/image-requests?date=${encodeURIComponent(dateInput)}&scrim=${encodeURIComponent(scrimFilter)}`}>
-                <Camera className="size-4" />
-                Image Requests Hub →
-              </Link>
-            </Button>
           </div>
         </div>
 
@@ -972,15 +967,16 @@ export function PublishHistoryResultDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* Target Scrim */}
+          {/* Target Scrim (Cascading) */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Select Scrim Lobby</Label>
-            <Select
+            <Label className="text-xs font-semibold">Select Scrim Lobby (Schedule → Category → Room)</Label>
+            <CascadingScrimSelector
+              idPrefix="history-publish-scrim"
+              scrims={scrims}
               value={selectedScrimId}
-              onValueChange={(val) => {
+              onChange={(val, target) => {
                 if (!val) return
                 setSelectedScrimId(val)
-                const target = scrims.find((s) => s.id === val)
                 if (target?.prizePoolBdt) {
                   const wt = WINNER_TYPES.find((w) => w.id === winnerType)
                   if (wt && wt.defaultPrizePct > 0) {
@@ -1008,18 +1004,7 @@ export function PublishHistoryResultDialog({
                   }
                 }
               }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select scrim..." />
-              </SelectTrigger>
-              <SelectContent>
-                {scrims.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.title} ({s.startTime})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           {/* Winner Category */}

@@ -13,6 +13,7 @@ import {
   Loader2,
   Sparkles,
   Check,
+  Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -112,13 +113,30 @@ export function AdminBackgroundManager({
       hex: c.hex,
       kind: "Custom" as const,
     }))
-    return [...builtIns, ...customs]
-  }, [config.enabledBuiltInPhases, config.customColors])
+    const combined = [...builtIns, ...customs]
+    const primaryId = config.initialPrimaryColorId
+    if (primaryId && combined.length > 1) {
+      const idx = combined.findIndex((s) => s.id === primaryId)
+      if (idx > 0) {
+        return [...combined.slice(idx), ...combined.slice(0, idx)]
+      }
+    }
+    return combined
+  }, [config.enabledBuiltInPhases, config.customColors, config.initialPrimaryColorId])
+
+  const effectiveInitialColorId = activeRotationSwatches[0]?.id ?? "electric-blue"
 
   const totalCycleSeconds = useMemo(() => {
     const count = Math.max(1, activeRotationSwatches.length)
     return Number((count * (config.delaySeconds + config.transitionSeconds)).toFixed(1))
   }, [activeRotationSwatches.length, config.delaySeconds, config.transitionSeconds])
+
+  function setInitialPrimaryColor(id: string) {
+    setConfig((prev) => ({
+      ...prev,
+      initialPrimaryColorId: id,
+    }))
+  }
 
   function toggleBuiltIn(id: BuiltInPhaseId) {
     setConfig((prev) => {
@@ -131,9 +149,14 @@ export function AdminBackgroundManager({
         toast.error("Keep at least one active color in the background palette.")
         return prev
       }
+      const nextInitial =
+        prev.initialPrimaryColorId === id && exists
+          ? nextBuiltIn[0] ?? prev.customColors[0]?.id
+          : prev.initialPrimaryColorId
       return {
         ...prev,
         enabledBuiltInPhases: nextBuiltIn,
+        initialPrimaryColorId: nextInitial,
       }
     })
   }
@@ -169,9 +192,14 @@ export function AdminBackgroundManager({
         toast.error("Keep at least one active color in the background palette.")
         return prev
       }
+      const nextInitial =
+        prev.initialPrimaryColorId === id
+          ? prev.enabledBuiltInPhases[0] ?? nextCustom[0]?.id
+          : prev.initialPrimaryColorId
       return {
         ...prev,
         customColors: nextCustom,
+        initialPrimaryColorId: nextInitial,
       }
     })
   }
@@ -181,8 +209,9 @@ export function AdminBackgroundManager({
       ...DEFAULT_BACKGROUND_THEME_CONFIG,
       enabledBuiltInPhases: [...BUILT_IN_PHASE_IDS],
       customColors: [],
+      initialPrimaryColorId: DEFAULT_BACKGROUND_THEME_CONFIG.initialPrimaryColorId,
     })
-    toast.info("Restored default timing & colors — click Save to apply.")
+    toast.info("Restored default timing, primary first-load color & palette — click Save to apply.")
   }
 
   function handleSave() {
@@ -281,19 +310,60 @@ export function AdminBackgroundManager({
           />
           <div className="flex flex-wrap gap-2">
             {activeRotationSwatches.map((swatch, idx) => (
-              <div
+              <button
                 key={swatch.id}
-                className="inline-flex items-center gap-2 rounded-lg border border-border/70 bg-secondary/25 px-2.5 py-1 text-xs"
+                type="button"
+                onClick={() => setInitialPrimaryColor(swatch.id)}
+                title={
+                  idx === 0
+                    ? "Active initial first-load primary color"
+                    : `Click to make ${swatch.name} the first-load primary color`
+                }
+                className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs transition-colors cursor-pointer ${
+                  idx === 0
+                    ? "border-primary/60 bg-primary/15 text-foreground shadow-sm"
+                    : "dc-metric-cell hover:border-primary/40"
+                }`}
               >
-                <span className="font-mono text-[10px] text-muted-foreground">#{idx + 1}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {idx === 0 ? "#1 First Load" : `#${idx + 1}`}
+                </span>
                 <span
                   className="size-3 rounded-full border border-white/25"
                   style={{ backgroundColor: swatch.hex }}
                 />
                 <span className="font-medium text-foreground">{swatch.name}</span>
                 <code className="font-mono text-[10px] text-muted-foreground">{swatch.hex}</code>
-              </div>
+              </button>
             ))}
+          </div>
+
+          {/* Initial Primary Color (First Load) Selector */}
+          <div className="dc-metric-cell mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-3.5">
+            <div className="min-w-0">
+              <Label
+                htmlFor="initialPrimaryColorSelect"
+                className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground"
+              >
+                <Star className="size-3.5 text-amber-400" />
+                Initial Primary Color (First Site Load)
+              </Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Choose the exact color visitors see immediately when the site loads for the first time before rotation begins.
+              </p>
+            </div>
+            <select
+              id="initialPrimaryColorSelect"
+              value={effectiveInitialColorId}
+              onChange={(e) => setInitialPrimaryColor(e.target.value)}
+              className="h-9 min-w-[200px] rounded-lg border border-white/15 bg-[#060b1a] px-3 text-xs font-semibold text-foreground focus:border-primary focus:outline-none"
+            >
+              {activeRotationSwatches.map((swatch) => (
+                <option key={swatch.id} value={swatch.id}>
+                  {swatch.name} ({swatch.hex})
+                </option>
+              ))}
+            </select>
           </div>
         </CardContent>
       </Card>
@@ -334,7 +404,7 @@ export function AdminBackgroundManager({
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-3 rounded-xl border border-border/70 bg-secondary/15 p-4">
+              <div className="dc-metric-cell space-y-3 rounded-xl p-4">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="delaySeconds" className="font-semibold">
                     Color Hold Delay Interval (Seconds)
@@ -358,7 +428,7 @@ export function AdminBackgroundManager({
                   }
                   className="w-full accent-primary cursor-pointer"
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     id="delaySeconds"
                     type="number"
@@ -373,7 +443,7 @@ export function AdminBackgroundManager({
                         delaySeconds: Number.isFinite(val) ? Math.min(60, Math.max(0.5, val)) : 2.2,
                       }))
                     }}
-                    className="w-28 font-mono"
+                    className="w-24 font-mono"
                   />
                   <div className="flex flex-wrap gap-1.5">
                     {[1, 2.2, 5, 10, 20, 30].map((preset) => (
@@ -384,7 +454,7 @@ export function AdminBackgroundManager({
                         className={`rounded-md border px-2 py-1 text-xs font-mono transition-colors cursor-pointer ${
                           Math.abs(config.delaySeconds - preset) < 0.05
                             ? "border-primary bg-primary/15 text-primary font-semibold"
-                            : "border-border bg-background/60 text-muted-foreground hover:text-foreground"
+                            : "border-white/10 bg-[#050914]/60 text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {preset}s
@@ -397,7 +467,7 @@ export function AdminBackgroundManager({
                 </p>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-border/70 bg-secondary/15 p-4">
+              <div className="dc-metric-cell space-y-3 rounded-xl p-4">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="transitionSeconds" className="font-semibold">
                     Smooth Color Glide Duration (Seconds)
@@ -482,39 +552,60 @@ export function AdminBackgroundManager({
                 {BUILT_IN_PHASE_IDS.map((id) => {
                   const meta = BUILT_IN_META[id]
                   const active = config.enabledBuiltInPhases.includes(id)
+                  const isFirstLoad = effectiveInitialColorId === id
                   return (
-                    <button
+                    <div
                       key={id}
-                      type="button"
-                      onClick={() => toggleBuiltIn(id)}
-                      className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
+                      className={`flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 transition-all ${
                         active
-                          ? "border-primary/60 bg-primary/10 shadow-sm"
-                          : "border-border/70 bg-secondary/15 opacity-65 hover:opacity-100"
+                          ? "dc-metric-cell border-primary/55 shadow-sm"
+                          : "border-white/10 bg-[#060b1a]/45 opacity-65 hover:opacity-100"
                       }`}
                     >
-                      <span
-                        className="mt-0.5 size-8 shrink-0 rounded-lg border border-white/25 shadow-md flex items-center justify-center"
-                        style={{
-                          background: `linear-gradient(135deg, ${meta.hex}, ${meta.accentHex})`,
-                        }}
+                      <button
+                        type="button"
+                        onClick={() => toggleBuiltIn(id)}
+                        className="flex items-start gap-3 text-left cursor-pointer"
                       >
-                        {active && <Check className="size-4 text-white drop-shadow" />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-sm text-foreground">
-                            {meta.label}
-                          </span>
-                          <code className="font-mono text-[10px] text-muted-foreground">
-                            {meta.hex}
-                          </code>
+                        <span
+                          className="mt-0.5 size-8 shrink-0 rounded-lg border border-white/25 shadow-md flex items-center justify-center"
+                          style={{
+                            background: `linear-gradient(135deg, ${meta.hex}, ${meta.accentHex})`,
+                          }}
+                        >
+                          {active && <Check className="size-4 text-white drop-shadow" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-sm text-foreground">
+                              {meta.label}
+                            </span>
+                            <code className="font-mono text-[10px] text-muted-foreground">
+                              {meta.hex}
+                            </code>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                            {meta.description}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                          {meta.description}
-                        </p>
-                      </div>
-                    </button>
+                      </button>
+                      {active && (
+                        <div className="flex items-center justify-end border-t border-white/[0.06] pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setInitialPrimaryColor(id)}
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer ${
+                              isFirstLoad
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
+                                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                            }`}
+                          >
+                            <Star className="size-3" />
+                            {isFirstLoad ? "Primary First Load" : "Set as First Load"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -532,7 +623,7 @@ export function AdminBackgroundManager({
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Custom Hex Picker Row */}
-              <div className="grid gap-3 sm:grid-cols-[auto_1fr_1fr_auto] items-end rounded-xl border border-border/70 bg-secondary/15 p-4">
+              <div className="dc-metric-cell grid gap-3 sm:grid-cols-[auto_1fr_1fr_auto] items-end rounded-xl p-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="customColorPicker" className="text-xs">
                     Swatch
@@ -630,35 +721,55 @@ export function AdminBackgroundManager({
                   </div>
                 ) : (
                   <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {config.customColors.map((color) => (
-                      <div
-                        key={color.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-secondary/20 px-3.5 py-2.5"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className="size-7 shrink-0 rounded-lg border border-white/25 shadow"
-                            style={{ backgroundColor: color.hex }}
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate">{color.name}</p>
-                            <code className="font-mono text-[11px] text-muted-foreground">
-                              {color.hex}
-                            </code>
+                    {config.customColors.map((color) => {
+                      const isFirstLoad = effectiveInitialColorId === color.id
+                      return (
+                        <div
+                          key={color.id}
+                          className="dc-metric-cell flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className="size-7 shrink-0 rounded-lg border border-white/25 shadow"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{color.name}</p>
+                              <code className="font-mono text-[11px] text-muted-foreground">
+                                {color.hex}
+                              </code>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setInitialPrimaryColor(color.id)}
+                              title={isFirstLoad ? "Primary First Load Color" : "Set as Primary First Load Color"}
+                              aria-label={`Set ${color.name} as primary first load color`}
+                              className={
+                                isFirstLoad
+                                  ? "text-amber-400 bg-amber-500/15"
+                                  : "text-muted-foreground hover:text-amber-300"
+                              }
+                            >
+                              <Star className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeCustomColor(color.id)}
+                              aria-label={`Remove ${color.name}`}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeCustomColor(color.id)}
-                          aria-label={`Remove ${color.name}`}
-                          className="text-muted-foreground hover:text-destructive shrink-0"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>

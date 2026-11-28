@@ -2,7 +2,7 @@ import "server-only"
 
 import { headers } from "next/headers"
 import { auth, type SessionUser } from "@/lib/auth"
-import { isAdminOrOwner, isOwnerRole, isStaffRole } from "@/lib/roles"
+import { isAdminOrOwner, isOwnerRole, isPrimaryOwnerEmail, isStaffRole } from "@/lib/roles"
 
 /** Returns the current session user merged with live DB account flags, or null when unauthenticated/trashed. */
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -20,6 +20,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       const rows = await db
         .select({
           name: user.name,
+          email: user.email,
           image: user.image,
           role: user.role,
           emailVerified: user.emailVerified,
@@ -34,16 +35,34 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       const live = rows[0]
       if (!live || live.isTrashed) return null
 
+      const primaryOwner = isPrimaryOwnerEmail(live.email || sessionUser.email)
+      let resolvedRole = live.role ?? sessionUser.role
+      let resolvedBanned = Boolean(live.banned)
+
+      if (primaryOwner && (resolvedRole !== "owner" || resolvedBanned)) {
+        resolvedRole = "owner"
+        resolvedBanned = false
+        await db
+          .update(user)
+          .set({ role: "owner", banned: false, updatedAt: new Date() })
+          .where(eq(user.id, sessionUser.id))
+          .catch(() => {})
+      }
+
       return {
         ...sessionUser,
         name: live.name ?? sessionUser.name,
+        email: live.email ?? sessionUser.email,
         image: live.image ?? sessionUser.image,
-        role: live.role ?? sessionUser.role,
+        role: resolvedRole,
         emailVerified: live.emailVerified,
         balance: live.balance,
-        banned: Boolean(live.banned),
+        banned: resolvedBanned,
       }
     } catch {
+      if (isPrimaryOwnerEmail(sessionUser.email)) {
+        return { ...sessionUser, role: "owner", banned: false }
+      }
       return sessionUser
     }
   } catch {

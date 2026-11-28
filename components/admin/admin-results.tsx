@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import type { MatchResult, Booking } from "@/lib/db/schema"
 import { formatTaka, formatDate, sortScrimsAscending } from "@/lib/format"
+import { CascadingScrimSelector } from "@/components/site/cascading-scrim-selector"
 import { resolveImageUrl, resolveImageUrls } from "@/lib/image-url"
 import { uploadMediaFile } from "@/lib/client-upload"
 import {
@@ -57,7 +58,14 @@ type LobbyGroupAdmin = {
   items: ResultRow[]
 }
 
-type ScrimOption = { id: string; title: string; startTime: string; prizePoolBdt?: number }
+type ScrimOption = {
+  id: string
+  slug?: string | null
+  title: string
+  startTime: string
+  category?: string | null
+  prizePoolBdt?: number
+}
 type RosterBooking = Booking & { userEmail: string | null }
 
 const WINNER_TYPES = [
@@ -581,9 +589,9 @@ export function PublishResultButton({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
-          {/* Match Date & Scrim Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
+          {/* Match Date & Cascading Scrim Selection */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5 sm:max-w-[220px]">
               <Label htmlFor="result-date" className="flex items-center gap-1.5 font-bold text-xs uppercase text-primary">
                 <Calendar className="size-3.5" />
                 Match Date *
@@ -602,19 +610,19 @@ export function PublishResultButton({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="result-scrim" className="font-bold text-xs uppercase text-muted-foreground">
-                Scrim *
+              <Label className="font-bold text-xs uppercase text-muted-foreground">
+                Target Scrim (Schedule → Category → Ascending Room) *
               </Label>
-              <select
-                id="result-scrim"
-                name="scrimId"
-                required
+              <CascadingScrimSelector
+                idPrefix="publish-result-scrim"
+                scrims={sortedScrims}
                 value={selectedScrimId}
-                onChange={(e) => {
-                  const newId = e.target.value
+                formatRoomLabel={(s) =>
+                  `${s.startTime} · ${s.title}${s.prizePoolBdt ? ` (Prize: ৳${s.prizePoolBdt})` : ""}`
+                }
+                onChange={(newId, target) => {
                   setSelectedScrimId(newId)
                   setWinningTeam("")
-                  const target = sortedScrims.find((s) => s.id === newId)
                   if (target?.prizePoolBdt) {
                     const wt = WINNER_TYPES.find((w) => w.id === winnerType)
                     if (wt && wt.defaultPrizePct > 0) {
@@ -640,29 +648,21 @@ export function PublishResultButton({
                     }
                   }
                 }}
-                className="h-10 rounded-xl border border-input bg-secondary px-3 text-sm font-medium"
-              >
-                <option value="">Select a scrim…</option>
-                {sortedScrims.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title} — {s.startTime} {s.prizePoolBdt ? `(Prize: ৳${s.prizePoolBdt})` : ""}
-                  </option>
-                ))}
-              </select>
+              />
 
               {/* Selected Scrim Lobby Confirmation Card */}
               {selectedScrim && (
-                <div className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div>
+                <div className="mt-1 dc-metric-cell rounded-xl border-primary/30 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">TARGET SCRIM LOBBY</span>
-                    <span className="font-bold text-foreground text-sm">{selectedScrim.title}</span>
+                    <span className="font-bold text-foreground text-sm truncate block">{selectedScrim.title}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-bold text-[11px]">
                       Slot: {selectedScrim.startTime}
                     </Badge>
                     <Badge variant="secondary" className="font-mono text-[10px]">
-                      Lobby ID: {selectedScrim.id.slice(0, 10)}...
+                      ID: {selectedScrim.id.slice(0, 8)}…
                     </Badge>
                   </div>
                 </div>
@@ -952,7 +952,14 @@ export function AdminResults({
       map.get(key)!.items.push(item)
     }
 
-    return Array.from(map.values())
+    return sortScrimsAscending(
+      Array.from(map.values()).map((g) => ({
+        ...g,
+        title: g.scrimTitle,
+        startTime: g.startTime || "",
+        scrimDate: g.matchDate || "",
+      })),
+    ) as unknown as LobbyGroupAdmin[]
   }, [results])
 
   const filteredGroups = useMemo<LobbyGroupAdmin[]>(() => {
@@ -1049,39 +1056,38 @@ export function AdminResults({
         )}
       </div>
 
-      {/* Lobby Navigation Filter */}
+      {/* Cascading Scrim Lobby Filter */}
       {lobbyGroups.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
-            <Layers className="size-3.5" /> Filter Scrim Lobby:
-          </span>
-          <Button
-            size="sm"
-            variant={lobbyFilter === "all" ? "default" : "outline"}
-            onClick={() => setLobbyFilter("all")}
-            className="h-8 text-xs font-semibold rounded-lg"
-          >
-            All Lobbies ({results.length} results)
-          </Button>
-          {lobbyGroups.map((g: LobbyGroupAdmin) => (
-            <Button
-              key={g.key}
-              size="sm"
-              variant={lobbyFilter === g.key ? "default" : "outline"}
-              onClick={() => setLobbyFilter(g.key)}
-              className="h-8 text-xs font-semibold rounded-lg gap-1.5"
-            >
-              <Clock className="size-3" />
-              <span>{g.startTime || "Slot"}</span>
-              <span className="opacity-70">({g.items.length})</span>
-            </Button>
-          ))}
+        <div className="dc-surface rounded-2xl p-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Layers className="size-3.5 text-primary" /> Filter by Scrim Lobby (Schedule → Category → Room)
+            </span>
+            {lobbyFilter !== "all" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setLobbyFilter("all")}
+                className="h-7 text-xs text-primary"
+              >
+                Show All Lobbies ({results.length})
+              </Button>
+            )}
+          </div>
+          <CascadingScrimSelector
+            idPrefix="admin-results-filter"
+            scrims={scrims}
+            value={lobbyFilter}
+            allowAll
+            allLabel={`All Lobbies (${results.length} results)`}
+            onChange={(nextVal) => setLobbyFilter(nextVal || "all")}
+          />
         </div>
       )}
 
       {/* Multi-Select Bar */}
       {results.length > 0 && isAdmin && (
-        <div className="glass flex items-center justify-between rounded-xl border border-border/60 p-3">
+        <div className="dc-surface flex items-center justify-between rounded-xl p-3">
           <button
             type="button"
             onClick={toggleSelectAll}

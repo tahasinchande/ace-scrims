@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import {
   Ban,
   Crown,
+  Lock,
   Search,
   ShieldCheck,
   Undo2,
@@ -27,7 +28,14 @@ import {
   ShieldAlert,
 } from "lucide-react"
 import { toast } from "sonner"
-import { isAdminOrOwner, isOwnerRole, type UserRole } from "@/lib/roles"
+import {
+  canModifyTargetAccount,
+  canModifyTargetRole,
+  isAdminOrOwner,
+  isOwnerRole,
+  isPrimaryOwnerEmail,
+  type UserRole,
+} from "@/lib/roles"
 
 type UserRow = {
   id: string
@@ -68,6 +76,10 @@ export function AdminUserList({
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({})
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [pendingTrashIds, setPendingTrashIds] = useState<string[] | null>(null)
+  const [pendingOwnerRoleChange, setPendingOwnerRoleChange] = useState<{
+    user: UserRow
+    nextRole: UserRole
+  } | null>(null)
 
   useEffect(() => {
     setLocalUsers(users)
@@ -79,7 +91,13 @@ export function AdminUserList({
       u.email.toLowerCase().includes(query.toLowerCase()),
   )
 
-  const selectableUsers = filtered.filter((u) => u.id !== currentUserId && !isAdminOrOwner(u.role))
+  const selectableUsers = filtered.filter(
+    (u) =>
+      u.id !== currentUserId &&
+      !isAdminOrOwner(u.role) &&
+      !isPrimaryOwnerEmail(u.email) &&
+      canModifyTargetAccount({ actorRole: currentUserRole, targetRole: u.role, targetEmail: u.email }).allowed,
+  )
   const allSelected = selectableUsers.length > 0 && selectedUserIds.length === selectableUsers.length
 
   function toggleSelectAll() {
@@ -116,7 +134,7 @@ export function AdminUserList({
     })
   }
 
-  function changeRole(userId: string, role: UserRole) {
+  function executeRoleChange(userId: string, role: UserRole) {
     startTransition(async () => {
       try {
         await setUserRole(userId, role)
@@ -129,11 +147,39 @@ export function AdminUserList({
     })
   }
 
-  function toggleBan(userId: string, banned: boolean) {
+  function requestRoleChange(target: UserRow, nextRole: UserRole) {
+    if (target.role === nextRole) return
+    const check = canModifyTargetRole({
+      actorRole: currentUserRole,
+      targetRole: target.role,
+      targetEmail: target.email,
+      nextRole,
+    })
+    if (!check.allowed) {
+      toast.error(check.reason || "Only the Owner can assign or modify the Owner role.")
+      return
+    }
+    if (nextRole === "owner" || isOwnerRole(target.role)) {
+      setPendingOwnerRoleChange({ user: target, nextRole })
+      return
+    }
+    executeRoleChange(target.id, nextRole)
+  }
+
+  function toggleBan(target: UserRow, banned: boolean) {
+    const check = canModifyTargetAccount({
+      actorRole: currentUserRole,
+      targetRole: target.role,
+      targetEmail: target.email,
+    })
+    if (!check.allowed) {
+      toast.error(check.reason || "Owner accounts are strictly protected and cannot be banned by non-owners.")
+      return
+    }
     startTransition(async () => {
       try {
-        await setUserBanned(userId, banned)
-        setLocalUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, banned } : u)))
+        await setUserBanned(target.id, banned)
+        setLocalUsers((prev) => prev.map((u) => (u.id === target.id ? { ...u, banned } : u)))
         toast.success(banned ? "User banned" : "User unbanned")
         router.refresh()
       } catch (e) {
@@ -203,11 +249,11 @@ export function AdminUserList({
       </div>
 
       {selectableUsers.length > 0 && (
-        <div className="glass flex items-center justify-between rounded-xl border border-border/60 p-3">
+        <div className="dc-surface flex items-center justify-between rounded-xl p-3">
           <button
             type="button"
             onClick={toggleSelectAll}
-            className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
           >
             {allSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
             <span>{selectedUserIds.length > 0 ? `${selectedUserIds.length} user(s) selected` : "Select all selectable users"}</span>
@@ -216,16 +262,21 @@ export function AdminUserList({
       )}
 
       {filtered.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
+        <div className="dc-surface rounded-2xl p-12 text-center text-sm text-muted-foreground">
           No users match your search.
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2.5">
           {filtered.map((u) => {
             const isSelf = u.id === currentUserId
-            const targetIsOwner = isOwnerRole(u.role)
-            const lockedForNonOwner = targetIsOwner && !isCurrentUserOwner
-            const isCanTrash = !isSelf && !isAdminOrOwner(u.role)
+            const targetIsPrimaryOwner = isPrimaryOwnerEmail(u.email)
+            const targetIsOwner = isOwnerRole(u.role) || targetIsPrimaryOwner
+            const accountProtected = !canModifyTargetAccount({
+              actorRole: currentUserRole,
+              targetRole: u.role,
+              targetEmail: u.email,
+            }).allowed
+            const isCanTrash = !isSelf && !isAdminOrOwner(u.role) && !targetIsPrimaryOwner && !accountProtected
             const isSelected = selectedUserIds.includes(u.id)
             const hasValidImage = Boolean(u.image && u.image.trim()) && !failedImages[u.id]
             const isTogglingThis = togglingVerifyId === u.id
@@ -233,175 +284,194 @@ export function AdminUserList({
             return (
               <li
                 key={u.id}
-                className={`glass flex flex-wrap items-center gap-3 rounded-xl p-4 border transition-all ${
-                  isSelected ? "border-primary bg-primary/5" : "border-border/70 hover:border-border"
-                }`}
-              >
-                {isCanTrash ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleSelectUser(u.id)}
-                    className="p-1 text-muted-foreground hover:text-foreground"
-                  >
-                    {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
-                  </button>
-                ) : (
-                  <div className="size-4" />
+                className={cn(
+                  "dc-surface rushx-box-splash flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 rounded-xl p-4 transition-all",
+                  isSelected && "border-primary/70 bg-primary/5",
                 )}
-
-                {/* User Avatar */}
-                <div className="relative size-10 shrink-0 rounded-full overflow-hidden border border-border/80 bg-secondary/80 flex items-center justify-center">
-                  {hasValidImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={resolveImageUrl(u.image!)}
-                      alt={`${u.name}'s avatar`}
-                      onError={() => setFailedImages((prev) => ({ ...prev, [u.id]: true }))}
-                      className="size-full object-cover"
-                    />
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {isCanTrash ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectUser(u.id)}
+                      className="p-1 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                    >
+                      {isSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+                    </button>
                   ) : (
-                    <div className="size-full flex items-center justify-center font-display font-bold text-xs uppercase text-foreground bg-secondary">
-                      {u.name ? getUserInitials(u.name) : <UserIcon className="size-4 text-muted-foreground" />}
-                    </div>
+                    <div className="size-6 shrink-0" />
                   )}
-                </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 font-medium">
-                    <span className="truncate">{u.name}</span>
-                    {u.role !== "user" && (
-                      <Badge
-                        variant="default"
-                        className={cn(
-                          "capitalize gap-1",
-                          targetIsOwner &&
-                            "border border-amber-400/50 bg-amber-500/20 text-amber-300",
-                        )}
-                      >
-                        {targetIsOwner ? <Crown className="size-3" /> : <ShieldCheck className="size-3" />}
-                        {u.role}
-                      </Badge>
-                    )}
-                    {u.banned && <Badge variant="destructive">Banned</Badge>}
-                    {u.emailVerified ? (
-                      <Badge
-                        variant="outline"
-                        className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                      >
-                        <BadgeCheck className="size-3" />
-                        Verified
-                      </Badge>
+                  {/* User Avatar */}
+                  <div className="relative size-10 shrink-0 rounded-full overflow-hidden border border-white/10 bg-[#060b1a] flex items-center justify-center">
+                    {hasValidImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={resolveImageUrl(u.image!)}
+                        alt={`${u.name}'s avatar`}
+                        onError={() => setFailedImages((prev) => ({ ...prev, [u.id]: true }))}
+                        className="size-full object-cover"
+                      />
                     ) : (
-                      <Badge
-                        variant="outline"
-                        className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-400"
-                      >
-                        <ShieldAlert className="size-3" />
-                        Unverified
-                      </Badge>
+                      <div className="size-full flex items-center justify-center font-display font-bold text-xs uppercase text-foreground bg-white/[0.05]">
+                        {u.name ? getUserInitials(u.name) : <UserIcon className="size-4 text-muted-foreground" />}
+                      </div>
                     )}
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold tabular-nums text-emerald-400 border border-emerald-500/25">
-                      ৳{(u.balance ?? 0).toLocaleString()}
-                    </span>
                   </div>
-                  <p className="truncate text-xs text-muted-foreground mt-0.5">
-                    {u.email} · joined {formatDate(u.createdAt)}
-                  </p>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                      <span className="truncate">{u.name}</span>
+                      {(u.role !== "user" || targetIsPrimaryOwner) && (
+                        <Badge
+                          variant="default"
+                          className={cn(
+                            "capitalize gap-1",
+                            targetIsOwner &&
+                              "border border-amber-400/50 bg-amber-500/20 text-amber-300",
+                          )}
+                        >
+                          {targetIsOwner ? <Crown className="size-3" /> : <ShieldCheck className="size-3" />}
+                          {targetIsPrimaryOwner ? "Primary Owner" : u.role}
+                        </Badge>
+                      )}
+                      {u.banned && <Badge variant="destructive">Banned</Badge>}
+                      {u.emailVerified ? (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                        >
+                          <BadgeCheck className="size-3" />
+                          Verified
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-400"
+                        >
+                          <ShieldAlert className="size-3" />
+                          Unverified
+                        </Badge>
+                      )}
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold tabular-nums text-emerald-400 border border-emerald-500/25">
+                        ৳{(u.balance ?? 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground mt-0.5">
+                      {u.email} · joined {formatDate(u.createdAt)}
+                    </p>
+                  </div>
                 </div>
 
                 {!isSelf && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
-                        u.emailVerified
-                          ? "border-emerald-500/35 bg-emerald-500/10"
-                          : "border-amber-500/35 bg-amber-500/10",
-                      )}
-                      title={u.emailVerified ? "Click to mark Unverified" : "Click to mark Verified"}
-                    >
-                      <Switch
-                        checked={u.emailVerified}
-                        disabled={isPending || isTogglingThis || lockedForNonOwner}
-                        onCheckedChange={(checked) => void handleToggleVerified(u, Boolean(checked))}
-                        aria-label={`Verification status for ${u.name}`}
-                      />
-                      <button
-                        type="button"
-                        disabled={isPending || isTogglingThis || lockedForNonOwner}
-                        onClick={() => void handleToggleVerified(u, !u.emailVerified)}
-                        className={cn(
-                          "text-xs font-semibold cursor-pointer disabled:opacity-50",
-                          u.emailVerified ? "text-emerald-300" : "text-amber-300",
-                        )}
+                  <div className="flex flex-wrap items-center gap-2 pl-9 sm:pl-0">
+                    {accountProtected ? (
+                      <Badge
+                        variant="outline"
+                        className="gap-1.5 border-amber-500/40 bg-amber-500/10 text-amber-300 px-2.5 py-1 text-xs"
+                        title={
+                          targetIsPrimaryOwner
+                            ? "Primary Owner account is permanently protected"
+                            : "Only an Owner can modify an Owner account"
+                        }
                       >
-                        {isTogglingThis
-                          ? "Saving..."
-                          : u.emailVerified
-                            ? "Verified"
-                            : "Unverified"}
-                      </button>
-                    </div>
+                        <Lock className="size-3" />
+                        Owner Protected
+                      </Badge>
+                    ) : (
+                      <>
+                        <div
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
+                            u.emailVerified
+                              ? "border-emerald-500/35 bg-emerald-500/10"
+                              : "border-amber-500/35 bg-amber-500/10",
+                          )}
+                          title={u.emailVerified ? "Click to mark Unverified" : "Click to mark Verified"}
+                        >
+                          <Switch
+                            checked={u.emailVerified}
+                            disabled={isPending || isTogglingThis}
+                            onCheckedChange={(checked) => void handleToggleVerified(u, Boolean(checked))}
+                            aria-label={`Verification status for ${u.name}`}
+                          />
+                          <button
+                            type="button"
+                            disabled={isPending || isTogglingThis}
+                            onClick={() => void handleToggleVerified(u, !u.emailVerified)}
+                            className={cn(
+                              "text-xs font-semibold cursor-pointer disabled:opacity-50",
+                              u.emailVerified ? "text-emerald-300" : "text-amber-300",
+                            )}
+                          >
+                            {isTogglingThis
+                              ? "Saving..."
+                              : u.emailVerified
+                                ? "Verified"
+                                : "Unverified"}
+                          </button>
+                        </div>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      asChild
-                      className="h-8 gap-1 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-                      title="Manage credits"
-                    >
-                      <Link href="/admin/credits">
-                        <Coins className="size-3.5" />
-                        Credits
-                      </Link>
-                    </Button>
-                    <select
-                      value={u.role}
-                      disabled={isPending || lockedForNonOwner}
-                      onChange={(e) => changeRole(u.id, e.target.value as UserRole)}
-                      aria-label={`Role for ${u.name}`}
-                      title={
-                        lockedForNonOwner
-                          ? "Only an Owner can modify an Owner account"
-                          : !isCurrentUserOwner
-                            ? "Only an Owner can assign the Owner role"
-                            : `Change role for ${u.name}`
-                      }
-                      className="h-8 rounded-md border border-input bg-secondary px-2 text-xs capitalize disabled:opacity-60"
-                    >
-                      <option value="user">User</option>
-                      <option value="moderator">Moderator</option>
-                      <option value="admin">Admin</option>
-                      <option value="owner" disabled={!isCurrentUserOwner}>
-                        Owner
-                      </option>
-                    </select>
-                    <Button
-                      size="sm"
-                      variant={u.banned ? "outline" : "destructive"}
-                      disabled={isPending || lockedForNonOwner}
-                      onClick={() => toggleBan(u.id, !u.banned)}
-                      title={lockedForNonOwner ? "Only an Owner can ban or unban an Owner account" : undefined}
-                    >
-                      {u.banned ? <Undo2 className="size-3.5" /> : <Ban className="size-3.5" />}
-                      {u.banned ? "Unban" : "Ban"}
-                    </Button>
-                    {isCanTrash && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={isPending}
-                        onClick={() => handleDeleteToTrash([u.id])}
-                        title="Move user to Trash"
-                        className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                          className="h-8 gap-1 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                          title="Manage credits"
+                        >
+                          <Link href="/admin/credits">
+                            <Coins className="size-3.5" />
+                            Credits
+                          </Link>
+                        </Button>
+
+                        <select
+                          value={u.role}
+                          disabled={isPending}
+                          onChange={(e) => requestRoleChange(u, e.target.value as UserRole)}
+                          aria-label={`Role for ${u.name}`}
+                          title={
+                            !isCurrentUserOwner
+                              ? "Only an Owner can assign the Owner role"
+                              : `Change role for ${u.name}`
+                          }
+                          className="h-8 rounded-md border border-white/15 bg-[#060b1a] px-2 text-xs capitalize text-foreground disabled:opacity-60"
+                        >
+                          <option value="user">User</option>
+                          <option value="moderator">Moderator</option>
+                          <option value="admin">Admin</option>
+                          {isCurrentUserOwner && <option value="owner">Owner</option>}
+                        </select>
+
+                        <Button
+                          size="sm"
+                          variant={u.banned ? "outline" : "destructive"}
+                          disabled={isPending}
+                          onClick={() => toggleBan(u, !u.banned)}
+                        >
+                          {u.banned ? <Undo2 className="size-3.5" /> : <Ban className="size-3.5" />}
+                          {u.banned ? "Unban" : "Ban"}
+                        </Button>
+
+                        {isCanTrash && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={isPending}
+                            onClick={() => handleDeleteToTrash([u.id])}
+                            title="Move user to Trash"
+                            className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
+
                 {isSelf && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pl-9 sm:pl-0">
                     {!u.emailVerified && (
                       <Button
                         size="sm"
@@ -413,7 +483,9 @@ export function AdminUserList({
                         Verify My Account
                       </Button>
                     )}
-                    <span className="text-xs text-muted-foreground">You</span>
+                    <Badge variant="outline" className="border-white/15 text-xs text-muted-foreground">
+                      You
+                    </Badge>
                   </div>
                 )}
               </li>
@@ -431,6 +503,34 @@ export function AdminUserList({
         variant="destructive"
         loading={isPending}
         onConfirm={executeDeleteToTrash}
+      />
+
+      <ConfirmDialog
+        open={pendingOwnerRoleChange !== null}
+        onOpenChange={(open) => !open && setPendingOwnerRoleChange(null)}
+        title={
+          pendingOwnerRoleChange?.nextRole === "owner"
+            ? "Grant Full Owner Privileges?"
+            : "Change Owner Role?"
+        }
+        description={
+          pendingOwnerRoleChange
+            ? pendingOwnerRoleChange.nextRole === "owner"
+              ? `Grant Owner role to ${pendingOwnerRoleChange.user.name} (${pendingOwnerRoleChange.user.email})? Owners have full system authority including managing other Owner roles.`
+              : `Change ${pendingOwnerRoleChange.user.name} (${pendingOwnerRoleChange.user.email}) from Owner to ${pendingOwnerRoleChange.nextRole.toUpperCase()}?`
+            : ""
+        }
+        confirmLabel={
+          pendingOwnerRoleChange?.nextRole === "owner" ? "Grant Owner Role" : "Confirm Role Change"
+        }
+        variant={pendingOwnerRoleChange?.nextRole === "owner" ? "default" : "destructive"}
+        loading={isPending}
+        onConfirm={() => {
+          if (!pendingOwnerRoleChange) return
+          const { user, nextRole } = pendingOwnerRoleChange
+          setPendingOwnerRoleChange(null)
+          executeRoleChange(user.id, nextRole)
+        }}
       />
     </div>
   )

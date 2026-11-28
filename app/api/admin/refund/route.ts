@@ -14,10 +14,10 @@ import { notifyUser } from "@/lib/notify"
 import { revalidatePath } from "next/cache"
 import { Agent } from "undici"
 
-// Dispatcher to support self-hosted instances with custom TLS certificates
+// Enforce TLS certificate verification by default; only allow override when explicitly opted in via env
 const gatewayDispatcher = new Agent({
   connect: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: process.env.UDDOKTAPAY_ALLOW_INSECURE_TLS !== "true",
   },
 })
 

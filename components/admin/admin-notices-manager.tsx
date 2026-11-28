@@ -287,7 +287,7 @@ export function AdminNoticesManager({ initialNotices }: { initialNotices: Notice
   return (
     <div className="space-y-8">
       {/* ── Publish Notice Form ── */}
-      <div className="glass rounded-2xl border border-border/80 bg-secondary/20 p-5 md:p-6 shadow-xl">
+      <div className="dc-surface rushx-box-splash rounded-2xl p-5 md:p-6 shadow-xl">
         <div className="flex items-center gap-3 border-b border-border/60 pb-4 mb-5">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <PlusCircle className="size-5" />

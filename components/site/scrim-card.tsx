@@ -3,7 +3,7 @@
 import { useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion, useReducedMotion } from "motion/react"
+import { Reveal } from "@/components/site/reveal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Countdown } from "@/components/site/countdown"
@@ -55,7 +55,6 @@ export function ScrimCard({
   index?: number
 }) {
   const { t } = useLanguage()
-  const prefersReducedMotion = useReducedMotion()
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const status = scrimStatus(
@@ -131,33 +130,21 @@ export function ScrimCard({
     el.style.setProperty("--splash-y", "35%")
   }
 
-  const rowDelay = (index % 3) * 0.08
+  const rowDelay = (index % 3) * 0.065
 
   return (
-    <motion.div
-      ref={wrapRef}
-      onMouseMove={handlePointerMove}
-      onMouseLeave={handlePointerLeave}
-      initial={
-        prefersReducedMotion
-          ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y: 30, scale: 0.96 }
-      }
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, amount: "some", margin: "0px 0px -12px 0px" }}
-      transition={
-        prefersReducedMotion
-          ? { duration: 0 }
-          : {
-              duration: 0.45,
-              delay: rowDelay,
-              type: "spring",
-              stiffness: 200,
-              damping: 20,
-            }
-      }
-      className="scrim-splash-wrap group relative flex flex-col"
+    <Reveal
+      delay={rowDelay}
+      y={24}
+      duration={0.5}
+      className="h-full"
     >
+      <div
+        ref={wrapRef}
+        onMouseMove={handlePointerMove}
+        onMouseLeave={handlePointerLeave}
+        className="scrim-splash-wrap group relative flex h-full flex-col"
+      >
       {/* Dynamic outer hover splash layers (RandomQbit-inspired diffused outer halo + crisp edge bloom) */}
       <div className="scrim-splash-aura" aria-hidden />
       <div className="scrim-splash-ring" aria-hidden />
@@ -336,27 +323,24 @@ export function ScrimCard({
               aria-valuemax={scrim.maxTeams}
               aria-label="Slots filled"
             >
-              <motion.div
-                initial={{ width: prefersReducedMotion ? `${fillPercent}%` : 0 }}
-                whileInView={{ width: `${fillPercent}%` }}
-                viewport={{ once: true }}
-                transition={{ duration: prefersReducedMotion ? 0 : 0.8, ease: "easeOut" }}
+              <div
                 className={cn(
-                  "h-full rounded-full",
+                  "h-full rounded-full transition-[width] duration-700 ease-out",
                   status.tone === "full"
                     ? "bg-rose-500"
                     : status.tone === "filling"
                       ? "bg-amber-400"
                       : ""
                 )}
-                style={
-                  status.tone !== "full" && status.tone !== "filling"
+                style={{
+                  width: `${fillPercent}%`,
+                  ...(status.tone !== "full" && status.tone !== "filling"
                     ? {
                         background:
                           "linear-gradient(90deg, rgb(var(--rushx-primary-rgb)) 0%, rgb(var(--rushx-accent-rgb)) 100%)",
                       }
-                    : undefined
-                }
+                    : {}),
+                }}
               />
             </div>
           </div>
@@ -390,6 +374,7 @@ export function ScrimCard({
           </div>
         </div>
       </article>
-    </motion.div>
+      </div>
+    </Reveal>
   )
 }

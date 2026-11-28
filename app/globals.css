@@ -418,6 +418,40 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.11);
   }
 
+  /* 3D WebGL Mode Compositor Optimization:
+     Avoid per-frame full-viewport GPU readbacks + Gaussian blurs over the live Three.js canvas.
+     Preserves the exact translucent obsidian surface aesthetic with silky 60fps scrolling & rendering. */
+  html[data-view-mode="3d"] .dc-surface {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background:
+      radial-gradient(125% 92% at 12% 0%, rgba(var(--rushx-primary-rgb), 0.12) 0%, transparent 56%),
+      radial-gradient(92% 76% at 88% 100%, rgba(var(--rushx-accent-rgb), 0.08) 0%, transparent 58%),
+      linear-gradient(160deg, rgba(10, 13, 24, 0.91) 0%, rgba(7, 8, 16, 0.95) 54%, rgba(5, 5, 11, 0.98) 100%);
+  }
+
+  html[data-view-mode="3d"] .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background:
+      radial-gradient(110% 80% at 10% 0%, rgba(var(--rushx-primary-rgb), 0.14) 0%, transparent 56%),
+      linear-gradient(165deg, rgba(12, 18, 34, 0.9) 0%, rgba(7, 11, 22, 0.95) 100%);
+  }
+
+  html[data-view-mode="3d"] .glass-strong {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background:
+      radial-gradient(120% 85% at 15% 0%, rgba(var(--rushx-primary-rgb), 0.16) 0%, transparent 58%),
+      linear-gradient(165deg, rgba(14, 21, 40, 0.95) 0%, rgba(8, 12, 24, 0.98) 100%);
+  }
+
+  html[data-view-mode="3d"] header,
+  html[data-view-mode="3d"] footer {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
   /* Glow accents */
   .glow-primary {
     box-shadow: 0 10px 28px -8px rgba(var(--rushx-primary-rgb), 0.58);

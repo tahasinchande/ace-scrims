@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { sortScrimsAscending } from "@/lib/format"
 import { getScrimRoomNumber } from "@/lib/room-multiplier"
+import { classifyScrimHierarchy } from "@/components/site/cascading-scrim-selector"
 import type { EvaluatedScheduleOverride } from "@/lib/schedule-override"
 
 export function ScrimsExplorer({
@@ -26,9 +27,10 @@ export function ScrimsExplorer({
     initialScheduleStatus
   )
   const [query, setQuery] = useState("")
+  const [selectedSchedule, setSelectedSchedule] = useState<"all" | "daily" | "friday">("all")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedRoom, setSelectedRoom] = useState<number | "all">("all")
-  const [time, setTime] = useState<string>("All")
+  const [time] = useState<string>("All")
 
   // Sync if initial server props update
   useEffect(() => {
@@ -101,23 +103,45 @@ export function ScrimsExplorer({
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search)
       const categoryParam = params.get("category")
-      if (categoryParam) {
+      if (categoryParam === "friday-special-blast" || categoryParam === "champion-rush") {
+        setSelectedSchedule("friday")
+        setSelectedCategory(categoryParam)
+      } else if (categoryParam) {
         setSelectedCategory(categoryParam)
       }
     }
   }, [])
 
+  const scheduleScopedScrims = useMemo(() => {
+    if (selectedSchedule === "all") return scrims
+    return scrims.filter((s) => classifyScrimHierarchy(s).schedule === selectedSchedule)
+  }, [scrims, selectedSchedule])
+
+  const dynamicCategories = useMemo(() => {
+    if (selectedSchedule === "all") return []
+    const set = new Set<string>()
+    for (const s of scheduleScopedScrims) {
+      const cat = classifyScrimHierarchy(s).category
+      if (cat) set.add(cat)
+    }
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+    )
+  }, [scheduleScopedScrims, selectedSchedule])
+
   const availableRooms = useMemo(() => {
     const set = new Set<number>()
-    for (const s of scrims) {
+    for (const s of scheduleScopedScrims) {
       set.add(getScrimRoomNumber(s))
     }
     return Array.from(set).sort((a, b) => a - b)
-  }, [scrims])
+  }, [scheduleScopedScrims])
 
   const filtered = useMemo(() => {
     return sortScrimsAscending(
-      scrims.filter((s) => {
+      scheduleScopedScrims.filter((s) => {
+        const hierarchy = classifyScrimHierarchy(s)
+
         // Category filter
         if (selectedCategory === "friday-special-blast") {
           const cat = (s.category || "").toLowerCase()
@@ -134,6 +158,8 @@ export function ScrimsExplorer({
             s.slug.includes("champion-rush") ||
             cat.includes("champion rush")
           if (!isCR) return false
+        } else if (selectedCategory !== "all") {
+          if (hierarchy.category !== selectedCategory) return false
         }
 
         // Dynamic Room filter
@@ -158,7 +184,7 @@ export function ScrimsExplorer({
         return matchesTime && matchesQuery
       })
     )
-  }, [scrims, query, time, selectedCategory, selectedRoom])
+  }, [scheduleScopedScrims, query, time, selectedCategory, selectedRoom])
 
   const isChampionRushActive = selectedCategory === "champion-rush" || filtered.some((f) => f.slug.includes("champion-rush"))
 
@@ -184,49 +210,138 @@ export function ScrimsExplorer({
         </p>
       </Reveal>
 
-      {/* Category Filter Navigation */}
-      <Reveal immediate delay={0.08} y={12} duration={0.54} className="flex flex-wrap items-center gap-2 border-b border-white/[0.07] pb-4">
-        <button
-          type="button"
-          onClick={() => setSelectedCategory("all")}
-          className={cn(
-            "rushx-btn-splash flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
-            selectedCategory === "all"
-              ? "border-violet-400/45 bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/25"
-              : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-foreground"
-          )}
-        >
-          <Calendar className="size-3.5" />
-          All Scrims
-        </button>
+      {/* Step 1: Cascading Schedule & Category Navigation */}
+      <Reveal immediate delay={0.08} y={12} duration={0.54} className="flex flex-col gap-3 border-b border-white/[0.07] pb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSchedule("all")
+              setSelectedCategory("all")
+              setSelectedRoom("all")
+            }}
+            className={cn(
+              "rushx-btn-splash flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
+              selectedSchedule === "all" && selectedCategory === "all"
+                ? "border-violet-400/45 bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/25"
+                : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-foreground"
+            )}
+          >
+            <Calendar className="size-3.5" />
+            All Scrims
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSelectedCategory("friday-special-blast")}
-          className={cn(
-            "flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
-            selectedCategory === "friday-special-blast"
-              ? "border-amber-400/40 bg-gradient-to-b from-amber-400 to-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20"
-              : "border-amber-500/20 bg-amber-500/[0.07] text-amber-300 hover:border-amber-500/35 hover:bg-amber-500/[0.14]"
-          )}
-        >
-          <Flame className="size-3.5" />
-          Friday Special Blast (5 Matches · ৳80/৳850)
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSchedule("daily")
+              setSelectedCategory("all")
+              setSelectedRoom("all")
+            }}
+            className={cn(
+              "flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
+              selectedSchedule === "daily"
+                ? "border-primary/60 bg-primary/20 text-white shadow-lg shadow-primary/15"
+                : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-foreground"
+            )}
+          >
+            <Layers className="size-3.5" />
+            Daily Scrims
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSelectedCategory("champion-rush")}
-          className={cn(
-            "flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
-            selectedCategory === "champion-rush"
-              ? "border-emerald-400/45 bg-emerald-500/20 text-emerald-300 shadow-lg shadow-emerald-500/15"
-              : "border-emerald-500/20 bg-emerald-950/30 text-emerald-400/85 hover:border-emerald-500/40 hover:bg-emerald-500/12 hover:text-emerald-300"
-          )}
-        >
-          <Trophy className="size-3.5" />
-          10 PM CHAMPION RUSH
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSchedule("friday")
+              setSelectedCategory("all")
+              setSelectedRoom("all")
+            }}
+            className={cn(
+              "flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
+              selectedSchedule === "friday" && selectedCategory === "all"
+                ? "border-amber-400/45 bg-gradient-to-b from-amber-400 to-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20"
+                : "border-amber-500/20 bg-amber-500/[0.07] text-amber-300 hover:border-amber-500/35 hover:bg-amber-500/[0.14]"
+            )}
+          >
+            <Flame className="size-3.5" />
+            Friday Scrims
+          </button>
+        </div>
+
+        {/* Step 2: Category sub-bar (shown automatically when Friday Scrims or categorized schedule is selected) */}
+        {(selectedSchedule === "friday" || dynamicCategories.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+              Category:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("all")}
+              className={cn(
+                "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                selectedCategory === "all"
+                  ? "border-primary/60 bg-primary/15 text-primary"
+                  : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:text-foreground"
+              )}
+            >
+              All Categories
+            </button>
+
+            {selectedSchedule === "friday" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("friday-special-blast")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                    selectedCategory === "friday-special-blast"
+                      ? "border-amber-400/50 bg-amber-500/20 text-amber-200"
+                      : "border-amber-500/20 bg-amber-500/[0.05] text-amber-300/85 hover:bg-amber-500/[0.12]"
+                  )}
+                >
+                  <Flame className="size-3.5" />
+                  Friday Special Blast (5 Matches · ৳80/৳850)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("champion-rush")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                    selectedCategory === "champion-rush"
+                      ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
+                      : "border-emerald-500/20 bg-emerald-950/30 text-emerald-400/85 hover:bg-emerald-500/12"
+                  )}
+                >
+                  <Trophy className="size-3.5" />
+                  Champion Rush
+                </button>
+              </>
+            )}
+
+            {dynamicCategories
+              .filter(
+                (cat) =>
+                  selectedSchedule !== "friday" ||
+                  (!cat.toLowerCase().includes("friday special") &&
+                    !cat.toLowerCase().includes("champion rush")),
+              )
+              .map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                    selectedCategory === cat
+                      ? "border-primary/60 bg-primary/15 text-primary"
+                      : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {cat}
+                </button>
+              ))}
+          </div>
+        )}
       </Reveal>
 
       {/* 10 PM Champion Rush Rules Notice Banner */}

@@ -21,16 +21,16 @@ export default async function AdminLayout({
   const settings = await getPublicSiteSettings().catch(() => undefined)
 
   return (
-    <div className="flex min-h-screen flex-col bg-transparent text-foreground lg:flex-row">
-      <Suspense fallback={<aside className="w-full shrink-0 md:w-60" />}>
+    <div className="flex min-h-dvh flex-col bg-transparent text-foreground lg:flex-row">
+      <Suspense fallback={<aside className="h-14 w-full shrink-0 lg:h-auto lg:w-64" />}>
         <AdminNav
           role={user.role}
           name={user.name || "Staff"}
           logoUrl={settings?.logoUrl || "/images/brand/rushx-symbol.png"}
         />
       </Suspense>
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <PageTransition className="mx-auto max-w-7xl">{children}</PageTransition>
+      <main className="min-w-0 w-full flex-1 overflow-x-clip p-3 sm:p-6 lg:p-8">
+        <PageTransition className="mx-auto w-full max-w-7xl min-w-0">{children}</PageTransition>
       </main>
     </div>
   )

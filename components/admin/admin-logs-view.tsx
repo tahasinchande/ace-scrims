@@ -133,26 +133,26 @@ export function AdminLogsView({ logs }: { logs: ActivityLogRow[] }) {
     <div className="space-y-6">
       {/* Metric Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="glass rounded-xl p-4">
+        <div className="dc-surface dc-metric-cell rounded-xl p-4">
           <p className="text-xs uppercase text-muted-foreground font-semibold">Total Logged Events</p>
           <p className="text-2xl font-bold font-display mt-1 text-foreground">{stats.total}</p>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div className="dc-surface dc-metric-cell rounded-xl p-4">
           <p className="text-xs uppercase text-muted-foreground font-semibold">Refund Operations</p>
           <p className="text-2xl font-bold font-display mt-1 text-amber-400">{stats.refunds}</p>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div className="dc-surface dc-metric-cell rounded-xl p-4">
           <p className="text-xs uppercase text-muted-foreground font-semibold">Scrim Updates</p>
           <p className="text-2xl font-bold font-display mt-1 text-blue-400">{stats.scrimChanges}</p>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div className="dc-surface dc-metric-cell rounded-xl p-4">
           <p className="text-xs uppercase text-muted-foreground font-semibold">Result & Prize Actions</p>
           <p className="text-2xl font-bold font-display mt-1 text-emerald-400">{stats.prizes}</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="glass rounded-2xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="dc-surface rushx-box-splash rounded-2xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -186,9 +186,9 @@ export function AdminLogsView({ logs }: { logs: ActivityLogRow[] }) {
       </div>
 
       {/* Audit Log Table */}
-      <div className="glass rounded-2xl overflow-hidden border border-border/60">
+      <div className="dc-surface rushx-box-splash rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground border-b border-border/40">
               <tr>
                 <th className="px-4 py-3">Timestamp</th>

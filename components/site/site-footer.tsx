@@ -22,15 +22,18 @@ export type FooterSettings = {
 export function SiteFooter({ settings }: { settings?: FooterSettings }) {
   const { t } = useLanguage()
 
-  const discord = settings?.discordUrl || "https://discord.gg/aKF4hMuhmA"
-  const facebook = settings?.facebookUrl || "https://facebook.com/acescrims"
-  const whatsappChannel = settings?.whatsappChannelUrl || "https://whatsapp.com/channel/0029Va9xyz"
-  const youtube = settings?.youtubeUrl || ""
-  const tiktok = settings?.tiktokUrl || "https://www.tiktok.com/@acescrims"
-  const supportKori = settings?.supportKoriUrl || "https://www.supportkori.com/ace_scrims"
-  const telegram = settings?.telegramUrl || ""
-  const instagram = settings?.instagramUrl || ""
-  const supportWhatsapp = settings?.supportWhatsapp || "+8801831510108"
+  const resolveSocial = (val: string | undefined, fallback: string) =>
+    settings ? (val ?? "").trim() : fallback
+
+  const discord = resolveSocial(settings?.discordUrl, "https://discord.gg/aKF4hMuhmA")
+  const facebook = resolveSocial(settings?.facebookUrl, "https://facebook.com/acescrims")
+  const whatsappChannel = resolveSocial(settings?.whatsappChannelUrl, "https://whatsapp.com/channel/0029Va9xyz")
+  const youtube = resolveSocial(settings?.youtubeUrl, "")
+  const tiktok = resolveSocial(settings?.tiktokUrl, "https://www.tiktok.com/@acescrims")
+  const supportKori = resolveSocial(settings?.supportKoriUrl, "https://www.supportkori.com/acescrims")
+  const telegram = resolveSocial(settings?.telegramUrl, "")
+  const instagram = resolveSocial(settings?.instagramUrl, "")
+  const supportWhatsapp = resolveSocial(settings?.supportWhatsapp, "+8801831510108")
   const cleanWaNumber = supportWhatsapp.replace(/[^0-9]/g, "")
 
   return (
@@ -199,15 +202,17 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
                 variant="footer"
                 label={t("live_support", "Live Support")}
               />
-              <a
-                href={`https://wa.me/${cleanWaNumber || "8801831510108"}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors px-1 py-1"
-              >
-                <WhatsAppIcon className="size-4 text-emerald-400" />
-                <span>WhatsApp Support</span>
-              </a>
+              {cleanWaNumber && (
+                <a
+                  href={`https://wa.me/${cleanWaNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors px-1 py-1"
+                >
+                  <WhatsAppIcon className="size-4 text-emerald-400" />
+                  <span>WhatsApp Support</span>
+                </a>
+              )}
             </div>
           </div>
         </div>

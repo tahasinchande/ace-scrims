@@ -242,7 +242,7 @@ export function AdminCreditManager({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
-        <div className="glass flex flex-col gap-1 rounded-xl p-4 border border-border/80">
+        <div className="dc-surface dc-metric-cell flex flex-col gap-1 rounded-xl p-4">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-semibold uppercase tracking-wider">Circulating Credits</span>
             <Wallet className="size-4 text-emerald-400" />
@@ -253,7 +253,7 @@ export function AdminCreditManager({
           <span className="text-[11px] text-muted-foreground">Across all active player wallets</span>
         </div>
 
-        <div className="glass flex flex-col gap-1 rounded-xl p-4 border border-border/80">
+        <div className="dc-surface dc-metric-cell flex flex-col gap-1 rounded-xl p-4">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-semibold uppercase tracking-wider">Credit Holders</span>
             <Users className="size-4 text-primary" />
@@ -264,7 +264,7 @@ export function AdminCreditManager({
           <span className="text-[11px] text-muted-foreground">Users with balance &gt; ৳0</span>
         </div>
 
-        <div className="glass flex flex-col gap-1 rounded-xl p-4 border border-border/80">
+        <div className="dc-surface dc-metric-cell flex flex-col gap-1 rounded-xl p-4">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-semibold uppercase tracking-wider">Highest Balance</span>
             <TrendingUp className="size-4 text-amber-400" />
@@ -275,7 +275,7 @@ export function AdminCreditManager({
           <span className="text-[11px] text-muted-foreground">Top individual user credit</span>
         </div>
 
-        <div className="glass flex flex-col gap-1 rounded-xl p-4 border border-border/80">
+        <div className="dc-surface dc-metric-cell flex flex-col gap-1 rounded-xl p-4">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-semibold uppercase tracking-wider">Manual Adjustments</span>
             <History className="size-4 text-sky-400" />
@@ -288,11 +288,11 @@ export function AdminCreditManager({
       </div>
 
       {/* View Tabs */}
-      <div className="flex items-center gap-2 border-b border-border pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
         <button
           type="button"
           onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === "users"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -304,7 +304,7 @@ export function AdminCreditManager({
         <button
           type="button"
           onClick={() => setActiveTab("transactions")}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === "transactions"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -366,9 +366,9 @@ export function AdminCreditManager({
           </div>
 
           {/* Users Table */}
-          <div className="glass overflow-hidden rounded-xl border border-border">
+          <div className="dc-surface rushx-box-splash overflow-hidden rounded-2xl">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Player Account</th>
@@ -519,9 +519,9 @@ export function AdminCreditManager({
       ) : (
         /* Recent Credit Audit Logs */
         <div className="space-y-4">
-          <div className="glass overflow-hidden rounded-xl border border-border">
+          <div className="dc-surface rushx-box-splash overflow-hidden rounded-2xl">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[680px] text-left text-sm">
                 <thead className="border-b border-border bg-secondary/40 text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Timestamp</th>

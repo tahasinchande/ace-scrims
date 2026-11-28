@@ -25,6 +25,8 @@ export interface BackgroundThemeConfig {
   enabledBuiltInPhases: BuiltInPhaseId[]
   /** Admin-added extra colors appended to the live background rotation */
   customColors: CustomPaletteColor[]
+  /** ID of the primary built-in phase or custom color displayed first when the site loads */
+  initialPrimaryColorId?: string
   updatedAt?: string
 }
 
@@ -33,6 +35,7 @@ export const DEFAULT_BACKGROUND_THEME_CONFIG: BackgroundThemeConfig = {
   transitionSeconds: 4.2,
   enabledBuiltInPhases: [...BUILT_IN_PHASE_IDS],
   customColors: [],
+  initialPrimaryColorId: "electric-blue",
 }
 
 export const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
@@ -70,6 +73,7 @@ export const backgroundThemeConfigSchema = z
       .max(20, "Transition cannot exceed 20s"),
     enabledBuiltInPhases: z.array(z.enum(BUILT_IN_PHASE_IDS)).default([...BUILT_IN_PHASE_IDS]),
     customColors: z.array(customPaletteColorSchema).max(16, "Maximum 16 custom colors allowed").default([]),
+    initialPrimaryColorId: z.string().trim().max(48).optional(),
     updatedAt: z.string().optional(),
   })
   .superRefine((data, ctx) => {

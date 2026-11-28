@@ -37,18 +37,21 @@ export function Hero({
       setIntroActive(true)
       return
     }
+    let settleTimer = 0
     let raf2 = 0
     const raf1 = window.requestAnimationFrame(() => {
       raf2 = window.requestAnimationFrame(() => {
-        setIntroActive(true)
+        // Brief 90ms settle lets initial Three.js/WebGL shader compilation finish so the fade-in plays smoothly
+        settleTimer = window.setTimeout(() => setIntroActive(true), 90)
       })
     })
     const safetyTimer = window.setTimeout(() => {
       setIntroActive(true)
-    }, 140)
+    }, 340)
     return () => {
       window.cancelAnimationFrame(raf1)
       if (raf2) window.cancelAnimationFrame(raf2)
+      if (settleTimer) window.clearTimeout(settleTimer)
       window.clearTimeout(safetyTimer)
     }
   }, [prefersReducedMotion])
@@ -57,14 +60,16 @@ export function Hero({
   const totalSlots = stats.totalTeams ?? 0
   const formatLine = showcase?.timeWindow || t("matches_per_scrim", "Live Daily Format")
 
-  // Recovered 88918cc first-visit staggered entrance choreography
+  // Smooth, visible initial-load staggered fade-in choreography
+  const smoothEase = [0.16, 1, 0.3, 1] as const
+
   const container = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
       transition: {
-        staggerChildren: prefersReducedMotion ? 0 : mode === "3d" ? 0.1 : 0.07,
-        delayChildren: prefersReducedMotion ? 0 : 0.06,
+        staggerChildren: prefersReducedMotion ? 0 : 0.085,
+        delayChildren: prefersReducedMotion ? 0 : 0.04,
       },
     },
   }
@@ -72,14 +77,14 @@ export function Hero({
   const itemFadeUp = {
     hidden: prefersReducedMotion
       ? { opacity: 1, y: 0, scale: 1 }
-      : { opacity: 0, y: 20, scale: 0.985 },
+      : { opacity: 0, y: 22, scale: 0.985 },
     show: {
       opacity: 1,
       y: 0,
       scale: 1,
       transition: {
-        duration: prefersReducedMotion ? 0 : 0.42,
-        ease: "easeOut" as const,
+        duration: prefersReducedMotion ? 0 : 0.62,
+        ease: smoothEase,
       },
     },
   }
@@ -90,8 +95,9 @@ export function Hero({
       opacity: 1,
       y: 0,
       transition: {
-        duration: prefersReducedMotion ? 0 : 0.35,
-        staggerChildren: prefersReducedMotion ? 0 : 0.08,
+        duration: prefersReducedMotion ? 0 : 0.52,
+        ease: smoothEase,
+        staggerChildren: prefersReducedMotion ? 0 : 0.09,
       },
     },
   }
@@ -99,21 +105,21 @@ export function Hero({
   const statCardFadeUp = {
     hidden: prefersReducedMotion
       ? { opacity: 1, y: 0, scale: 1 }
-      : { opacity: 0, y: 18, scale: 0.97 },
+      : { opacity: 0, y: 20, scale: 0.975 },
     show: {
       opacity: 1,
       y: 0,
       scale: 1,
       transition: {
-        duration: prefersReducedMotion ? 0 : 0.38,
-        ease: "easeOut" as const,
+        duration: prefersReducedMotion ? 0 : 0.56,
+        ease: smoothEase,
       },
     },
   }
 
   return (
     <section className="relative min-h-[88svh] w-full max-w-full overflow-x-clip overflow-hidden bg-transparent">
-      {/* 3D Mode specific laser sweepers and kinetic glow (recovered from 88918cc, synced with live color palette) */}
+      {/* 3D Mode atmospheric framing (zero filter:blur over live WebGL canvas for 60fps smoothness) */}
       {mode === "3d" && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden w-full max-w-full">
           <div className="absolute inset-0 bg-gradient-to-r from-[#040814]/56 via-transparent to-transparent z-[1]" />
@@ -125,27 +131,11 @@ export function Hero({
                 "linear-gradient(to right, transparent, rgba(var(--rushx-accent-rgb), 0.5), transparent)",
             }}
           />
-          {!prefersReducedMotion && (
-            <motion.div
-              animate={{
-                x: ["-100%", "200%"],
-              }}
-              transition={{
-                duration: 7,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className="absolute top-1/3 left-0 w-1/3 h-[2px] blur-sm z-[2]"
-              style={{
-                background:
-                  "linear-gradient(to right, transparent, rgba(var(--rushx-primary-rgb), 0.85), transparent)",
-              }}
-            />
-          )}
           <div
-            className="absolute -left-20 top-1/4 size-96 rounded-full blur-[100px] z-[1]"
+            className="absolute inset-0 z-[1]"
             style={{
-              background: "rgba(var(--rushx-primary-rgb), 0.2)",
+              background:
+                "radial-gradient(48% 42% at 8% 36%, rgba(var(--rushx-primary-rgb), 0.16) 0%, transparent 72%)",
             }}
           />
         </div>

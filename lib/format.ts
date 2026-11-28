@@ -206,13 +206,32 @@ export function getScrimChronologicalWeight(startTime?: string | null): number {
   return h * 60 + min
 }
 
-/** Room priority: Room 1 precedes Room 2, followed by Champion Rush or Special Tournaments */
+/**
+ * Room priority weight: extracts exact numerical room index (1, 2, 3, ..., 10+)
+ * so multiplied rooms always sort strictly in ascending numerical order.
+ */
 export function getScrimRoomWeight(s: { title?: string | null; slug?: string | null; id?: string | null }): number {
-  const str = `${s.id || ""} ${s.slug || ""} ${s.title || ""}`.toLowerCase()
-  if (str.includes("room 2") || str.includes("room-2") || str.includes("-r2")) return 2
-  if (str.includes("room 1") || str.includes("room-1") || str.includes("-r1")) return 1
-  if (str.includes("champion-rush") || str.includes("champion rush")) return 3
-  if (str.includes("special") || str.includes("blast")) return 4
+  const id = (s.id || "").toLowerCase().trim()
+  const slug = (s.slug || "").toLowerCase().trim()
+  const title = (s.title || "").toLowerCase().trim()
+
+  const idMatch = id.match(/-r(\d+)$/)
+  if (idMatch) return Math.max(1, Number.parseInt(idMatch[1], 10))
+
+  const slugMatch = slug.match(/-room-(\d+)$/)
+  if (slugMatch) return Math.max(1, Number.parseInt(slugMatch[1], 10))
+
+  const titleMatch = title.match(/\broom\s*(\d+)\b/i)
+  if (titleMatch) return Math.max(1, Number.parseInt(titleMatch[1], 10))
+
+  return 1
+}
+
+/** Category priority weight so standard lobbies, Blast, and Champion Rush group cleanly at the same start time. */
+function getScrimCategorySortWeight(s: { title?: string | null; slug?: string | null; id?: string | null; category?: string | null }): number {
+  const text = `${s.category || ""} ${s.id || ""} ${s.slug || ""} ${s.title || ""}`.toLowerCase()
+  if (text.includes("champion rush") || text.includes("champion-rush") || text.includes("-cr")) return 2
+  if (text.includes("friday special blast") || text.includes("friday-special-blast")) return 1
   return 0
 }
 
@@ -220,10 +239,11 @@ export function getScrimRoomWeight(s: { title?: string | null; slug?: string | n
  * Strictly sort any list of scrims in ascending serial order:
  * 1. Chronological date (if different)
  * 2. Time of day in ascending order (3 PM -> 4 PM -> 5 PM -> 7 PM -> 8 PM -> 9 PM -> 10 PM -> 11 PM -> 12 AM)
- * 3. Room 1 before Room 2
- * 4. Stable title/ID fallback
+ * 3. Category order (Daily / Friday Special Blast / Champion Rush)
+ * 4. Room number strictly ascending numerically (Room 1 -> Room 2 -> Room 3 -> ... -> Room 10)
+ * 5. Numeric-aware natural title/ID fallback
  */
-export function sortScrimsAscending<T extends { startTime?: string | null; title?: string | null; slug?: string | null; id?: string | null; scrimDate?: any }>(list: T[]): T[] {
+export function sortScrimsAscending<T extends { startTime?: string | null; title?: string | null; slug?: string | null; id?: string | null; category?: string | null; scrimDate?: any }>(list: T[]): T[] {
   return [...list].sort((a, b) => {
     // 1. Scrim date ascending (if dates are different)
     if (a.scrimDate && b.scrimDate) {
@@ -237,15 +257,20 @@ export function sortScrimsAscending<T extends { startTime?: string | null; title
     const timeB = getScrimChronologicalWeight(b.startTime)
     if (timeA !== timeB) return timeA - timeB
 
-    // 3. Room 1 before Room 2
+    // 3. Category grouping at identical times
+    const catA = getScrimCategorySortWeight(a)
+    const catB = getScrimCategorySortWeight(b)
+    if (catA !== catB) return catA - catB
+
+    // 4. Room number strictly ascending numerically (1, 2, 3, ..., 10)
     const roomA = getScrimRoomWeight(a)
     const roomB = getScrimRoomWeight(b)
     if (roomA !== roomB) return roomA - roomB
 
-    // 4. Alphabetical by title/id fallback
+    // 5. Numeric-aware natural title/id fallback
     const nameA = a.title || a.id || ""
     const nameB = b.title || b.id || ""
-    return nameA.localeCompare(nameB)
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" })
   })
 }
 

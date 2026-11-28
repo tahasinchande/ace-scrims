@@ -137,7 +137,7 @@ export function PayoutMethodsManager({ initialMethods }: { initialMethods: Payou
   }
 
   return (
-    <section className="glass rounded-2xl border border-border/80 p-6 flex flex-col gap-5">
+    <section className="dc-surface rushx-box-splash rounded-2xl p-5 sm:p-6 flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
         <div className="flex items-start gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary border border-primary/30">

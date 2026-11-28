@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDate } from "@/lib/format"
+import { CascadingScrimSelector } from "@/components/site/cascading-scrim-selector"
 import { resolveImageUrl, extractImageUrls } from "@/lib/image-url"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import { cn } from "@/lib/utils"
@@ -62,8 +63,10 @@ type ReportItem = {
 
 type ScrimFilterOption = {
   id: string
+  slug?: string | null
   title: string
   startTime?: string | null
+  category?: string | null
 }
 
 const KNOWN_REPORT_PURPOSES = [
@@ -193,27 +196,38 @@ export function AdminReports({
       </header>
 
       {/* Advanced Filters Toolbar: Purpose + Scrim + Date */}
-      <div className="glass rounded-2xl border border-border/70 p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
+      <div className="dc-surface rushx-box-splash rounded-2xl p-4 flex flex-col gap-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             <Filter className="size-3.5 text-primary" />
             Filter Reports
           </span>
-          {hasActiveFilters && (
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               size="sm"
-              variant="ghost"
-              onClick={clearAllFilters}
-              className="h-7 gap-1 text-xs text-primary hover:text-primary"
+              variant={scrimFilter === "__none__" ? "default" : "outline"}
+              onClick={() => setScrimFilter(scrimFilter === "__none__" ? "all" : "__none__")}
+              className="h-7 text-[11px]"
             >
-              <RotateCcw className="size-3" />
-              Clear Filters
+              General / No Scrim Only
             </Button>
-          )}
+            {hasActiveFilters && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={clearAllFilters}
+                className="h-7 gap-1 text-xs text-primary hover:text-primary"
+              >
+                <RotateCcw className="size-3" />
+                Clear Filters
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Purpose Dropdown Filter */}
           <div className="flex flex-col gap-1">
             <label htmlFor="report-purpose-filter" className="text-[11px] font-semibold text-muted-foreground">
@@ -223,33 +237,12 @@ export function AdminReports({
               id="report-purpose-filter"
               value={purposeFilter}
               onChange={(e) => setPurposeFilter(e.target.value)}
-              className="h-9 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
+              className="h-9 rounded-lg border border-white/15 bg-[#060b1a] px-3 text-xs font-medium text-foreground"
             >
               <option value="all">All Purposes</option>
               {uniquePurposes.map((purpose) => (
                 <option key={purpose} value={purpose}>
                   {purpose}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Scrim Selector Dropdown */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="report-scrim-filter" className="text-[11px] font-semibold text-muted-foreground">
-              Scrim / Tournament
-            </label>
-            <select
-              id="report-scrim-filter"
-              value={scrimFilter}
-              onChange={(e) => setScrimFilter(e.target.value)}
-              className="h-9 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
-            >
-              <option value="all">All Scrims</option>
-              <option value="__none__">General / No Scrim (Feature &amp; Bug Reports)</option>
-              {scrims.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title} {s.startTime ? `(${s.startTime})` : ""}
                 </option>
               ))}
             </select>
@@ -265,20 +258,37 @@ export function AdminReports({
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="h-9 rounded-xl border border-border bg-secondary/80 text-xs"
+              className="h-9 rounded-lg border border-white/15 bg-[#060b1a] text-xs"
             />
           </div>
         </div>
+
+        {/* Cascading Scrim / Lobby Filter */}
+        {scrimFilter !== "__none__" && (
+          <div className="flex flex-col gap-1 pt-1 border-t border-white/[0.06]">
+            <span className="text-[11px] font-semibold text-muted-foreground">
+              Scrim / Tournament (Schedule → Category → Ascending Room)
+            </span>
+            <CascadingScrimSelector
+              idPrefix="admin-reports-scrim"
+              scrims={scrims}
+              value={scrimFilter}
+              allowAll
+              allLabel="All Scrims"
+              onChange={(nextVal) => setScrimFilter(nextVal || "all")}
+            />
+          </div>
+        )}
       </div>
 
       {/* Batch Selection Toolbar */}
       {filteredReports.length > 0 && (
-        <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 p-3">
+        <div className="dc-surface flex flex-wrap items-center justify-between gap-3 rounded-xl p-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={toggleSelectAll}
-              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
             >
               {allSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
               <span>{selectedIds.length > 0 ? `${selectedIds.length} report(s) selected` : "Select all"}</span>
@@ -300,7 +310,7 @@ export function AdminReports({
       )}
 
       {filteredReports.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center text-sm text-muted-foreground">
+        <div className="dc-surface rounded-2xl p-12 text-center text-sm text-muted-foreground">
           No reports found for the selected filters.
         </div>
       ) : (
@@ -329,8 +339,8 @@ export function AdminReports({
             return (
               <li
                 key={report.id}
-                className={`glass flex flex-col gap-4 rounded-2xl p-5 border transition-all min-w-0 max-w-full overflow-hidden ${
-                  isSelected ? "border-primary bg-primary/5" : "border-border/70"
+                className={`dc-surface rushx-box-splash flex flex-col gap-4 rounded-2xl p-4 sm:p-5 transition-all min-w-0 max-w-full overflow-hidden ${
+                  isSelected ? "border-primary bg-primary/5" : ""
                 } shadow-md`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">

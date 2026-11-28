@@ -1013,7 +1013,7 @@ export function AdminReferralsManager({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-border/70 text-left text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="py-2.5 pr-4">Referrer</th>

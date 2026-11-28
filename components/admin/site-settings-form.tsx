@@ -5,22 +5,62 @@ import { saveAllSiteSettings } from "@/app/actions/admin"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Heart, Coffee } from "lucide-react"
+import { Loader2, Coffee, X } from "lucide-react"
 import { toast } from "sonner"
 import { useLanguage } from "@/lib/language"
+
+function ClearableUrlField({
+  id,
+  value,
+  onChange,
+  placeholder,
+  type = "url",
+  className,
+}: {
+  id: string
+  value: string
+  onChange: (next: string) => void
+  placeholder: string
+  type?: string
+  className?: string
+}) {
+  return (
+    <div className="relative flex items-center">
+      <Input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={value ? `pr-9 ${className || ""}` : className}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          title="Remove this link"
+          aria-label="Clear link"
+          className="absolute right-2 flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-rose-500/15 hover:text-rose-400 transition-colors cursor-pointer"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+    </div>
+  )
+}
 
 export function SiteSettingsForm({
   discordUrl,
   facebookUrl,
   youtubeUrl = "",
-  tiktokUrl = "https://www.tiktok.com/@acescrims",
-  whatsappChannelUrl = "https://whatsapp.com/channel/0029Va9xyz",
+  tiktokUrl = "",
+  whatsappChannelUrl = "",
   telegramUrl = "",
   instagramUrl = "",
-  supportWhatsapp = "+8801831510108",
-  championRushWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
-  championRush3pmWhatsappUrl = "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
-  supportKoriUrl = "https://www.supportkori.com/acescrims",
+  supportWhatsapp = "",
+  championRushWhatsappUrl = "",
+  championRush3pmWhatsappUrl = "",
+  supportKoriUrl = "",
   showRoom2,
   maintenanceMode,
   staffPortalPath,
@@ -53,17 +93,17 @@ export function SiteSettingsForm({
   showcaseHighlightNote?: string
 }) {
   const { lang, t } = useLanguage()
-  const [discord, setDiscord] = useState(discordUrl)
-  const [facebook, setFacebook] = useState(facebookUrl)
-  const [youtube, setYoutube] = useState(youtubeUrl)
-  const [tiktok, setTiktok] = useState(tiktokUrl || "https://www.tiktok.com/@acescrims")
-  const [whatsappChannel, setWhatsappChannel] = useState(whatsappChannelUrl)
-  const [telegram, setTelegram] = useState(telegramUrl)
-  const [instagram, setInstagram] = useState(instagramUrl)
-  const [supportWa, setSupportWa] = useState(supportWhatsapp || "+8801831510108")
-  const [championWhatsapp, setChampionWhatsapp] = useState(championRushWhatsappUrl || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V")
-  const [champion3pmWhatsapp, setChampion3pmWhatsapp] = useState(championRush3pmWhatsappUrl || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V")
-  const [supportKori, setSupportKori] = useState(supportKoriUrl || "https://www.supportkori.com/acescrims")
+  const [discord, setDiscord] = useState(discordUrl ?? "")
+  const [facebook, setFacebook] = useState(facebookUrl ?? "")
+  const [youtube, setYoutube] = useState(youtubeUrl ?? "")
+  const [tiktok, setTiktok] = useState(tiktokUrl ?? "")
+  const [whatsappChannel, setWhatsappChannel] = useState(whatsappChannelUrl ?? "")
+  const [telegram, setTelegram] = useState(telegramUrl ?? "")
+  const [instagram, setInstagram] = useState(instagramUrl ?? "")
+  const [supportWa, setSupportWa] = useState(supportWhatsapp ?? "")
+  const [championWhatsapp, setChampionWhatsapp] = useState(championRushWhatsappUrl ?? "")
+  const [champion3pmWhatsapp, setChampion3pmWhatsapp] = useState(championRush3pmWhatsappUrl ?? "")
+  const [supportKori, setSupportKori] = useState(supportKoriUrl ?? "")
   const [room2Enabled, setRoom2Enabled] = useState(showRoom2)
   const [maintEnabled, setMaintEnabled] = useState(maintenanceMode)
   const [staffPath, setStaffPath] = useState(staffPortalPath)
@@ -122,17 +162,18 @@ export function SiteSettingsForm({
           {t("settings_sub")}
         </p>
       </header>
-      <div className="glass flex max-w-2xl flex-col gap-6 rounded-2xl p-6 border border-border">
+      <div className="dc-surface rushx-box-splash flex max-w-2xl flex-col gap-6 rounded-2xl p-4 sm:p-6">
       {/* Brand & Admin Profile Logo */}
-      <div className="flex flex-col gap-3 pb-4 border-b border-border">
+      <div className="flex flex-col gap-3 pb-4 border-b border-white/[0.08]">
         <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
           {lang === "bn" ? "ব্র্যান্ড লোগো ও হেডার আইকন" : "Brand Logo & Header Avatar"}
         </h3>
         <p className="text-xs text-muted-foreground">
           Sets the brand logo rendered across the public header, live chat support, and admin navigation.
         </p>
-        <div className="flex items-center gap-4">
-          <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/80 bg-zinc-950 p-2 shadow-inner">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#050914] p-2 shadow-inner">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={siteLogo || "/images/brand/rushx-symbol.png"}
               alt="Brand Preview"
@@ -142,7 +183,7 @@ export function SiteSettingsForm({
               }}
             />
           </div>
-          <div className="flex-1 flex flex-col gap-1.5">
+          <div className="w-full flex-1 flex flex-col gap-1.5">
             <Label htmlFor="site-logo-url" className="text-xs font-semibold">
               Logo / Icon Image URL
             </Label>
@@ -167,7 +208,7 @@ export function SiteSettingsForm({
       </div>
 
       {/* Dynamic Public Showcase & Schedule Copy */}
-      <div className="flex flex-col gap-3 pb-4 border-b border-border">
+      <div className="flex flex-col gap-3 pb-4 border-b border-white/[0.08]">
         <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
           {lang === "bn" ? "পাবলিক শোকেস ও শিডিউল তথ্য (ডায়নামিক)" : "Public Showcase & Schedule Info (Dynamic)"}
         </h3>
@@ -213,23 +254,29 @@ export function SiteSettingsForm({
           </div>
         </div>
       </div>
+
+      {/* Social Links & Channels */}
       <div className="flex flex-col gap-4">
-        <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
-          Social Links & Channels
-        </h3>
-        
+        <div>
+          <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
+            Social Links &amp; Channels
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Click the clear (×) button or leave any field blank and save to hide that social link from visitors across the site.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="discord-url" className="flex items-center gap-2">
               <span className="size-2 rounded-full bg-[#5865F2]" />
               Discord Invite URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="discord-url"
-              type="url"
               value={discord}
-              onChange={(e) => setDiscord(e.target.value)}
-              placeholder="https://discord.gg/…"
+              onChange={setDiscord}
+              placeholder="Leave blank to hide Discord"
             />
           </div>
 
@@ -238,12 +285,11 @@ export function SiteSettingsForm({
               <span className="size-2 rounded-full bg-[#1877F2]" />
               Facebook Page / Group URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="facebook-url"
-              type="url"
               value={facebook}
-              onChange={(e) => setFacebook(e.target.value)}
-              placeholder="https://facebook.com/…"
+              onChange={setFacebook}
+              placeholder="Leave blank to hide Facebook"
             />
           </div>
 
@@ -252,12 +298,11 @@ export function SiteSettingsForm({
               <span className="size-2 rounded-full bg-[#EE1D52]" />
               TikTok Profile URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="tiktok-url"
-              type="url"
               value={tiktok}
-              onChange={(e) => setTiktok(e.target.value)}
-              placeholder="https://www.tiktok.com/@…"
+              onChange={setTiktok}
+              placeholder="Leave blank to hide TikTok"
             />
           </div>
 
@@ -266,12 +311,11 @@ export function SiteSettingsForm({
               <span className="size-2 rounded-full bg-[#25D366]" />
               Main WhatsApp Channel URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="whatsapp-channel-url"
-              type="url"
               value={whatsappChannel}
-              onChange={(e) => setWhatsappChannel(e.target.value)}
-              placeholder="https://whatsapp.com/channel/…"
+              onChange={setWhatsappChannel}
+              placeholder="Leave blank to hide WhatsApp Channel"
             />
           </div>
 
@@ -280,12 +324,11 @@ export function SiteSettingsForm({
               <span className="size-2 rounded-full bg-[#FF0000]" />
               YouTube Channel URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="youtube-url"
-              type="url"
               value={youtube}
-              onChange={(e) => setYoutube(e.target.value)}
-              placeholder="https://youtube.com/@…"
+              onChange={setYoutube}
+              placeholder="Leave blank to hide YouTube"
             />
           </div>
 
@@ -294,12 +337,11 @@ export function SiteSettingsForm({
               <span className="size-2 rounded-full bg-[#229ED9]" />
               Telegram Channel / Group URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="telegram-url"
-              type="url"
               value={telegram}
-              onChange={(e) => setTelegram(e.target.value)}
-              placeholder="https://t.me/…"
+              onChange={setTelegram}
+              placeholder="Leave blank to hide Telegram"
             />
           </div>
 
@@ -308,19 +350,18 @@ export function SiteSettingsForm({
               <span className="size-2 rounded-full bg-[#E4405F]" />
               Instagram Profile URL
             </Label>
-            <Input
+            <ClearableUrlField
               id="instagram-url"
-              type="url"
               value={instagram}
-              onChange={(e) => setInstagram(e.target.value)}
-              placeholder="https://instagram.com/…"
+              onChange={setInstagram}
+              placeholder="Leave blank to hide Instagram"
             />
           </div>
         </div>
       </div>
 
       {/* SupportKori Integration */}
-      <div className="flex flex-col gap-3 border-t border-border pt-4">
+      <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-4">
         <div className="flex items-center gap-2">
           <Coffee className="size-4 text-amber-400" />
           <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
@@ -328,47 +369,46 @@ export function SiteSettingsForm({
           </h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Customizable link for the SupportKori tab displayed on the downside of the website. Visitors can donate and support RushX Organization.
+          Customizable link for the SupportKori tab displayed on the downside of the website. Leave blank to hide the SupportKori banner completely.
         </p>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="support-kori-url">SupportKori Custom Page Link</Label>
-          <Input
+          <ClearableUrlField
             id="support-kori-url"
-            type="url"
             value={supportKori}
-            onChange={(e) => setSupportKori(e.target.value)}
-            placeholder="https://www.supportkori.com/your-brand"
+            onChange={setSupportKori}
+            placeholder="Leave blank to hide SupportKori banner"
             className="border-amber-500/30 focus-visible:ring-amber-500"
           />
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-border pt-4">
+      <div className="flex flex-col gap-4 border-t border-white/[0.08] pt-4">
         <h3 className="font-display text-base font-bold uppercase tracking-wide text-foreground">
-          Support & Contact Info
+          Support &amp; Contact Info
         </h3>
-        
+
         <div className="flex flex-col gap-1.5 max-w-sm">
           <Label htmlFor="support-whatsapp">Official Support WhatsApp</Label>
-          <Input
+          <ClearableUrlField
             id="support-whatsapp"
+            type="text"
             value={supportWa}
-            onChange={(e) => setSupportWa(e.target.value)}
-            placeholder="+8801831510108"
+            onChange={setSupportWa}
+            placeholder="Leave blank to hide WhatsApp support links"
           />
         </div>
       </div>
 
       {/* 10 PM Champion Rush WhatsApp Channel Link */}
-      <div className="flex flex-col gap-2 border-t border-border pt-4">
+      <div className="flex flex-col gap-2 border-t border-white/[0.08] pt-4">
         <Label htmlFor="champion-whatsapp-url" className="font-display uppercase text-sm font-bold text-emerald-400 flex items-center gap-2">
           10 PM Champion Rush WhatsApp Channel Link
         </Label>
-        <Input
+        <ClearableUrlField
           id="champion-whatsapp-url"
-          type="url"
           value={championWhatsapp}
-          onChange={(e) => setChampionWhatsapp(e.target.value)}
+          onChange={setChampionWhatsapp}
           placeholder="https://whatsapp.com/channel/..."
           className="border-emerald-500/30 focus-visible:ring-emerald-500"
         />
@@ -378,15 +418,14 @@ export function SiteSettingsForm({
       </div>
 
       {/* 3 PM Champion Rush WhatsApp Channel Link */}
-      <div className="flex flex-col gap-2 border-t border-border pt-4">
+      <div className="flex flex-col gap-2 border-t border-white/[0.08] pt-4">
         <Label htmlFor="champion-3pm-whatsapp-url" className="font-display uppercase text-sm font-bold text-emerald-400 flex items-center gap-2">
           3 PM Champion Rush WhatsApp Channel Link
         </Label>
-        <Input
+        <ClearableUrlField
           id="champion-3pm-whatsapp-url"
-          type="url"
           value={champion3pmWhatsapp}
-          onChange={(e) => setChampion3pmWhatsapp(e.target.value)}
+          onChange={setChampion3pmWhatsapp}
           placeholder="https://whatsapp.com/channel/..."
           className="border-emerald-500/30 focus-visible:ring-emerald-500"
         />
@@ -396,7 +435,7 @@ export function SiteSettingsForm({
       </div>
 
       {/* Staff Portal Configuration */}
-      <div className="flex flex-col gap-2 border-t border-border pt-4">
+      <div className="flex flex-col gap-2 border-t border-white/[0.08] pt-4">
         <Label htmlFor="staff-portal-path" className="font-display uppercase text-sm font-bold">
           Configurable Staff Portal Entry Path
         </Label>
@@ -411,28 +450,28 @@ export function SiteSettingsForm({
         </p>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-border pt-4">
-        <Label className="font-display uppercase text-sm font-bold">Lobby & Visibility Toggles</Label>
-        
+      <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-4">
+        <Label className="font-display uppercase text-sm font-bold">Lobby &amp; Visibility Toggles</Label>
+
         {/* Friday Scrims Schedule Override */}
-        <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
-          <div className="flex items-center justify-between">
+        <div className="dc-metric-cell flex flex-col gap-2 rounded-xl border-primary/30 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold text-sm text-foreground">Friday Scrims Schedule Mode</span>
-            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-bold uppercase text-primary">
+            <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-xs font-bold uppercase text-primary">
               {fridayMode === "auto" ? "Auto (Bangladesh Friday)" : fridayMode === "force_on" ? "Forced ON" : "Forced OFF"}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Friday Special Blast (3 matches) & 10 PM Champion Rush automatically activate on Fridays, or you can force turn them ON/OFF at any time.
+            Friday Special Blast (3 matches) &amp; 10 PM Champion Rush automatically activate on Fridays, or you can force turn them ON/OFF at any time.
           </p>
-          <div className="grid grid-cols-3 gap-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
             <button
               type="button"
               onClick={() => setFridayMode("auto")}
-              className={`rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
+              className={`rounded-lg border px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${
                 fridayMode === "auto"
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-secondary"
+                  : "border-white/10 bg-[#050914]/60 hover:bg-white/[0.06]"
               }`}
             >
               Automatic (Friday BD)
@@ -440,10 +479,10 @@ export function SiteSettingsForm({
             <button
               type="button"
               onClick={() => setFridayMode("force_on")}
-              className={`rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
+              className={`rounded-lg border px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${
                 fridayMode === "force_on"
                   ? "border-emerald-500 bg-emerald-600 text-white"
-                  : "border-border bg-background hover:bg-secondary"
+                  : "border-white/10 bg-[#050914]/60 hover:bg-white/[0.06]"
               }`}
             >
               Force Turn ON
@@ -451,10 +490,10 @@ export function SiteSettingsForm({
             <button
               type="button"
               onClick={() => setFridayMode("force_off")}
-              className={`rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
+              className={`rounded-lg border px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${
                 fridayMode === "force_off"
                   ? "border-destructive bg-destructive text-destructive-foreground"
-                  : "border-border bg-background hover:bg-secondary"
+                  : "border-white/10 bg-[#050914]/60 hover:bg-white/[0.06]"
               }`}
             >
               Force Turn OFF
@@ -462,8 +501,8 @@ export function SiteSettingsForm({
           </div>
         </div>
 
-        <label className="flex items-center justify-between rounded-xl bg-secondary/60 p-3 cursor-pointer">
-          <div className="flex flex-col">
+        <label className="dc-metric-cell flex items-center justify-between gap-3 rounded-xl p-3.5 cursor-pointer">
+          <div className="flex flex-col min-w-0">
             <span className="font-semibold text-sm">Room 2 Lobbies (Public Visibility)</span>
             <span className="text-xs text-muted-foreground">
               When disabled, Room 2 scrims are hidden from public views (Visible only to Admin/Moderators).
@@ -473,12 +512,12 @@ export function SiteSettingsForm({
             type="checkbox"
             checked={room2Enabled}
             onChange={(e) => setRoom2Enabled(e.target.checked)}
-            className="size-5 rounded border-input bg-background accent-primary"
+            className="size-5 shrink-0 rounded border-input bg-background accent-primary"
           />
         </label>
 
-        <label className="flex items-center justify-between rounded-xl border border-destructive/40 bg-destructive/10 p-3 cursor-pointer">
-          <div className="flex flex-col">
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 cursor-pointer">
+          <div className="flex flex-col min-w-0">
             <span className="font-semibold text-sm text-destructive">Maintenance Mode</span>
             <span className="text-xs text-muted-foreground">
               When enabled, public site visitors see the maintenance page. Admin panel remains accessible.
@@ -488,7 +527,7 @@ export function SiteSettingsForm({
             type="checkbox"
             checked={maintEnabled}
             onChange={(e) => setMaintEnabled(e.target.checked)}
-            className="size-5 rounded border-input bg-background accent-destructive"
+            className="size-5 shrink-0 rounded border-input bg-background accent-destructive"
           />
         </label>
       </div>

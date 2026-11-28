@@ -54,18 +54,22 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
     const scheduleOverride = parseScheduleOverrideConfig(map.schedule_override_config)
     const backgroundConfig = parseBackgroundThemeConfig(map.background_theme_config)
 
+    const hasKey = (key: string) => Object.prototype.hasOwnProperty.call(map, key)
+    const getLink = (key: string, fallback: string) =>
+      hasKey(key) ? (map[key] ?? "").trim() : fallback
+
     return {
-      discordUrl: map.discord_url || "https://discord.gg/aKF4hMuhmA",
-      facebookUrl: map.facebook_url || "https://facebook.com/acescrims",
-      youtubeUrl: map.youtube_url || "",
-      tiktokUrl: map.tiktok_url || "https://www.tiktok.com/@acescrims",
-      whatsappChannelUrl: map.whatsapp_channel_url || "https://whatsapp.com/channel/0029Va9xyz",
-      telegramUrl: map.telegram_url || "",
-      instagramUrl: map.instagram_url || "",
-      supportWhatsapp: map.support_whatsapp || "+8801831510108",
-      championRushWhatsappUrl: map.champion_rush_whatsapp_url || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
-      championRush3pmWhatsappUrl: map.champion_rush_3pm_whatsapp_url || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
-      supportKoriUrl: map.support_kori_url || "https://www.supportkori.com/acescrims",
+      discordUrl: getLink("discord_url", "https://discord.gg/aKF4hMuhmA"),
+      facebookUrl: getLink("facebook_url", "https://facebook.com/acescrims"),
+      youtubeUrl: getLink("youtube_url", ""),
+      tiktokUrl: getLink("tiktok_url", "https://www.tiktok.com/@acescrims"),
+      whatsappChannelUrl: getLink("whatsapp_channel_url", "https://whatsapp.com/channel/0029Va9xyz"),
+      telegramUrl: getLink("telegram_url", ""),
+      instagramUrl: getLink("instagram_url", ""),
+      supportWhatsapp: getLink("support_whatsapp", "+8801831510108"),
+      championRushWhatsappUrl: getLink("champion_rush_whatsapp_url", "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"),
+      championRush3pmWhatsappUrl: getLink("champion_rush_3pm_whatsapp_url", "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"),
+      supportKoriUrl: getLink("support_kori_url", "https://www.supportkori.com/acescrims"),
       showRoom2: roomMultiplier >= 2,
       roomMultiplier,
       scheduleOverride,

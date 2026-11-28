@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import { uploadMediaFile, uploadVideoDirect } from "@/lib/client-upload"
 import { resolveImageUrl } from "@/lib/image-url"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import { CascadingScrimSelector } from "@/components/site/cascading-scrim-selector"
 
 type ReportType =
   | "Hacker Report"
@@ -40,9 +41,11 @@ type ReportType =
 
 type ScrimItem = {
   id: string
+  slug?: string | null
   title: string
   startTime?: string
   map?: string
+  category?: string | null
 }
 
 export function ReportFormView({
@@ -405,39 +408,52 @@ export function ReportFormView({
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           {/* SCRIM & INCIDENT DATE SELECTION ROW (Not needed for Feature Requests) */}
           {showScrimAndDate && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-border/80 bg-secondary/20 p-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="scrimSelect" className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Layers className="size-3.5 text-primary" />
-                  Select Scrim / Tournament *
-                </Label>
-                <select
-                  id="scrimSelect"
-                  value={selectedScrimId}
-                  onChange={(e) => setSelectedScrimId(e.target.value)}
-                  className="h-10 rounded-xl border border-border bg-secondary/80 px-3 text-xs font-medium text-foreground"
-                >
-                  <option value="">-- Choose Any Scrim --</option>
-                  {scrims.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.title} {s.startTime ? `(${s.startTime})` : ""} {s.map ? `[${s.map}]` : ""}
-                    </option>
-                  ))}
-                  <option value="custom">Other / Custom Scrim Name...</option>
-                </select>
+            <div className="dc-surface rushx-box-splash flex flex-col gap-4 rounded-2xl p-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold">
+                    <Layers className="size-3.5 text-primary" />
+                    Select Scrim / Tournament (Schedule → Category → Ascending Room) *
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedScrimId(selectedScrimId === "custom" ? "" : "custom")
+                    }
+                    className={cn(
+                      "rounded-md border px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer",
+                      selectedScrimId === "custom"
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-white/15 bg-white/[0.03] text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {selectedScrimId === "custom" ? "← Pick from Scrim List" : "Other / Custom Scrim"}
+                  </button>
+                </div>
 
-                {selectedScrimId === "custom" && (
+                {selectedScrimId === "custom" ? (
                   <Input
                     value={customScrimName}
                     onChange={(e) => setCustomScrimName(e.target.value)}
                     placeholder="Type custom scrim or tournament name"
                     required
-                    className="h-9 text-xs mt-1"
+                    className="h-10 text-xs"
+                  />
+                ) : (
+                  <CascadingScrimSelector
+                    idPrefix="user-report-scrim"
+                    scrims={scrims}
+                    value={selectedScrimId}
+                    placeholder="-- Choose Scrim Lobby --"
+                    formatRoomLabel={(s) =>
+                      `${s.startTime ? `${s.startTime} · ` : ""}${s.title}${s.map ? ` [${s.map}]` : ""}`
+                    }
+                    onChange={(nextId) => setSelectedScrimId(nextId)}
                   />
                 )}
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 sm:max-w-xs border-t border-white/[0.06] pt-3">
                 <Label htmlFor="incidentDate" className="flex items-center gap-1.5 text-xs font-semibold">
                   <Calendar className="size-3.5 text-primary" />
                   Match / Incident Date *
@@ -450,7 +466,7 @@ export function ReportFormView({
                   value={incidentDate}
                   onChange={(e) => setIncidentDate(e.target.value)}
                   required
-                  className="h-10 rounded-xl border border-border bg-secondary/80 text-xs font-medium"
+                  className="h-10 rounded-xl border border-white/15 bg-[#060b1a] text-xs font-medium"
                 />
                 {todayStr && (
                   <span className="text-[10px] text-muted-foreground">Selectable till today ({todayStr})</span>

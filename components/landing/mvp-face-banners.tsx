@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { motion, AnimatePresence, useReducedMotion } from "motion/react"
+import { motion, AnimatePresence } from "motion/react"
 import { resolveImageUrl } from "@/lib/image-url"
 import { formatDate } from "@/lib/format"
 import { Flame, ZoomIn, X, Calendar, ChevronLeft, ChevronRight, Crosshair, Trophy, Pause, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Reveal, VisualReveal } from "@/components/site/reveal"
 
 export type MvpBannerItem = {
   id: string
@@ -29,7 +30,6 @@ export function MvpFaceBannersSection({ banners }: { banners: MvpBannerItem[] })
 
 function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
   const count = banners.length
-  const prefersReducedMotion = useReducedMotion()
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -81,13 +81,7 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Centered Heading */}
-      <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-60px" }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
-        className="flex flex-col items-center text-center max-w-2xl mb-8"
-      >
+      <Reveal y={20} duration={0.6} className="flex flex-col items-center text-center max-w-2xl mb-8">
         <div className="inline-flex items-center gap-2 text-accent text-xs font-display font-bold uppercase tracking-wider mb-2">
           <Flame className="size-4 text-accent animate-pulse" />
           <span>Tournament MVPs &amp; Standout Fraggers</span>
@@ -112,18 +106,12 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
             </Badge>
           )}
         </div>
-      </motion.div>
+      </Reveal>
 
       {/* Centered Slideshow Stage */}
-      <motion.div
-        initial={prefersReducedMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.95, y: 22 }}
-        whileInView={{ opacity: 1, scale: 1, y: 0 }}
-        viewport={{ once: true, margin: "-50px" }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.5 }}
-        className="relative w-full max-w-4xl flex flex-col items-center"
-      >
+      <VisualReveal y={22} duration={0.68} className="relative w-full max-w-4xl flex flex-col items-center">
         {/* Banner Slide Frame */}
-        <div className="dc-surface relative w-full rounded-3xl shadow-2xl p-3 sm:p-5 overflow-hidden flex flex-col items-center">
+        <div className="dc-surface rushx-box-splash relative w-full rounded-3xl shadow-2xl p-3 sm:p-5 overflow-hidden flex flex-col items-center">
           {/* 5-Second Animated Progress Bar */}
           {count > 1 && !isPaused && (
             <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 overflow-hidden z-30">
@@ -267,7 +255,7 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
             </Link>
           </Button>
         </div>
-      </motion.div>
+      </VisualReveal>
 
       {/* Fullscreen Lightbox Modal */}
       {activeLightbox && (

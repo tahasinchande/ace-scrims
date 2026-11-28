@@ -12,6 +12,11 @@ import { Hero } from "@/components/landing/hero"
 import { Features, HowItWorks, WhyChooseUs, Faq, Contact, SectionHeading } from "@/components/landing/sections"
 import { Top3FaceBannersSection, type Top3BannerItem } from "@/components/landing/top3-face-banners"
 import { MvpFaceBannersSection, type MvpBannerItem } from "@/components/landing/mvp-face-banners"
+import {
+  OverallStandingsBannersSection,
+  type OverallStandingsBannerItem,
+} from "@/components/landing/overall-standings-banners"
+import { classifyResultBannerType } from "@/lib/results-classification"
 import { HomeScrimsGrid } from "@/components/site/home-scrims-grid"
 import { PartnershipTickerBar } from "@/components/site/partnership-ticker-bar"
 
@@ -24,53 +29,76 @@ export default async function HomePage() {
   const [user, scrims, results, settings] = await Promise.all([
     getSessionUser().catch(() => null),
     getActiveScrims().catch(() => []),
-    getRecentResults(6, true).catch(() => []),
+    getRecentResults(36, true).catch(() => []),
     getPublicSiteSettings().catch(() => undefined),
   ])
 
-  // Extract all banners from results
-  const allBanners = results.flatMap((r) => {
-    const urls = Array.isArray(r.imageUrls) && r.imageUrls.length > 0
-      ? (r.imageUrls as string[])
-      : r.screenshotUrl
-        ? [r.screenshotUrl]
-        : []
-    const isMvp = (r.category || "").toLowerCase().includes("mvp") || Boolean(r.mvpPlayerName)
-    return urls.map((url, idx) => ({
-      id: `${r.id}-${idx}`,
-      winningTeam: r.winningTeam,
+  // Strictly separate results into 3 mutually-exclusive showcases:
+  // 1. Overall Standings  2. Top 3 Face Banners  3. MVP Face Banners
+  const overallStandingsBanners: OverallStandingsBannerItem[] = []
+  const top3Banners: Top3BannerItem[] = []
+  const mvpBanners: MvpBannerItem[] = []
+
+  for (const r of results) {
+    const urls =
+      Array.isArray(r.imageUrls) && r.imageUrls.length > 0
+        ? (r.imageUrls as string[])
+        : r.screenshotUrl
+          ? [r.screenshotUrl]
+          : []
+    if (urls.length === 0) continue
+
+    const bannerType = classifyResultBannerType({
+      category: r.category,
       mvpPlayerName: r.mvpPlayerName,
       mvpTeamName: r.mvpTeamName,
-      scrimTitle: r.scrimTitle,
-      matchDate: r.matchDate,
-      kills: r.kills,
-      prizeBdt: r.prizeBdt,
-      category: r.category || (isMvp ? "MVP Face Banner" : "Top 3 Face Banner"),
-      imageUrl: url,
-      isMvp,
-    }))
-  })
+      winnerTeamName: r.winningTeam,
+      screenshotUrl: urls[0],
+    })
 
-  // Separate into exactly two distinct collections: "Top 3 Face Banners" and "MVP Face Banners"
-  const top3Banners: Top3BannerItem[] = allBanners
-    .filter((b) => !b.isMvp)
-    .slice(0, 8)
+    for (let idx = 0; idx < urls.length; idx++) {
+      const url = urls[idx]
+      const bannerId = `${r.id}-${idx}`
 
-  const mvpBanners: MvpBannerItem[] = allBanners
-    .filter((b) => b.isMvp)
-    .map((b) => ({
-      id: b.id,
-      playerName: b.mvpPlayerName || undefined,
-      teamName: b.mvpTeamName || b.winningTeam,
-      scrimTitle: b.scrimTitle,
-      matchDate: b.matchDate,
-      kills: b.kills,
-      imageUrl: b.imageUrl,
-    }))
-    .slice(0, 8)
-
-  const displayTop3Banners: Top3BannerItem[] = top3Banners
-  const displayMvpBanners: MvpBannerItem[] = mvpBanners
+      if (bannerType === "overall") {
+        if (overallStandingsBanners.length < 10) {
+          overallStandingsBanners.push({
+            id: bannerId,
+            winningTeam: r.winningTeam,
+            scrimTitle: r.scrimTitle,
+            matchDate: r.matchDate,
+            category: r.category || "Overall Standing Banner",
+            imageUrl: url,
+          })
+        }
+      } else if (bannerType === "mvp") {
+        if (mvpBanners.length < 10) {
+          mvpBanners.push({
+            id: bannerId,
+            playerName: r.mvpPlayerName || undefined,
+            teamName: r.mvpTeamName || r.winningTeam,
+            scrimTitle: r.scrimTitle,
+            matchDate: r.matchDate,
+            kills: r.kills,
+            imageUrl: url,
+          })
+        }
+      } else if (bannerType === "top3") {
+        if (top3Banners.length < 10) {
+          top3Banners.push({
+            id: bannerId,
+            winningTeam: r.winningTeam,
+            scrimTitle: r.scrimTitle,
+            matchDate: r.matchDate,
+            kills: r.kills,
+            prizeBdt: r.prizeBdt,
+            category: r.category || "Top 3 Face Banner",
+            imageUrl: url,
+          })
+        }
+      }
+    }
+  }
 
   const numberWords: Record<number, string> = {
     1: "One",
@@ -129,16 +157,17 @@ export default async function HomePage() {
         <HowItWorks showcase={showcase} />
         <Features showcase={showcase} />
         <WhyChooseUs showcase={showcase} />
-        
-        {/* Two distinct sections with dynamic image sizing preserving original dimensions */}
-        <Top3FaceBannersSection banners={displayTop3Banners} />
-        <MvpFaceBannersSection banners={displayMvpBanners} />
+
+        {/* Three strictly separated result showcases preserving original dimensions */}
+        <OverallStandingsBannersSection banners={overallStandingsBanners} />
+        <Top3FaceBannersSection banners={top3Banners} />
+        <MvpFaceBannersSection banners={mvpBanners} />
 
         <Faq showcase={showcase} />
         <Contact settings={settings} />
 
-        {/* SupportKori Banner downside of homepage */}
-        <SupportKoriBanner supportKoriUrl={settings?.supportKoriUrl} />
+        {/* SupportKori Banner downside of homepage (auto-hides if removed in Settings) */}
+        <SupportKoriBanner supportKoriUrl={settings ? settings.supportKoriUrl : undefined} />
       </main>
       <SiteFooter settings={settings} />
     </>
