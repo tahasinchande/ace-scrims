@@ -3,14 +3,12 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { SectionHeading } from "@/components/landing/sections"
+import { Reveal } from "@/components/site/reveal"
 import { Trophy, ChevronRight, X, Eye } from "lucide-react"
 import { bdt, formatDate } from "@/lib/format"
 import { resolveImageUrl } from "@/lib/image-url"
-
-const DEEPCHARTS_EASE = [0.16, 1, 0.3, 1] as const
 
 export type ResultPreview = {
   id: string
@@ -27,7 +25,6 @@ export type ResultPreview = {
 export function ResultsPreview({ results }: { results: ResultPreview[] }) {
   const displayResults = results && results.length > 0 ? results : []
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
-  const prefersReducedMotion = useReducedMotion()
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 md:px-6" aria-labelledby="results-heading">
@@ -54,16 +51,9 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
             const bannerImage = rawBanner ? resolveImageUrl(rawBanner) : null
 
             return (
-              <motion.div
+              <Reveal
                 key={r.id}
-                initial={prefersReducedMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.988 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, amount: "some" }}
-                transition={{
-                  duration: prefersReducedMotion ? 0 : 0.5,
-                  delay: prefersReducedMotion ? 0 : i * 0.06,
-                  ease: DEEPCHARTS_EASE,
-                }}
+                delay={Math.min(i * 0.05, 0.25)}
                 className="dc-surface dc-card-hover rushx-box-splash flex flex-col gap-4 rounded-2xl p-5 overflow-hidden"
               >
                 <div className="flex items-center gap-3">
@@ -110,7 +100,7 @@ export function ResultsPreview({ results }: { results: ResultPreview[] }) {
                     </button>
                   </div>
                 )}
-              </motion.div>
+              </Reveal>
             )
           })}
         </div>

@@ -264,12 +264,12 @@ export function TopAdShowcase({
       : undefined
 
   return (
-    <AnimatePresence initial={!preview}>
+    <AnimatePresence initial={false}>
       <motion.div
         key={`top-ad-${config.version}`}
         role="region"
         aria-label="Site announcement"
-        initial={prefersReducedMotion || preview ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.42, ease: DEEPCHARTS_EASE }}

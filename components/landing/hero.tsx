@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
-import { motion, useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   ChevronRight,
@@ -26,96 +24,10 @@ export function Hero({
 }) {
   const { t } = useLanguage()
   const { mode, setMode } = useViewMode()
-  const prefersReducedMotion = useReducedMotion()
-
-  // Wait for first hydrated paint frame before starting the 88918cc first-visit cascade
-  // so WebGL/hydration work never swallows the opening animation.
-  const [introActive, setIntroActive] = useState(false)
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      setIntroActive(true)
-      return
-    }
-    let settleTimer = 0
-    let raf2 = 0
-    const raf1 = window.requestAnimationFrame(() => {
-      raf2 = window.requestAnimationFrame(() => {
-        // Brief 90ms settle lets initial Three.js/WebGL shader compilation finish so the fade-in plays smoothly
-        settleTimer = window.setTimeout(() => setIntroActive(true), 90)
-      })
-    })
-    const safetyTimer = window.setTimeout(() => {
-      setIntroActive(true)
-    }, 340)
-    return () => {
-      window.cancelAnimationFrame(raf1)
-      if (raf2) window.cancelAnimationFrame(raf2)
-      if (settleTimer) window.clearTimeout(settleTimer)
-      window.clearTimeout(safetyTimer)
-    }
-  }, [prefersReducedMotion])
 
   const activeScrims = stats.scrimsTonight ?? 0
   const totalSlots = stats.totalTeams ?? 0
   const formatLine = showcase?.timeWindow || t("matches_per_scrim", "Live Daily Format")
-
-  // Smooth, visible initial-load staggered fade-in choreography
-  const smoothEase = [0.16, 1, 0.3, 1] as const
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: prefersReducedMotion ? 0 : 0.085,
-        delayChildren: prefersReducedMotion ? 0 : 0.04,
-      },
-    },
-  }
-
-  const itemFadeUp = {
-    hidden: prefersReducedMotion
-      ? { opacity: 1, y: 0, scale: 1 }
-      : { opacity: 0, y: 22, scale: 0.985 },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: prefersReducedMotion ? 0 : 0.62,
-        ease: smoothEase,
-      },
-    },
-  }
-
-  const statsContainer = {
-    hidden: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: prefersReducedMotion ? 0 : 0.52,
-        ease: smoothEase,
-        staggerChildren: prefersReducedMotion ? 0 : 0.09,
-      },
-    },
-  }
-
-  const statCardFadeUp = {
-    hidden: prefersReducedMotion
-      ? { opacity: 1, y: 0, scale: 1 }
-      : { opacity: 0, y: 20, scale: 0.975 },
-    show: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: prefersReducedMotion ? 0 : 0.56,
-        ease: smoothEase,
-      },
-    },
-  }
 
   return (
     <section className="relative min-h-[88svh] w-full max-w-full overflow-x-clip overflow-hidden bg-transparent">
@@ -148,16 +60,11 @@ export function Hero({
 
       <div className="relative z-10 mx-auto flex min-h-[86svh] max-w-6xl items-center px-4 py-16 md:px-6 w-full overflow-hidden">
         <div className="w-full max-w-full">
-          <motion.div
-            variants={container}
-            initial={prefersReducedMotion ? "show" : "hidden"}
-            animate={introActive || prefersReducedMotion ? "show" : "hidden"}
-            className="flex max-w-4xl flex-col justify-center w-full"
-          >
+          <div className="flex max-w-4xl flex-col justify-center w-full">
             {/* Top Status & 2D / 3D Selection Toggle */}
-            <motion.div
-              variants={itemFadeUp}
-              className="flex flex-wrap items-center gap-x-5 gap-y-3 mb-6"
+            <div
+              className="rushx-hero-fade flex flex-wrap items-center gap-x-5 gap-y-3 mb-6"
+              style={{ animationDelay: "0ms" }}
             >
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-[13px] font-medium text-slate-200/90 tabular-nums">
                 <span className="font-semibold text-white">
@@ -208,12 +115,12 @@ export function Hero({
                   3D Cyber
                 </button>
               </div>
-            </motion.div>
+            </div>
 
             {/* Primary H1 — Oversized RushX ORGANIZATION brand centerpiece */}
-            <motion.h1
-              variants={itemFadeUp}
-              className="font-display font-black leading-none tracking-tight"
+            <h1
+              className="rushx-hero-fade font-display font-black leading-none tracking-tight"
+              style={{ animationDelay: "70ms" }}
             >
               <span className="sr-only">{t("hero_title", BRAND.name)}</span>
               <span className="relative block w-full max-w-[440px] sm:max-w-[680px] md:max-w-[820px] lg:max-w-[880px] -ml-1">
@@ -224,31 +131,31 @@ export function Hero({
                   className="block w-full h-auto max-h-[98px] sm:max-h-[144px] md:max-h-[172px] object-contain object-left drop-shadow-[0_10px_34px_rgba(var(--rushx-primary-rgb),0.36)] select-none transition-transform duration-500 ease-out hover:scale-[1.01]"
                 />
               </span>
-            </motion.h1>
+            </h1>
 
             {/* Subheadline H2 */}
-            <motion.h2
-              variants={itemFadeUp}
-              className="mt-3 font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]"
+            <h2
+              className="rushx-hero-fade mt-3 font-display text-lg font-bold uppercase tracking-[0.06em] text-slate-100/95 sm:text-2xl md:text-[28px] lg:text-[32px]"
+              style={{ animationDelay: "140ms" }}
             >
               {t("hero_h2", "DOMINATE THE LOBBY EVERY NIGHT")}
-            </motion.h2>
+            </h2>
 
             {/* Subtitle Body Copy */}
-            <motion.p
-              variants={itemFadeUp}
-              className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg"
+            <p
+              className="rushx-hero-fade mt-5 max-w-2xl text-base leading-relaxed text-slate-200/85 text-pretty md:text-lg"
+              style={{ animationDelay: "200ms" }}
             >
               {t(
                 "hero_subtitle",
                 "Bangladesh's most competitive Free Fire scrims. Daily competitive lobbies, instant booking, automated gateway payments, and cash prize pools. Your squad vs the best."
               )}
-            </motion.p>
+            </p>
 
             {/* Action Buttons */}
-            <motion.div
-              variants={itemFadeUp}
-              className="mt-8 flex flex-wrap items-center gap-4"
+            <div
+              className="rushx-hero-fade mt-8 flex flex-wrap items-center gap-4"
+              style={{ animationDelay: "260ms" }}
             >
               <Button
                 asChild
@@ -285,17 +192,13 @@ export function Hero({
                   {mode === "2d" ? "2D Ambient" : "3D Cyber Experience"}
                 </strong>
               </span>
-            </motion.div>
+            </div>
 
             {/* Cyber Stats Strip */}
-            <motion.dl
-              variants={statsContainer}
-              className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4"
-            >
-              <motion.div
-                variants={statCardFadeUp}
-                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
-                className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4"
+            <dl className="mt-10 grid max-w-xl grid-cols-3 gap-3 sm:gap-4">
+              <div
+                className="rushx-hero-fade dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5"
+                style={{ animationDelay: "320ms" }}
               >
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Zap className="size-3.5 text-accent" aria-hidden />
@@ -304,12 +207,11 @@ export function Hero({
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
                   {activeScrims > 0 ? activeScrims : "Live"}
                 </dd>
-              </motion.div>
+              </div>
 
-              <motion.div
-                variants={statCardFadeUp}
-                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
-                className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4"
+              <div
+                className="rushx-hero-fade dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5"
+                style={{ animationDelay: "380ms" }}
               >
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Users className="size-3.5 text-accent" aria-hidden />
@@ -318,12 +220,11 @@ export function Hero({
                 <dd className="mt-1 font-display text-xl sm:text-2xl font-bold text-white tabular-nums">
                   {totalSlots > 0 ? totalSlots : "Open"}
                 </dd>
-              </motion.div>
+              </div>
 
-              <motion.div
-                variants={statCardFadeUp}
-                whileHover={prefersReducedMotion ? undefined : { y: -3 }}
-                className="dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4"
+              <div
+                className="rushx-hero-fade dc-surface dc-card-hover rushx-box-splash rounded-xl p-3.5 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5"
+                style={{ animationDelay: "440ms" }}
               >
                 <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
                   <Trophy className="size-3.5 text-accent" aria-hidden />
@@ -332,9 +233,9 @@ export function Hero({
                 <dd className="mt-1 font-display text-sm sm:text-base font-bold text-accent leading-tight">
                   {formatLine}
                 </dd>
-              </motion.div>
-            </motion.dl>
-          </motion.div>
+              </div>
+            </dl>
+          </div>
         </div>
       </div>
     </section>

@@ -125,7 +125,7 @@ function Top3FaceBannersInner({ banners }: { banners: Top3BannerItem[] }) {
             </div>
           )}
 
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={currentItem.id || currentIndex}
               initial={{ opacity: 0, scale: 0.98 }}

@@ -1,136 +1,153 @@
 "use client"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
-import { motion, useReducedMotion } from "motion/react"
-import { cn } from "@/lib/utils"
 import { DEEPCHARTS_EASE } from "@/lib/intro-motion"
+import { cn } from "@/lib/utils"
 
 export { DEEPCHARTS_EASE }
 
 /**
- * Reliable latched Fade-In reveal hook (Initial Load + Scroll Reveal):
- * - For `immediate={true}` (hero / above-the-fold): waits until first paint settles (~90ms after RAF)
- *   so initial Three.js/WebGL initialization doesn't swallow the transition frames, then smoothly fades in.
- * - For scroll-revealed elements: uses native IntersectionObserver (threshold: 0.01) backed by
- *   passive scroll/resize bounding-rect checks so tall sections, cards, images, and headings reliably
- *   fade in once as the user scrolls downward and NEVER remain stuck at opacity 0.
- * - Latches permanently to `true` once revealed so mode/language toggles or re-renders never reset it.
+ * Progressive, SSR-safe Fade-In reveal hook:
+ * - SSR & first paint are ALWAYS visible (opacity: 1) — elements can NEVER stay blank/hidden.
+ * - On client mount:
+ *   • Elements strictly BELOW the initial fold are primed with `data-reveal="hidden"` and
+ *     smoothly transition to `data-reveal="visible"` once as the user scrolls down.
+ *   • Elements ALREADY inside or above the viewport stay visible immediately (or run a
+ *     pure CSS fade-in keyframe if `immediate` is set) and are NEVER hidden.
+ * - Uses IntersectionObserver (threshold: 0, generous bottom rootMargin) + capturing document
+ *   scroll listener (works inside iframes and nested scrollers) + layout-settle checks.
+ * - Runs once per mount with zero React state flips and zero Motion variant lockups.
  */
-export function useReliableOnceReveal(
+function useProgressiveReveal(
   ref: React.RefObject<HTMLDivElement | null>,
-  reduced: boolean | null,
-  immediate = false
+  options: { immediate?: boolean } = {}
 ) {
-  const [revealed, setRevealed] = useState(Boolean(reduced))
-  const latchedRef = useRef(Boolean(reduced))
+  const { immediate = false } = options
+  const latchedRef = useRef(false)
 
   useEffect(() => {
-    if (reduced) {
+    const el = ref.current
+    if (!el || typeof window === "undefined") return
+
+    const prefersReduced =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    if (prefersReduced || latchedRef.current) {
       latchedRef.current = true
-      setRevealed(true)
+      el.dataset.reveal = "visible"
       return
     }
 
-    if (latchedRef.current) {
-      if (!revealed) setRevealed(true)
-      return
-    }
-
-    const triggerReveal = () => {
+    const revealNow = () => {
       if (latchedRef.current) return
       latchedRef.current = true
-      setRevealed(true)
+      el.dataset.reveal = "visible"
     }
 
-    if (immediate) {
-      let settleTimer = 0
-      let raf2 = 0
-      const raf1 = window.requestAnimationFrame(() => {
-        raf2 = window.requestAnimationFrame(() => {
-          // Small 70ms settle prevents WebGL canvas initialization from eating the first fade-in frames
-          settleTimer = window.setTimeout(triggerReveal, 70)
-        })
-      })
-      const hardFailSafe = window.setTimeout(triggerReveal, 360)
-      return () => {
-        window.cancelAnimationFrame(raf1)
-        if (raf2) window.cancelAnimationFrame(raf2)
-        if (settleTimer) window.clearTimeout(settleTimer)
-        window.clearTimeout(hardFailSafe)
-      }
+    const vh = window.innerHeight || document.documentElement.clientHeight || 800
+    const initialRect = el.getBoundingClientRect()
+
+    // Already in or above the viewport, unmeasured, or immediate above-the-fold: NEVER hide with opacity: 0
+    if (
+      immediate ||
+      vh < 200 ||
+      initialRect.height === 0 ||
+      initialRect.top < vh * 0.96 ||
+      initialRect.bottom <= 0
+    ) {
+      latchedRef.current = true
+      el.dataset.reveal = "visible"
+      return
     }
 
-    const el = ref.current
-    if (!el || typeof window === "undefined") {
-      const fallback = window.setTimeout(triggerReveal, 250)
-      return () => window.clearTimeout(fallback)
-    }
+    // Strictly below the fold: prime hidden state & observe smoothly
+    el.dataset.reveal = "hidden"
 
     const checkRect = () => {
       if (latchedRef.current) return
-      const node = ref.current
-      if (!node) return
-      const rect = node.getBoundingClientRect()
-      const vh = window.innerHeight || document.documentElement.clientHeight || 800
-      // Trigger smoothly once the top enters the bottom 96% of viewport, or if already scrolled past
-      if ((rect.top <= vh * 0.96 && rect.bottom >= 0) || rect.bottom < 0) {
-        triggerReveal()
+      const rect = el.getBoundingClientRect()
+      const currentVh = window.innerHeight || document.documentElement.clientHeight || 800
+      if (rect.top <= currentVh + 80 || rect.bottom <= 0) {
+        revealNow()
+        cleanup()
       }
     }
 
     let io: IntersectionObserver | null = null
+    const cleanup = () => {
+      io?.disconnect()
+      io = null
+      document.removeEventListener("scroll", checkRect, true)
+      window.removeEventListener("scroll", checkRect)
+      window.removeEventListener("resize", checkRect)
+    }
+
     if (typeof IntersectionObserver !== "undefined") {
       io = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
-            if (entry.isIntersecting || entry.boundingClientRect.top <= window.innerHeight * 0.96) {
-              triggerReveal()
-              io?.disconnect()
+            if (
+              entry.isIntersecting ||
+              entry.boundingClientRect.top <= (window.innerHeight || 800) + 80
+            ) {
+              revealNow()
+              cleanup()
               break
             }
           }
         },
         {
-          threshold: 0.01,
-          rootMargin: "0px 0px -24px 0px",
+          threshold: 0,
+          rootMargin: "0px 0px 80px 0px",
         }
       )
       io.observe(el)
+    } else {
+      revealNow()
+      return
     }
 
-    // Immediate check for elements already inside the initial viewport (with tiny paint delay so fade-in is visible)
-    const initialRaf = window.requestAnimationFrame(() => {
-      const node = ref.current
-      if (!node) return
-      const rect = node.getBoundingClientRect()
-      const vh = window.innerHeight || 800
-      if (rect.top <= vh * 0.96 && rect.bottom >= 0) {
-        window.setTimeout(triggerReveal, 90)
-      } else if (rect.bottom < 0) {
-        triggerReveal()
-      }
-    })
-
-    const settleTimer = window.setTimeout(checkRect, 450)
+    document.addEventListener("scroll", checkRect, { passive: true, capture: true })
     window.addEventListener("scroll", checkRect, { passive: true })
     window.addEventListener("resize", checkRect, { passive: true })
 
-    return () => {
-      io?.disconnect()
-      window.cancelAnimationFrame(initialRaf)
-      window.clearTimeout(settleTimer)
-      window.removeEventListener("scroll", checkRect)
-      window.removeEventListener("resize", checkRect)
-    }
-  }, [reduced, immediate, revealed, ref])
+    // Catch anchor jumps (#schedule, #contact) or late layout shifts
+    const settle1 = window.setTimeout(checkRect, 180)
+    const settle2 = window.setTimeout(checkRect, 600)
 
-  return Boolean(reduced) || revealed
+    return () => {
+      window.clearTimeout(settle1)
+      window.clearTimeout(settle2)
+      cleanup()
+    }
+  }, [immediate, ref])
 }
 
 /**
- * DeepCharts-style hardware-accelerated word-by-word heading reveal
- * (pure GPU transform + opacity, zero paint-blocking blur layers).
+ * Legacy export kept for compatibility with any callers.
+ */
+export function useReliableOnceReveal(
+  ref: React.RefObject<HTMLDivElement | null>,
+  _reduced: boolean | null,
+  immediate = false
+) {
+  useProgressiveReveal(ref, { immediate })
+  return true
+}
+
+function buildRevealStyle(y: number, duration: number, delay: number, scale = 0.99): CSSProperties {
+  return {
+    ["--reveal-y" as string]: `${y}px`,
+    ["--reveal-dur" as string]: `${Math.round(duration * 1000)}ms`,
+    ["--reveal-delay" as string]: `${Math.round(delay * 1000)}ms`,
+    ["--reveal-scale" as string]: String(scale),
+  }
+}
+
+/**
+ * Heading reveal (SSR-safe, smooth GPU fade-in on initial load or scroll).
  */
 export function BlurTextReveal({
   text,
@@ -138,8 +155,7 @@ export function BlurTextReveal({
   id,
   className,
   delay = 0,
-  wordStagger = 0.045,
-  duration = 0.66,
+  duration = 0.6,
   immediate = false,
 }: {
   text: string
@@ -152,45 +168,21 @@ export function BlurTextReveal({
   immediate?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-  const isVisible = useReliableOnceReveal(ref, prefersReducedMotion, immediate)
+  useProgressiveReveal(ref, { immediate })
   const Tag = as
-  const words = text.trim().split(/\s+/).filter(Boolean)
-
-  if (prefersReducedMotion || words.length === 0) {
-    return (
-      <div ref={ref}>
-        <Tag id={id} className={className}>
-          {text}
-        </Tag>
-      </div>
-    )
-  }
 
   return (
-    <div ref={ref}>
+    <div
+      ref={ref}
+      className={immediate ? "rushx-hero-fade" : undefined}
+      style={
+        immediate
+          ? { animationDelay: `${Math.round(delay * 1000)}ms` }
+          : buildRevealStyle(16, duration, delay, 0.995)
+      }
+    >
       <Tag id={id} className={className}>
-        {words.map((word, index) => (
-          <span key={`${word}-${index}`} className="inline-block whitespace-pre">
-            <motion.span
-              className="inline-block will-change-[transform,opacity]"
-              initial={{ opacity: 0, y: 14 }}
-              animate={
-                isVisible
-                  ? { opacity: 1, y: 0 }
-                  : { opacity: 0, y: 14 }
-              }
-              transition={{
-                duration,
-                delay: delay + Math.min(index, 12) * wordStagger,
-                ease: DEEPCHARTS_EASE,
-              }}
-            >
-              {word}
-            </motion.span>
-            {index < words.length - 1 ? " " : ""}
-          </span>
-        ))}
+        {text}
       </Tag>
     </div>
   )
@@ -201,7 +193,7 @@ export function Reveal({
   className,
   delay = 0,
   y = 18,
-  duration = 0.64,
+  duration = 0.58,
   immediate = false,
 }: {
   children: ReactNode
@@ -212,39 +204,32 @@ export function Reveal({
   immediate?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-  const isVisible = useReliableOnceReveal(ref, prefersReducedMotion, immediate)
-
-  if (prefersReducedMotion) {
-    return <div className={className}>{children}</div>
-  }
+  useProgressiveReveal(ref, { immediate })
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      initial={{ opacity: 0, y, scale: 0.985 }}
-      animate={
-        isVisible
-          ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y, scale: 0.985 }
+      style={
+        immediate
+          ? { animationDelay: `${Math.round(delay * 1000)}ms` }
+          : buildRevealStyle(y, duration, delay, 0.99)
       }
-      transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
-      className={className}
+      className={cn(immediate && "rushx-hero-fade", className)}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
 /**
- * DeepCharts-inspired masked typography slide-up reveal (GPU transform + opacity).
+ * Masked typography slide-up reveal (SSR-safe, guaranteed visible).
  */
 export function MaskedLineReveal({
   children,
   className,
   innerClassName,
   delay = 0,
-  duration = 0.68,
+  duration = 0.6,
   immediate = false,
 }: {
   children: ReactNode
@@ -255,42 +240,33 @@ export function MaskedLineReveal({
   immediate?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-  const isVisible = useReliableOnceReveal(ref, prefersReducedMotion, immediate)
-
-  if (prefersReducedMotion) {
-    return <div className={cn(className, innerClassName)}>{children}</div>
-  }
+  useProgressiveReveal(ref, { immediate })
 
   return (
-    <div ref={ref} className={cn("overflow-hidden py-0.5", className)}>
-      <motion.div
-        initial={{ opacity: 0, y: "104%" }}
-        animate={
-          isVisible
-            ? { opacity: 1, y: "0%" }
-            : { opacity: 0, y: "104%" }
-        }
-        transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
-        className={innerClassName}
-      >
-        {children}
-      </motion.div>
+    <div
+      ref={ref}
+      style={
+        immediate
+          ? { animationDelay: `${Math.round(delay * 1000)}ms` }
+          : buildRevealStyle(18, duration, delay, 1)
+      }
+      className={cn("py-0.5", immediate && "rushx-hero-fade", className)}
+    >
+      <div className={innerClassName}>{children}</div>
     </div>
   )
 }
 
 /**
- * Editorial visual/media reveal for hero centerpiece, showcase photography, and victory banners.
- * Pure hardware-accelerated depth-scale settling + vertical glide matching DeepCharts.
+ * Editorial visual/media reveal for showcase photography and victory banners.
  */
 export function VisualReveal({
   children,
   className,
   delay = 0,
-  duration = 0.74,
+  duration = 0.64,
   y = 20,
-  initialScale = 0.968,
+  initialScale = 0.985,
   immediate = false,
 }: {
   children: ReactNode
@@ -302,35 +278,27 @@ export function VisualReveal({
   immediate?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-  const isVisible = useReliableOnceReveal(ref, prefersReducedMotion, immediate)
-
-  if (prefersReducedMotion) {
-    return <div className={className}>{children}</div>
-  }
+  useProgressiveReveal(ref, { immediate })
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      initial={{ opacity: 0, y, scale: initialScale }}
-      animate={
-        isVisible
-          ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 0, y, scale: initialScale }
+      style={
+        immediate
+          ? { animationDelay: `${Math.round(delay * 1000)}ms` }
+          : buildRevealStyle(y, duration, delay, initialScale)
       }
-      transition={{ duration, delay, ease: DEEPCHARTS_EASE }}
-      className={className}
+      className={cn(immediate && "rushx-hero-fade", className)}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
 export function RevealStagger({
   children,
   className,
-  stagger = 0.085,
-  delay = 0.04,
+  delay = 0,
   immediate = false,
 }: {
   children: ReactNode
@@ -340,74 +308,37 @@ export function RevealStagger({
   immediate?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-  const isVisible = useReliableOnceReveal(ref, prefersReducedMotion, immediate)
-
-  if (prefersReducedMotion) {
-    return <div className={className}>{children}</div>
-  }
+  useProgressiveReveal(ref, { immediate })
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      initial="hidden"
-      animate={isVisible ? "show" : "hidden"}
-      variants={{
-        hidden: {},
-        show: {
-          transition: {
-            staggerChildren: stagger,
-            delayChildren: delay,
-          },
-        },
-      }}
-      className={className}
+      style={
+        immediate
+          ? { animationDelay: `${Math.round(delay * 1000)}ms` }
+          : buildRevealStyle(16, 0.56, delay, 0.995)
+      }
+      className={cn(immediate && "rushx-hero-fade", className)}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
 export function RevealItem({
   children,
   className,
-  y = 22,
-  duration = 0.66,
 }: {
   children: ReactNode
   className?: string
   y?: number
   duration?: number
 }) {
-  const prefersReducedMotion = useReducedMotion()
-
-  if (prefersReducedMotion) {
-    return <div className={className}>{children}</div>
-  }
-
-  return (
-    <motion.div
-      variants={{
-        hidden: { opacity: 0, y, scale: 0.976 },
-        show: {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          transition: {
-            duration,
-            ease: DEEPCHARTS_EASE,
-          },
-        },
-      }}
-      className={cn(className)}
-    >
-      {children}
-    </motion.div>
-  )
+  return <div className={cn(className)}>{children}</div>
 }
 
 /**
- * Lightweight non-blocking route transition wrapper (GPU transform + opacity only).
+ * Lightweight non-blocking route transition wrapper (SSR-safe, always visible).
  */
 export function PageTransition({
   children,
@@ -417,21 +348,10 @@ export function PageTransition({
   className?: string
 }) {
   const pathname = usePathname()
-  const prefersReducedMotion = useReducedMotion()
-
-  if (prefersReducedMotion) {
-    return <div className={className}>{children}</div>
-  }
 
   return (
-    <motion.div
-      key={pathname}
-      initial={{ opacity: 0.9, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.42, ease: DEEPCHARTS_EASE }}
-      className={className}
-    >
+    <div key={pathname} className={cn("rushx-page-fade", className)}>
       {children}
-    </motion.div>
+    </div>
   )
 }

@@ -341,15 +341,13 @@ export function WhyChooseUs({ showcase }: { showcase?: LiveShowcaseSummary }) {
               [t("feat2_title", "Daily competitive lobbies"), t("feat2_body", "Scheduled competitive lobbies managed live by RushX admins.")],
               [t("feat3_title", "Results with receipts"), t("feat3_body", "Every match result is published with screenshots and kill counts.")],
               [t("feat4_title", "Moderated, competitive, clean"), t("feat4_body", "Dedicated moderators run every lobby so matches start on time.")],
-            ].map(([title, body], i) => (
-              <li key={title}>
-                <Reveal delay={0.07 * i} y={14} duration={0.45} className="flex gap-3.5">
-                  <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-accent" aria-hidden />
-                  <div>
-                    <h3 className="font-semibold text-foreground">{title}</h3>
-                    <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                  </div>
-                </Reveal>
+            ].map(([title, body]) => (
+              <li key={title} className="flex gap-3.5">
+                <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-accent" aria-hidden />
+                <div>
+                  <h3 className="font-semibold text-foreground">{title}</h3>
+                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                </div>
               </li>
             ))}
           </ul>

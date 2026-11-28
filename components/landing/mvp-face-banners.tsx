@@ -130,7 +130,7 @@ function MvpFaceBannersInner({ banners }: { banners: MvpBannerItem[] }) {
             </div>
           )}
 
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={currentItem.id || currentIndex}
               initial={{ opacity: 0, scale: 0.98 }}

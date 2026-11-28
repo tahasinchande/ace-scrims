@@ -568,6 +568,51 @@
   }
 }
 
+/* Smooth GPU-composited initial-load fade-in (always finishes at opacity: 1; SSR stays visible) */
+@keyframes rushx-fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes rushx-fade-in-only {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.rushx-hero-fade {
+  animation: rushx-fade-in-up 600ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.rushx-page-fade {
+  animation: rushx-fade-in-only 260ms ease-out backwards;
+}
+
+/* Progressive scroll-reveal: default SSR state is ALWAYS opacity: 1.
+   Only elements strictly below the initial viewport receive data-reveal="hidden"
+   after mount, then smoothly reveal to opacity: 1 when approaching the viewport. */
+[data-reveal="hidden"] {
+  opacity: 0;
+  transform: translate3d(0, var(--reveal-y, 18px), 0) scale(var(--reveal-scale, 0.99));
+}
+
+[data-reveal="visible"] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--reveal-dur, 560ms) cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms),
+    transform var(--reveal-dur, 560ms) cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rushx-ambient-canvas {
     animation-duration: 28s;
@@ -577,6 +622,18 @@
   }
   .rushx-btn-splash[data-splashing="true"]::after {
     animation: none !important;
+  }
+  .rushx-hero-fade,
+  .rushx-page-fade {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  [data-reveal="hidden"],
+  [data-reveal="visible"] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
 
