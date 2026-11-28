@@ -45,7 +45,7 @@ function getAuthBaseUrl(): string {
       return raw.startsWith("http") ? raw : `https://${raw}`
     }
   }
-  return "https://www.acescrims.online"
+  return "https://rushxorg.online"
 }
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
@@ -179,8 +179,9 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [
-    "https://acescrims.online",
-    "https://www.acescrims.online",
+    "https://rushxorg.online",
+    "https://www.rushxorg.online",
+    "https://pay.rushxorg.online",
     "http://localhost:3000",
     "http://localhost:3001",
     "https://*.run.app",

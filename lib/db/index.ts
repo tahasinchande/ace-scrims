@@ -324,7 +324,7 @@ async function ensureSchema() {
           "isPinned" boolean NOT NULL DEFAULT false,
           "isPublished" boolean NOT NULL DEFAULT true,
           "authorId" text,
-          "authorName" text DEFAULT 'Ace Scrims Administration',
+          "authorName" text DEFAULT 'RushX Organization Administration',
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
@@ -335,7 +335,7 @@ async function ensureSchema() {
         `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "isPinned" boolean NOT NULL DEFAULT false`,
         `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "isPublished" boolean NOT NULL DEFAULT true`,
         `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "authorId" text`,
-        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "authorName" text DEFAULT 'Ace Scrims Administration'`,
+        `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "authorName" text DEFAULT 'RushX Organization Administration'`,
         `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "createdAt" timestamp NOT NULL DEFAULT NOW()`,
         `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "updatedAt" timestamp NOT NULL DEFAULT NOW()`,
         `CREATE INDEX IF NOT EXISTS "idx_notices_published_created" ON "notices" ("isPublished", "isPinned", "createdAt")`,
@@ -387,7 +387,7 @@ async function ensureSchema() {
           ('pm-nagad', 'Nagad', 'Nagad', 'Nagad Personal', 'Mobile financial service personal account', '#F7941D', true, true, 2),
           ('pm-rocket', 'Rocket', 'Rocket', 'Rocket Personal', 'Dutch-Bangla Mobile Banking (Rocket)', '#8C3494', true, true, 3),
           ('pm-tap', 'Tap', 'Tap', 'Tap Personal', 'Trust Axiata Pay digital wallet', '#00A19D', true, true, 4),
-          ('pm-balance', 'Balance', 'Balance', 'Ace Scrims Wallet', 'Instant wallet credit for 1-click scrim booking', '#10B981', false, true, 5)
+          ('pm-balance', 'Balance', 'Balance', 'RushX Wallet', 'Instant wallet credit for 1-click scrim booking', '#10B981', false, true, 5)
          ON CONFLICT DO NOTHING`,
         `CREATE TABLE IF NOT EXISTS "email_templates" (
           "id" text PRIMARY KEY,

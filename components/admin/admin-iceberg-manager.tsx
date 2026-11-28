@@ -61,11 +61,11 @@ export type AdminIcebergScrim = {
 
 function broadcastSlotsRefresh() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("acescrims:slots-updated"))
+    window.dispatchEvent(new Event("rushx:slots-updated"))
   }
   if (typeof BroadcastChannel !== "undefined") {
     try {
-      const ch = new BroadcastChannel("acescrims-slots")
+      const ch = new BroadcastChannel("rushx-slots")
       ch.postMessage({ type: "refresh", ts: Date.now() })
       ch.close()
     } catch {}

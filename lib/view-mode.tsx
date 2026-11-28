@@ -18,7 +18,7 @@ const ViewModeContext = createContext<ViewModeContextType>({
   is3D: true,
 })
 
-const STORAGE_KEY = "ace_scrims_view_mode"
+const STORAGE_KEY = "rushx_view_mode"
 
 export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   // Default to dynamic 3D Cyber experience on initial entry; respects saved user toggle

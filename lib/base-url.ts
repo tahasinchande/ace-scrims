@@ -79,5 +79,5 @@ export async function resolveAppBaseUrl(): Promise<string> {
     }
   } catch {}
 
-  return "https://www.acescrims.online"
+  return "https://rushxorg.online"
 }

@@ -76,7 +76,7 @@ export function CreatorApplicationView({
       : `৳${settings.creatorDeclaredFixedBdt}`
 
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://www.acescrims.online"
+    typeof window !== "undefined" ? window.location.origin : "https://rushxorg.online"
   const creatorCode = existingApplication?.status === "approved" ? existingApplication.referralCode : null
   const creatorLink = creatorCode ? `${origin}/sign-up?ref=${encodeURIComponent(creatorCode)}` : ""
 

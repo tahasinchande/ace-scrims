@@ -114,7 +114,7 @@ export function HistoricalScrimView({
     })
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-    lines.push(`Official RushX Organization • www.acescrims.online`)
+    lines.push(`Official RushX Organization • rushxorg.online`)
 
     navigator.clipboard.writeText(lines.join("\n"))
     toast.success("Team roster copied to clipboard!")

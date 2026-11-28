@@ -187,7 +187,7 @@ function detectConstrainedDevice(): boolean {
 }
 
 /**
- * Unified RushX / Ace Scrims Background Engine (Performance-Optimized for BOTH 2D & 3D):
+ * Unified RushX Organization Background Engine (Performance-Optimized for BOTH 2D & 3D):
  *
  * 1. 3D Cyber Mode ("3d") — Exact 1:1 Recovery from commit 992e9d3 + 88918cc optimizations:
  *    - 48x48 isometric obsidian monolith terrain (single InstancedMesh draw call),

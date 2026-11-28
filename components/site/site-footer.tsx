@@ -26,11 +26,11 @@ export function SiteFooter({ settings }: { settings?: FooterSettings }) {
     settings ? (val ?? "").trim() : fallback
 
   const discord = resolveSocial(settings?.discordUrl, "https://discord.gg/aKF4hMuhmA")
-  const facebook = resolveSocial(settings?.facebookUrl, "https://facebook.com/acescrims")
+  const facebook = resolveSocial(settings?.facebookUrl, "https://facebook.com/rushxorg")
   const whatsappChannel = resolveSocial(settings?.whatsappChannelUrl, "https://whatsapp.com/channel/0029Va9xyz")
   const youtube = resolveSocial(settings?.youtubeUrl, "")
-  const tiktok = resolveSocial(settings?.tiktokUrl, "https://www.tiktok.com/@acescrims")
-  const supportKori = resolveSocial(settings?.supportKoriUrl, "https://www.supportkori.com/acescrims")
+  const tiktok = resolveSocial(settings?.tiktokUrl, "https://www.tiktok.com/@rushxorg")
+  const supportKori = resolveSocial(settings?.supportKoriUrl, "https://www.supportkori.com/rushxorg")
   const telegram = resolveSocial(settings?.telegramUrl, "")
   const instagram = resolveSocial(settings?.instagramUrl, "")
   const supportWhatsapp = resolveSocial(settings?.supportWhatsapp, "+8801831510108")

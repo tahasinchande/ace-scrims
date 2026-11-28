@@ -26,13 +26,13 @@ export default async function AdminPaymentsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
-            <a href="https://pay.acescrims.online" target="_blank" rel="noopener noreferrer">
+            <a href="https://pay.rushxorg.online" target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-3.5" />
               Merchant Panel
             </a>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:text-amber-300">
-            <a href="https://pay.acescrims.online/paymentlink/default/BDT" target="_blank" rel="noopener noreferrer">
+            <a href="https://pay.rushxorg.online/paymentlink/default/BDT" target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-3.5" />
               Default Payment Link
             </a>

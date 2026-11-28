@@ -105,8 +105,7 @@ export function BookingWizard({
     if (matchedInitialMethod && !matchedInitialMethod.requiresAccountNumber) {
       return defaultInfo?.paymentNumber || "RushX Organization Account Balance"
     }
-    return defaultInfo?.paymentNumber === "RushX Organization Account Balance" ||
-      defaultInfo?.paymentNumber === "Ace Scrims Account Balance"
+    return defaultInfo?.paymentNumber === "RushX Organization Account Balance"
       ? ""
       : defaultInfo?.paymentNumber || ""
   })
@@ -122,9 +121,9 @@ export function BookingWizard({
   useEffect(() => {
     if (state.ok) {
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId: scrim.id } }))
+        window.dispatchEvent(new CustomEvent("rushx:slots-updated", { detail: { scrimId: scrim.id } }))
         if (typeof BroadcastChannel !== "undefined") {
-          const ch = new BroadcastChannel("acescrims-slots")
+          const ch = new BroadcastChannel("rushx-slots")
           ch.postMessage({ type: "slots-updated", scrimId: scrim.id })
           ch.close()
         }
@@ -457,14 +456,10 @@ export function BookingWizard({
                           setPaymentMethod(provider.code)
                           if (!provider.requiresAccountNumber) {
                             setPaymentNumber("RushX Organization Account Balance")
-                          } else if (
-                            paymentNumber === "RushX Organization Account Balance" ||
-                            paymentNumber === "Ace Scrims Account Balance"
-                          ) {
+                          } else if (paymentNumber === "RushX Organization Account Balance") {
                             setPaymentNumber(
                               defaultInfo?.paymentNumber &&
-                                defaultInfo.paymentNumber !== "RushX Organization Account Balance" &&
-                                defaultInfo.paymentNumber !== "Ace Scrims Account Balance"
+                                defaultInfo.paymentNumber !== "RushX Organization Account Balance"
                                 ? defaultInfo.paymentNumber
                                 : ""
                             )

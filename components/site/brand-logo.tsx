@@ -145,8 +145,3 @@ export function RushXBrandLogo({
     </div>
   )
 }
-
-/**
- * Backward-compatible alias so existing imports keep working cleanly.
- */
-export const AceScrimsBrandLogo = RushXBrandLogo

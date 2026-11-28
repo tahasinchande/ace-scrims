@@ -49,7 +49,7 @@ async function recordEmailLog(entry: {
   }
 }
 
-const DEFAULT_SENDER = "RushX Organization <noreply@mail.acescrims.online>"
+const DEFAULT_SENDER = "RushX Organization <noreply@rushxorg.online>"
 
 /**
  * Resolves the primary Sender / "From" address while ensuring RushX Organization display branding.
@@ -67,16 +67,15 @@ function getFromAddress(fallback = DEFAULT_SENDER): string {
   if (
     !from ||
     from.includes("onboarding@resend.dev") ||
-    from.includes("yourdomain.com") ||
-    from === "Ace Scrims <onboarding@resend.dev>"
+    from.includes("yourdomain.com")
   ) {
     return DEFAULT_SENDER
   }
 
   const trimmed = from.trim()
-  // Normalize legacy "ACE SCRIMS <email>" display name to "RushX Organization <email>" without changing the email address
+  // Normalize any legacy display name to "RushX Organization <email>" without changing the email address
   const parsed = parseEmailAddress(trimmed)
-  if (parsed.name && /ace\s*scrims/i.test(parsed.name)) {
+  if (parsed.name && /rushx/i.test(parsed.name) === false && parsed.email.endsWith("rushxorg.online")) {
     return `RushX Organization <${parsed.email}>`
   }
 
@@ -160,10 +159,6 @@ function getSendGridApiKey(): string | null {
 function getSmtpFromAddress(fallbackSender: string): string {
   const explicitSmtpFrom = process.env.SMTP_FROM?.trim()
   if (explicitSmtpFrom) {
-    const parsed = parseEmailAddress(explicitSmtpFrom)
-    if (parsed.name && /ace\s*scrims/i.test(parsed.name)) {
-      return `RushX Organization <${parsed.email}>`
-    }
     return explicitSmtpFrom
   }
   const gmailUser = process.env.GMAIL_USER?.trim()
@@ -207,8 +202,8 @@ export function getProductionAppUrl(): string {
     }
   }
 
-  // Canonical production domain for Ace Scrims
-  return "https://www.acescrims.online"
+  // Canonical production domain for RushX Organization
+  return "https://rushxorg.online"
 }
 
 /**
@@ -313,7 +308,7 @@ function authEmailShell({
                           <td valign="middle">
                             <img src="${fullLogoUrl}" alt="RushX Organization" width="154" style="display:block;max-width:154px;height:auto;border:0;" />
                             <span style="display:block;margin-top:3px;color:#7dd3fc;font-size:10px;font-weight:600;letter-spacing:0.6px;">
-                              Official Sender · acescrims.online
+                              Official Sender · rushxorg.online
                             </span>
                           </td>
                         </tr>
@@ -461,7 +456,7 @@ function emailShell({
                           <td valign="middle">
                             <img src="${fullLogoUrl}" alt="RushX Organization" width="158" style="display:block;max-width:158px;height:auto;border:0;" />
                             <span style="display:block;margin-top:3px;color:#7dd3fc;font-size:10px;font-weight:600;letter-spacing:0.6px;">
-                              Official Sender · acescrims.online
+                              Official Sender · rushxorg.online
                             </span>
                           </td>
                         </tr>
@@ -682,7 +677,7 @@ export function renderEmailFromTemplate(
 
   const shellFn = options?.useAuthShell ? authEmailShell : emailShell
   const html = shellFn({
-    title: escapeHtml(options?.defaultTitle || subject.replace(/\s+—\s+(?:ACE SCRIMS|RushX Organization)$/i, "")),
+    title: escapeHtml(options?.defaultTitle || subject.replace(/\s+—\s+RushX Organization$/i, "")),
     preheader,
     contentHtml,
     ctaText: ctaText || undefined,
@@ -767,7 +762,7 @@ export async function sendEmail({
   const brandAppUrl = getProductionAppUrl()
   const brandHeaders: Record<string, string> = {
     "X-Brand-Logo": `${brandAppUrl}/images/brand/rushx-email-pfp.png`,
-    "List-Id": "RushX Organization <notifications.acescrims.online>",
+    "List-Id": "RushX Organization <notifications.rushxorg.online>",
   }
 
   let lastProviderError: string | null = null

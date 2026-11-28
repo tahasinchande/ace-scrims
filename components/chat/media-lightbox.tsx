@@ -146,7 +146,7 @@ export function MediaLightbox({
           )}
           <a
             href={active.url}
-            download={active.name || "ace-scrims-media"}
+            download={active.name || "rushx-media"}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex size-8 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-colors"

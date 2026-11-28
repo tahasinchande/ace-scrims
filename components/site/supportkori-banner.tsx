@@ -9,7 +9,7 @@ export function SupportKoriBanner({ supportKoriUrl }: { supportKoriUrl?: string 
   if (supportKoriUrl !== undefined && !supportKoriUrl.trim()) {
     return null
   }
-  const url = (supportKoriUrl ?? "https://www.supportkori.com/acescrims").trim()
+  const url = (supportKoriUrl ?? "https://www.supportkori.com/rushxorg").trim()
   if (!url) return null
 
   return (

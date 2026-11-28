@@ -213,7 +213,7 @@ export async function uploadVideoDirect(
   }
 
   const config = await resolveStorageConfig()
-  const targetFolder = folder ? `acescrims/${folder}` : "acescrims/tutorials"
+  const targetFolder = folder ? `rushx/${folder}` : "rushx/tutorials"
 
   // Path A: Vercel Blob multipart direct upload when Blob storage is enabled & primary
   if (config.blobEnabled && (!config.mediaCloud || file.size > 100 * 1024 * 1024)) {
@@ -429,7 +429,7 @@ export async function uploadMediaFile(
       const form = new FormData()
       form.append("file", file)
       form.append("upload_preset", config.mediaPreset)
-      form.append("folder", `acescrims/${folder}`)
+      form.append("folder", `rushx/${folder}`)
 
       const res = await fetch(`https://api.cloudinary.com/v1_1/${config.mediaCloud}/auto/upload`, {
         method: "POST",

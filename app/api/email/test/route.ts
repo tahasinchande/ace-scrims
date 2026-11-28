@@ -55,14 +55,14 @@ async function handleEmailDiagnostics(
           from:
             process.env.EMAIL_FROM ||
             process.env.RESEND_FROM ||
-            "RushX Organization <noreply@mail.acescrims.online>",
+            "RushX Organization <noreply@rushxorg.online>",
         },
         sendgrid: {
           configured: hasSendGrid,
           from:
             process.env.EMAIL_FROM ||
             process.env.SENDGRID_FROM ||
-            "RushX Organization <noreply@mail.acescrims.online>",
+            "RushX Organization <noreply@rushxorg.online>",
         },
         smtp: {
           configured: hasSmtp,

@@ -6,7 +6,7 @@ import { Agent, fetch as undiciFetch } from "undici"
  *
  * Env:
  * - UDDOKTAPAY_API_KEY          — merchant API key (also used to verify webhooks)
- * - UDDOKTAPAY_BASE_URL         — e.g. https://pay.acescrims.online/api (no trailing slash)
+ * - UDDOKTAPAY_BASE_URL         — e.g. https://pay.rushxorg.online/api (no trailing slash)
  * - UDDOKTAPAY_PAYMENT_LINK_URL — direct payment link fallback
  */
 
@@ -96,13 +96,13 @@ export function getUddoktaPayConfig() {
   let baseUrl = (
     process.env.UDDOKTAPAY_BASE_URL ||
     process.env.UDDOKTAPAY_PANEL_URL ||
-    "https://pay.acescrims.online/api"
+    "https://pay.rushxorg.online/api"
   )
     ?.trim()
     .replace(/\/+$/, "")
   const paymentLinkUrl =
     (process.env.UDDOKTAPAY_PAYMENT_LINK_URL ||
-      "https://pay.acescrims.online/paymentlink/default/BDT").trim()
+      "https://pay.rushxorg.online/paymentlink/default/BDT").trim()
 
   if (!apiKey || !baseUrl) return null
   baseUrl = baseUrl.replace(/\/api$/i, "")
@@ -119,7 +119,7 @@ export function isUddoktaPayConfigured(): boolean {
 
 export function getUddoktaPayPaymentLink(): string {
   const config = getConfig()
-  return config?.paymentLinkUrl || "https://pay.acescrims.online/paymentlink/default/BDT"
+  return config?.paymentLinkUrl || "https://pay.rushxorg.online/paymentlink/default/BDT"
 }
 
 export type CreateChargeInput = {

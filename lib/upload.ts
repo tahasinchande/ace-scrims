@@ -63,7 +63,7 @@ export async function uploadStreamToCloudinary(
 
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: `acescrims/${folder}`,
+          folder: `rushx/${folder}`,
           resource_type: "auto",
           public_id: publicId,
           overwrite: true,
@@ -192,7 +192,7 @@ export async function saveUploadedFile(file: File, folder: string): Promise<stri
       const formData = new FormData()
       formData.append("file", file)
       formData.append("upload_preset", uploadPreset)
-      formData.append("folder", `acescrims/${folder}`)
+      formData.append("folder", `rushx/${folder}`)
 
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
         method: "POST",

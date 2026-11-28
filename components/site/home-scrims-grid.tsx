@@ -37,7 +37,7 @@ export function HomeScrimsGrid({ initialScrims }: { initialScrims: ScrimCardData
 
     let channel: BroadcastChannel | null = null
     if (typeof BroadcastChannel !== "undefined") {
-      channel = new BroadcastChannel("acescrims-slots")
+      channel = new BroadcastChannel("rushx-slots")
       channel.onmessage = () => {
         void refreshSlots()
       }
@@ -52,14 +52,14 @@ export function HomeScrimsGrid({ initialScrims }: { initialScrims: ScrimCardData
     }, 5000)
 
     window.addEventListener("focus", onVisibilityOrFocus)
-    window.addEventListener("acescrims:slots-updated", onSlotsUpdated)
+    window.addEventListener("rushx:slots-updated", onSlotsUpdated)
     document.addEventListener("visibilitychange", onVisibilityOrFocus)
 
     return () => {
       active = false
       clearInterval(interval)
       window.removeEventListener("focus", onVisibilityOrFocus)
-      window.removeEventListener("acescrims:slots-updated", onSlotsUpdated)
+      window.removeEventListener("rushx:slots-updated", onSlotsUpdated)
       document.removeEventListener("visibilitychange", onVisibilityOrFocus)
       channel?.close()
     }

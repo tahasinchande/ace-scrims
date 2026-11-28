@@ -412,7 +412,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
         <img src="/images/brand/rushx-email-pfp.png" alt="RushX Organization" style="width:40px;height:40px;border-radius:50%;border:2px solid #2563eb;background:#060c1f;object-fit:cover;display:block;flex-shrink:0;" />
         <div>
           <img src="/images/brand/rushx-full-white.png" alt="RushX Organization" style="height:22px;width:auto;object-fit:contain;display:block;" />
-          <div style="font-size:10px;font-weight:600;color:#7dd3fc;margin-top:2px;">Official Sender · acescrims.online</div>
+          <div style="font-size:10px;font-weight:600;color:#7dd3fc;margin-top:2px;">Official Sender · rushxorg.online</div>
         </div>
       </div>
       <span style="font-size:10px;font-weight:700;letter-spacing:1.3px;color:#38bdf8;text-transform:uppercase;">${escapePreviewHtml(label)}</span>
@@ -974,7 +974,7 @@ export function AdminEmailManager({ initialTemplates, adminEmail }: Props) {
                     type="email"
                     value={testEmailTo}
                     onChange={(e) => setTestEmailTo(e.target.value)}
-                    placeholder="admin@acescrims.online"
+                    placeholder="admin@rushxorg.online"
                     className="h-9 text-xs sm:w-56"
                   />
                   <Button

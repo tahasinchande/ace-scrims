@@ -11,9 +11,9 @@ export function SlotSyncBroadcaster({
 }) {
   useEffect(() => {
     if (!active || typeof window === "undefined") return
-    window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId } }))
+    window.dispatchEvent(new CustomEvent("rushx:slots-updated", { detail: { scrimId } }))
     if (typeof BroadcastChannel !== "undefined") {
-      const ch = new BroadcastChannel("acescrims-slots")
+      const ch = new BroadcastChannel("rushx-slots")
       ch.postMessage({ type: "slots-updated", scrimId })
       ch.close()
     }

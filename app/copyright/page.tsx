@@ -21,7 +21,7 @@ export default function CopyrightPage() {
 
       <h2>1. Ownership of Materials</h2>
       <p>
-        All original software, source code, visual designs, user interfaces, branding assets, logos, text, graphics, illustrations, database structures, and editorial content published on RushX Organization (acescrims.online) are the exclusive property of RushX Organization and are protected by applicable international copyright, trademark, and intellectual property conventions.
+        All original software, source code, visual designs, user interfaces, branding assets, logos, text, graphics, illustrations, database structures, and editorial content published on RushX Organization (rushxorg.online) are the exclusive property of RushX Organization and are protected by applicable international copyright, trademark, and intellectual property conventions.
       </p>
 
       <h2>2. Permitted Use</h2>

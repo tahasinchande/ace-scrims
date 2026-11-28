@@ -335,7 +335,7 @@ export async function buildPublicPlatformContext(): Promise<string> {
     const payoutNames = payoutList.map((p) => p.name).join(", ") || "bKash, Nagad, Rocket, Balance"
 
     return [
-      `Platform: RushX Organization (www.acescrims.online) — Mobile-only Free Fire esports scrims platform in Bangladesh.`,
+      `Platform: RushX Organization (rushxorg.online) — Mobile-only Free Fire esports scrims platform in Bangladesh.`,
       `Bangladesh Active Date: ${activeDate}`,
       `Maintenance Mode: ${siteSettings?.maintenanceMode ? "ENABLED" : "OFF"}`,
       `Active Prize Payout Methods: ${payoutNames}`,
@@ -352,7 +352,7 @@ export async function buildPublicPlatformContext(): Promise<string> {
     ].join("\n")
   } catch (err) {
     console.warn("[AI Support] Failed building public context:", err)
-    return "Platform: RushX Organization (www.acescrims.online) — Free Fire competitive scrims platform in Bangladesh."
+    return "Platform: RushX Organization (rushxorg.online) — Free Fire competitive scrims platform in Bangladesh."
   }
 }
 
@@ -381,7 +381,7 @@ export async function generateAiSupportReply(params: {
             role: "user",
             parts: [
               {
-                text: `You are RushX AI Support, the official virtual assistant for RushX Organization (www.acescrims.online), a competitive Free Fire esports scrims platform in Bangladesh.
+                text: `You are RushX AI Support, the official virtual assistant for RushX Organization (rushxorg.online), a competitive Free Fire esports scrims platform in Bangladesh.
 
 STRICT PRIVACY & ACCURACY RULES:
 1. ONLY use the PUBLIC platform information below or general platform navigation guidance (/scrims, /results, /notices, /tutorials, /report, /dashboard, /dashboard/wallet, /dashboard/info-setup).

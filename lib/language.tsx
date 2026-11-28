@@ -184,7 +184,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Auth
     welcome_back: "Welcome back",
     signin_sub: "Sign in to book scrims and manage your squad.",
-    join_ace_scrims: "Join RushX Organization",
+    join_rushx: "Join RushX Organization",
     signup_sub: "Create an account to register your squad and win cash prizes.",
     email: "Email",
     password: "Password",
@@ -195,7 +195,7 @@ const translations: Record<Language, Record<string, string>> = {
     or: "or",
     continue_google: "Continue with Google",
     already_have_account: "Already have an account?",
-    new_to_ace_scrims: "New to RushX Organization?",
+    new_to_rushx: "New to RushX Organization?",
 
     // Footer & Legal
     platform: "Platform",
@@ -548,7 +548,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Auth
     welcome_back: "ফিরে আসার জন্য ধন্যবাদ",
     signin_sub: "স্ক্রিম বুকিং ও স্কোয়াড ম্যানেজ করতে সাইন ইন করুন।",
-    join_ace_scrims: "রেজিস্ট্রেশন করুন",
+    join_rushx: "রেজিস্ট্রেশন করুন",
     signup_sub: "আপনার স্কোয়াড রেজিস্টার করতে ও প্রাইজ জিততে একটি অ্যাকাউন্ট তৈরি করুন।",
     email: "ইমেইল",
     password: "পাসওয়ার্ড",
@@ -559,7 +559,7 @@ const translations: Record<Language, Record<string, string>> = {
     or: "অথবা",
     continue_google: "গুগল দিয়ে চালিয়ে যান",
     already_have_account: "আগে থেকেই অ্যাকাউন্ট আছে?",
-    new_to_ace_scrims: "নতুন ব্যবহারকারী?",
+    new_to_rushx: "নতুন ব্যবহারকারী?",
 
     // Footer & Legal
     platform: "প্ল্যাটফর্ম",

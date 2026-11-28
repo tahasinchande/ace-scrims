@@ -119,7 +119,7 @@ export default function StaffLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="staff@gmail.com or staff@acescrims.online"
+              placeholder="staff@gmail.com or staff@rushxorg.online"
               required
               autoComplete="email"
             />

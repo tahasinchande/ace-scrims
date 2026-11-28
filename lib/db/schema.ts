@@ -356,7 +356,7 @@ export const notices = pgTable("notices", {
   isPinned: boolean("isPinned").notNull().default(false),
   isPublished: boolean("isPublished").notNull().default(true),
   authorId: text("authorId"),
-  authorName: text("authorName").default("Ace Scrims Administration"),
+  authorName: text("authorName").default("RushX Organization Administration"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 })

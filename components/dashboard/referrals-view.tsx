@@ -113,7 +113,7 @@ export function DashboardReferralsView({
   )
 
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://www.acescrims.online"
+    typeof window !== "undefined" ? window.location.origin : "https://rushxorg.online"
 
   const userInviteLink = userCode ? `${origin}/sign-up?ref=${encodeURIComponent(userCode)}` : ""
   const approvedCreatorCode =

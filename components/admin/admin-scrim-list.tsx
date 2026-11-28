@@ -126,10 +126,10 @@ function normalizeRosterBooking(raw: RosterBooking): RosterBooking {
 
 function broadcastSlotsSync(scrimId?: string) {
   if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId } }))
+  window.dispatchEvent(new CustomEvent("rushx:slots-updated", { detail: { scrimId } }))
   if (typeof BroadcastChannel !== "undefined") {
     try {
-      const ch = new BroadcastChannel("acescrims-slots")
+      const ch = new BroadcastChannel("rushx-slots")
       ch.postMessage({ type: "slots-updated", scrimId, timestamp: Date.now() })
       ch.close()
     } catch {
@@ -335,9 +335,9 @@ function ViewTeamsButton({
         setTeamList((prev) => prev.filter((item) => item.id !== b.id))
         onTeamRemoved?.(scrim.id, b.id)
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("acescrims:slots-updated", { detail: { scrimId: scrim.id } }))
+          window.dispatchEvent(new CustomEvent("rushx:slots-updated", { detail: { scrimId: scrim.id } }))
           if (typeof BroadcastChannel !== "undefined") {
-            const ch = new BroadcastChannel("acescrims-slots")
+            const ch = new BroadcastChannel("rushx-slots")
             ch.postMessage({ type: "slots-updated", scrimId: scrim.id })
             ch.close()
           }
@@ -995,14 +995,14 @@ export function AdminScrimList({
       }
     }
 
-    window.addEventListener("acescrims:slots-updated", handleSlotEvent)
+    window.addEventListener("rushx:slots-updated", handleSlotEvent)
     window.addEventListener("focus", handleSlotEvent)
     document.addEventListener("visibilitychange", handleVisibility)
 
     let bc: BroadcastChannel | null = null
     if (typeof BroadcastChannel !== "undefined") {
       try {
-        bc = new BroadcastChannel("acescrims-slots")
+        bc = new BroadcastChannel("rushx-slots")
         bc.onmessage = () => {
           void syncAdminScrims()
         }
@@ -1018,7 +1018,7 @@ export function AdminScrimList({
     }, 8000)
 
     return () => {
-      window.removeEventListener("acescrims:slots-updated", handleSlotEvent)
+      window.removeEventListener("rushx:slots-updated", handleSlotEvent)
       window.removeEventListener("focus", handleSlotEvent)
       document.removeEventListener("visibilitychange", handleVisibility)
       bc?.close()

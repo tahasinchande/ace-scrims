@@ -18,7 +18,7 @@ export async function GET() {
       {
         supportWhatsapp: "+8801831510108",
         discordUrl: "https://discord.gg/aKF4hMuhmA",
-        facebookUrl: "https://facebook.com/acescrims",
+        facebookUrl: "https://facebook.com/rushxorg",
       },
       { status: 500 }
     )

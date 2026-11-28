@@ -29,16 +29,16 @@ export default async function AdminSettingsPage() {
       <PayoutMethodsManager initialMethods={payoutMethods} />
       <SiteSettingsForm
         discordUrl={map.discord_url ?? "https://discord.gg/aKF4hMuhmA"}
-        facebookUrl={map.facebook_url ?? "https://facebook.com/acescrims"}
+        facebookUrl={map.facebook_url ?? "https://facebook.com/rushxorg"}
         youtubeUrl={map.youtube_url ?? ""}
-        tiktokUrl={map.tiktok_url ?? "https://www.tiktok.com/@acescrims"}
+        tiktokUrl={map.tiktok_url ?? "https://www.tiktok.com/@rushxorg"}
         whatsappChannelUrl={map.whatsapp_channel_url ?? "https://whatsapp.com/channel/0029Va9xyz"}
         telegramUrl={map.telegram_url ?? ""}
         instagramUrl={map.instagram_url ?? ""}
         supportWhatsapp={map.support_whatsapp ?? "+8801831510108"}
         championRushWhatsappUrl={map.champion_rush_whatsapp_url ?? "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"}
         championRush3pmWhatsappUrl={map.champion_rush_3pm_whatsapp_url ?? "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V"}
-        supportKoriUrl={map.support_kori_url ?? "https://www.supportkori.com/acescrims"}
+        supportKoriUrl={map.support_kori_url ?? "https://www.supportkori.com/rushxorg"}
         showRoom2={map.show_room2 === "true"}
         maintenanceMode={map.maintenance_mode === "true"}
         staffPortalPath={map.staff_portal_path ?? "/staff-login"}
