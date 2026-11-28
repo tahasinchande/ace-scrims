@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
+import { HEX_COLOR_RE, normalizeHexColor } from "@/lib/background-config"
 
 export const TOP_AD_ACCENTS = ["amber", "blue", "cyan", "violet", "crimson", "emerald"] as const
 export type TopAdAccent = (typeof TOP_AD_ACCENTS)[number]
@@ -8,6 +9,10 @@ export interface TopAdConfig {
   enabled: boolean
   badge: string
   accent: TopAdAccent
+  /** When true (default), the ad surface & highlights dynamically match the site's active background color */
+  matchBackground: boolean
+  /** Optional custom hex color (#RRGGBB) applied when matchBackground is false */
+  customColor: string
   text: string
   highlightText: string
   ctaLabel: string
@@ -31,6 +36,8 @@ export const DEFAULT_TOP_AD_CONFIG: TopAdConfig = {
   enabled: false,
   badge: "LIMITED OFFER",
   accent: "amber",
+  matchBackground: true,
+  customColor: "",
   text: "",
   highlightText: "",
   ctaLabel: "Book Now",
@@ -53,6 +60,16 @@ export const topAdConfigSchema = z
     enabled: z.boolean(),
     badge: z.string().trim().max(32, "Badge must be 32 characters or less").default(""),
     accent: z.enum(TOP_AD_ACCENTS).default("amber"),
+    matchBackground: z.boolean().default(true),
+    customColor: z
+      .string()
+      .trim()
+      .max(16)
+      .default("")
+      .transform((v) => (v ? normalizeHexColor(v) : ""))
+      .refine((v) => v === "" || HEX_COLOR_RE.test(v), {
+        message: "Custom color must be a valid hex code (e.g. #F97316)",
+      }),
     text: z.string().trim().max(180, "Announcement text must be 180 characters or less").default(""),
     highlightText: z
       .string()
@@ -124,6 +141,15 @@ export function parseTopAdConfig(
       const safe = topAdConfigSchema.safeParse({
         ...DEFAULT_TOP_AD_CONFIG,
         ...(parsed && typeof parsed === "object" ? parsed : {}),
+        // Default matchBackground to true for any pre-existing configs that didn't store this key
+        matchBackground:
+          parsed && typeof parsed === "object" && typeof parsed.matchBackground === "boolean"
+            ? parsed.matchBackground
+            : true,
+        customColor:
+          parsed && typeof parsed === "object" && typeof parsed.customColor === "string"
+            ? parsed.customColor
+            : "",
         // Allow loading disabled drafts even if text is empty
         enabled: Boolean(parsed?.enabled) && Boolean(String(parsed?.text || "").trim()),
       })
@@ -145,6 +171,8 @@ export function parseTopAdConfig(
       enabled: true,
       badge: "NOTICE",
       accent: "blue",
+      matchBackground: true,
+      customColor: "",
       text: legacyText.slice(0, 180),
       highlightText: "",
       ctaLabel: "",

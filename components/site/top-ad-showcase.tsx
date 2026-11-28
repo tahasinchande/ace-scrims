@@ -12,6 +12,7 @@ import {
   type TopAdAccent,
   type TopAdConfig,
 } from "@/lib/top-ad"
+import { hexToRgbTuple, HEX_COLOR_RE, normalizeHexColor } from "@/lib/background-config"
 import { isSafeHttpOrRelativeUrl } from "@/lib/url-safety"
 import { DEEPCHARTS_EASE } from "@/lib/intro-motion"
 import { cn } from "@/lib/utils"
@@ -91,7 +92,8 @@ function splitTwoLineBadge(raw: string): [string, string | null] {
 function renderHighlightedPromoText(
   text: string,
   highlightText: string,
-  highlightClass: string
+  highlightClass: string,
+  highlightStyle?: React.CSSProperties
 ): ReactNode {
   const cleanText = text.trim()
   const cleanHighlight = (highlightText || "").trim()
@@ -105,7 +107,9 @@ function renderHighlightedPromoText(
     return (
       <>
         <span>{cleanText}</span>{" "}
-        <span className={cn("font-extrabold", highlightClass)}>{cleanHighlight}</span>
+        <span className={cn("font-extrabold", highlightClass)} style={highlightStyle}>
+          {cleanHighlight}
+        </span>
       </>
     )
   }
@@ -117,7 +121,9 @@ function renderHighlightedPromoText(
   return (
     <>
       {before}
-      <span className={cn("font-extrabold", highlightClass)}>{match}</span>
+      <span className={cn("font-extrabold", highlightClass)} style={highlightStyle}>
+        {match}
+      </span>
       {after}
     </>
   )
@@ -132,28 +138,14 @@ export function TopAdShowcase({
 }) {
   const pathname = usePathname()
   const prefersReducedMotion = useReducedMotion()
+  // Pure in-memory dismissal: reloads & re-entries always re-display the active ad
   const [dismissed, setDismissed] = useState(false)
   const [nowMs, setNowMs] = useState<number | null>(null)
 
-  const dismissStorageKey = `rushx_top_ad_dismissed_v_${config.version || 1}`
-
-  // Hydration-safe dismiss & live 1-second clock tick
+  // Reset in-memory dismissal if admin updates ad version live; tick clock when scheduled/countdown active
   useEffect(() => {
     setNowMs(Date.now())
-
-    if (!preview && config.dismissible) {
-      try {
-        if (window.localStorage.getItem(dismissStorageKey) === "1") {
-          setDismissed(true)
-        } else {
-          setDismissed(false)
-        }
-      } catch {
-        setDismissed(false)
-      }
-    } else {
-      setDismissed(false)
-    }
+    setDismissed(false)
 
     const needsTick = Boolean(config.countdownEnd || config.startsAt || config.endsAt)
     if (!needsTick) return
@@ -163,7 +155,7 @@ export function TopAdShowcase({
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [config.countdownEnd, config.startsAt, config.endsAt, config.dismissible, dismissStorageKey, preview])
+  }, [config.countdownEnd, config.startsAt, config.endsAt, config.version, preview])
 
   if (!preview && HIDDEN_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return null
@@ -177,6 +169,12 @@ export function TopAdShowcase({
   if (!active || (!preview && dismissed)) {
     return null
   }
+
+  const matchBg = config.matchBackground !== false
+  const normalizedCustomHex = !matchBg ? normalizeHexColor(config.customColor) : ""
+  const hasCustomHex = Boolean(normalizedCustomHex && HEX_COLOR_RE.test(normalizedCustomHex))
+  const customRgb = hasCustomHex ? hexToRgbTuple(normalizedCustomHex) : null
+  const customRgbStr = customRgb ? `${customRgb[0]}, ${customRgb[1]}, ${customRgb[2]}` : ""
 
   const accentStyle = ACCENT_STYLES[config.accent] || ACCENT_STYLES.amber
   const safeCtaUrl =
@@ -196,11 +194,6 @@ export function TopAdShowcase({
 
   function handleDismiss() {
     setDismissed(true)
-    try {
-      window.localStorage.setItem(dismissStorageKey, "1")
-    } catch {
-      // Ignore storage errors in private browsing contexts
-    }
   }
 
   // Always show all 4 fixed-width units (days : hours : minutes : seconds) so numbers never jitter
@@ -216,6 +209,60 @@ export function TopAdShowcase({
   const [badgeLine1, badgeLine2] = splitTwoLineBadge(config.badge)
   const hasCenterMark = Boolean(badgeLine1)
 
+  // Compute dynamic background-matched, custom-hex, or preset-accent visuals
+  const containerStyle: React.CSSProperties = matchBg
+    ? {
+        borderColor: "rgba(var(--rushx-primary-rgb), 0.24)",
+        backgroundColor: "rgba(5, 7, 15, 0.92)",
+      }
+    : hasCustomHex
+      ? {
+          borderColor: `rgba(${customRgbStr}, 0.28)`,
+          backgroundColor: "rgba(5, 7, 15, 0.94)",
+        }
+      : {}
+
+  const glowBackground = matchBg
+    ? "radial-gradient(42% 175% at 50% 50%, rgba(var(--rushx-primary-rgb), 0.34) 0%, rgba(var(--rushx-accent-rgb), 0.14) 52%, transparent 100%)"
+    : hasCustomHex
+      ? `radial-gradient(42% 175% at 50% 50%, rgba(${customRgbStr}, 0.34) 0%, rgba(${customRgbStr}, 0.12) 52%, transparent 100%)`
+      : accentStyle.glow
+
+  const highlightStyle: React.CSSProperties | undefined = matchBg
+    ? { color: "rgb(var(--rushx-accent-rgb))" }
+    : hasCustomHex
+      ? { color: normalizedCustomHex }
+      : undefined
+
+  const markFilterStyle: React.CSSProperties | undefined = matchBg
+    ? { filter: "drop-shadow(0 0 14px rgba(var(--rushx-primary-rgb), 0.42))" }
+    : hasCustomHex
+      ? { filter: `drop-shadow(0 0 14px rgba(${customRgbStr}, 0.42))` }
+      : undefined
+
+  const markTextStyle: React.CSSProperties | undefined = matchBg
+    ? {
+        backgroundImage:
+          "linear-gradient(to bottom, rgb(var(--rushx-soft-rgb)), rgb(var(--rushx-accent-rgb)), rgb(var(--rushx-primary-rgb)))",
+      }
+    : hasCustomHex
+      ? {
+          backgroundImage: `linear-gradient(to bottom, #ffffff, ${normalizedCustomHex}, rgba(${customRgbStr}, 0.85))`,
+        }
+      : undefined
+
+  const ctaInlineStyle: React.CSSProperties | undefined = matchBg
+    ? {
+        borderColor: "rgba(var(--rushx-primary-rgb), 0.34)",
+        backgroundColor: "rgba(var(--rushx-primary-rgb), 0.14)",
+      }
+    : hasCustomHex
+      ? {
+          borderColor: `rgba(${customRgbStr}, 0.38)`,
+          backgroundColor: `rgba(${customRgbStr}, 0.15)`,
+        }
+      : undefined
+
   return (
     <AnimatePresence initial={!preview}>
       <motion.div
@@ -226,15 +273,16 @@ export function TopAdShowcase({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.42, ease: DEEPCHARTS_EASE }}
+        style={containerStyle}
         className={cn(
-          "relative z-50 w-full border-b border-white/[0.08] bg-[#050507]/96 text-zinc-100 backdrop-blur-xl overflow-hidden",
+          "relative z-50 w-full border-b border-white/[0.08] bg-[#050507]/96 text-zinc-100 backdrop-blur-xl overflow-hidden transition-colors duration-300",
           preview && "rounded-xl border border-white/[0.09]"
         )}
       >
-        {/* Focused DeepCharts-style radial highlight centered behind the two-line promo mark */}
+        {/* Focused radial highlight matching active site background color (or custom color override) */}
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: accentStyle.glow }}
+          style={{ background: glowBackground }}
           aria-hidden="true"
         />
 
@@ -244,7 +292,8 @@ export function TopAdShowcase({
             {renderHighlightedPromoText(
               config.text,
               config.highlightText,
-              accentStyle.highlight
+              matchBg || hasCustomHex ? "" : accentStyle.highlight,
+              highlightStyle
             )}
           </p>
 
@@ -268,24 +317,27 @@ export function TopAdShowcase({
                       ease: "easeInOut",
                     }
               }
+              style={markFilterStyle}
               className={cn(
                 "flex shrink-0 flex-col items-center justify-center text-center select-none will-change-transform",
-                accentStyle.markDropShadow
+                !(matchBg || hasCustomHex) && accentStyle.markDropShadow
               )}
             >
               <span
+                style={markTextStyle}
                 className={cn(
-                  "font-display text-[13px] sm:text-[14px] font-extrabold italic tracking-tight leading-[0.95] bg-gradient-to-b bg-clip-text text-transparent",
-                  accentStyle.mark
+                  "font-display text-[13px] sm:text-[14px] font-extrabold italic tracking-tight leading-[0.95] bg-clip-text text-transparent",
+                  !(matchBg || hasCustomHex) && cn("bg-gradient-to-b", accentStyle.mark)
                 )}
               >
                 {badgeLine1}
               </span>
               {badgeLine2 && (
                 <span
+                  style={markTextStyle}
                   className={cn(
-                    "font-display text-[15px] sm:text-[17px] font-black italic tracking-tight leading-[0.95] bg-gradient-to-b bg-clip-text text-transparent",
-                    accentStyle.mark
+                    "font-display text-[15px] sm:text-[17px] font-black italic tracking-tight leading-[0.95] bg-clip-text text-transparent",
+                    !(matchBg || hasCustomHex) && cn("bg-gradient-to-b", accentStyle.mark)
                   )}
                 >
                   {badgeLine2}
@@ -334,28 +386,30 @@ export function TopAdShowcase({
                     href={safeCtaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    style={ctaInlineStyle}
                     className={cn(
-                      "group inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold tracking-tight text-zinc-100 transition-all duration-200 active:scale-[0.98]",
-                      accentStyle.ctaHover
+                      "group inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold tracking-tight text-zinc-100 transition-all duration-200 hover:brightness-115 active:scale-[0.98]",
+                      !(matchBg || hasCustomHex) && accentStyle.ctaHover
                     )}
                   >
                     <span>{config.ctaLabel.trim() || "Learn More"}</span>
                     <ChevronRight
-                      className="size-3 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-current"
+                      className="size-3 shrink-0 text-zinc-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-white"
                       aria-hidden="true"
                     />
                   </a>
                 ) : (
                   <Link
                     href={safeCtaUrl}
+                    style={ctaInlineStyle}
                     className={cn(
-                      "group inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold tracking-tight text-zinc-100 transition-all duration-200 active:scale-[0.98]",
-                      accentStyle.ctaHover
+                      "group inline-flex shrink-0 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold tracking-tight text-zinc-100 transition-all duration-200 hover:brightness-115 active:scale-[0.98]",
+                      !(matchBg || hasCustomHex) && accentStyle.ctaHover
                     )}
                   >
                     <span>{config.ctaLabel.trim() || "Learn More"}</span>
                     <ChevronRight
-                      className="size-3 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-current"
+                      className="size-3 shrink-0 text-zinc-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-white"
                       aria-hidden="true"
                     />
                   </Link>
@@ -364,7 +418,7 @@ export function TopAdShowcase({
           )}
         </div>
 
-        {/* Quiet Dismiss Button */}
+        {/* Quiet Dismiss Button (in-memory only; reappears on reload or re-entry) */}
         {config.dismissible && !preview && (
           <button
             type="button"

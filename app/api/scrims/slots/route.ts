@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server"
-import { getActiveScrims, getScrimById, getBangladeshActiveDate } from "@/lib/queries/scrims"
+import {
+  getActiveScrims,
+  getScrimById,
+  getBangladeshActiveDate,
+  getRoomMultiplier,
+  getEvaluatedScheduleOverride,
+} from "@/lib/queries/scrims"
 import { sanitizePublicScrim } from "@/lib/iceberg"
 
 export const runtime = "nodejs"
@@ -16,6 +22,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const scrimId = searchParams.get("scrimId")?.trim()
     const activeDate = getBangladeshActiveDate()
+    const [roomMultiplier, scheduleInfo] = await Promise.all([
+      getRoomMultiplier().catch(() => 1),
+      getEvaluatedScheduleOverride().catch(() => null),
+    ])
 
     if (scrimId) {
       const scrim = await getScrimById(scrimId)
@@ -29,6 +39,8 @@ export async function GET(req: Request) {
         {
           ok: true,
           activeDate,
+          roomMultiplier,
+          scheduleStatus: scheduleInfo?.status ?? null,
           scrim: sanitizePublicScrim(scrim),
           timestamp: Date.now(),
         },
@@ -41,6 +53,8 @@ export async function GET(req: Request) {
       {
         ok: true,
         activeDate,
+        roomMultiplier,
+        scheduleStatus: scheduleInfo?.status ?? null,
         scrims: scrims.map((s) => sanitizePublicScrim(s)),
         timestamp: Date.now(),
       },

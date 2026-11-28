@@ -169,15 +169,23 @@ export function AdminPartnershipsManager({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
-          Partnerships &amp; Infinite Marquee Manager
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage official partners, logos, links, display order, active status, and continuous
-          non-pausing marquee settings displayed above &ldquo;How It Works&rdquo; on the Homepage
-          and on the Partnerships page.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            Partnerships &amp; Infinite Marquee Manager
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage official partners, logos, links, display order, active status, and continuous
+            non-pausing marquee settings displayed above &ldquo;How It Works&rdquo; on the Homepage
+            and on the Partnerships page.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <a href="/admin/referrals#creator-applications">
+            Manage Creator Applications &amp; Exact Referral Codes
+            <ExternalLink className="ml-1.5 size-3.5" />
+          </a>
+        </Button>
       </div>
 
       {/* Live Preview */}

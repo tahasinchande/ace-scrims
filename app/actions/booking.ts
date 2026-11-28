@@ -147,13 +147,22 @@ export async function createBooking(
     console.error("[AutoSave] Failed to trigger auto-save:", autoErr)
   }
 
-  const { resolveOrEnsureScrim } = await import("@/lib/queries/scrims")
+  const { resolveOrEnsureScrim, getEvaluatedScheduleOverride } = await import("@/lib/queries/scrims")
   await resolveOrEnsureScrim(data.scrimId).catch(() => {})
 
-  const scrim = await getScrimById(data.scrimId)
+  const [scrim, scheduleInfo] = await Promise.all([
+    getScrimById(data.scrimId),
+    getEvaluatedScheduleOverride(),
+  ])
   if (!scrim) return { ok: false, error: "Scrim not found." }
 
   const isForcedOpen = scrim.status === "force_open" || scrim.status === "force_turn_on"
+  if (!isForcedOpen && scheduleInfo.status.isShutdownActive) {
+    return {
+      ok: false,
+      error: scheduleInfo.status.summary || "Scrim registrations are currently paused by schedule shutdown.",
+    }
+  }
   if (!isForcedOpen && (!scrim.registrationOpen || scrim.status === "completed" || scrim.status === "not_hosted" || scrim.status === "registration_closed"))
     return { ok: false, error: "Registration for this scrim is closed." }
 
@@ -173,7 +182,11 @@ export async function createBooking(
     return { ok: false, error: "This scrim is full. Try another time slot." }
 
   const activeDate = getBangladeshActiveDate()
-  const targetDate = scrim.scrimDate && scrim.scrimDate >= activeDate ? scrim.scrimDate : activeDate
+  const targetDate = scheduleInfo.status.isRegWindowActive
+    ? scheduleInfo.status.effectiveScrimDate
+    : scrim.scrimDate && scrim.scrimDate >= activeDate
+      ? scrim.scrimDate
+      : activeDate
 
   const existing = await userHasBooking(user.id, scrim.id, targetDate)
 

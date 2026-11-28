@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/session"
 import { isAdminOrOwner } from "@/lib/roles"
 import {
@@ -14,9 +15,14 @@ export const dynamic = "force-dynamic"
 export const metadata = { title: "Trash & Soft-Deleted Items — RushX Organization" }
 
 export default async function AdminTrashPage() {
-  const [user, trashScrims, trashResults, trashReports, trashImageRequests, trashUsers, trashPayments] =
+  const user = await getSessionUser()
+  const isAdmin = isAdminOrOwner(user?.role)
+  if (!user || !isAdmin) {
+    redirect("/admin/scrims")
+  }
+
+  const [trashScrims, trashResults, trashReports, trashImageRequests, trashUsers, trashPayments] =
     await Promise.all([
-      getSessionUser(),
       getTrashScrims(),
       getTrashResults(),
       getTrashReports(),
@@ -24,8 +30,6 @@ export default async function AdminTrashPage() {
       getTrashUsers(),
       getTrashPayments(),
     ])
-
-  const isAdmin = isAdminOrOwner(user?.role)
   const totalTrashCount =
     trashScrims.length +
     trashResults.length +

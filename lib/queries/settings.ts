@@ -4,6 +4,17 @@ import { db } from "@/lib/db"
 import { settings } from "@/lib/db/schema"
 import { BRAND } from "@/lib/brand"
 import { DEFAULT_TOP_AD_CONFIG, parseTopAdConfig, type TopAdConfig } from "@/lib/top-ad"
+import {
+  DEFAULT_BACKGROUND_THEME_CONFIG,
+  parseBackgroundThemeConfig,
+  type BackgroundThemeConfig,
+} from "@/lib/background-config"
+import { parseRoomMultiplier } from "@/lib/room-multiplier"
+import {
+  DEFAULT_SCHEDULE_OVERRIDE_CONFIG,
+  parseScheduleOverrideConfig,
+  type ScheduleOverrideConfig,
+} from "@/lib/schedule-override"
 
 export type PublicSiteSettings = {
   discordUrl: string
@@ -18,6 +29,9 @@ export type PublicSiteSettings = {
   championRush3pmWhatsappUrl: string
   supportKoriUrl: string
   showRoom2: boolean
+  roomMultiplier: number
+  scheduleOverride: ScheduleOverrideConfig
+  backgroundConfig: BackgroundThemeConfig
   maintenanceMode: boolean
   announcement: string
   topAd: TopAdConfig
@@ -36,6 +50,9 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
     const resolvedLogo =
       !rawLogo || rawLogo === "/icon.svg" ? BRAND.assets.symbol : rawLogo
     const topAd = parseTopAdConfig(map.top_ad_config, map.announcement)
+    const roomMultiplier = parseRoomMultiplier(map.room_multiplier, map.show_room2)
+    const scheduleOverride = parseScheduleOverrideConfig(map.schedule_override_config)
+    const backgroundConfig = parseBackgroundThemeConfig(map.background_theme_config)
 
     return {
       discordUrl: map.discord_url || "https://discord.gg/aKF4hMuhmA",
@@ -49,7 +66,10 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       championRushWhatsappUrl: map.champion_rush_whatsapp_url || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
       championRush3pmWhatsappUrl: map.champion_rush_3pm_whatsapp_url || "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
       supportKoriUrl: map.support_kori_url || "https://www.supportkori.com/acescrims",
-      showRoom2: map.show_room2 === "true",
+      showRoom2: roomMultiplier >= 2,
+      roomMultiplier,
+      scheduleOverride,
+      backgroundConfig,
       maintenanceMode: map.maintenance_mode === "true",
       announcement: map.announcement || "",
       topAd,
@@ -74,6 +94,9 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       championRush3pmWhatsappUrl: "https://whatsapp.com/channel/0029Vb7Bq9w42DcT1O2b0s3V",
       supportKoriUrl: "https://www.supportkori.com/acescrims",
       showRoom2: false,
+      roomMultiplier: 1,
+      scheduleOverride: { ...DEFAULT_SCHEDULE_OVERRIDE_CONFIG },
+      backgroundConfig: { ...DEFAULT_BACKGROUND_THEME_CONFIG },
       maintenanceMode: false,
       announcement: "",
       topAd: { ...DEFAULT_TOP_AD_CONFIG },

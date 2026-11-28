@@ -475,6 +475,7 @@ export const creatorApplications = pgTable("creator_applications", {
   averageViews: text("averageViews"),
   whatsapp: text("whatsapp").notNull(),
   notes: text("notes"),
+  requestedReferralCode: text("requestedReferralCode"),
   status: text("status").notNull().default("pending"), // pending | approved | rejected
   referralCode: text("referralCode").unique(),
   adminNote: text("adminNote"),

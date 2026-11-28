@@ -5,6 +5,7 @@ import { Handshake, ArrowUpRight } from "lucide-react"
 import type { PartnershipItem } from "@/lib/db/schema"
 import type { PartnershipMarqueeSettings } from "@/lib/queries/partnerships"
 import { resolveVerifiedPartnerLogo } from "@/lib/partner-logos"
+import { Reveal } from "@/components/site/reveal"
 
 function deduplicatePartners(items: PartnershipItem[]): PartnershipItem[] {
   const seenIds = new Set<string>()
@@ -171,48 +172,50 @@ export function PartnershipTicker({
           : "py-12 sm:py-14 border-y border-white/[0.06] bg-[#060912]/45 backdrop-blur-md"
       }`}
     >
-      {!compact && (
-        <div className="mx-auto max-w-6xl px-4 md:px-6 mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              <span className="inline-block h-px w-6 bg-primary/80" aria-hidden />
-              <span>Partnerships</span>
+      <Reveal y={16} duration={0.62}>
+        {!compact && (
+          <div className="mx-auto max-w-6xl px-4 md:px-6 mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                <span className="inline-block h-px w-6 bg-primary/80" aria-hidden />
+                <span>Partnerships</span>
+              </div>
+              <h2 className="mt-2 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                {heading}
+              </h2>
+              {subheading && (
+                <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground leading-relaxed">
+                  {subheading}
+                </p>
+              )}
             </div>
-            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              {heading}
-            </h2>
-            {subheading && (
-              <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground leading-relaxed">
-                {subheading}
-              </p>
-            )}
+            <Link
+              href="/partnerships"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary hover:text-cyan-300 transition-colors shrink-0"
+            >
+              View All Partners <ArrowUpRight className="size-3.5" />
+            </Link>
           </div>
-          <Link
-            href="/partnerships"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary hover:text-cyan-300 transition-colors shrink-0"
-          >
-            View All Partners <ArrowUpRight className="size-3.5" />
-          </Link>
-        </div>
-      )}
+        )}
 
-      {/* Compact, borderless, pixel-seamless infinite marquee — never pauses on hover or focus */}
-      <div className="partnership-marquee-wrap relative w-full overflow-hidden py-1.5">
-        <div
-          className={`partnership-marquee-track flex items-center ${
-            direction === "right" ? "partnership-marquee-reverse" : ""
-          }`}
-          style={{ ["--marquee-duration" as string]: `${speedSeconds}s` }}
-        >
-          <MarqueeTrackHalf items={uniqueItems} repeatCount={repeatCount} showBadges={showBadges} />
-          <MarqueeTrackHalf
-            items={uniqueItems}
-            repeatCount={repeatCount}
-            showBadges={showBadges}
-            duplicate
-          />
+        {/* Compact, borderless, pixel-seamless infinite marquee — never pauses on hover or focus */}
+        <div className="partnership-marquee-wrap relative w-full overflow-hidden py-1.5">
+          <div
+            className={`partnership-marquee-track flex items-center ${
+              direction === "right" ? "partnership-marquee-reverse" : ""
+            }`}
+            style={{ ["--marquee-duration" as string]: `${speedSeconds}s` }}
+          >
+            <MarqueeTrackHalf items={uniqueItems} repeatCount={repeatCount} showBadges={showBadges} />
+            <MarqueeTrackHalf
+              items={uniqueItems}
+              repeatCount={repeatCount}
+              showBadges={showBadges}
+              duplicate
+            />
+          </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   )
 }

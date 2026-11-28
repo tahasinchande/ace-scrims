@@ -6,6 +6,23 @@ import { and, or, eq, ne, lt, gte, sql, asc, desc } from "drizzle-orm"
 import { scrimStartDate, sortScrimsAscending } from "@/lib/format"
 import { getRandomScrimImage, SCRIM_BACKGROUND_IMAGES } from "@/lib/scrim-images"
 import { computeIcebergDisplayCount } from "@/lib/iceberg"
+import {
+  buildAllStandardScrimDefinitions,
+  buildMultipliedDailyDefinitions,
+  buildMultipliedFridayDefinitions,
+  findStandardScrimDefinition,
+  getScrimRoomNumber,
+  parseRoomMultiplier,
+  parseRoomTierOverrides,
+  type RoomTierOverrides,
+  type StandardScrimDef,
+} from "@/lib/room-multiplier"
+import {
+  evaluateScheduleOverride,
+  parseScheduleOverrideConfig,
+  type EvaluatedScheduleOverride,
+  type ScheduleOverrideConfig,
+} from "@/lib/schedule-override"
 export { getRandomScrimImage, SCRIM_BACKGROUND_IMAGES }
 
 export type ScrimWithSlots = typeof scrims.$inferSelect & {
@@ -184,12 +201,73 @@ export const ALL_STANDARD_SCRIM_DEFINITIONS = [
   ...CHAMPION_RUSH_DEFINITIONS,
 ]
 
+export async function getRoomMultiplier(): Promise<number> {
+  try {
+    const rows = await db
+      .select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(or(eq(settings.key, "room_multiplier"), eq(settings.key, "show_room2")))
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+    return parseRoomMultiplier(map.room_multiplier, map.show_room2)
+  } catch {
+    return 1
+  }
+}
+
+export async function getRoomTierOverrides(): Promise<RoomTierOverrides> {
+  try {
+    const rows = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, "room_tier_overrides"))
+      .limit(1)
+    return parseRoomTierOverrides(rows[0]?.value)
+  } catch {
+    return {}
+  }
+}
+
+export async function getScheduleOverrideConfig(): Promise<ScheduleOverrideConfig> {
+  try {
+    const rows = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, "schedule_override_config"))
+      .limit(1)
+    return parseScheduleOverrideConfig(rows[0]?.value)
+  } catch {
+    return parseScheduleOverrideConfig(null)
+  }
+}
+
+export async function getEvaluatedScheduleOverride(): Promise<{
+  config: ScheduleOverrideConfig
+  status: EvaluatedScheduleOverride
+}> {
+  const activeDate = getBangladeshActiveDate()
+  const config = await getScheduleOverrideConfig()
+  const status = evaluateScheduleOverride(config, activeDate)
+  return { config, status }
+}
+
 export async function isFridayScrimsActive(): Promise<boolean> {
   try {
-    const rows = await db.select().from(settings).where(eq(settings.key, "friday_scrims_override")).limit(1)
-    if (rows.length > 0) {
-      if (rows[0].value === "force_on") return true
-      if (rows[0].value === "force_off") return false
+    const rows = await db
+      .select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(or(eq(settings.key, "friday_scrims_override"), eq(settings.key, "schedule_override_config")))
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+    if (map.friday_scrims_override === "force_on") return true
+    if (map.friday_scrims_override === "force_off") return false
+
+    if (map.schedule_override_config) {
+      const evalStatus = evaluateScheduleOverride(
+        parseScheduleOverrideConfig(map.schedule_override_config),
+        getBangladeshActiveDate()
+      )
+      if (evalStatus.isRegWindowActive && evalStatus.targetIsFriday !== null) {
+        return evalStatus.targetIsFriday
+      }
     }
   } catch {}
   return isFridayBD()
@@ -199,120 +277,90 @@ export function getActiveDefinitionsSync(): typeof DAILY_SCRIM_DEFINITIONS {
   return isFridayBD() ? (FRIDAY_SCRIM_DEFINITIONS as any) : DAILY_SCRIM_DEFINITIONS
 }
 
-export async function getActiveDefinitions(): Promise<typeof DAILY_SCRIM_DEFINITIONS> {
-  const isFriday = await isFridayScrimsActive()
-  return isFriday ? (FRIDAY_SCRIM_DEFINITIONS as any) : DAILY_SCRIM_DEFINITIONS
+export async function getActiveDefinitions(): Promise<StandardScrimDef[]> {
+  const [isFriday, multiplier] = await Promise.all([isFridayScrimsActive(), getRoomMultiplier()])
+  return isFriday
+    ? buildMultipliedFridayDefinitions(multiplier)
+    : buildMultipliedDailyDefinitions(multiplier)
 }
 
-export function getAllSampleScrims(): ScrimWithSlots[] {
-  const activeDate = getBangladeshActiveDate()
-  return ALL_STANDARD_SCRIM_DEFINITIONS.map((def, idx) => {
-    const isCR = def.id.includes("-cr") || def.slug.includes("champion-rush") || def.name.toLowerCase().includes("champion rush")
-    const isBlast = def.category === "Friday Special Blast"
+function buildSampleScrimFromDef(
+  def: StandardScrimDef,
+  idx: number,
+  scrimDate: string
+): ScrimWithSlots {
+  const isCR =
+    def.scheduleType === "champion_rush" ||
+    def.id.includes("-cr") ||
+    def.slug.includes("champion-rush") ||
+    def.name.toLowerCase().includes("champion rush")
+  const isBlast = def.scheduleType === "friday_blast" || def.category === "Friday Special Blast"
 
-    return {
-      id: def.id,
-      title: def.name,
-      slug: def.slug,
-      description: isCR
-        ? `${def.time} Champion Rush Tournament: Free Fire squad survival championship format.`
-        : isBlast
-          ? `Friday Special Blast (${def.name}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
-          : `Competitive Free Fire squad scrim lobby (${def.name}).`,
-      rules: isCR
-        ? "1. BATTLE ROYALE format — Maximum 8 matches will occur. Not more than that.\n2. 80 Points Unlock: The team which collects 80 points can unlock the Champion Rush format.\n3. Champion Decider: Once Champion Rush format is unlocked, if any of the teams that unlocked the Champion Rush format gets a BOOYAH, the scrim will finish there and that team will be Champion.\n4. If 8 matches conclude without a Booyah by an unlocked team, the team with the highest overall points wins.\n5. Join room on time. Emulators are strictly prohibited.\n6. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n7. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
-        : isBlast
-          ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
-          : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.",
-      notes: isCR
-        ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours)."
-        : isBlast
-          ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-          : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
-      map: def.map,
-      mode: "BATTLE ROYALE",
-      startTime: def.time,
-      scrimDate: activeDate,
-      category: def.category || null,
-      priceBdt: def.priceBdt,
-      prizePoolBdt: def.prizePoolBdt,
-      maxTeams: 12,
-      bannerUrl: def.bannerUrl || getRandomScrimImage(idx),
-      roomId: null,
-      roomPassword: null,
-      roomPublished: false,
-      registrationOpen: true,
-      status: "upcoming",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      confirmedTeams: 0,
-      publicConfirmedTeams: 0,
-      hidden: false,
-      icebergEnabled: false,
-      icebergShowAllFilled: false,
-      icebergAmount: 7,
-      icebergThreshold: 3,
-      icebergStartRealCount: 0,
-      isTrashed: false,
-      deletedAt: null,
-    }
-  })
+  return {
+    id: def.id,
+    title: def.name,
+    slug: def.slug,
+    description: isCR
+      ? `${def.time} Champion Rush Tournament: Free Fire squad survival championship format.`
+      : isBlast
+        ? `Friday Special Blast (${def.name}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
+        : `Competitive Free Fire squad scrim lobby (${def.name}).`,
+    rules: isCR
+      ? "1. BATTLE ROYALE format — Maximum 8 matches will occur. Not more than that.\n2. 80 Points Unlock: The team which collects 80 points can unlock the Champion Rush format.\n3. Champion Decider: Once Champion Rush format is unlocked, if any of the teams that unlocked the Champion Rush format gets a BOOYAH, the scrim will finish there and that team will be Champion.\n4. If 8 matches conclude without a Booyah by an unlocked team, the team with the highest overall points wins.\n5. Join room on time. Emulators are strictly prohibited.\n6. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n7. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
+      : isBlast
+        ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
+        : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.",
+    notes: isCR
+      ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours)."
+      : isBlast
+        ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
+        : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
+    map: def.map,
+    mode: "BATTLE ROYALE",
+    startTime: def.time,
+    scrimDate,
+    category: def.category || null,
+    priceBdt: def.priceBdt,
+    prizePoolBdt: def.prizePoolBdt,
+    maxTeams: 12,
+    bannerUrl: def.bannerUrl || getRandomScrimImage(idx),
+    roomId: null,
+    roomPassword: null,
+    roomPublished: false,
+    registrationOpen: true,
+    status: "upcoming",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    confirmedTeams: 0,
+    publicConfirmedTeams: 0,
+    hidden: false,
+    icebergEnabled: false,
+    icebergShowAllFilled: false,
+    icebergAmount: 7,
+    icebergThreshold: 3,
+    icebergStartRealCount: 0,
+    isTrashed: false,
+    deletedAt: null,
+  }
 }
 
-function getSampleScrims(isFriday: boolean = false): ScrimWithSlots[] {
+export function getAllSampleScrims(multiplier = 2): ScrimWithSlots[] {
   const activeDate = getBangladeshActiveDate()
-  const defs = isFriday ? FRIDAY_SCRIM_DEFINITIONS : DAILY_SCRIM_DEFINITIONS
-  return defs.map((def, idx) => {
-    const isCR = def.id.includes("-cr") || def.slug.includes("champion-rush") || def.name.toLowerCase().includes("champion rush")
-    const isBlast = def.category === "Friday Special Blast"
+  return buildAllStandardScrimDefinitions(multiplier).map((def, idx) =>
+    buildSampleScrimFromDef(def, idx, activeDate)
+  )
+}
 
-    return {
-      id: def.id,
-      title: def.name,
-      slug: def.slug,
-      description: isCR
-        ? `${def.time} Champion Rush Tournament: Free Fire squad survival championship format.`
-        : isBlast
-          ? `Friday Special Blast (${def.name}) — 5 competitive matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).`
-          : `Competitive Free Fire squad scrim lobby (${def.name}).`,
-      rules: isCR
-        ? "1. BATTLE ROYALE format — Maximum 8 matches will occur. Not more than that.\n2. 80 Points Unlock: The team which collects 80 points can unlock the Champion Rush format.\n3. Champion Decider: Once Champion Rush format is unlocked, if any of the teams that unlocked the Champion Rush format gets a BOOYAH, the scrim will finish there and that team will be Champion.\n4. If 8 matches conclude without a Booyah by an unlocked team, the team with the highest overall points wins.\n5. Join room on time. Emulators are strictly prohibited.\n6. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n7. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
-        : isBlast
-          ? "1. 5 Matches (Bermuda, Purgatory, Kalahari, Solana, and Nexterra).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges."
-          : "1. 3 Matches (BERMUDA, PURGATORY & KALAHARI).\n2. BATTLE ROYALE squad mode (12 Teams).\n3. No emulators allowed.\n4. Join room 10-15 minutes prior to match start.\n5. If you want to submit a hacker report, you have to submit it within 1 hour after the match gets completed.\n6. Please note that a 5.00 BDT fee will be deducted from the final prize payout to cover transfer charges.",
-      notes: isCR
-        ? "RULES: MAX 8 MATCHES WILL OCCUR. NOT MORE THAT THAT. THE TEAM WHICH WOULD COLLECT 80 PTS CAN UNLOCK THE CHAMPION RUSH FORMAT, THEN IF ANY OF THE TEAMS THAT UNLOCKED THE CHAMPION RUSH FORMAT GETS A BOOYAH, THE SCRIM WILL FINISH THERE AND THAT TEAM WILL BE CHAMPION. Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours)."
-        : isBlast
-          ? "5 Matches Tournament (Bermuda, Purgatory, Kalahari, Solana, and Nexterra). Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।"
-          : "Prize distributed to captain's digital wallet within 6 hours of result publication (Maximum 24 hours). Receive payment within 6 hours (সর্বোচ্চ ২৪ ঘণ্টা)।",
-      map: def.map,
-      mode: "BATTLE ROYALE",
-      startTime: def.time,
-      scrimDate: activeDate,
-      category: def.category || null,
-      priceBdt: def.priceBdt,
-      prizePoolBdt: def.prizePoolBdt,
-      maxTeams: 12,
-      bannerUrl: def.bannerUrl || getRandomScrimImage(idx),
-      roomId: null,
-      roomPassword: null,
-      roomPublished: false,
-      registrationOpen: true,
-      status: "upcoming",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      confirmedTeams: 0,
-      publicConfirmedTeams: 0,
-      hidden: false,
-      icebergEnabled: false,
-      icebergShowAllFilled: false,
-      icebergAmount: 7,
-      icebergThreshold: 3,
-      icebergStartRealCount: 0,
-      isTrashed: false,
-      deletedAt: null,
-    }
-  })
+function getSampleScrims(
+  isFriday: boolean = false,
+  multiplier: number = 1,
+  effectiveDate?: string
+): ScrimWithSlots[] {
+  const scrimDate = effectiveDate || getBangladeshActiveDate()
+  const defs = isFriday
+    ? buildMultipliedFridayDefinitions(multiplier)
+    : buildMultipliedDailyDefinitions(multiplier)
+  return defs.map((def, idx) => buildSampleScrimFromDef(def, idx, scrimDate))
 }
 
 export function appendGlobalScrimRules(rules: string): string {
@@ -336,31 +384,54 @@ export function appendGlobalScrimRules(rules: string): string {
   return renumbered.join("\n")
 }
 
-function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWithSlots {
-  const match = ALL_STANDARD_SCRIM_DEFINITIONS.find(
-    (d) => d.id === s.id || d.slug === s.slug
-  )
+function normalizeScrim(
+  s: ScrimWithSlots,
+  isFriday: boolean = false,
+  opts?: {
+    roomTierOverrides?: RoomTierOverrides
+    scheduleEval?: EvaluatedScheduleOverride
+  }
+): ScrimWithSlots {
+  const match = findStandardScrimDefinition(s.id) || findStandardScrimDefinition(s.slug)
   const activeDate = getBangladeshActiveDate()
   const confirmed = s.confirmedTeams ?? 0
   const isFull = confirmed >= (s.maxTeams || 12)
 
   // On a new active date, automatically reset yesterday's completed or closed statuses to fresh upcoming
   const isNewDay = !s.scrimDate || s.scrimDate < activeDate
-  const effectiveDate = s.scrimDate && s.scrimDate > activeDate ? s.scrimDate : activeDate
+  const baseEffectiveDate = s.scrimDate && s.scrimDate > activeDate ? s.scrimDate : activeDate
+  const scheduleEval = opts?.scheduleEval
+  const effectiveDate = scheduleEval?.isRegWindowActive
+    ? scheduleEval.effectiveScrimDate
+    : baseEffectiveDate
+
   const baseStatus = isNewDay && (s.status === "completed" || s.status === "registration_closed")
     ? "upcoming"
     : s.status
   const baseRegOpen = isNewDay ? true : s.registrationOpen
-  const isForcedOpen = baseStatus === "force_open" || baseStatus === "force_turn_on"
 
-  // Check if start time is passed for effective scrim date (ignored when admin enables Force Turn On)
+  // Apply per-room tier override (Force Turn On / Force Turn Off / Normal Mode)
+  const roomNum = getScrimRoomNumber(s)
+  const tierMode = opts?.roomTierOverrides?.[String(roomNum)] || "normal"
+
+  const isIndividuallyForcedOpen = baseStatus === "force_open" || baseStatus === "force_turn_on"
+  const isForcedOpen =
+    baseStatus !== "not_hosted" &&
+    baseStatus !== "completed" &&
+    (isIndividuallyForcedOpen || (tierMode === "force_on" && baseStatus !== "registration_closed"))
+  const isTierForcedOff =
+    tierMode === "force_off" && !isIndividuallyForcedOpen && baseStatus !== "not_hosted" && baseStatus !== "completed"
+  const isShutdownBlocked =
+    Boolean(scheduleEval?.isShutdownActive) && !isForcedOpen && baseStatus !== "not_hosted" && baseStatus !== "completed"
+
+  // Check if start time is passed for effective scrim date (ignored when admin enables Force Turn On or when advance registration window targets a future date)
   const effectiveStartTime = s.startTime?.trim() || match?.time || "7:00 PM"
   const startDate = scrimStartDate(effectiveDate, effectiveStartTime)
   const isTimePassed = new Date().getTime() >= startDate.getTime()
 
   const isClosed = isForcedOpen
     ? isFull
-    : (!baseRegOpen || isFull || isTimePassed || baseStatus === "registration_closed" || baseStatus === "completed" || baseStatus === "not_hosted")
+    : (isShutdownBlocked || isTierForcedOff || !baseRegOpen || isFull || isTimePassed || baseStatus === "registration_closed" || baseStatus === "completed" || baseStatus === "not_hosted")
 
   const isCustomUploaded = Boolean(
     s.bannerUrl &&
@@ -417,7 +488,7 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
       ? "not_hosted"
       : isForcedOpen
       ? "force_open"
-      : isClosed && baseStatus === "upcoming"
+      : (isShutdownBlocked || isTierForcedOff || (isClosed && baseStatus === "upcoming"))
       ? "registration_closed"
       : baseStatus
   const finalRegOpen = baseStatus === "not_hosted" ? false : isForcedOpen ? !isFull : !isClosed
@@ -464,14 +535,10 @@ function normalizeScrim(s: ScrimWithSlots, isFriday: boolean = false): ScrimWith
   }
 }
 
-/** Check if Room 2 should be visible publicly */
+/** Check if Room 2+ should be visible publicly (backwards-compatible wrapper over roomMultiplier) */
 export async function isRoom2Enabled(): Promise<boolean> {
-  try {
-    const rows = await db.select().from(settings).where(eq(settings.key, "show_room2")).limit(1)
-    return rows.length > 0 && rows[0].value === "true"
-  } catch {
-    return false
-  }
+  const mult = await getRoomMultiplier()
+  return mult >= 2
 }
 
 export function isFridayTournament(s: { id?: string; slug?: string; title?: string; category?: string | null; map?: string; scrimDate?: string }): boolean {
@@ -492,19 +559,34 @@ export function isDailyWeekdayScrim(s: { id?: string; slug?: string; title?: str
   if (cat.includes("friday") || cat.includes("champion rush")) return false
   if (cat === "daily scrims") return true
   if (DAILY_SCRIM_DEFINITIONS.some((d) => d.id === s.id || d.slug === s.slug)) return true
-  if (s.title?.toLowerCase().includes("scrim room 1") || s.title?.toLowerCase().includes("scrim room 2")) return true
+  if (/\bscrim\s+room\s+\d+\b/i.test(s.title || "")) return true
   return false
 }
 
-/** All active scrims with confirmed team counts, ordered by start time. Filters out Room 2 for public if toggle is OFF. */
+/** All active scrims with confirmed team counts, ordered by start time. Respects Room Multiplier (Daily & Friday), Room Tier Overrides, and Schedule Shutdown / Target-Date Registration Window. */
 export async function getActiveScrims(includeRoom2Override?: boolean, includeHidden?: boolean): Promise<ScrimWithSlots[]> {
   await ensureSchemaReady()
   // Synchronize past days and archive previous bookings before loading scrims
   await archivePreviousDayBookings().catch(() => {})
 
-  const isFriday = await isFridayScrimsActive()
-  const samples = getSampleScrims(isFriday)
-  const showRoom2 = includeRoom2Override ?? (await isRoom2Enabled())
+  const [isFriday, configuredMultiplier, roomTierOverrides, scheduleOverride] = await Promise.all([
+    isFridayScrimsActive(),
+    getRoomMultiplier(),
+    getRoomTierOverrides(),
+    getScheduleOverrideConfig(),
+  ])
+
+  const activeDate = getBangladeshActiveDate()
+  const scheduleEval = evaluateScheduleOverride(scheduleOverride, activeDate)
+  const effectiveMultiplier = includeRoom2Override === true
+    ? Math.max(2, configuredMultiplier)
+    : includeRoom2Override === false
+      ? 1
+      : configuredMultiplier
+
+  const samples = getSampleScrims(isFriday, effectiveMultiplier, scheduleEval.effectiveScrimDate).map((sample) =>
+    normalizeScrim(sample, isFriday, { roomTierOverrides, scheduleEval })
+  )
 
   let dbRows: ScrimWithSlots[] = []
   try {
@@ -512,7 +594,12 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
       .select({ scrim: scrims, confirmedTeams: confirmedCount })
       .from(scrims)
       .orderBy(asc(scrims.scrimDate))
-    dbRows = rows.map((r) => normalizeScrim({ ...r.scrim, confirmedTeams: r.confirmedTeams }, isFriday))
+    dbRows = rows.map((r) =>
+      normalizeScrim({ ...r.scrim, confirmedTeams: r.confirmedTeams }, isFriday, {
+        roomTierOverrides,
+        scheduleEval,
+      })
+    )
   } catch (err) {
     console.warn("[Queries] Database error fetching active scrims:", err)
     dbRows = []
@@ -591,7 +678,10 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
 
   // Ensure exact confirmedTeams count for all scrims from the database
   try {
-    const activeDate = getBangladeshActiveDate()
+    const dateFilter = scheduleEval.isRegWindowActive
+      ? eq(bookings.scrimDate, scheduleEval.effectiveScrimDate)
+      : gte(bookings.scrimDate, activeDate)
+
     const bookingCounts = await db
       .select({
         scrimId: bookings.scrimId,
@@ -603,7 +693,7 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
           eq(bookings.status, "confirmed"),
           eq(bookings.isTrashed, false),
           eq(bookings.isArchived, false),
-          gte(bookings.scrimDate, activeDate)
+          dateFilter
         )
       )
       .groupBy(bookings.scrimId)
@@ -620,7 +710,7 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
       const maxTeams = s.maxTeams || 12
       if (s.confirmedTeams >= maxTeams) {
         s.registrationOpen = false
-        if (s.status === "upcoming") {
+        if (s.status === "upcoming" || s.status === "force_open") {
           s.status = "registration_closed"
         }
         if (s.icebergEnabled || s.icebergShowAllFilled) {
@@ -647,11 +737,11 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
     console.warn("[Queries] Could not compute live slot counts:", countErr)
   }
 
-  // Filter out Room 2 scrims if disabled on Daily schedule
-  // (Room 2 only applies to Daily Scrims when not in Friday mode)
-  let filtered = (!isFriday && !showRoom2)
-    ? allScrims.filter((s) => !s.id.includes("r2") && !s.slug.includes("room-2"))
-    : allScrims
+  // Filter out rooms above the configured room multiplier (applies cleanly to BOTH Daily and Friday scrims)
+  let filtered = allScrims.filter((s) => {
+    const roomNum = getScrimRoomNumber(s)
+    return roomNum <= effectiveMultiplier
+  })
 
   if (!includeHidden) {
     filtered = filtered.filter((s) => !s.hidden && s.status !== "deleted")
@@ -665,8 +755,14 @@ export async function getActiveScrims(includeRoom2Override?: boolean, includeHid
 export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | null> {
   await ensureSchemaReady()
   await archivePreviousDayBookings().catch(() => {})
-  const isFriday = await isFridayScrimsActive()
-  const allSamples = getAllSampleScrims()
+  const [isFriday, roomTierOverrides, scheduleOverride] = await Promise.all([
+    isFridayScrimsActive(),
+    getRoomTierOverrides(),
+    getScheduleOverrideConfig(),
+  ])
+  const activeDate = getBangladeshActiveDate()
+  const scheduleEval = evaluateScheduleOverride(scheduleOverride, activeDate)
+
   let result: ScrimWithSlots | null = null
   try {
     const rows = await db
@@ -674,13 +770,24 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
       .from(scrims)
       .where(or(eq(scrims.slug, slug), eq(scrims.id, slug)))
       .limit(1)
-    if (rows.length > 0) result = normalizeScrim({ ...rows[0].scrim, confirmedTeams: rows[0].confirmedTeams }, isFriday)
+    if (rows.length > 0) {
+      result = normalizeScrim({ ...rows[0].scrim, confirmedTeams: rows[0].confirmedTeams }, isFriday, {
+        roomTierOverrides,
+        scheduleEval,
+      })
+    }
   } catch (err) {
     console.warn("[Queries] Database error in getScrimBySlug:", err)
   }
   if (!result) {
-    const found = allSamples.find((s) => s.slug === slug || s.id === slug)
-    if (found) result = normalizeScrim(found, isFriday)
+    const def = findStandardScrimDefinition(slug)
+    if (def) {
+      result = normalizeScrim(
+        buildSampleScrimFromDef(def, 0, scheduleEval.effectiveScrimDate),
+        isFriday,
+        { roomTierOverrides, scheduleEval }
+      )
+    }
   }
 
   if (result) {
@@ -689,7 +796,10 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
     }
 
     try {
-      const activeDate = getBangladeshActiveDate()
+      const dateFilter = scheduleEval.isRegWindowActive
+        ? eq(bookings.scrimDate, scheduleEval.effectiveScrimDate)
+        : gte(bookings.scrimDate, activeDate)
+
       const countRows = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(bookings)
@@ -699,14 +809,14 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            gte(bookings.scrimDate, activeDate)
+            dateFilter
           )
         )
       result.confirmedTeams = Number(countRows[0]?.count ?? 0)
       const maxTeams = result.maxTeams || 12
       if (result.confirmedTeams >= maxTeams) {
         result.registrationOpen = false
-        if (result.status === "upcoming") {
+        if (result.status === "upcoming" || result.status === "force_open") {
           result.status = "registration_closed"
         }
         if (result.icebergEnabled || result.icebergShowAllFilled) {
@@ -737,8 +847,14 @@ export async function getScrimBySlug(slug: string): Promise<ScrimWithSlots | nul
 export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
   await ensureSchemaReady()
   await archivePreviousDayBookings().catch(() => {})
-  const isFriday = await isFridayScrimsActive()
-  const allSamples = getAllSampleScrims()
+  const [isFriday, roomTierOverrides, scheduleOverride] = await Promise.all([
+    isFridayScrimsActive(),
+    getRoomTierOverrides(),
+    getScheduleOverrideConfig(),
+  ])
+  const activeDate = getBangladeshActiveDate()
+  const scheduleEval = evaluateScheduleOverride(scheduleOverride, activeDate)
+
   let result: ScrimWithSlots | null = null
   try {
     const rows = await db
@@ -746,13 +862,24 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
       .from(scrims)
       .where(or(eq(scrims.id, id), eq(scrims.slug, id)))
       .limit(1)
-    if (rows.length > 0) result = normalizeScrim({ ...rows[0].scrim, confirmedTeams: rows[0].confirmedTeams }, isFriday)
+    if (rows.length > 0) {
+      result = normalizeScrim({ ...rows[0].scrim, confirmedTeams: rows[0].confirmedTeams }, isFriday, {
+        roomTierOverrides,
+        scheduleEval,
+      })
+    }
   } catch (err) {
     console.warn("[Queries] Database error in getScrimById:", err)
   }
   if (!result) {
-    const found = allSamples.find((s) => s.id === id || s.slug === id)
-    if (found) result = normalizeScrim(found, isFriday)
+    const def = findStandardScrimDefinition(id)
+    if (def) {
+      result = normalizeScrim(
+        buildSampleScrimFromDef(def, 0, scheduleEval.effectiveScrimDate),
+        isFriday,
+        { roomTierOverrides, scheduleEval }
+      )
+    }
   }
 
   if (result) {
@@ -761,7 +888,10 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
     }
 
     try {
-      const activeDate = getBangladeshActiveDate()
+      const dateFilter = scheduleEval.isRegWindowActive
+        ? eq(bookings.scrimDate, scheduleEval.effectiveScrimDate)
+        : gte(bookings.scrimDate, activeDate)
+
       const countRows = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(bookings)
@@ -771,14 +901,14 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
             eq(bookings.status, "confirmed"),
             eq(bookings.isTrashed, false),
             eq(bookings.isArchived, false),
-            gte(bookings.scrimDate, activeDate)
+            dateFilter
           )
         )
       result.confirmedTeams = Number(countRows[0]?.count ?? 0)
       const maxTeams = result.maxTeams || 12
       if (result.confirmedTeams >= maxTeams) {
         result.registrationOpen = false
-        if (result.status === "upcoming") {
+        if (result.status === "upcoming" || result.status === "force_open") {
           result.status = "registration_closed"
         }
         if (result.icebergEnabled || result.icebergShowAllFilled) {
@@ -809,10 +939,18 @@ export async function getScrimById(id: string): Promise<ScrimWithSlots | null> {
 export async function getAllScrims(): Promise<ScrimWithSlots[]> {
   await ensureSchemaReady()
   await archivePreviousDayBookings().catch(() => {})
-  const isFriday = await isFridayScrimsActive()
-  const samples = getAllSampleScrims()
+  const [isFriday, multiplier, roomTierOverrides, scheduleOverride] = await Promise.all([
+    isFridayScrimsActive(),
+    getRoomMultiplier(),
+    getRoomTierOverrides(),
+    getScheduleOverrideConfig(),
+  ])
+  const activeDate = getBangladeshActiveDate()
+  const scheduleEval = evaluateScheduleOverride(scheduleOverride, activeDate)
+  const samples = getAllSampleScrims(Math.max(2, multiplier)).map((s) =>
+    normalizeScrim(s, isFriday, { roomTierOverrides, scheduleEval })
+  )
   try {
-    const activeDate = getBangladeshActiveDate()
     const [rows, bookingCounts] = await Promise.all([
       db
         .select({ scrim: scrims, confirmedTeams: confirmedCount })
@@ -843,7 +981,10 @@ export async function getAllScrims(): Promise<ScrimWithSlots[]> {
     const list = rows.map((r) => {
       const c1 = countMap.get(r.scrim.id) ?? 0
       const c2 = r.scrim.slug && r.scrim.slug !== r.scrim.id ? (countMap.get(r.scrim.slug) ?? 0) : 0
-      const normalized = normalizeScrim({ ...r.scrim, confirmedTeams: c1 + c2 }, isFriday)
+      const normalized = normalizeScrim({ ...r.scrim, confirmedTeams: c1 + c2 }, isFriday, {
+        roomTierOverrides,
+        scheduleEval,
+      })
       if (normalized.confirmedTeams >= (normalized.maxTeams || 12)) {
         if (normalized.icebergEnabled) normalized.icebergEnabled = false
         if (normalized.icebergShowAllFilled) normalized.icebergShowAllFilled = false
@@ -951,12 +1092,11 @@ export async function resolveOrEnsureScrim(scrimIdOrSlug: string) {
       return rows[0]
     }
 
-    const def = ALL_STANDARD_SCRIM_DEFINITIONS.find(
-      (d) => d.id === scrimIdOrSlug || d.slug === scrimIdOrSlug,
-    )
+    const def = findStandardScrimDefinition(scrimIdOrSlug)
 
     if (def) {
-      const activeDate = getBangladeshActiveDate()
+      const scheduleConfig = await getScheduleOverrideConfig()
+      const scheduleEval = evaluateScheduleOverride(scheduleConfig, activeDate)
       const inserted = await db
         .insert(scrims)
         .values({
@@ -966,7 +1106,8 @@ export async function resolveOrEnsureScrim(scrimIdOrSlug: string) {
           map: def.map,
           mode: "BATTLE ROYALE",
           startTime: def.time,
-          scrimDate: activeDate,
+          scrimDate: scheduleEval.effectiveScrimDate,
+          category: def.category || "Daily Scrims",
           priceBdt: def.priceBdt,
           prizePoolBdt: def.prizePoolBdt,
           maxTeams: 12,

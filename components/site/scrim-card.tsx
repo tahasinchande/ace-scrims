@@ -144,7 +144,7 @@ export function ScrimCard({
           : { opacity: 0, y: 30, scale: 0.96 }
       }
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: "-50px" }}
+      viewport={{ once: true, amount: "some", margin: "0px 0px -12px 0px" }}
       transition={
         prefersReducedMotion
           ? { duration: 0 }

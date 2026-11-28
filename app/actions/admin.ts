@@ -217,8 +217,9 @@ async function ensureScrimInDb(scrimId: string) {
     const existing = await db.select({ id: scrims.id }).from(scrims).where(eq(scrims.id, scrimId)).limit(1)
     if (existing.length > 0) return
 
-    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
-    const def = ALL_STANDARD_SCRIM_DEFINITIONS.find((d) => d.id === scrimId || d.slug === scrimId)
+    const { getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const { findStandardScrimDefinition } = await import("@/lib/room-multiplier")
+    const def = findStandardScrimDefinition(scrimId)
     if (def) {
       await db.insert(scrims).values({
         id: def.id,
@@ -228,6 +229,7 @@ async function ensureScrimInDb(scrimId: string) {
         mode: "BATTLE ROYALE",
         startTime: def.time,
         scrimDate: getBangladeshActiveDate(),
+        category: def.category || "Daily Scrims",
         priceBdt: def.priceBdt,
         prizePoolBdt: def.prizePoolBdt,
         maxTeams: 12,
@@ -264,9 +266,10 @@ export async function deleteScrim(scrimId: string): Promise<{ ok: boolean; error
         })
         .where(eq(scrims.id, scrimId))
     } else {
-      // If it's a standard definition, insert it as soft-deleted
-      const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
-      const def = ALL_STANDARD_SCRIM_DEFINITIONS.find((d) => d.id === scrimId || d.slug === scrimId)
+      // If it's a standard definition (including multiplied Room 1..10 Daily/Friday), insert it as soft-deleted
+      const { getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+      const { findStandardScrimDefinition } = await import("@/lib/room-multiplier")
+      const def = findStandardScrimDefinition(scrimId)
       if (def) {
         await db.insert(scrims).values({
           id: def.id,
@@ -276,6 +279,7 @@ export async function deleteScrim(scrimId: string): Promise<{ ok: boolean; error
           mode: "BATTLE ROYALE",
           startTime: def.time,
           scrimDate: getBangladeshActiveDate(),
+          category: def.category || "Daily Scrims",
           priceBdt: def.priceBdt,
           prizePoolBdt: def.prizePoolBdt,
           maxTeams: 12,
@@ -1305,6 +1309,10 @@ export async function setSetting(key: string, value: string): Promise<{ ok: bool
       "champion_rush_3pm_whatsapp_url",
       "support_kori_url",
       "show_room2",
+      "room_multiplier",
+      "room_tier_overrides",
+      "schedule_override_config",
+      "background_theme_config",
       "maintenance_mode",
       "staff_portal_path",
       "friday_scrims_override",
@@ -1412,6 +1420,10 @@ export async function saveAllSiteSettings(
       "champion_rush_3pm_whatsapp_url",
       "support_kori_url",
       "show_room2",
+      "room_multiplier",
+      "room_tier_overrides",
+      "schedule_override_config",
+      "background_theme_config",
       "maintenance_mode",
       "staff_portal_path",
       "friday_scrims_override",
@@ -1774,11 +1786,14 @@ export async function cancelExpiredPendingBookingsAction() {
 export async function forceTurnOnAllScrimsAction(): Promise<{ ok: boolean; count?: number; error?: string }> {
   try {
     const admin = await requireAdmin()
-    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const { getBangladeshActiveDate, getRoomMultiplier } = await import("@/lib/queries/scrims")
+    const { buildAllStandardScrimDefinitions } = await import("@/lib/room-multiplier")
     const activeDate = getBangladeshActiveDate()
+    const multiplier = await getRoomMultiplier()
+    const standardDefs = buildAllStandardScrimDefinitions(multiplier)
 
-    // 1. Ensure all standard sample scrims are inserted into DB if not present
-    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+    // 1. Ensure all multiplied standard scrims are inserted into DB if not present
+    for (const def of standardDefs) {
       try {
         await db
           .insert(scrims)
@@ -1821,6 +1836,12 @@ export async function forceTurnOnAllScrimsAction(): Promise<{ ok: boolean; count
       )
       .returning({ id: scrims.id })
 
+    // Clear conflicting per-tier force_off overrides so global Force Turn On takes full effect
+    await db
+      .insert(settings)
+      .values({ key: "room_tier_overrides", value: "{}", updatedAt: new Date() })
+      .onConflictDoUpdate({ target: settings.key, set: { value: "{}", updatedAt: new Date() } })
+
     await logActivity(admin.id, "admin", "force_turn_on_all_scrims", "All Lobbies", {
       count: updated.length,
     })
@@ -1844,11 +1865,14 @@ export async function forceTurnOnAllScrimsAction(): Promise<{ ok: boolean; count
 export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; count?: number; error?: string }> {
   try {
     const admin = await requireAdmin()
-    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const { getBangladeshActiveDate, getRoomMultiplier } = await import("@/lib/queries/scrims")
+    const { buildAllStandardScrimDefinitions } = await import("@/lib/room-multiplier")
     const activeDate = getBangladeshActiveDate()
+    const multiplier = await getRoomMultiplier()
+    const standardDefs = buildAllStandardScrimDefinitions(multiplier)
 
-    // 1. Ensure all standard sample scrims are inserted into DB if not present
-    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+    // 1. Ensure all multiplied standard scrims are inserted into DB if not present
+    for (const def of standardDefs) {
       try {
         await db
           .insert(scrims)
@@ -1891,6 +1915,12 @@ export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; coun
       )
       .returning({ id: scrims.id })
 
+    // Clear conflicting per-tier force_on overrides so global Force Turn Off takes full effect
+    await db
+      .insert(settings)
+      .values({ key: "room_tier_overrides", value: "{}", updatedAt: new Date() })
+      .onConflictDoUpdate({ target: settings.key, set: { value: "{}", updatedAt: new Date() } })
+
     await logActivity(admin.id, "admin", "force_turn_off_all_scrims", "All Lobbies", {
       count: updated.length,
     })
@@ -1914,10 +1944,13 @@ export async function forceTurnOffAllScrimsAction(): Promise<{ ok: boolean; coun
 export async function normalModeAllScrimsAction(): Promise<{ ok: boolean; count?: number; error?: string }> {
   try {
     const admin = await requireAdmin()
-    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate } = await import("@/lib/queries/scrims")
+    const { getBangladeshActiveDate, getRoomMultiplier } = await import("@/lib/queries/scrims")
+    const { buildAllStandardScrimDefinitions } = await import("@/lib/room-multiplier")
     const activeDate = getBangladeshActiveDate()
+    const multiplier = await getRoomMultiplier()
+    const standardDefs = buildAllStandardScrimDefinitions(multiplier)
 
-    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+    for (const def of standardDefs) {
       try {
         await db
           .insert(scrims)
@@ -1959,6 +1992,12 @@ export async function normalModeAllScrimsAction(): Promise<{ ok: boolean; count?
         )
       )
       .returning({ id: scrims.id })
+
+    // Clear all per-tier overrides when returning all scrims to Normal Mode
+    await db
+      .insert(settings)
+      .values({ key: "room_tier_overrides", value: "{}", updatedAt: new Date() })
+      .onConflictDoUpdate({ target: settings.key, set: { value: "{}", updatedAt: new Date() } })
 
     await logActivity(admin.id, "admin", "normal_mode_all_scrims", "All Lobbies", {
       count: updated.length,
@@ -2099,6 +2138,341 @@ export async function removeTeamFromScrimAction(
     return { ok: false, error: err?.message || "Failed to remove team from scrim" }
   }
 }
+
+/**
+ * Admin Action: Configure exact Room Multiplier (1..10) across BOTH Daily and Friday Scrims.
+ * Automatically opens/generates X room instances and keeps legacy `show_room2` in sync.
+ */
+export async function setRoomMultiplierAction(
+  multiplierInput: number
+): Promise<{ ok: boolean; multiplier?: number; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const { clampRoomMultiplier } = await import("@/lib/room-multiplier")
+    const multiplier = clampRoomMultiplier(multiplierInput)
+
+    await Promise.all([
+      db
+        .insert(settings)
+        .values({ key: "room_multiplier", value: String(multiplier), updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: String(multiplier), updatedAt: new Date() },
+        }),
+      db
+        .insert(settings)
+        .values({ key: "show_room2", value: multiplier >= 2 ? "true" : "false", updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: multiplier >= 2 ? "true" : "false", updatedAt: new Date() },
+        }),
+    ])
+
+    await logActivity(admin.id, "admin", "set_room_multiplier", `Room Multiplier: ${multiplier}x`, {
+      multiplier,
+    })
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin/results")
+    revalidatePath("/admin/iceberg")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, multiplier }
+  } catch (err: any) {
+    console.error("[setRoomMultiplierAction] Error:", err)
+    return { ok: false, error: err?.message || "Failed to update room multiplier" }
+  }
+}
+
+/**
+ * Admin Action: Apply Force Turn On, Force Turn Off, or Normal Mode to a specific room tier (Room X)
+ * across all matching Daily and Friday lobbies in that room tier.
+ */
+export async function setRoomTierModeAction(
+  roomNumberInput: number,
+  mode: "normal" | "force_on" | "force_off"
+): Promise<{
+  ok: boolean
+  roomNumber?: number
+  mode?: string
+  count?: number
+  overrides?: import("@/lib/room-multiplier").RoomTierOverrides
+  error?: string
+}> {
+  try {
+    const admin = await requireAdmin()
+    const {
+      clampRoomMultiplier,
+      buildAllStandardScrimDefinitions,
+      getScrimRoomNumber,
+    } = await import("@/lib/room-multiplier")
+    const {
+      getBangladeshActiveDate,
+      getRoomMultiplier,
+      getRoomTierOverrides,
+    } = await import("@/lib/queries/scrims")
+
+    const roomNumber = clampRoomMultiplier(roomNumberInput)
+    if (mode !== "normal" && mode !== "force_on" && mode !== "force_off") {
+      return { ok: false, error: "Invalid room mode" }
+    }
+
+    const activeDate = getBangladeshActiveDate()
+    const [multiplier, currentOverrides] = await Promise.all([
+      getRoomMultiplier(),
+      getRoomTierOverrides(),
+    ])
+
+    const nextOverrides = { ...currentOverrides }
+    if (mode === "normal") {
+      delete nextOverrides[String(roomNumber)]
+    } else {
+      nextOverrides[String(roomNumber)] = mode
+    }
+
+    await db
+      .insert(settings)
+      .values({
+        key: "room_tier_overrides",
+        value: JSON.stringify(nextOverrides),
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: JSON.stringify(nextOverrides), updatedAt: new Date() },
+      })
+
+    const targetStatus =
+      mode === "force_on" ? "force_open" : mode === "force_off" ? "registration_closed" : "upcoming"
+    const targetRegOpen = mode !== "force_off"
+
+    const effectiveMax = Math.max(multiplier, roomNumber)
+    const defsForTier = buildAllStandardScrimDefinitions(effectiveMax).filter(
+      (d) => d.roomNumber === roomNumber
+    )
+
+    // Ensure DB rows exist for this room tier and update their status immediately
+    const tierIds = new Set<string>()
+    for (const def of defsForTier) {
+      tierIds.add(def.id)
+      try {
+        await db
+          .insert(scrims)
+          .values({
+            id: def.id,
+            title: def.name,
+            slug: def.slug,
+            map: def.map,
+            mode: "BATTLE ROYALE",
+            startTime: def.time,
+            scrimDate: activeDate,
+            category: def.category || "Daily Scrims",
+            priceBdt: def.priceBdt,
+            prizePoolBdt: def.prizePoolBdt,
+            maxTeams: 12,
+            bannerUrl: def.bannerUrl || "/images/scrim-1.jpg",
+            status: targetStatus,
+            registrationOpen: targetRegOpen,
+          })
+          .onConflictDoNothing()
+      } catch {}
+    }
+
+    // Also find any custom/existing DB scrims belonging to this room tier
+    const allDbScrims = await db
+      .select({ id: scrims.id, slug: scrims.slug, title: scrims.title, status: scrims.status, isTrashed: scrims.isTrashed })
+      .from(scrims)
+    for (const row of allDbScrims) {
+      if (row.isTrashed || row.status === "deleted" || row.status === "permanently_deleted") continue
+      if (getScrimRoomNumber(row) === roomNumber) {
+        tierIds.add(row.id)
+      }
+    }
+
+    const idList = Array.from(tierIds)
+    let updatedCount = 0
+    if (idList.length > 0) {
+      const updated = await db
+        .update(scrims)
+        .set({
+          status: targetStatus,
+          registrationOpen: targetRegOpen,
+          scrimDate: sql`GREATEST(COALESCE(${scrims.scrimDate}, ${activeDate}), ${activeDate})`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            inArray(scrims.id, idList),
+            eq(scrims.isTrashed, false),
+            ne(scrims.status, "deleted"),
+            ne(scrims.status, "permanently_deleted"),
+            ne(scrims.status, "completed"),
+            ne(scrims.status, "not_hosted")
+          )
+        )
+        .returning({ id: scrims.id })
+      updatedCount = updated.length
+    }
+
+    await logActivity(admin.id, "admin", `room_tier_${mode}`, `Room ${roomNumber} Lobbies`, {
+      roomNumber,
+      mode,
+      count: updatedCount,
+    })
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, roomNumber, mode, count: updatedCount, overrides: nextOverrides }
+  } catch (err: any) {
+    console.error("[setRoomTierModeAction] Error:", err)
+    return { ok: false, error: err?.message || "Failed to update room tier mode" }
+  }
+}
+
+/**
+ * Admin Action: Save Schedule Shutdown & Date-Range Target Registration Window.
+ */
+export async function saveScheduleOverrideAction(
+  input: unknown
+): Promise<{
+  ok: boolean
+  config?: import("@/lib/schedule-override").ScheduleOverrideConfig
+  error?: string
+}> {
+  try {
+    const admin = await requireAdmin()
+    const { scheduleOverrideSchema } = await import("@/lib/schedule-override")
+    const parsed = scheduleOverrideSchema.safeParse(input)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message || "Invalid schedule override configuration." }
+    }
+
+    const payload = {
+      ...parsed.data,
+      updatedAt: new Date().toISOString(),
+    }
+    const serialized = JSON.stringify(payload)
+
+    await db
+      .insert(settings)
+      .values({ key: "schedule_override_config", value: serialized, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: serialized, updatedAt: new Date() },
+      })
+
+    await logActivity(
+      admin.id,
+      "admin",
+      "update_schedule_override",
+      payload.enabled ? "enabled" : "disabled",
+      payload
+    )
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, config: payload }
+  } catch (err: any) {
+    console.error("[saveScheduleOverrideAction] Error:", err)
+    return { ok: false, error: err?.message || "Failed to save schedule override." }
+  }
+}
+
+/**
+ * Admin Quick Action: Immediately turn off Schedule Shutdown / Registration Window override
+ * and restore normal schedule operation.
+ */
+export async function disableScheduleOverrideAction(): Promise<{
+  ok: boolean
+  config?: import("@/lib/schedule-override").ScheduleOverrideConfig
+  error?: string
+}> {
+  try {
+    const admin = await requireAdmin()
+    const { getScheduleOverrideConfig } = await import("@/lib/queries/scrims")
+    const current = await getScheduleOverrideConfig()
+    const payload = {
+      ...current,
+      enabled: false,
+      updatedAt: new Date().toISOString(),
+    }
+    const serialized = JSON.stringify(payload)
+
+    await db
+      .insert(settings)
+      .values({ key: "schedule_override_config", value: serialized, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: serialized, updatedAt: new Date() },
+      })
+
+    await logActivity(admin.id, "admin", "disable_schedule_override", "Restored Normal Schedule")
+
+    revalidatePath("/admin/scrims")
+    revalidatePath("/admin")
+    revalidatePath("/scrims")
+    revalidatePath("/")
+
+    return { ok: true, config: payload }
+  } catch (err: any) {
+    console.error("[disableScheduleOverrideAction] Error:", err)
+    return { ok: false, error: err?.message || "Failed to restore normal schedule." }
+  }
+}
+
+/**
+ * Admin Action: Save site-wide Background color-changing interval and palette configuration.
+ */
+export async function saveBackgroundThemeConfigAction(
+  input: unknown
+): Promise<{ ok: boolean; config?: import("@/lib/background-config").BackgroundThemeConfig; error?: string }> {
+  try {
+    const admin = await requireAdmin()
+    const { backgroundThemeConfigSchema } = await import("@/lib/background-config")
+    const parsed = backgroundThemeConfigSchema.safeParse(input)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message || "Invalid background configuration." }
+    }
+
+    const payload = {
+      ...parsed.data,
+      updatedAt: new Date().toISOString(),
+    }
+    const serialized = JSON.stringify(payload)
+
+    await db
+      .insert(settings)
+      .values({ key: "background_theme_config", value: serialized, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: serialized, updatedAt: new Date() },
+      })
+
+    await logActivity(admin.id, "admin", "update_background_theme", "Background Settings", {
+      delaySeconds: payload.delaySeconds,
+      transitionSeconds: payload.transitionSeconds,
+      builtInCount: payload.enabledBuiltInPhases.length,
+      customCount: payload.customColors.length,
+    })
+
+    revalidatePath("/admin/background")
+    revalidatePath("/", "layout")
+
+    return { ok: true, config: payload }
+  } catch (err: any) {
+    console.error("[saveBackgroundThemeConfigAction] Error:", err)
+    return { ok: false, error: err?.message || "Failed to save background settings." }
+  }
+}
+
 
 
 

@@ -1,25 +1,43 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Search, Flame, Trophy, Calendar, AlertCircle, Lock } from "lucide-react"
+import { Search, Flame, Trophy, Calendar, AlertCircle, Lock, CalendarClock, PauseCircle, Layers } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { ScrimCard, type ScrimCardData } from "@/components/site/scrim-card"
 import { Reveal } from "@/components/site/reveal"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/language"
 import { sortScrimsAscending } from "@/lib/format"
+import { getScrimRoomNumber } from "@/lib/room-multiplier"
+import type { EvaluatedScheduleOverride } from "@/lib/schedule-override"
 
-export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: { scrims: ScrimCardData[]; isAuthed?: boolean }) {
+export function ScrimsExplorer({
+  scrims: initialScrims,
+  isAuthed: _isAuthed,
+  initialScheduleStatus = null,
+}: {
+  scrims: ScrimCardData[]
+  isAuthed?: boolean
+  initialScheduleStatus?: EvaluatedScheduleOverride | null
+}) {
   const { t } = useLanguage()
   const [scrims, setScrims] = useState<ScrimCardData[]>(initialScrims)
+  const [scheduleStatus, setScheduleStatus] = useState<EvaluatedScheduleOverride | null>(
+    initialScheduleStatus
+  )
   const [query, setQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [selectedRoom, setSelectedRoom] = useState<number | "all">("all")
   const [time, setTime] = useState<string>("All")
 
   // Sync if initial server props update
   useEffect(() => {
     setScrims(initialScrims)
   }, [initialScrims])
+
+  useEffect(() => {
+    setScheduleStatus(initialScheduleStatus)
+  }, [initialScheduleStatus])
 
   // Live real-time slot polling via /api/scrims/slots
   useEffect(() => {
@@ -31,6 +49,9 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
         const data = await res.json()
         if (!active || !data?.ok || !Array.isArray(data.scrims)) return
         setScrims(data.scrims as ScrimCardData[])
+        if (data.scheduleStatus !== undefined) {
+          setScheduleStatus(data.scheduleStatus as EvaluatedScheduleOverride | null)
+        }
       } catch {
         // Silent retry on next interval
       }
@@ -86,6 +107,14 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
     }
   }, [])
 
+  const availableRooms = useMemo(() => {
+    const set = new Set<number>()
+    for (const s of scrims) {
+      set.add(getScrimRoomNumber(s))
+    }
+    return Array.from(set).sort((a, b) => a - b)
+  }, [scrims])
+
   const filtered = useMemo(() => {
     return sortScrimsAscending(
       scrims.filter((s) => {
@@ -107,6 +136,11 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
           if (!isCR) return false
         }
 
+        // Dynamic Room filter
+        if (selectedRoom !== "all" && getScrimRoomNumber(s) !== selectedRoom) {
+          return false
+        }
+
         // Time filter
         const normTime = s.startTime.replace(/\s*(AM|PM)/i, "").trim()
         const filterNorm = time.replace(/\s*(AM|PM)/i, "").trim()
@@ -124,7 +158,7 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
         return matchesTime && matchesQuery
       })
     )
-  }, [scrims, query, time, selectedCategory])
+  }, [scrims, query, time, selectedCategory, selectedRoom])
 
   const isChampionRushActive = selectedCategory === "champion-rush" || filtered.some((f) => f.slug.includes("champion-rush"))
 
@@ -258,8 +292,36 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
         </Reveal>
       )}
 
+      {/* Schedule Shutdown / Advance Registration Window Banner */}
+      {scheduleStatus?.isShutdownActive && (
+        <Reveal immediate y={10} duration={0.45} className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 sm:p-5 flex items-start gap-3">
+          <PauseCircle className="size-5 shrink-0 text-rose-400 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-display text-sm font-bold uppercase tracking-wider text-rose-300">
+              Scrims Temporarily Paused
+            </p>
+            <p className="text-xs sm:text-sm text-rose-100/90 leading-relaxed">
+              {scheduleStatus.summary}
+            </p>
+          </div>
+        </Reveal>
+      )}
+      {scheduleStatus?.isRegWindowActive && (
+        <Reveal immediate y={10} duration={0.45} className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 sm:p-5 flex items-start gap-3">
+          <CalendarClock className="size-5 shrink-0 text-emerald-400 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-display text-sm font-bold uppercase tracking-wider text-emerald-300">
+              Advance Registration Open · Target Date: {scheduleStatus.effectiveScrimDate}
+            </p>
+            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
+              {scheduleStatus.summary}
+            </p>
+          </div>
+        </Reveal>
+      )}
+
       {/* Search & Filters */}
-      <Reveal immediate delay={0.12} y={12} duration={0.52} className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <Reveal immediate delay={0.12} y={12} duration={0.52} className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
@@ -270,6 +332,38 @@ export function ScrimsExplorer({ scrims: initialScrims, isAuthed: _isAuthed }: {
             aria-label="Search scrims"
           />
         </div>
+        {availableRooms.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedRoom("all")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                selectedRoom === "all"
+                  ? "border-primary/60 bg-primary/15 text-primary"
+                  : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Layers className="size-3.5" />
+              All Rooms
+            </button>
+            {availableRooms.map((roomNum) => (
+              <button
+                key={roomNum}
+                type="button"
+                onClick={() => setSelectedRoom(roomNum)}
+                className={cn(
+                  "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
+                  selectedRoom === roomNum
+                    ? "border-primary/60 bg-primary/15 text-primary"
+                    : "border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Room {roomNum}
+              </button>
+            ))}
+          </div>
+        )}
       </Reveal>
 
       {filtered.length === 0 ? (

@@ -1,7 +1,7 @@
 import "server-only"
 
 import { randomBytes, randomInt, randomUUID } from "crypto"
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, ne, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import {
   creatorApplications,
@@ -256,16 +256,29 @@ function makeSlugPrefix(name: string | null | undefined, fallback: string, maxLe
   return clean.length >= 2 ? clean : fallback
 }
 
-async function isCodeTaken(code: string): Promise<boolean> {
+export async function isReferralCodeTaken(
+  code: string,
+  excludeApplicationId?: string
+): Promise<boolean> {
+  const normalized = normalizeReferralCode(code)
+  if (!normalized) return false
+  const creatorCondition = excludeApplicationId
+    ? and(eq(creatorApplications.referralCode, normalized), ne(creatorApplications.id, excludeApplicationId))
+    : eq(creatorApplications.referralCode, normalized)
+
   const [uRows, cRows] = await Promise.all([
-    db.select({ id: user.id }).from(user).where(eq(user.referralCode, code)).limit(1),
+    db.select({ id: user.id }).from(user).where(eq(user.referralCode, normalized)).limit(1),
     db
       .select({ id: creatorApplications.id })
       .from(creatorApplications)
-      .where(eq(creatorApplications.referralCode, code))
+      .where(creatorCondition)
       .limit(1),
   ])
   return uRows.length > 0 || cRows.length > 0
+}
+
+async function isCodeTaken(code: string): Promise<boolean> {
+  return isReferralCodeTaken(code)
 }
 
 /**
@@ -329,7 +342,7 @@ export async function generateUniqueCreatorReferralCode(
   preferredCustomCode?: string | null
 ): Promise<string> {
   const custom = normalizeReferralCode(preferredCustomCode)
-  if (custom.length >= 4 && custom.length <= 20) {
+  if (custom.length >= 3 && custom.length <= 24) {
     if (!(await isCodeTaken(custom))) {
       return custom
     }

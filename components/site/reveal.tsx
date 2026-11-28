@@ -24,7 +24,7 @@ export function useReliableOnceReveal(
   reduced: boolean | null,
   immediate = false
 ) {
-  const inView = useInView(ref, { once: true, margin: "-40px" })
+  const inView = useInView(ref, { once: true, amount: "some", margin: "0px 0px -16px 0px" })
   const [revealed, setRevealed] = useState(Boolean(reduced))
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function useReliableOnceReveal(
       })
       const safeTimer = window.setTimeout(() => {
         setRevealed(true)
-      }, 260)
+      }, 240)
       return () => {
         window.cancelAnimationFrame(raf1)
         if (raf2) window.cancelAnimationFrame(raf2)
@@ -61,19 +61,23 @@ export function useReliableOnceReveal(
       const el = ref.current
       if (!el || typeof window === "undefined") return
       const rect = el.getBoundingClientRect()
-      // Only trigger once element has genuinely entered the visible viewport (never off-screen below the fold)
-      if (rect.top < window.innerHeight - 40 && rect.bottom > 20) {
+      // Reveal cleanly once the element enters the viewport (or if user already scrolled past it)
+      if (rect.top <= window.innerHeight - 12 && rect.bottom >= 0) {
+        setRevealed(true)
+      } else if (rect.bottom < 0) {
         setRevealed(true)
       }
     }
 
     checkRect()
     const raf = window.requestAnimationFrame(checkRect)
+    const settleTimer = window.setTimeout(checkRect, 350)
     window.addEventListener("scroll", checkRect, { passive: true })
     window.addEventListener("resize", checkRect, { passive: true })
 
     return () => {
       window.cancelAnimationFrame(raf)
+      window.clearTimeout(settleTimer)
       window.removeEventListener("scroll", checkRect)
       window.removeEventListener("resize", checkRect)
     }

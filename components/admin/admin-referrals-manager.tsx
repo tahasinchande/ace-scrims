@@ -117,21 +117,29 @@ export function AdminReferralsManager({
     })
   }
 
-  async function handleReview(appId: string, decision: "approve" | "reject") {
-    setReviewingId(appId)
+  async function handleReview(app: EnrichedApplication, decision: "approve" | "reject") {
+    setReviewingId(app.id)
     try {
+      const effectiveCustomCode =
+        customCodes[app.id] !== undefined
+          ? customCodes[app.id]
+          : app.referralCode ?? app.requestedReferralCode ?? ""
       const res = await reviewCreatorApplicationAction({
-        applicationId: appId,
+        applicationId: app.id,
         decision,
-        customCode: customCodes[appId] || "",
-        adminNote: adminNotes[appId] || "",
+        customCode: effectiveCustomCode,
+        adminNote: adminNotes[app.id] ?? app.adminNote ?? "",
       })
       if (!res.ok) {
         toast.error(res.error)
         return
       }
       if (decision === "approve") {
-        toast.success(`Creator approved! Code: ${res.referralCode}`)
+        const assignedCode = res.referralCode ?? ""
+        if (assignedCode) {
+          setCustomCodes((prev) => ({ ...prev, [app.id]: assignedCode }))
+        }
+        toast.success(`Partner approved! Exact Referral Code: ${assignedCode}`)
       } else {
         toast.success("Creator application rejected.")
       }
@@ -789,17 +797,17 @@ export function AdminReferralsManager({
       </Card>
 
       {/* Creator Applications Review Queue */}
-      <Card>
+      <Card id="creator-applications">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <SlidersHorizontal className="size-5 text-primary" />
-                Content Creator Applications
+                Content Creator &amp; Partnership Applications
               </CardTitle>
               <CardDescription>
-                Approve verified creators to issue a unique creator referral code, and track signups &amp;
-                Creator Wallet balances per creator.
+                Review applicants&apos; requested exact referral codes, assign or update exact
+                custom codes, and track signups &amp; Creator Wallet balances.
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -826,6 +834,10 @@ export function AdminReferralsManager({
           ) : (
             filteredApps.map((app) => {
               const isBusy = reviewingId === app.id
+              const currentCodeInput =
+                customCodes[app.id] !== undefined
+                  ? customCodes[app.id]
+                  : app.referralCode ?? app.requestedReferralCode ?? ""
               return (
                 <div
                   key={app.id}
@@ -850,7 +862,12 @@ export function AdminReferralsManager({
                         </Badge>
                         {app.referralCode && (
                           <code className="rounded bg-emerald-500/15 px-2 py-0.5 font-mono text-xs font-bold text-emerald-400">
-                            {app.referralCode}
+                            Assigned: {app.referralCode}
+                          </code>
+                        )}
+                        {app.requestedReferralCode && (
+                          <code className="rounded border border-amber-500/35 bg-amber-500/15 px-2 py-0.5 font-mono text-xs font-bold text-amber-300">
+                            Requested: {app.requestedReferralCode}
                           </code>
                         )}
                         <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
@@ -899,17 +916,45 @@ export function AdminReferralsManager({
                   )}
 
                   <div className="grid gap-2.5 sm:grid-cols-3 pt-1">
-                    <Input
-                      placeholder="Optional custom code (e.g. CR-ACE)"
-                      value={customCodes[app.id] ?? app.referralCode ?? ""}
-                      onChange={(e) =>
-                        setCustomCodes((prev) => ({
-                          ...prev,
-                          [app.id]: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""),
-                        }))
-                      }
-                      className="h-9 font-mono text-xs uppercase"
-                    />
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          placeholder="Exact custom code (e.g. RUSHX_PRO)"
+                          value={currentCodeInput}
+                          maxLength={24}
+                          onChange={(e) =>
+                            setCustomCodes((prev) => ({
+                              ...prev,
+                              [app.id]: e.target.value
+                                .toUpperCase()
+                                .replace(/[^A-Z0-9_-]/g, "")
+                                .slice(0, 24),
+                            }))
+                          }
+                          className="h-9 font-mono text-xs uppercase"
+                        />
+                        {app.requestedReferralCode &&
+                          currentCodeInput !== app.requestedReferralCode && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-9 shrink-0 px-2 text-[11px]"
+                              onClick={() =>
+                                setCustomCodes((prev) => ({
+                                  ...prev,
+                                  [app.id]: app.requestedReferralCode || "",
+                                }))
+                              }
+                            >
+                              Use Requested
+                            </Button>
+                          )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Assigned verbatim if available (3–24 chars). Leave empty to auto-generate.
+                      </p>
+                    </div>
                     <Input
                       placeholder="Optional admin note to applicant"
                       value={adminNotes[app.id] ?? app.adminNote ?? ""}
@@ -918,12 +963,12 @@ export function AdminReferralsManager({
                       }
                       className="h-9 text-xs"
                     />
-                    <div className="flex items-center gap-2 justify-end">
+                    <div className="flex items-start gap-2 justify-end">
                       <Button
                         type="button"
                         size="sm"
                         disabled={isBusy}
-                        onClick={() => handleReview(app.id, "approve")}
+                        onClick={() => handleReview(app, "approve")}
                         className="bg-emerald-600 hover:bg-emerald-500 text-white"
                       >
                         {isBusy ? (
@@ -931,14 +976,14 @@ export function AdminReferralsManager({
                         ) : (
                           <CheckCircle2 className="mr-1.5 size-3.5" />
                         )}
-                        Approve
+                        {app.status === "approved" ? "Save Exact Code" : "Approve"}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="destructive"
                         disabled={isBusy}
-                        onClick={() => handleReview(app.id, "reject")}
+                        onClick={() => handleReview(app, "reject")}
                       >
                         <XCircle className="mr-1.5 size-3.5" />
                         Reject

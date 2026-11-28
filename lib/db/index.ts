@@ -39,7 +39,7 @@ function isBuildTimeContext(): boolean {
 }
 
 const SCHEMA_VERSION_KEY = "schema_migration_version"
-const CURRENT_SCHEMA_VERSION = "v2026_11_24_live_chat_columns_v4"
+const CURRENT_SCHEMA_VERSION = "v2026_11_27_creator_requested_code_v5"
 
 async function ensureSchema() {
   if (!connectionString || isBuildTimeContext()) return
@@ -624,7 +624,8 @@ async function ensureSchema() {
           "createdAt" timestamp NOT NULL DEFAULT NOW(),
           "updatedAt" timestamp NOT NULL DEFAULT NOW()
         )`,
-        `CREATE INDEX IF NOT EXISTS "idx_creator_withdrawals_user_status" ON "creator_withdrawals" ("userId", "status", "createdAt")`
+        `CREATE INDEX IF NOT EXISTS "idx_creator_withdrawals_user_status" ON "creator_withdrawals" ("userId", "status", "createdAt")`,
+        `ALTER TABLE "creator_applications" ADD COLUMN IF NOT EXISTS "requestedReferralCode" text`
       ]
 
       // Execute DDL in compact multi-statement batches to minimize remote Neon round-trips

@@ -17,6 +17,7 @@ import {
   Link2,
   Loader2,
   Megaphone,
+  Palette,
   Power,
   Radio,
   Sparkles,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { normalizeHexColor } from "@/lib/background-config"
 
 const initialState = { ok: false, error: null as string | null }
 
@@ -73,6 +75,10 @@ export function AnnouncementManager({
   const [enabled, setEnabled] = useState(baseConfig.enabled)
   const [badge, setBadge] = useState(baseConfig.badge || "LIMITED OFFER")
   const [accent, setAccent] = useState<TopAdAccent>(baseConfig.accent || "amber")
+  const [matchBackground, setMatchBackground] = useState<boolean>(
+    baseConfig.matchBackground !== false
+  )
+  const [customColor, setCustomColor] = useState<string>(baseConfig.customColor || "")
   const [text, setText] = useState(baseConfig.text || "")
   const [highlightText, setHighlightText] = useState(baseConfig.highlightText || "")
   const [ctaLabel, setCtaLabel] = useState(baseConfig.ctaLabel || "")
@@ -97,6 +103,8 @@ export function AnnouncementManager({
     enabled,
     badge: badge.trim(),
     accent,
+    matchBackground,
+    customColor: matchBackground ? "" : normalizeHexColor(customColor),
     text: text.trim() || "UP TO 40% BONUS PRIZE POOL ON TONIGHT'S CHAMPION RUSH",
     highlightText:
       highlightText.trim() || (text.trim() ? "" : "40% BONUS"),
@@ -114,13 +122,15 @@ export function AnnouncementManager({
     setEnabled(true)
     setBadge("Special Event")
     setAccent("amber")
+    setMatchBackground(true)
+    setCustomColor("")
     setText("UP TO 40% BONUS PRIZE POOL ON TONIGHT'S CHAMPION RUSH")
     setHighlightText("40% BONUS")
     setCtaLabel("Book Slot")
     setCtaUrl("/scrims")
     setCountdownLocal(isoToDateTimeLocal(tomorrowIso))
     setDismissible(true)
-    toast.success("Loaded DeepCharts-style preset — customize and click Save & Publish!")
+    toast.success("Loaded preset — customize and click Save & Publish!")
   }
 
   function handleSaveTopAd(overrideEnabled?: boolean) {
@@ -131,6 +141,8 @@ export function AnnouncementManager({
           enabled: nextEnabled,
           badge: badge.trim(),
           accent,
+          matchBackground,
+          customColor: matchBackground ? "" : customColor.trim(),
           text: text.trim(),
           highlightText: highlightText.trim(),
           ctaLabel: ctaLabel.trim(),
@@ -161,6 +173,8 @@ export function AnnouncementManager({
     setEnabled(false)
     setBadge("LIMITED OFFER")
     setAccent("amber")
+    setMatchBackground(true)
+    setCustomColor("")
     setText("")
     setHighlightText("")
     setCtaLabel("")
@@ -173,6 +187,8 @@ export function AnnouncementManager({
       const res = await saveTopAdConfig({
         ...DEFAULT_TOP_AD_CONFIG,
         enabled: false,
+        matchBackground: true,
+        customColor: "",
         text: "",
         highlightText: "",
         ctaLabel: "",
@@ -291,34 +307,99 @@ export function AnnouncementManager({
           />
         </div>
 
-        {/* Accent Color Swatches */}
-        <div className="flex flex-col gap-2">
-          <Label className="flex items-center gap-1.5">
-            <Sparkles className="size-3.5 text-primary" />
-            Banner Accent Theme
-          </Label>
-          <div className="flex flex-wrap items-center gap-2">
-            {ACCENT_OPTIONS.map((opt) => {
-              const selected = accent === opt.id
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setAccent(opt.id)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer",
-                    selected
-                      ? cn("border-white/30 bg-white/[0.1] text-white ring-2", opt.ring)
-                      : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.07] hover:text-white"
-                  )}
-                >
-                  <span className={cn("size-2.5 rounded-full", opt.swatch)} />
-                  <span>{opt.label}</span>
-                  {selected && <Check className="size-3 text-white" />}
-                </button>
-              )
-            })}
+        {/* Background-Matching Color Toggle & Custom Color Override */}
+        <div className="flex flex-col gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                <Palette className="size-4 text-primary" />
+                Ad Color Mode
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                By default, the ad bar dynamically matches the site&apos;s live background color as it transitions. Turn off to lock a specific custom color.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={matchBackground}
+              onClick={() => setMatchBackground((prev) => !prev)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer",
+                matchBackground
+                  ? "border-primary/50 bg-primary/15 text-primary shadow-xs"
+                  : "border-white/15 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] hover:text-white"
+              )}
+            >
+              <Sparkles className="size-3.5" />
+              <span>{matchBackground ? "Matching Site Background (Auto)" : "Custom Color Override"}</span>
+            </button>
           </div>
+
+          {!matchBackground && (
+            <div className="flex flex-col gap-3 border-t border-white/[0.07] pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {ACCENT_OPTIONS.map((opt) => {
+                  const selected = !customColor && accent === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setCustomColor("")
+                        setAccent(opt.id)
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer",
+                        selected
+                          ? cn("border-white/30 bg-white/[0.1] text-white ring-2", opt.ring)
+                          : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.07] hover:text-white"
+                      )}
+                    >
+                      <span className={cn("size-2.5 rounded-full", opt.swatch)} />
+                      <span>{opt.label}</span>
+                      {selected && <Check className="size-3 text-white" />}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Label htmlFor="top-ad-custom-color" className="text-xs text-slate-300 shrink-0">
+                  Or pick an exact custom hex color:
+                </Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="top-ad-custom-color-picker"
+                    type="color"
+                    value={normalizeHexColor(customColor) || "#F97316"}
+                    onChange={(e) => setCustomColor(e.target.value.toUpperCase())}
+                    className="h-9 w-11 cursor-pointer rounded-lg border border-white/15 bg-transparent p-0.5"
+                    aria-label="Pick custom ad color"
+                  />
+                  <Input
+                    id="top-ad-custom-color"
+                    value={customColor}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    maxLength={7}
+                    placeholder="#F97316"
+                    className="w-28 font-mono text-xs uppercase"
+                  />
+                  {customColor && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCustomColor("")}
+                      className="text-xs text-zinc-400 hover:text-white"
+                    >
+                      Use Preset
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Destination CTA Link */}
@@ -409,7 +490,7 @@ export function AnnouncementManager({
               onChange={(e) => setDismissible(e.target.checked)}
               className="size-4 rounded border-white/20 bg-black/40 accent-primary cursor-pointer"
             />
-            Allow visitors to dismiss this banner (reappears if you publish a new update)
+            Allow visitors to dismiss this banner (reappears automatically on page reload or re-entry)
           </label>
 
           <div className="flex flex-wrap items-center gap-2.5">

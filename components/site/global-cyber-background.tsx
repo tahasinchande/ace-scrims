@@ -8,6 +8,10 @@ import {
   getAmbientPhaseAt,
   STAGE_BASE_2D_NORM,
 } from "@/lib/ambient-theme"
+import {
+  DEFAULT_BACKGROUND_THEME_CONFIG,
+  type BackgroundThemeConfig,
+} from "@/lib/background-config"
 
 const VOLUMETRIC_2D_VS = `
   attribute vec2 aPos;
@@ -207,11 +211,69 @@ export function GlobalCyberBackground() {
   const threeContainerRef = useRef<HTMLDivElement>(null)
   const volumetric2DCanvasRef = useRef<HTMLCanvasElement>(null)
   const sharedStartMsRef = useRef<number | null>(null)
+  const bgConfigRef = useRef<BackgroundThemeConfig>(DEFAULT_BACKGROUND_THEME_CONFIG)
+  const bgConfigVersionRef = useRef<number>(0)
   const { mode } = useViewMode()
   const [webgl2DReady, setWebgl2DReady] = useState(false)
   const [webgl3DFallback, setWebgl3DFallback] = useState(false)
 
   const effectiveMode: "2d" | "3d" = mode === "3d" && !webgl3DFallback ? "3d" : "2d"
+
+  // 0. Hydrate admin-configured background delay interval & color palette and sync live updates
+  useEffect(() => {
+    let active = true
+
+    const applyNewConfig = (incoming: BackgroundThemeConfig | null | undefined) => {
+      if (!active || !incoming) return
+      bgConfigRef.current = incoming
+      bgConfigVersionRef.current += 1
+      if (sharedStartMsRef.current !== null) {
+        const elapsed = Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
+        applyAmbientThemeToRoot(getAmbientPhaseAt(elapsed, effectiveMode, incoming), effectiveMode)
+      }
+    }
+
+    fetch("/api/settings", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.backgroundConfig) {
+          applyNewConfig(data.backgroundConfig as BackgroundThemeConfig)
+        }
+      })
+      .catch(() => {
+        // fallback gracefully to defaults
+      })
+
+    const onCustomEvent = (e: Event) => {
+      const detail = (e as CustomEvent<BackgroundThemeConfig>).detail
+      if (detail) applyNewConfig(detail)
+    }
+    window.addEventListener("rushx:background-updated", onCustomEvent)
+
+    let channel: BroadcastChannel | null = null
+    try {
+      if ("BroadcastChannel" in window) {
+        channel = new BroadcastChannel("rushx-theme")
+        channel.onmessage = (ev) => {
+          if (ev?.data?.type === "background-config" && ev.data.config) {
+            applyNewConfig(ev.data.config as BackgroundThemeConfig)
+          }
+        }
+      }
+    } catch {
+      channel = null
+    }
+
+    return () => {
+      active = false
+      window.removeEventListener("rushx:background-updated", onCustomEvent)
+      try {
+        channel?.close()
+      } catch {
+        // ignore
+      }
+    }
+  }, [effectiveMode])
 
   // 1. Synchronized live CSS color-changing engine (throttled ~12Hz to prevent 60fps full-DOM style recalc)
   useEffect(() => {
@@ -224,7 +286,10 @@ export function GlobalCyberBackground() {
     }
 
     const activeElapsed = Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
-    applyAmbientThemeToRoot(getAmbientPhaseAt(activeElapsed, effectiveMode), effectiveMode)
+    applyAmbientThemeToRoot(
+      getAmbientPhaseAt(activeElapsed, effectiveMode, bgConfigRef.current),
+      effectiveMode
+    )
 
     let rafId = 0
     let lastAppliedKey = ""
@@ -251,8 +316,8 @@ export function GlobalCyberBackground() {
 
       const startMs = sharedStartMsRef.current ?? now
       const elapsedSec = ((now - startMs) / 1000) * colorSpeed
-      const state = getAmbientPhaseAt(elapsedSec, effectiveMode)
-      const key = `${effectiveMode}|${state.primaryRgb.join(",")}|${state.accentRgb.join(",")}|${state.glowRgb.join(",")}`
+      const state = getAmbientPhaseAt(elapsedSec, effectiveMode, bgConfigRef.current)
+      const key = `${effectiveMode}|${bgConfigVersionRef.current}|${state.primaryRgb.join(",")}|${state.accentRgb.join(",")}|${state.glowRgb.join(",")}`
       if (key !== lastAppliedKey) {
         lastAppliedKey = key
         applyAmbientThemeToRoot(state, effectiveMode)
@@ -438,7 +503,7 @@ export function GlobalCyberBackground() {
 
     const drawFrame = (elapsedSec: number, dtNorm: number) => {
       if (!gl || contextLost || isDisposed) return
-      const phase = getAmbientPhaseAt(elapsedSec * colorSpeed, "2d")
+      const phase = getAmbientPhaseAt(elapsedSec * colorSpeed, "2d", bgConfigRef.current)
       const lerpFactor = Math.min(1, 0.04 * dtNorm)
       smoothPtrX += (targetPtrX - smoothPtrX) * lerpFactor
       smoothPtrY += (targetPtrY - smoothPtrY) * lerpFactor
@@ -618,7 +683,7 @@ export function GlobalCyberBackground() {
       sharedStartMsRef.current = performance.now()
     }
     const initElapsed = Math.max(0, (performance.now() - sharedStartMsRef.current) / 1000)
-    const initPhase = getAmbientPhaseAt(initElapsed, "3d")
+    const initPhase = getAmbientPhaseAt(initElapsed, "3d", bgConfigRef.current)
 
     // 1. THREE.JS SCENE & RENDERER SETUP (Exact 992e9d3 obsidian scene + 88918cc DPR cap)
     const scene = new THREE.Scene()
@@ -1018,8 +1083,8 @@ export function GlobalCyberBackground() {
     laserWall3.updateMatrix()
     scene.add(laserWall3)
 
-    // 7. ASCENDING DATA PARTICLES & CYBER EMBERS (Exact 992e9d3 700 particles)
-    const particleCount = 700
+    // 7. ASCENDING DATA PARTICLES & CYBER EMBERS (Adaptive count for smooth frame pacing)
+    const particleCount = isConstrained ? 420 : 700
     const particleGeo = trackDisposable(new THREE.BufferGeometry())
     const particlePos = new Float32Array(particleCount * 3)
 
@@ -1100,7 +1165,11 @@ export function GlobalCyberBackground() {
     const rotQuat = new THREE.Quaternion()
     const cubeScaleVec = new THREE.Vector3()
     const colorSpeed = prefersReducedMotion ? 0.4 : 1.0
-    const targetFrameMs = prefersReducedMotion || isConstrained ? 1000 / 30 : 0
+    let targetFrameMs = prefersReducedMotion || isConstrained ? 1000 / 30 : 0
+    let adaptiveDprApplied = isConstrained
+    let slowFrameStreak = 0
+    let lastTileColorUploadMs = 0
+    let lastConfigVersion = -1
 
     let animElapsed = 0
     let lastFrameMs = performance.now()
@@ -1126,6 +1195,23 @@ export function GlobalCyberBackground() {
         return
       }
       lastFrameMs = now
+
+      // Adaptive performance guard: if sustained slow frames occur on desktop/integrated GPUs,
+      // gently step down DPR to 1.0 and pace to ~40fps so browsing stays smooth with zero visual change.
+      if (!adaptiveDprApplied && deltaMs > 36 && deltaMs < 250) {
+        slowFrameStreak += 1
+        if (slowFrameStreak >= 18) {
+          adaptiveDprApplied = true
+          const safeDpr = Math.min(window.devicePixelRatio || 1, 1.0)
+          renderer.setPixelRatio(safeDpr)
+          renderer.setSize(width, height, false)
+          if (targetFrameMs === 0) {
+            targetFrameMs = 1000 / 40
+          }
+        }
+      } else if (deltaMs <= 26 && slowFrameStreak > 0) {
+        slowFrameStreak = Math.max(0, slowFrameStreak - 1)
+      }
 
       // Clamped delta time ensures consistent motion across 30Hz, 60Hz, and 120Hz displays
       const dtSec = Math.min(Math.max(deltaMs / 1000, 0.001), 0.05)
@@ -1167,19 +1253,23 @@ export function GlobalCyberBackground() {
       }
       instancedSatelliteCubes.instanceMatrix.needsUpdate = true
 
-      // Synchronized live color-changing spectrum (opens in Electric Blue at t=0)
+      // Synchronized live color-changing spectrum (opens in Electric Blue at t=0, respects Admin Background settings)
       const colorElapsed =
         sharedStartMsRef.current !== null
           ? Math.max(0, (now - sharedStartMsRef.current) / 1000) * colorSpeed
           : 0
-      const phase = getAmbientPhaseAt(colorElapsed, "3d")
+      const phase = getAmbientPhaseAt(colorElapsed, "3d", bgConfigRef.current)
       const { baseHue, accentHue, fillHue } = phase
 
-      // Skip redundant material/light/satellite-color GPU uploads during color hold phases
-      if (
+      const configChanged = lastConfigVersion !== bgConfigVersionRef.current
+      const hueChanged =
+        configChanged ||
         Math.abs(baseHue - lastBaseHue) > 0.0004 ||
         Math.abs(accentHue - lastAccentHue) > 0.0004
-      ) {
+
+      // Skip redundant material/light/satellite-color GPU uploads during color hold phases
+      if (hueChanged) {
+        lastConfigVersion = bgConfigVersionRef.current
         lastBaseHue = baseHue
         lastAccentHue = accentHue
 
@@ -1226,14 +1316,17 @@ export function GlobalCyberBackground() {
       coreLight3.intensity = 5.4 + Math.sin(elapsed * 2.3) * 1.8
       coreLight4.intensity = 4.8 + Math.cos(elapsed * 2.0) * 1.6
 
-      // Pulsing Floor Pads via Instanced Color Update (Exact 992e9d3)
-      for (let i = 0; i < tileCount; i++) {
-        const pulse = 0.3 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
-        const tileHue = i % 3 === 0 ? accentHue : i % 3 === 1 ? baseHue : fillHue
-        colorDummy.setHSL(tileHue, 0.94, Math.max(0.16, Math.min(0.7, pulse)))
-        instancedFloorTiles.setColorAt(i, colorDummy)
+      // Pulsing Floor Pads via Instanced Color Update (throttled ~24Hz to trim redundant GPU uploads)
+      if (hueChanged || now - lastTileColorUploadMs >= 42) {
+        lastTileColorUploadMs = now
+        for (let i = 0; i < tileCount; i++) {
+          const pulse = 0.3 + Math.sin(elapsed * 3.2 + i * 0.35) * 0.32
+          const tileHue = i % 3 === 0 ? accentHue : i % 3 === 1 ? baseHue : fillHue
+          colorDummy.setHSL(tileHue, 0.94, Math.max(0.16, Math.min(0.7, pulse)))
+          instancedFloorTiles.setColorAt(i, colorDummy)
+        }
+        if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true
       }
-      if (instancedFloorTiles.instanceColor) instancedFloorTiles.instanceColor.needsUpdate = true
 
       // Upward drifting cyber embers (frame-rate independent, Exact 992e9d3 speed)
       const positions = particleGeo.attributes.position.array as Float32Array

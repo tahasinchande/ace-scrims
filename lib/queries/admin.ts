@@ -52,13 +52,25 @@ export async function getAdminStats() {
   }
 }
 
-/** All scrims with confirmed + pending team counts, integrated with all daily and Friday definitions. */
+/** All scrims with confirmed + pending team counts, integrated with all multiplied Daily and Friday definitions. */
 export async function getAdminScrims(options: { includeDeleted?: boolean } = {}) {
   try {
     await ensureSchemaReady()
-    const { ALL_STANDARD_SCRIM_DEFINITIONS, getBangladeshActiveDate, archivePreviousDayBookings } = await import("@/lib/queries/scrims")
+    const {
+      getBangladeshActiveDate,
+      archivePreviousDayBookings,
+      getRoomMultiplier,
+      getEvaluatedScheduleOverride,
+    } = await import("@/lib/queries/scrims")
+    const { buildAllStandardScrimDefinitions, getScrimRoomNumber } = await import("@/lib/room-multiplier")
     await archivePreviousDayBookings().catch(() => {})
     const activeDate = getBangladeshActiveDate()
+    const [roomMultiplier, scheduleInfo] = await Promise.all([
+      getRoomMultiplier(),
+      getEvaluatedScheduleOverride(),
+    ])
+    const effectiveScrimDate = scheduleInfo.status.effectiveScrimDate || activeDate
+    const standardDefs = buildAllStandardScrimDefinitions(roomMultiplier)
 
     const rows = await db
       .select({
@@ -96,10 +108,14 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
       // ignore
     }
 
-    const merged = [...dbScrims]
+    // Include DB scrims within configured room multiplier (or custom scrims / scrims that already have active bookings)
+    const merged = dbScrims.filter((m) => {
+      const rn = getScrimRoomNumber(m)
+      return rn <= roomMultiplier || m.confirmedTeams > 0 || m.pendingTeams > 0
+    })
 
-    // Ensure all standard definitions exist in admin list (unless marked as deleted, trashed, or not hosted)
-    for (const def of ALL_STANDARD_SCRIM_DEFINITIONS) {
+    // Ensure all multiplied standard definitions exist in admin list (unless marked as deleted or trashed)
+    for (const def of standardDefs) {
       if (permanentlyDeletedIds.has(def.id) || permanentlyDeletedIds.has(def.slug)) {
         continue
       }
@@ -119,7 +135,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
       )
 
       if (existingIdx !== -1) {
-        // Normalize the existing scrim with standard properties and ensure clean details
+        // Normalize the existing scrim with standard properties while preserving admin-edited fields
         const existing = merged[existingIdx]
         if (existing.status === "deleted" || existing.status === "permanently_deleted" || existing.deletedAt !== null || existing.isTrashed === true) {
           continue
@@ -160,29 +176,15 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           rules: cleanRules,
           notes: cleanNotes,
           slug: def.slug,
-          map: def.map,
-          startTime: def.time,
-          priceBdt: def.priceBdt ?? existing.priceBdt ?? 35,
-          prizePoolBdt: def.prizePoolBdt ?? existing.prizePoolBdt ?? 330,
+          map: existing.map || def.map,
+          startTime: existing.startTime || def.time,
+          scrimDate: scheduleInfo.status.isRegWindowActive ? effectiveScrimDate : (existing.scrimDate || activeDate),
+          category: existing.category || def.category,
+          priceBdt: typeof existing.priceBdt === "number" ? existing.priceBdt : def.priceBdt,
+          prizePoolBdt: typeof existing.prizePoolBdt === "number" ? existing.prizePoolBdt : def.prizePoolBdt,
           bannerUrl: (existing.bannerUrl && !existing.bannerUrl.includes("map-")) ? existing.bannerUrl : (def.bannerUrl || "/images/scrim-1.jpg"),
         }
       } else {
-        // Query bookings for this defined scrim ID for the active date
-        const bookingCounts = await db
-          .select({
-            confirmed: sql<number>`count(case when status = 'confirmed' then 1 end)`,
-            pending: sql<number>`count(case when status = 'pending' then 1 end)`,
-          })
-          .from(bookings)
-          .where(
-            and(
-              eq(bookings.scrimId, def.id),
-              eq(bookings.isTrashed, false),
-              eq(bookings.isArchived, false),
-              gte(bookings.scrimDate, activeDate)
-            )
-          )
-
         merged.push({
           id: def.id,
           title: def.name,
@@ -205,7 +207,7 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           map: def.map,
           mode: "BATTLE ROYALE",
           startTime: def.time,
-          scrimDate: activeDate,
+          scrimDate: effectiveScrimDate,
           category: def.category || null,
           priceBdt: def.priceBdt,
           prizePoolBdt: def.prizePoolBdt,
@@ -226,8 +228,8 @@ export async function getAdminScrims(options: { includeDeleted?: boolean } = {})
           deletedAt: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          confirmedTeams: Number(bookingCounts[0]?.confirmed ?? 0),
-          pendingTeams: Number(bookingCounts[0]?.pending ?? 0),
+          confirmedTeams: 0,
+          pendingTeams: 0,
         })
       }
     }

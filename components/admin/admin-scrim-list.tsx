@@ -12,11 +12,14 @@ import {
   toggleRegistration,
   toggleScrimStatus,
   toggleScrimHidden,
-  setSetting,
   forceTurnOnAllScrimsAction,
   forceTurnOffAllScrimsAction,
   normalModeAllScrimsAction,
   removeTeamFromScrimAction,
+  setRoomMultiplierAction,
+  setRoomTierModeAction,
+  saveScheduleOverrideAction,
+  disableScheduleOverrideAction,
 } from "@/app/actions/admin"
 import { EditScrimButton } from "@/components/admin/scrim-form-dialog"
 import { PublishResultButton } from "@/components/admin/admin-results"
@@ -34,8 +37,52 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import type { Booking, Scrim } from "@/lib/db/schema"
 import { formatTaka, timeAgo, formatDateTime, sortScrimsAscending } from "@/lib/format"
+import {
+  getScrimRoomNumber,
+  MIN_ROOM_MULTIPLIER,
+  MAX_ROOM_MULTIPLIER,
+  type RoomTierOverrideMode,
+  type RoomTierOverrides,
+} from "@/lib/room-multiplier"
+import {
+  DEFAULT_SCHEDULE_OVERRIDE_CONFIG,
+  type EvaluatedScheduleOverride,
+  type ScheduleOverrideConfig,
+} from "@/lib/schedule-override"
 import { cn } from "@/lib/utils"
-import { KeyRound, Loader2, Lock, Trash2, Users, Eye, EyeOff, AlertTriangle, Search, Trophy, Flame, Layers, RotateCcw, CalendarDays, CheckSquare, Square, Camera, CheckCircle2, ExternalLink, Image as ImageIcon, Power, PowerOff, UserX, Copy, Check } from "lucide-react"
+import {
+  KeyRound,
+  Loader2,
+  Lock,
+  Trash2,
+  Users,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  Search,
+  Trophy,
+  Flame,
+  Layers,
+  RotateCcw,
+  CalendarDays,
+  CheckSquare,
+  Square,
+  Camera,
+  CheckCircle2,
+  ExternalLink,
+  Power,
+  PowerOff,
+  UserX,
+  Copy,
+  Check,
+  CalendarClock,
+  PauseCircle,
+  Minus,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react"
 import { toast } from "sonner"
 
 type AdminScrim = Scrim & { confirmedTeams: number; pendingTeams: number; deletedAt?: Date | string | null }
@@ -252,11 +299,13 @@ function ViewTeamsButton({
   scrim,
   roster,
   confirmedCount,
+  isAdmin,
   onTeamRemoved,
 }: {
   scrim: AdminScrim
   roster: RosterBooking[]
   confirmedCount?: number
+  isAdmin: boolean
   onTeamRemoved?: (scrimId: string, bookingId: string) => void
 }) {
   const [teamList, setTeamList] = useState(roster)
@@ -341,22 +390,24 @@ function ViewTeamsButton({
                     {b.status}
                   </Badge>
 
-                  {/* Remove Team Action Button */}
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={removingId === b.id}
-                    onClick={() => handlePromptRemoveTeam(b)}
-                    className="h-7 px-2.5 text-xs font-semibold gap-1 bg-destructive/90 hover:bg-destructive text-destructive-foreground shadow-sm ml-1"
-                    title={`Remove "${b.teamName}" from this scrim`}
-                  >
-                    {removingId === b.id ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <UserX className="size-3" />
-                    )}
-                    <span>{removingId === b.id ? "Removing..." : "Remove Team"}</span>
-                  </Button>
+                  {/* Remove Team Action Button — Admin/Owner Only */}
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={removingId === b.id}
+                      onClick={() => handlePromptRemoveTeam(b)}
+                      className="h-7 px-2.5 text-xs font-semibold gap-1 bg-destructive/90 hover:bg-destructive text-destructive-foreground shadow-sm ml-1"
+                      title={`Remove "${b.teamName}" from this scrim`}
+                    >
+                      {removingId === b.id ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <UserX className="size-3" />
+                      )}
+                      <span>{removingId === b.id ? "Removing..." : "Remove Team"}</span>
+                    </Button>
+                  )}
 
                   <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                     <CalendarDays className="size-3 text-primary/70" />
@@ -444,8 +495,8 @@ function ViewTeamsButton({
       </DialogContent>
     </Dialog>
 
-    {/* Safeguard Prompt Confirmation Dialog */}
-    {teamToRemove && (
+    {/* Safeguard Prompt Confirmation Dialog — Admin/Owner Only */}
+    {isAdmin && teamToRemove && (
       <Dialog open={true} onOpenChange={(open) => !open && setTeamToRemove(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -749,35 +800,95 @@ function TrashControls({ scrim }: { scrim: AdminScrim }) {
   )
 }
 
-type ScrimTab = "all" | "daily" | "room1" | "room2" | "friday" | "champion" | "not_hosted" | "trash"
-const VALID_TABS: ScrimTab[] = ["all", "daily", "room1", "room2", "friday", "champion", "not_hosted", "trash"]
+type ScrimTab = "all" | "daily" | "friday" | "champion" | "not_hosted" | "trash" | `room:${number}`
+
+function parseScrimTabParam(raw: string | undefined, isAdmin: boolean): ScrimTab {
+  if (!raw) return "all"
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === "trash") return isAdmin ? "trash" : "all"
+  if (
+    normalized === "all" ||
+    normalized === "daily" ||
+    normalized === "friday" ||
+    normalized === "champion" ||
+    normalized === "not_hosted"
+  ) {
+    return normalized
+  }
+  const roomMatch = normalized.match(/^room:?(\d+)$/)
+  if (roomMatch) {
+    const n = Number.parseInt(roomMatch[1], 10)
+    if (Number.isFinite(n) && n >= MIN_ROOM_MULTIPLIER && n <= MAX_ROOM_MULTIPLIER) {
+      return `room:${n}`
+    }
+  }
+  return "all"
+}
 
 export function AdminScrimList({
   scrims,
   isAdmin,
   bookingsByScrim = {},
   initialRoom2Enabled = false,
+  initialRoomMultiplier,
+  initialRoomTierOverrides = {},
+  initialScheduleOverride,
+  initialScheduleStatus = null,
   initialTab,
 }: {
   scrims: AdminScrim[]
   isAdmin: boolean
   bookingsByScrim?: Record<string, RosterBooking[]>
   initialRoom2Enabled?: boolean
+  initialRoomMultiplier?: number
+  initialRoomTierOverrides?: RoomTierOverrides
+  initialScheduleOverride?: ScheduleOverrideConfig
+  initialScheduleStatus?: EvaluatedScheduleOverride | null
   initialTab?: string
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const resolvedInitialTab: ScrimTab = VALID_TABS.includes(initialTab as ScrimTab) ? (initialTab as ScrimTab) : "all"
+  const resolvedInitialTab = parseScrimTabParam(initialTab, isAdmin)
   const [activeTab, setActiveTab] = useState<ScrimTab>(resolvedInitialTab)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedScrimIds, setSelectedScrimIds] = useState<string[]>([])
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
-  const [room2Visible, setRoom2Visible] = useState(initialRoom2Enabled)
-  const [isTogglingRoom2, setIsTogglingRoom2] = useState(false)
+
+  const startingMultiplier =
+    typeof initialRoomMultiplier === "number" && initialRoomMultiplier >= MIN_ROOM_MULTIPLIER
+      ? Math.min(MAX_ROOM_MULTIPLIER, initialRoomMultiplier)
+      : initialRoom2Enabled
+        ? 2
+        : 1
+
+  const [roomMultiplier, setRoomMultiplier] = useState<number>(startingMultiplier)
+  const [multiplierDraft, setMultiplierDraft] = useState<number>(startingMultiplier)
+  const [isUpdatingMultiplier, setIsUpdatingMultiplier] = useState(false)
+
+  const [roomTierOverrides, setRoomTierOverrides] = useState<RoomTierOverrides>(
+    initialRoomTierOverrides
+  )
+  const [selectedControlRoom, setSelectedControlRoom] = useState<number>(1)
+  const [isUpdatingRoomTier, setIsUpdatingRoomTier] = useState(false)
+
+  const [scheduleOverride, setScheduleOverride] = useState<ScheduleOverrideConfig>(
+    initialScheduleOverride ?? { ...DEFAULT_SCHEDULE_OVERRIDE_CONFIG }
+  )
+  const [scheduleStatus, setScheduleStatus] = useState<EvaluatedScheduleOverride | null>(
+    initialScheduleStatus
+  )
+  const [schedulePanelOpen, setSchedulePanelOpen] = useState<boolean>(
+    Boolean(initialScheduleOverride?.enabled)
+  )
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
+
   const [isBulkForcing, setIsBulkForcing] = useState(false)
   const [liveScrims, setLiveScrims] = useState<AdminScrim[]>(scrims)
-  const [liveBookingsByScrim, setLiveBookingsByScrim] = useState<Record<string, RosterBooking[]>>(bookingsByScrim)
-  const [bulkConfirm, setBulkConfirm] = useState<"force_on" | "force_off" | "normal_mode" | "bulk_delete" | null>(null)
+  const [liveBookingsByScrim, setLiveBookingsByScrim] =
+    useState<Record<string, RosterBooking[]>>(bookingsByScrim)
+  const [bulkConfirm, setBulkConfirm] = useState<
+    "force_on" | "force_off" | "normal_mode" | "bulk_delete" | null
+  >(null)
   const [copiedScrimId, setCopiedScrimId] = useState<string | null>(null)
   const isSyncingRef = useRef(false)
 
@@ -822,12 +933,8 @@ export function AdminScrimList({
   }
 
   useEffect(() => {
-    if (initialTab && VALID_TABS.includes(initialTab as ScrimTab)) {
-      setActiveTab(initialTab as ScrimTab)
-    } else {
-      setActiveTab("all")
-    }
-  }, [initialTab])
+    setActiveTab(parseScrimTabParam(initialTab, isAdmin))
+  }, [initialTab, isAdmin])
 
   useEffect(() => {
     setLiveScrims(scrims)
@@ -851,15 +958,23 @@ export function AdminScrimList({
       }
       if (data.bookingsByScrim && typeof data.bookingsByScrim === "object") {
         const normalizedBookings: Record<string, RosterBooking[]> = {}
-        for (const [k, list] of Object.entries(data.bookingsByScrim as Record<string, RosterBooking[]>)) {
+        for (const [k, list] of Object.entries(
+          data.bookingsByScrim as Record<string, RosterBooking[]>
+        )) {
           if (Array.isArray(list)) {
             normalizedBookings[k] = list.map((b) => normalizeRosterBooking(b))
           }
         }
         setLiveBookingsByScrim(normalizedBookings)
       }
-      if (typeof data.room2Enabled === "boolean") {
-        setRoom2Visible(data.room2Enabled)
+      if (typeof data.roomMultiplier === "number" && data.roomMultiplier >= 1) {
+        setRoomMultiplier(data.roomMultiplier)
+      }
+      if (data.roomTierOverrides && typeof data.roomTierOverrides === "object") {
+        setRoomTierOverrides(data.roomTierOverrides as RoomTierOverrides)
+      }
+      if (data.scheduleStatus !== undefined) {
+        setScheduleStatus(data.scheduleStatus as EvaluatedScheduleOverride | null)
       }
     } catch {
       // ignore transient network polling failures
@@ -931,9 +1046,6 @@ export function AdminScrimList({
     void syncAdminScrims()
   }
 
-  const isRoom2Scrim = (s: AdminScrim) =>
-    s.id.includes("r2") || s.slug.includes("room-2") || s.title.toLowerCase().includes("room 2")
-
   const isChampionRushScrim = (s: AdminScrim) =>
     (s.category || "").toLowerCase().includes("champion rush") ||
     s.title.toLowerCase().includes("champion rush") ||
@@ -945,8 +1057,20 @@ export function AdminScrimList({
       s.title.toLowerCase().includes("friday special") ||
       s.slug.includes("friday-special"))
 
-  const isRoom1Scrim = (s: AdminScrim) => {
-    return !isRoom2Scrim(s) && !isChampionRushScrim(s) && !isFridayCategoryScrim(s)
+  const activeScrimsList = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null)
+  const highestRoomInScrims = activeScrimsList.reduce(
+    (max, s) => Math.max(max, getScrimRoomNumber(s)),
+    1
+  )
+  const totalRoomTiers = Math.min(
+    MAX_ROOM_MULTIPLIER,
+    Math.max(roomMultiplier, highestRoomInScrims, 1)
+  )
+  const roomNumbers = Array.from({ length: totalRoomTiers }, (_, i) => i + 1)
+
+  const roomCountsByNumber: Record<number, number> = {}
+  for (const n of roomNumbers) {
+    roomCountsByNumber[n] = activeScrimsList.filter((s) => getScrimRoomNumber(s) === n).length
   }
 
   const notHostedCount = liveScrims.filter((s) => s.status === "not_hosted").length
@@ -956,7 +1080,7 @@ export function AdminScrimList({
     liveScrims.filter((scrim) => {
       const isDeleted = scrim.status === "deleted" || scrim.deletedAt != null
       if (activeTab === "trash") {
-        return isDeleted
+        return isAdmin && isDeleted
       }
       if (isDeleted) return false
 
@@ -967,14 +1091,15 @@ export function AdminScrimList({
       const isCR = isChampionRushScrim(scrim)
       const isFridayCat = isFridayCategoryScrim(scrim)
       const isDaily = !isCR && !isFridayCat
-      const isR2 = isRoom2Scrim(scrim)
-      const isR1 = isRoom1Scrim(scrim)
+      const roomNum = getScrimRoomNumber(scrim)
 
       if (activeTab === "daily" && !isDaily) return false
-      if (activeTab === "room1" && !isR1) return false
-      if (activeTab === "room2" && !isR2) return false
       if (activeTab === "friday" && !isFridayCat) return false
       if (activeTab === "champion" && !isCR) return false
+      if (activeTab.startsWith("room:")) {
+        const targetRoom = Number.parseInt(activeTab.slice(5), 10)
+        if (roomNum !== targetRoom) return false
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
@@ -983,7 +1108,8 @@ export function AdminScrimList({
           scrim.startTime.toLowerCase().includes(q) ||
           scrim.map.toLowerCase().includes(q) ||
           (scrim.category || "").toLowerCase().includes(q) ||
-          scrim.slug.toLowerCase().includes(q)
+          scrim.slug.toLowerCase().includes(q) ||
+          `room ${roomNum}`.includes(q)
         if (!match) return false
       }
 
@@ -991,12 +1117,12 @@ export function AdminScrimList({
     })
   )
 
-  const activeScrimsCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null).length
-  const dailyCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && !isChampionRushScrim(s) && !isFridayCategoryScrim(s)).length
-  const room1Count = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom1Scrim(s)).length
-  const room2Count = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isRoom2Scrim(s)).length
-  const fridayCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isFridayCategoryScrim(s)).length
-  const crCount = liveScrims.filter((s) => s.status !== "deleted" && s.deletedAt == null && isChampionRushScrim(s)).length
+  const activeScrimsCount = activeScrimsList.length
+  const dailyCount = activeScrimsList.filter(
+    (s) => !isChampionRushScrim(s) && !isFridayCategoryScrim(s)
+  ).length
+  const fridayCount = activeScrimsList.filter((s) => isFridayCategoryScrim(s)).length
+  const crCount = activeScrimsList.filter((s) => isChampionRushScrim(s)).length
 
   async function executeBulkConfirm() {
     const mode = bulkConfirm
@@ -1085,23 +1211,109 @@ export function AdminScrimList({
     setBulkConfirm("normal_mode")
   }
 
-  async function handleToggleRoom2() {
-    setIsTogglingRoom2(true)
-    const nextVal = !room2Visible
+  async function handleApplyRoomMultiplier() {
+    setIsUpdatingMultiplier(true)
     try {
-      const res = await setSetting("show_room2", nextVal ? "true" : "false")
-      if (res.ok) {
-        setRoom2Visible(nextVal)
-        toast.success(nextVal ? "Room 2 Lobbies are now VISIBLE publicly" : "Room 2 Lobbies are now HIDDEN from public")
+      const clamped = Math.max(
+        MIN_ROOM_MULTIPLIER,
+        Math.min(MAX_ROOM_MULTIPLIER, Math.floor(multiplierDraft) || 1)
+      )
+      const res = await setRoomMultiplierAction(clamped)
+      if (res.ok && typeof res.multiplier === "number") {
+        setRoomMultiplier(res.multiplier)
+        setMultiplierDraft(res.multiplier)
+        if (selectedControlRoom > res.multiplier) {
+          setSelectedControlRoom(res.multiplier)
+        }
+        toast.success(
+          `Room Multiplier updated to ${res.multiplier}x — Room 1${
+            res.multiplier > 1 ? ` through Room ${res.multiplier}` : ""
+          } active for Daily & Friday Scrims.`
+        )
         broadcastSlotsSync()
         void syncAdminScrims()
+        router.refresh()
       } else {
-        toast.error(res.error || "Failed to update Room 2 visibility")
+        toast.error(res.error || "Failed to update room multiplier")
       }
     } catch {
-      toast.error("Failed to update Room 2 visibility")
+      toast.error("Failed to update room multiplier")
     } finally {
-      setIsTogglingRoom2(false)
+      setIsUpdatingMultiplier(false)
+    }
+  }
+
+  async function handleRoomTierMode(roomNumber: number, mode: RoomTierOverrideMode) {
+    setIsUpdatingRoomTier(true)
+    try {
+      const res = await setRoomTierModeAction(roomNumber, mode)
+      if (res.ok) {
+        if (res.overrides) {
+          setRoomTierOverrides(res.overrides)
+        }
+        const label =
+          mode === "force_on"
+            ? "Force Turned ON"
+            : mode === "force_off"
+              ? "Force Turned OFF"
+              : "restored to Normal Mode"
+        toast.success(`Room ${roomNumber} lobbies (Daily & Friday) ${label}!`)
+        broadcastSlotsSync()
+        void syncAdminScrims()
+        router.refresh()
+      } else {
+        toast.error(res.error || "Failed to update room tier mode")
+      }
+    } catch {
+      toast.error("Failed to update room tier mode")
+    } finally {
+      setIsUpdatingRoomTier(false)
+    }
+  }
+
+  async function handleSaveScheduleOverride(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingSchedule(true)
+    try {
+      const payload: ScheduleOverrideConfig = {
+        ...scheduleOverride,
+        enabled: true,
+      }
+      const res = await saveScheduleOverrideAction(payload)
+      if (res.ok) {
+        if (res.config) setScheduleOverride(res.config)
+        toast.success("Schedule override saved & activated!")
+        broadcastSlotsSync()
+        void syncAdminScrims()
+        router.refresh()
+      } else {
+        toast.error(res.error || "Could not save schedule override")
+      }
+    } catch {
+      toast.error("Could not save schedule override")
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
+  async function handleDisableScheduleOverride() {
+    setIsSavingSchedule(true)
+    try {
+      const res = await disableScheduleOverrideAction()
+      if (res.ok) {
+        if (res.config) setScheduleOverride(res.config)
+        setScheduleStatus(null)
+        toast.success("Schedule override turned OFF — normal scrim schedule restored!")
+        broadcastSlotsSync()
+        void syncAdminScrims()
+        router.refresh()
+      } else {
+        toast.error(res.error || "Could not disable schedule override")
+      }
+    } catch {
+      toast.error("Could not disable schedule override")
+    } finally {
+      setIsSavingSchedule(false)
     }
   }
 
@@ -1110,16 +1322,489 @@ export function AdminScrimList({
     setBulkConfirm("bulk_delete")
   }
 
+  const activeControlRoomMode: RoomTierOverrideMode =
+    roomTierOverrides[String(selectedControlRoom)] ?? "normal"
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Category Tabs & Search Bar */}
+      {/* ADMIN-ONLY: Room Multiplier, Specific Room Tier Mode & Schedule Override Panels */}
+      {isAdmin && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {/* Room Multiplier & Specific Room Controls (Req #2) */}
+          <div className="glass rounded-2xl border border-primary/25 p-4 flex flex-col gap-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Layers className="size-4 text-primary" />
+                <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                  Room Multiplier &amp; Specific Room Controls
+                </h2>
+              </div>
+              <Badge variant="outline" className="font-mono text-[11px] border-primary/40 text-primary">
+                {roomMultiplier}x Rooms Active (Daily + Friday)
+              </Badge>
+            </div>
+
+            {/* Multiplier Picker */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-secondary/20 px-3 py-2.5">
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  Room Copy Multiplier (1 – {MAX_ROOM_MULTIPLIER})
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Automatically opens Room 1 to Room X across Daily, Friday Special &amp; Champion Rush.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8"
+                  disabled={isUpdatingMultiplier || multiplierDraft <= MIN_ROOM_MULTIPLIER}
+                  onClick={() =>
+                    setMultiplierDraft((v) => Math.max(MIN_ROOM_MULTIPLIER, v - 1))
+                  }
+                  aria-label="Decrease room multiplier"
+                >
+                  <Minus className="size-3.5" />
+                </Button>
+                <Input
+                  type="number"
+                  min={MIN_ROOM_MULTIPLIER}
+                  max={MAX_ROOM_MULTIPLIER}
+                  value={multiplierDraft}
+                  onChange={(e) => {
+                    const parsed = Number.parseInt(e.target.value, 10)
+                    if (Number.isFinite(parsed)) {
+                      setMultiplierDraft(
+                        Math.max(MIN_ROOM_MULTIPLIER, Math.min(MAX_ROOM_MULTIPLIER, parsed))
+                      )
+                    }
+                  }}
+                  className="h-8 w-16 text-center font-mono text-sm font-bold"
+                  aria-label="Room multiplier count"
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8"
+                  disabled={isUpdatingMultiplier || multiplierDraft >= MAX_ROOM_MULTIPLIER}
+                  onClick={() =>
+                    setMultiplierDraft((v) => Math.min(MAX_ROOM_MULTIPLIER, v + 1))
+                  }
+                  aria-label="Increase room multiplier"
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isUpdatingMultiplier || multiplierDraft === roomMultiplier}
+                  onClick={handleApplyRoomMultiplier}
+                  className="h-8 text-xs font-bold"
+                >
+                  {isUpdatingMultiplier ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : null}
+                  Apply ({multiplierDraft}x)
+                </Button>
+              </div>
+            </div>
+
+            {/* Specific Room Tier Force On / Force Off / Normal Mode */}
+            <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-secondary/20 px-3 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="size-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-foreground">
+                    Control Specific Room Tier:
+                  </span>
+                  <select
+                    value={selectedControlRoom}
+                    onChange={(e) => setSelectedControlRoom(Number(e.target.value))}
+                    className="h-8 rounded-md border border-border bg-background px-2.5 text-xs font-bold"
+                    aria-label="Select room tier to control"
+                  >
+                    {roomNumbers.map((num) => (
+                      <option key={num} value={num}>
+                        Room {num} Lobbies ({roomCountsByNumber[num] ?? 0})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] font-mono uppercase",
+                    activeControlRoomMode === "force_on" &&
+                      "border-emerald-500/50 bg-emerald-500/15 text-emerald-300",
+                    activeControlRoomMode === "force_off" &&
+                      "border-rose-500/50 bg-rose-500/15 text-rose-300"
+                  )}
+                >
+                  Room {selectedControlRoom}:{" "}
+                  {activeControlRoomMode === "force_on"
+                    ? "Force ON"
+                    : activeControlRoomMode === "force_off"
+                      ? "Force OFF"
+                      : "Normal"}
+                </Badge>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isUpdatingRoomTier}
+                  onClick={() => handleRoomTierMode(selectedControlRoom, "force_on")}
+                  className={cn(
+                    "h-7 gap-1 text-[11px] font-bold border-emerald-500/45 text-emerald-300 hover:bg-emerald-500/20",
+                    activeControlRoomMode === "force_on" && "bg-emerald-500/20"
+                  )}
+                >
+                  <Power className="size-3" />
+                  Force Turn On Room {selectedControlRoom}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isUpdatingRoomTier}
+                  onClick={() => handleRoomTierMode(selectedControlRoom, "force_off")}
+                  className={cn(
+                    "h-7 gap-1 text-[11px] font-bold border-rose-500/45 text-rose-300 hover:bg-rose-500/20",
+                    activeControlRoomMode === "force_off" && "bg-rose-500/20"
+                  )}
+                >
+                  <PowerOff className="size-3" />
+                  Force Turn Off Room {selectedControlRoom}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isUpdatingRoomTier}
+                  onClick={() => handleRoomTierMode(selectedControlRoom, "normal")}
+                  className={cn(
+                    "h-7 gap-1 text-[11px] font-bold border-sky-500/45 text-sky-300 hover:bg-sky-500/20",
+                    activeControlRoomMode === "normal" && "bg-sky-500/15"
+                  )}
+                >
+                  <RotateCcw className="size-3" />
+                  Normal Mode Room {selectedControlRoom}
+                </Button>
+              </div>
+
+              {Object.keys(roomTierOverrides).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[10px]">
+                  <span className="text-muted-foreground font-semibold">Active Room Overrides:</span>
+                  {Object.entries(roomTierOverrides).map(([rKey, rMode]) => (
+                    <Badge
+                      key={rKey}
+                      variant="outline"
+                      className={cn(
+                        "font-mono text-[10px]",
+                        rMode === "force_on"
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                          : "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                      )}
+                    >
+                      Room {rKey}: {rMode === "force_on" ? "FORCED ON" : "FORCED OFF"}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Schedule Shutdown & Date-Range Registration Window (Req #5) */}
+          <div className="glass rounded-2xl border border-amber-500/25 p-4 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="size-4 text-amber-400" />
+                <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                  Schedule Shutdown &amp; Date-Range Registration
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {scheduleOverride.enabled && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isSavingSchedule}
+                    onClick={handleDisableScheduleOverride}
+                    className="h-7 gap-1 text-[11px] font-bold border-emerald-500/50 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                  >
+                    {isSavingSchedule ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <RotateCcw className="size-3" />
+                    )}
+                    Restore Normal Schedule
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setSchedulePanelOpen((o) => !o)}
+                >
+                  {schedulePanelOpen ? (
+                    <>
+                      Hide <ChevronUp className="ml-1 size-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      Configure <ChevronDown className="ml-1 size-3.5" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {scheduleStatus?.active ? (
+              <div
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-xs flex items-start gap-2",
+                  scheduleStatus.isShutdownActive
+                    ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                )}
+              >
+                {scheduleStatus.isShutdownActive ? (
+                  <PauseCircle className="size-4 shrink-0 text-rose-400 mt-0.5" />
+                ) : (
+                  <CalendarClock className="size-4 shrink-0 text-emerald-400 mt-0.5" />
+                )}
+                <span>{scheduleStatus.summary}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {scheduleStatus?.expired
+                  ? scheduleStatus.summary
+                  : "Normal daily & Friday schedule is running. Pause scrims for 1+ days or open date-range advance registrations for a specific target date."}
+              </p>
+            )}
+
+            {schedulePanelOpen && (
+              <form onSubmit={handleSaveScheduleOverride} className="space-y-3 pt-1">
+                {/* Shutdown window */}
+                <div className="rounded-xl border border-border/70 bg-secondary/20 p-3 space-y-2.5">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={scheduleOverride.shutdownEnabled}
+                      onChange={(e) =>
+                        setScheduleOverride((prev) => ({
+                          ...prev,
+                          shutdownEnabled: e.target.checked,
+                        }))
+                      }
+                      className="size-4 accent-rose-500"
+                    />
+                    Turn Off Scrims (Single Day or Multi-Day Shutdown)
+                  </label>
+                  {scheduleOverride.shutdownEnabled && (
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="shutdownStartDate" className="text-[11px]">
+                          Shutdown Start Date
+                        </Label>
+                        <Input
+                          id="shutdownStartDate"
+                          type="date"
+                          value={scheduleOverride.shutdownStartDate}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setScheduleOverride((prev) => ({
+                              ...prev,
+                              shutdownStartDate: val,
+                              shutdownEndDate:
+                                !prev.shutdownEndDate || prev.shutdownEndDate < val
+                                  ? val
+                                  : prev.shutdownEndDate,
+                            }))
+                          }}
+                          className="h-8 text-xs font-mono"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="shutdownEndDate" className="text-[11px]">
+                          Shutdown End Date (same = 1 day)
+                        </Label>
+                        <Input
+                          id="shutdownEndDate"
+                          type="date"
+                          value={scheduleOverride.shutdownEndDate}
+                          min={scheduleOverride.shutdownStartDate || undefined}
+                          onChange={(e) =>
+                            setScheduleOverride((prev) => ({
+                              ...prev,
+                              shutdownEndDate: e.target.value,
+                            }))
+                          }
+                          className="h-8 text-xs font-mono"
+                          required
+                        />
+                      </div>
+                      <div className="sm:col-span-2 space-y-1">
+                        <Label htmlFor="shutdownReason" className="text-[11px]">
+                          Optional Public Notice / Reason
+                        </Label>
+                        <Input
+                          id="shutdownReason"
+                          value={scheduleOverride.reason}
+                          onChange={(e) =>
+                            setScheduleOverride((prev) => ({
+                              ...prev,
+                              reason: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. Eid Holiday break — advance registration open below"
+                          maxLength={240}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Target-date advance registration window */}
+                <div className="rounded-xl border border-border/70 bg-secondary/20 p-3 space-y-2.5">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={scheduleOverride.regWindowEnabled}
+                      onChange={(e) =>
+                        setScheduleOverride((prev) => ({
+                          ...prev,
+                          regWindowEnabled: e.target.checked,
+                        }))
+                      }
+                      className="size-4 accent-emerald-500"
+                    />
+                    Open Registrations for a Specific Target Scrim Date
+                  </label>
+                  {scheduleOverride.regWindowEnabled && (
+                    <div className="grid gap-2.5 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="targetScrimDate" className="text-[11px]">
+                          Target Scrim Date *
+                        </Label>
+                        <Input
+                          id="targetScrimDate"
+                          type="date"
+                          value={scheduleOverride.targetScrimDate}
+                          onChange={(e) =>
+                            setScheduleOverride((prev) => ({
+                              ...prev,
+                              targetScrimDate: e.target.value,
+                            }))
+                          }
+                          className="h-8 text-xs font-mono"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="regStartDate" className="text-[11px]">
+                          Accept Regs From *
+                        </Label>
+                        <Input
+                          id="regStartDate"
+                          type="date"
+                          value={scheduleOverride.regStartDate}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setScheduleOverride((prev) => ({
+                              ...prev,
+                              regStartDate: val,
+                              regEndDate:
+                                !prev.regEndDate || prev.regEndDate < val
+                                  ? val
+                                  : prev.regEndDate,
+                            }))
+                          }}
+                          className="h-8 text-xs font-mono"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="regEndDate" className="text-[11px]">
+                          Through End Date *
+                        </Label>
+                        <Input
+                          id="regEndDate"
+                          type="date"
+                          value={scheduleOverride.regEndDate}
+                          min={scheduleOverride.regStartDate || undefined}
+                          onChange={(e) =>
+                            setScheduleOverride((prev) => ({
+                              ...prev,
+                              regEndDate: e.target.value,
+                            }))
+                          }
+                          className="h-8 text-xs font-mono"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Auto-reverts to normal schedule automatically after the configured end date.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {scheduleOverride.enabled && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isSavingSchedule}
+                        onClick={handleDisableScheduleOverride}
+                        className="h-8 text-xs"
+                      >
+                        Turn Override Off
+                      </Button>
+                    )}
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={
+                        isSavingSchedule ||
+                        (!scheduleOverride.shutdownEnabled && !scheduleOverride.regWindowEnabled)
+                      }
+                      className="h-8 text-xs font-bold"
+                    >
+                      {isSavingSchedule ? (
+                        <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                      ) : null}
+                      Save &amp; Activate Override
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Category & Dynamic Room View Filter Tabs + Search Bar */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-secondary/40 p-1">
           <button
             type="button"
             onClick={() => setActiveTab("all")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              activeTab === "all" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "all"
+                ? "bg-primary text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Layers className="size-3.5" />
@@ -1128,36 +1813,57 @@ export function AdminScrimList({
           <button
             type="button"
             onClick={() => setActiveTab("daily")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              activeTab === "daily" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "daily"
+                ? "bg-primary text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Daily Scrims ({dailyCount})
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("room1")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              activeTab === "room1" ? "bg-blue-600 text-white shadow" : "text-muted-foreground hover:text-blue-300"
-            }`}
-          >
-            <KeyRound className="size-3.5" />
-            Room 1 ({room1Count})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("room2")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              activeTab === "room2" ? "bg-purple-600 text-white shadow" : "text-muted-foreground hover:text-purple-300"
-            }`}
-          >
-            Room 2 ({room2Count})
-          </button>
+
+          {/* Dynamic Room Tier Filter Buttons (Room 1 .. Room X) */}
+          {roomNumbers.map((num) => {
+            const tabKey: ScrimTab = `room:${num}`
+            const isActive = activeTab === tabKey
+            const overrideMode = roomTierOverrides[String(num)]
+            return (
+              <button
+                key={tabKey}
+                type="button"
+                onClick={() => setActiveTab(tabKey)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer",
+                  isActive
+                    ? num === 1
+                      ? "bg-blue-600 text-white shadow"
+                      : num === 2
+                        ? "bg-purple-600 text-white shadow"
+                        : "bg-cyan-600 text-white shadow"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {num === 1 && <KeyRound className="size-3.5" />}
+                <span>
+                  Room {num} Lobbies ({roomCountsByNumber[num] ?? 0})
+                </span>
+                {overrideMode === "force_on" && (
+                  <span className="size-1.5 rounded-full bg-emerald-400" title="Force ON" />
+                )}
+                {overrideMode === "force_off" && (
+                  <span className="size-1.5 rounded-full bg-rose-400" title="Force OFF" />
+                )}
+              </button>
+            )
+          })}
+
           <button
             type="button"
             onClick={() => setActiveTab("friday")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              activeTab === "friday" ? "bg-amber-500 text-black shadow" : "text-muted-foreground hover:text-amber-400"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "friday"
+                ? "bg-amber-500 text-black shadow"
+                : "text-muted-foreground hover:text-amber-400"
             }`}
           >
             <Flame className="size-3.5" />
@@ -1166,8 +1872,10 @@ export function AdminScrimList({
           <button
             type="button"
             onClick={() => setActiveTab("champion")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              activeTab === "champion" ? "bg-emerald-500 text-black shadow" : "text-muted-foreground hover:text-emerald-400"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "champion"
+                ? "bg-emerald-500 text-black shadow"
+                : "text-muted-foreground hover:text-emerald-400"
             }`}
           >
             <Trophy className="size-3.5" />
@@ -1177,21 +1885,25 @@ export function AdminScrimList({
             <button
               type="button"
               onClick={() => setActiveTab("not_hosted")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                activeTab === "not_hosted" ? "bg-destructive text-destructive-foreground shadow" : "text-muted-foreground hover:text-destructive"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "not_hosted"
+                  ? "bg-destructive text-destructive-foreground shadow"
+                  : "text-muted-foreground hover:text-destructive"
               }`}
             >
               <AlertTriangle className="size-3.5" />
               Not Hosted ({notHostedCount})
             </button>
           )}
-          <Link
-            href="/admin/trash"
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-rose-400 transition-all"
-          >
-            <Trash2 className="size-3.5" />
-            Trash {trashCount > 0 ? `(${trashCount})` : ""}
-          </Link>
+          {isAdmin && (
+            <Link
+              href="/admin/trash"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-rose-400 transition-all"
+            >
+              <Trash2 className="size-3.5" />
+              Trash {trashCount > 0 ? `(${trashCount})` : ""}
+            </Link>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1205,8 +1917,12 @@ export function AdminScrimList({
                 className="h-8 gap-1.5 text-xs font-bold border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-100 transition-all shadow-sm"
                 title="Force turn on all scrims and open registrations immediately"
               >
-                {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5 text-emerald-400" />}
-                <span>Force Turn On All Scrims</span>
+                {isBulkForcing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Power className="size-3.5 text-emerald-400" />
+                )}
+                <span>Force Turn On All</span>
               </Button>
 
               <Button
@@ -1217,8 +1933,12 @@ export function AdminScrimList({
                 className="h-8 gap-1.5 text-xs font-bold border-rose-500/50 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:text-rose-100 transition-all shadow-sm"
                 title="Force turn off all scrims and close registrations immediately"
               >
-                {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <PowerOff className="size-3.5 text-rose-400" />}
-                <span>Force Turn Off All Scrims</span>
+                {isBulkForcing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <PowerOff className="size-3.5 text-rose-400" />
+                )}
+                <span>Force Turn Off All</span>
               </Button>
 
               <Button
@@ -1229,35 +1949,14 @@ export function AdminScrimList({
                 className="h-8 gap-1.5 text-xs font-bold border-sky-500/50 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 hover:text-sky-100 transition-all shadow-sm"
                 title="Restore all scrims to normal schedule-based mode"
               >
-                {isBulkForcing ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5 text-sky-400" />}
+                {isBulkForcing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="size-3.5 text-sky-400" />
+                )}
                 <span>Normal Mode</span>
               </Button>
             </>
-          )}
-
-          {isAdmin && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isTogglingRoom2}
-              onClick={handleToggleRoom2}
-              className={cn(
-                "h-8 gap-1.5 text-xs font-semibold transition-all border",
-                room2Visible
-                  ? "border-purple-500/50 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
-                  : "border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              )}
-              title="Toggle Room 2 lobbies public visibility ON or OFF"
-            >
-              {isTogglingRoom2 ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : room2Visible ? (
-                <Eye className="size-3.5 text-purple-400" />
-              ) : (
-                <EyeOff className="size-3.5 text-muted-foreground" />
-              )}
-              <span>Room 2 Public: <strong className={room2Visible ? "text-purple-300 font-bold" : "text-muted-foreground font-bold"}>{room2Visible ? "ON" : "OFF"}</strong></span>
-            </Button>
           )}
 
           {isAdmin && selectedScrimIds.length > 0 && (
@@ -1268,11 +1967,15 @@ export function AdminScrimList({
               onClick={handleBulkDelete}
               className="h-8 gap-1 text-xs"
             >
-              {isBulkDeleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+              {isBulkDeleting ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Trash2 className="size-3" />
+              )}
               Delete Selected ({selectedScrimIds.length})
             </Button>
           )}
-          {notHostedCount > 0 && (
+          {isAdmin && notHostedCount > 0 && (
             <Link
               href="/admin/not-hosted"
               className="hidden lg:flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition-all"
@@ -1356,19 +2059,39 @@ export function AdminScrimList({
                     )}
                     {isFridayBlast && (
                       <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px]">
-                        3 Matches Blast
+                        5 Matches Blast
                       </Badge>
                     )}
-                    {isRoom2Scrim(scrim) && (
-                      <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px]">
-                        Room 2
-                      </Badge>
-                    )}
-                    {!isRoom2Scrim(scrim) && !isCR && !isFridayBlast && (scrim.title.includes("ROOM 1") || scrim.slug.includes("room-1") || scrim.id.includes("r1")) && (
-                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px]">
-                        Room 1
-                      </Badge>
-                    )}
+                    {(() => {
+                      const roomNum = getScrimRoomNumber(scrim)
+                      const tierMode = roomTierOverrides[String(roomNum)]
+                      return (
+                        <>
+                          <Badge
+                            className={cn(
+                              "text-[10px] border",
+                              roomNum === 1
+                                ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                : roomNum === 2
+                                  ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                  : "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
+                            )}
+                          >
+                            Room {roomNum}
+                          </Badge>
+                          {tierMode === "force_on" && (
+                            <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 text-[10px]">
+                              Room {roomNum} Forced ON
+                            </Badge>
+                          )}
+                          {tierMode === "force_off" && (
+                            <Badge className="bg-rose-500/15 text-rose-300 border border-rose-500/35 text-[10px]">
+                              Room {roomNum} Forced OFF
+                            </Badge>
+                          )}
+                        </>
+                      )
+                    })()}
                   </h2>
                   <Badge variant="secondary">{scrim.startTime}</Badge>
                   <Badge variant="secondary">{scrim.map}</Badge>
@@ -1414,6 +2137,7 @@ export function AdminScrimList({
                     scrim={scrim}
                     roster={roster}
                     confirmedCount={dynamicConfirmedCount}
+                    isAdmin={isAdmin}
                     onTeamRemoved={handleTeamRemoved}
                   />
                   <Button

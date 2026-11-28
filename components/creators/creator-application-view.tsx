@@ -64,6 +64,9 @@ export function CreatorApplicationView({
   const [followerCount, setFollowerCount] = useState(existingApplication?.followerCount ?? "")
   const [averageViews, setAverageViews] = useState(existingApplication?.averageViews ?? "")
   const [whatsapp, setWhatsapp] = useState(existingApplication?.whatsapp ?? "")
+  const [requestedReferralCode, setRequestedReferralCode] = useState(
+    existingApplication?.requestedReferralCode ?? ""
+  )
   const [notes, setNotes] = useState(existingApplication?.notes ?? "")
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
@@ -97,6 +100,7 @@ export function CreatorApplicationView({
         followerCount,
         averageViews,
         whatsapp,
+        requestedReferralCode: requestedReferralCode.trim(),
         notes,
       })
       if (!res.ok) {
@@ -248,6 +252,18 @@ export function CreatorApplicationView({
               <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">Admin Note: </span>
                 {existingApplication.adminNote}
+              </div>
+            )}
+
+            {existingApplication.status === "pending" && existingApplication.requestedReferralCode && (
+              <div className="rounded-lg border border-amber-500/30 bg-background/60 p-3 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <span className="font-semibold text-foreground">Requested Custom Referral Code: </span>
+                  <code className="rounded bg-amber-500/15 px-2 py-0.5 font-mono font-bold text-amber-300">
+                    {existingApplication.requestedReferralCode}
+                  </code>
+                </span>
+                <span className="text-[11px]">Pending admin review &amp; assignment</span>
               </div>
             )}
 
@@ -452,6 +468,42 @@ export function CreatorApplicationView({
                       required
                     />
                   </div>
+                </div>
+
+                {/* Exact Custom Referral Code Request */}
+                <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label htmlFor="requestedReferralCode" className="font-semibold text-foreground">
+                      Requested Exact Custom Referral Code (Optional)
+                    </Label>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      3–24 chars · A–Z, 0–9, _ or -
+                    </span>
+                  </div>
+                  <Input
+                    id="requestedReferralCode"
+                    value={requestedReferralCode}
+                    onChange={(e) =>
+                      setRequestedReferralCode(
+                        e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 24)
+                      )
+                    }
+                    placeholder="e.g. RUSHX_PRO or YOURNAME"
+                    maxLength={24}
+                    className="font-mono uppercase tracking-wider"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Request the exact referral code you want our admin team to assign upon approval.
+                    {requestedReferralCode.trim().length >= 3 ? (
+                      <>
+                        {" "}
+                        Preview:{" "}
+                        <code className="rounded bg-background/80 px-1.5 py-0.5 font-mono text-primary">
+                          {origin}/sign-up?ref={requestedReferralCode.trim()}
+                        </code>
+                      </>
+                    ) : null}
+                  </p>
                 </div>
 
                 <div className="space-y-2">

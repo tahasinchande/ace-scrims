@@ -2,7 +2,11 @@ import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
 import { isStaffRole } from "@/lib/roles"
 import { getAdminScrims, getAllBookingsByScrim } from "@/lib/queries/admin"
-import { isRoom2Enabled } from "@/lib/queries/scrims"
+import {
+  getEvaluatedScheduleOverride,
+  getRoomMultiplier,
+  getRoomTierOverrides,
+} from "@/lib/queries/scrims"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -23,10 +27,12 @@ export async function GET() {
       )
     }
 
-    const [scrims, bookingsByScrim, room2Enabled] = await Promise.all([
+    const [scrims, bookingsByScrim, roomMultiplier, roomTierOverrides, scheduleInfo] = await Promise.all([
       getAdminScrims({ includeDeleted: true }),
       getAllBookingsByScrim().catch(() => ({})),
-      isRoom2Enabled().catch(() => false),
+      getRoomMultiplier().catch(() => 1),
+      getRoomTierOverrides().catch(() => ({})),
+      getEvaluatedScheduleOverride().catch(() => null),
     ])
 
     return NextResponse.json(
@@ -34,7 +40,11 @@ export async function GET() {
         ok: true,
         scrims,
         bookingsByScrim,
-        room2Enabled,
+        room2Enabled: roomMultiplier >= 2,
+        roomMultiplier,
+        roomTierOverrides,
+        scheduleOverride: scheduleInfo?.config ?? null,
+        scheduleStatus: scheduleInfo?.status ?? null,
         timestamp: Date.now(),
       },
       { headers: NO_STORE_HEADERS }

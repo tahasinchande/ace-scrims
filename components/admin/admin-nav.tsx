@@ -30,6 +30,7 @@ import {
   Snowflake,
   Gift,
   Handshake,
+  Palette,
 } from "lucide-react"
 
 type NavLink = {
@@ -57,6 +58,7 @@ const adminLinks: NavLink[] = [
   { href: "/admin/credits", label: "Credit Management", icon: Coins },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/results", label: "Results", icon: Trophy },
+  { href: "/admin/background", label: "Background", icon: Palette },
   { href: "/admin/settings", label: "Settings", icon: Settings },
   { href: "/admin/reports", label: "Reports", icon: ScrollText },
   { href: "/admin/not-hosted", label: "Not Hosted", icon: AlertTriangle },

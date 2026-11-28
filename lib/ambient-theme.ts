@@ -1,3 +1,8 @@
+import {
+  buildAmbientPhaseFromHex,
+  type BackgroundThemeConfig,
+} from "@/lib/background-config"
+
 export interface AmbientColorPhase {
   name: string
   /** Normalized 0..1 hue for Three.js HSL highlights */
@@ -195,26 +200,81 @@ export interface InterpolatedAmbientState {
   phaseIndex: number
 }
 
+export function resolveAmbientPhases(
+  config?: BackgroundThemeConfig | null
+): AmbientColorPhase[] {
+  if (!config) return AMBIENT_PHASES
+
+  const enabledSet = new Set(config.enabledBuiltInPhases || [])
+  const resolved: AmbientColorPhase[] = AMBIENT_PHASES.filter((phase) =>
+    enabledSet.has(phase.name as any)
+  )
+
+  if (Array.isArray(config.customColors)) {
+    for (const c of config.customColors) {
+      if (c && c.hex) {
+        resolved.push(buildAmbientPhaseFromHex(c.name || c.id || c.hex, c.hex))
+      }
+    }
+  }
+
+  return resolved.length > 0 ? resolved : [AMBIENT_PHASES[0]]
+}
+
 /**
  * Returns the synchronized color-changing phase at `elapsedSec`.
- * Identical across BOTH "2d" and "3d" modes, always opening on Electric Blue at elapsedSec = 0.
+ * Identical across BOTH "2d" and "3d" modes, always opening on the first configured phase (Electric Blue by default) at elapsedSec = 0.
  */
 export function getAmbientPhaseAt(
   elapsedSec: number,
-  _mode: "2d" | "3d" = "3d"
+  _mode: "2d" | "3d" = "3d",
+  config?: BackgroundThemeConfig | null
 ): InterpolatedAmbientState {
-  const phases = AMBIENT_PHASES
+  const phases = resolveAmbientPhases(config)
+  const holdSec =
+    config && Number.isFinite(config.delaySeconds) && config.delaySeconds >= 0.5
+      ? config.delaySeconds
+      : PHASE_HOLD_SEC
+  const transitionSec =
+    config && Number.isFinite(config.transitionSeconds) && config.transitionSeconds >= 0.5
+      ? config.transitionSeconds
+      : PHASE_TRANSITION_SEC
+  const phaseTotalSec = holdSec + transitionSec
+
   const safeElapsed = Math.max(0, elapsedSec)
   const count = phases.length
-  const totalCycle = PHASE_TOTAL_SEC * count
+
+  if (count === 1) {
+    const only = phases[0]
+    return {
+      baseHue: only.baseHue,
+      accentHue: only.accentHue,
+      fillHue: only.fillHue,
+      primaryRgb: only.primaryRgb,
+      softRgb: only.softRgb,
+      accentRgb: only.accentRgb,
+      deepRgb: only.deepRgb,
+      bgWashRgb: only.bgWashRgb,
+      glowRgb: only.glowRgb,
+      c1: only.c1,
+      c2: only.c2,
+      c3: only.c3,
+      glow: only.glow,
+      bgB: only.bgB,
+      isTransitioning: false,
+      phaseIndex: 0,
+    }
+  }
+
+  const totalCycle = phaseTotalSec * count
   const cyclePos = safeElapsed % totalCycle
-  const phaseIndex = Math.floor(cyclePos / PHASE_TOTAL_SEC) % count
-  const withinPhase = cyclePos - phaseIndex * PHASE_TOTAL_SEC
+  const phaseIndex = Math.floor(cyclePos / phaseTotalSec) % count
+  const withinPhase = cyclePos - phaseIndex * phaseTotalSec
 
   const current = phases[phaseIndex]
   const next = phases[(phaseIndex + 1) % count]
 
-  if (withinPhase <= PHASE_HOLD_SEC) {
+  if (withinPhase <= holdSec) {
     return {
       baseHue: current.baseHue,
       accentHue: current.accentHue,
@@ -235,7 +295,7 @@ export function getAmbientPhaseAt(
     }
   }
 
-  const rawT = Math.min(1, (withinPhase - PHASE_HOLD_SEC) / PHASE_TRANSITION_SEC)
+  const rawT = Math.min(1, (withinPhase - holdSec) / transitionSec)
   const t = smoothstep(rawT)
 
   return {

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
-import { getActiveScrims } from "@/lib/queries/scrims"
+import { getActiveScrims, getEvaluatedScheduleOverride } from "@/lib/queries/scrims"
 import { sanitizePublicScrim } from "@/lib/iceberg"
 import { getPublicSiteSettings } from "@/lib/queries/settings"
 import { getSessionUser, checkMaintenanceMode } from "@/lib/session"
@@ -31,8 +31,18 @@ function ScrimsSkeleton() {
 
 async function ScrimsContent() {
   await checkMaintenanceMode()
-  const [scrims, user] = await Promise.all([getActiveScrims(), getSessionUser()])
-  return <ScrimsExplorer scrims={scrims.map((s) => sanitizePublicScrim(s))} isAuthed={!!user} />
+  const [scrims, user, scheduleInfo] = await Promise.all([
+    getActiveScrims(),
+    getSessionUser(),
+    getEvaluatedScheduleOverride().catch(() => null),
+  ])
+  return (
+    <ScrimsExplorer
+      scrims={scrims.map((s) => sanitizePublicScrim(s))}
+      isAuthed={!!user}
+      initialScheduleStatus={scheduleInfo?.status ?? null}
+    />
+  )
 }
 
 export default async function ScrimsPage() {

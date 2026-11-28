@@ -23,6 +23,7 @@ import {
   generateUniqueCreatorReferralCode,
   getReferralSettings,
   getUserCreatorApplication,
+  isReferralCodeTaken,
   normalizeReferralCode,
   redeemReferralCodeWithinWindow,
   saveReferralSettings,
@@ -56,6 +57,7 @@ const creatorApplicationSchema = z.object({
   followerCount: z.string().trim().min(1, "Follower/subscriber count is required").max(60),
   averageViews: z.string().trim().max(60).optional().or(z.literal("")),
   whatsapp: z.string().trim().min(6, "WhatsApp number is required").max(40),
+  requestedReferralCode: z.string().trim().max(24).optional().or(z.literal("")),
   notes: z.string().trim().max(1200).optional().or(z.literal("")),
 })
 
@@ -67,6 +69,7 @@ export async function submitCreatorApplicationAction(input: {
   followerCount: string
   averageViews?: string
   whatsapp: string
+  requestedReferralCode?: string
   notes?: string
 }) {
   const sessionUser = await requireUser()
@@ -81,6 +84,23 @@ export async function submitCreatorApplicationAction(input: {
   })
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid application data." }
+  }
+
+  const rawRequested = (parsed.data.requestedReferralCode || "").trim()
+  const normalizedRequested = rawRequested ? normalizeReferralCode(rawRequested) : ""
+  if (rawRequested) {
+    if (normalizedRequested.length < 3 || normalizedRequested.length > 24) {
+      return {
+        ok: false as const,
+        error: "Custom referral code must be 3–24 characters using only letters, numbers, hyphens (-), or underscores (_).",
+      }
+    }
+    if (await isReferralCodeTaken(normalizedRequested)) {
+      return {
+        ok: false as const,
+        error: `The custom referral code "${normalizedRequested}" is already taken. Please request a different exact code.`,
+      }
+    }
   }
 
   const existing = await getUserCreatorApplication(sessionUser.id)
@@ -108,6 +128,7 @@ export async function submitCreatorApplicationAction(input: {
     followerCount: parsed.data.followerCount,
     averageViews: parsed.data.averageViews || null,
     whatsapp: parsed.data.whatsapp,
+    requestedReferralCode: normalizedRequested || null,
     notes: parsed.data.notes || null,
     status: "pending",
     referralCode: null,
@@ -116,9 +137,11 @@ export async function submitCreatorApplicationAction(input: {
   await logActivity(sessionUser.id, sessionUser.role, "creator_application.submit", id, {
     creatorName: parsed.data.creatorName,
     platform: parsed.data.platform,
+    requestedReferralCode: normalizedRequested || null,
   })
 
   revalidatePath("/creators")
+  revalidatePath("/partnerships")
   revalidatePath("/dashboard/referrals")
   revalidatePath("/admin/referrals")
 
@@ -523,11 +546,36 @@ export async function reviewCreatorApplicationAction(input: {
   const now = new Date()
 
   if (parsed.data.decision === "approve") {
-    const preferred = normalizeReferralCode(parsed.data.customCode)
-    const finalCode =
-      app.referralCode && !preferred
-        ? app.referralCode
-        : await generateUniqueCreatorReferralCode(app.creatorName, preferred || undefined)
+    const rawCustom = (parsed.data.customCode || "").trim()
+    const adminCustomCode = rawCustom ? normalizeReferralCode(rawCustom) : ""
+    const applicantRequestedCode = normalizeReferralCode(app.requestedReferralCode)
+
+    let finalCode: string
+
+    if (rawCustom) {
+      if (adminCustomCode.length < 3 || adminCustomCode.length > 24) {
+        return {
+          ok: false as const,
+          error: "Custom referral code must be 3–24 characters using only letters, numbers, hyphens (-), or underscores (_).",
+        }
+      }
+      if (await isReferralCodeTaken(adminCustomCode, app.id)) {
+        return {
+          ok: false as const,
+          error: `Exact referral code "${adminCustomCode}" is already assigned to another account. Please choose a different code.`,
+        }
+      }
+      finalCode = adminCustomCode
+    } else if (app.referralCode) {
+      finalCode = app.referralCode
+    } else if (
+      applicantRequestedCode.length >= 3 &&
+      !(await isReferralCodeTaken(applicantRequestedCode, app.id))
+    ) {
+      finalCode = applicantRequestedCode
+    } else {
+      finalCode = await generateUniqueCreatorReferralCode(app.creatorName)
+    }
 
     await db
       .update(creatorApplications)
@@ -545,17 +593,19 @@ export async function reviewCreatorApplicationAction(input: {
       app.userId,
       "announcement",
       "Content Creator Application Approved!",
-      `Welcome to the RushX Organization Creator Program! Your exclusive creator referral code is ${finalCode}. Share your referral link to earn Creator Wallet payouts per signup while giving your community a signup bonus.`,
+      `Welcome to the RushX Organization Creator Program! Your exact exclusive referral code is ${finalCode}. Share your referral link to earn Creator Wallet payouts per signup while giving your community a signup bonus.`,
       "/dashboard/referrals"
     )
 
     await logActivity(admin.id, admin.role, "creator_application.approve", app.id, {
       creatorName: app.creatorName,
       referralCode: finalCode,
+      requestedReferralCode: app.requestedReferralCode || null,
     })
 
     revalidatePath("/admin/referrals")
     revalidatePath("/creators")
+    revalidatePath("/partnerships")
     revalidatePath("/dashboard/referrals")
 
     return { ok: true as const, referralCode: finalCode }
